@@ -1,5 +1,7 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
-  ]
+  ],
+  "buildCommand": "rm -rf .vercel && npm run build",
+  "outputDirectory": "dist"
 }
