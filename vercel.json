@@ -2,10 +2,13 @@
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ],
-  "buildCommand": "rm -rf .vercel && npm run build",
+  "buildCommand": "rm -rf node_modules .vercel dist && npm install && npm run build",
   "outputDirectory": "dist",
   "env": {
     "VERCEL_FORCE_NO_BUILD_CACHE": "1",
-    "BUILD_TIMESTAMP": "2025-01-07-01-03"
-  }
+    "BUILD_TIMESTAMP": "2025-01-07-01-08",
+    "FORCE_REBUILD": "true"
+  },
+  "framework": null,
+  "installCommand": "npm install --force"
 }
