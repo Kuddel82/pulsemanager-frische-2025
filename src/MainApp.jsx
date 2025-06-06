@@ -10,6 +10,7 @@ function MainApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [currentView, setCurrentView] = useState('dashboard'); // dashboard, wallet, roi, academy, tax
+  const [isChangingView, setIsChangingView] = useState(false);
 
   // PulseChain Ecosystem Portfolio mit ROI Daten
   const portfolioData = [
@@ -33,7 +34,10 @@ function MainApp() {
       console.log('Login:', { email, password });
       setUserEmail(email);
       setIsLoggedIn(true);
-      setCurrentView('dashboard');
+      // Kleine Verzögerung für React Rendering
+      setTimeout(() => {
+        setCurrentView('dashboard');
+      }, 50);
     } else {
       if (password !== confirmPassword) {
         alert('Passwörter stimmen nicht überein!');
@@ -47,6 +51,15 @@ function MainApp() {
     }
   };
 
+  const handleViewChange = (newView) => {
+    if (isChangingView) return; // Verhindere schnelle Klicks
+    setIsChangingView(true);
+    setTimeout(() => {
+      setCurrentView(newView);
+      setIsChangingView(false);
+    }, 100);
+  };
+
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUserEmail('');
@@ -55,6 +68,7 @@ function MainApp() {
     setConfirmPassword('');
     setIsLogin(true);
     setCurrentView('dashboard');
+    setIsChangingView(false);
   };
 
   const formatCurrency = (value) => {
@@ -117,7 +131,7 @@ function MainApp() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => handleViewChange('dashboard')}
               style={{
                 backgroundColor: '#6b7280',
                 color: 'white',
@@ -274,12 +288,12 @@ function MainApp() {
               <div>Kaufdatum</div>
             </div>
 
-            {/* Table Rows */}
-            {roiData.map((coin, index) => {
-              const isPositive = coin.roiPercent > 0;
-              
-              return (
-                <div key={coin.symbol} style={{
+                         {/* Table Rows */}
+             {roiData.map((coin, index) => {
+               const isPositive = coin.roiPercent > 0;
+               
+               return (
+                 <div key={`roi-${coin.symbol}-${index}`} style={{
                   display: 'grid',
                   gridTemplateColumns: '2fr 1fr 1fr 1fr 1.5fr 1fr 1fr',
                   padding: '1rem 2rem',
@@ -465,7 +479,7 @@ function MainApp() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => handleViewChange('dashboard')}
               style={{
                 backgroundColor: '#6b7280',
                 color: 'white',
@@ -669,10 +683,10 @@ function MainApp() {
               <div>Kaufdatum</div>
             </div>
 
-            {/* Table Rows */}
-            {taxData.map((coin, index) => {
-              return (
-                <div key={coin.symbol} style={{
+                         {/* Table Rows */}
+             {taxData.map((coin, index) => {
+               return (
+                 <div key={`tax-${coin.symbol}-${index}`} style={{
                   display: 'grid',
                   gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr',
                   padding: '1rem 2rem',
@@ -806,7 +820,7 @@ function MainApp() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => handleViewChange('dashboard')}
               style={{
                 backgroundColor: '#6b7280',
                 color: 'white',
@@ -928,7 +942,7 @@ function MainApp() {
               const isPositive = coin.change24h > 0;
               
               return (
-                <div key={coin.symbol} style={{
+                <div key={`wallet-${coin.symbol}-${index}`} style={{
                   display: 'grid',
                   gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1fr 1fr',
                   padding: '1rem 2rem',
@@ -1129,7 +1143,7 @@ function MainApp() {
                 Übersicht Ihrer PulseChain Ecosystem Assets und Portfolio-Performance.
               </p>
               <button 
-                onClick={() => setCurrentView('wallet')}
+                onClick={() => handleViewChange('wallet')}
                 style={{
                   backgroundColor: '#9333ea',
                   color: 'white',
@@ -1163,7 +1177,7 @@ function MainApp() {
                 Verfolgen Sie Ihre Investitionen und analysieren Sie Ihre Rendite.
               </p>
               <button 
-                onClick={() => setCurrentView('roi')}
+                onClick={() => handleViewChange('roi')}
                 style={{
                 backgroundColor: '#10b981',
                 color: 'white',
@@ -1227,7 +1241,7 @@ function MainApp() {
                 Generieren Sie Steuerberichte für Ihre PulseChain Transaktionen.
               </p>
               <button 
-                onClick={() => setCurrentView('tax')}
+                onClick={() => handleViewChange('tax')}
                 style={{
                 backgroundColor: '#8b5cf6',
                 color: 'white',
