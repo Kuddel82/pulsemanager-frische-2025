@@ -3,5 +3,9 @@
     { "source": "/(.*)", "destination": "/" }
   ],
   "buildCommand": "rm -rf .vercel && npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "env": {
+    "VERCEL_FORCE_NO_BUILD_CACHE": "1",
+    "BUILD_TIMESTAMP": "2025-01-07-01-03"
+  }
 }
