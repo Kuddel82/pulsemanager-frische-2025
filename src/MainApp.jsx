@@ -403,6 +403,390 @@ function MainApp() {
     );
   }
 
+  // TAX REPORT VIEW - DEUTSCHE STEUERGESETZE
+  if (isLoggedIn && currentView === 'tax') {
+    // Steuer-Berechnungen nach deutschem Recht
+    const currentDate = new Date();
+    const taxData = portfolioData.map(coin => {
+      const buyDate = new Date(coin.buyDate);
+      const holdingDays = Math.floor((currentDate - buyDate) / (1000 * 60 * 60 * 24));
+      const holdingMonths = Math.floor(holdingDays / 30);
+      const isLongTerm = holdingDays >= 365; // 1 Jahr Haltefrist
+      
+      const currentValue = coin.amount * coin.price;
+      const buyValue = coin.amount * coin.buyPrice;
+      const unrealizedGain = currentValue - buyValue;
+      
+      // Simuliere teilweise Verkäufe für Steuerberechnung (50% verkauft)
+      const soldPercentage = 0.5;
+      const soldAmount = coin.amount * soldPercentage;
+      const realizedGain = soldAmount * (coin.price - coin.buyPrice);
+      
+      return {
+        ...coin,
+        holdingDays,
+        holdingMonths,
+        isLongTerm,
+        currentValue,
+        buyValue,
+        unrealizedGain,
+        soldAmount,
+        realizedGain,
+        taxableGain: isLongTerm ? 0 : Math.max(0, realizedGain), // Nach 1 Jahr steuerfrei
+        taxStatus: isLongTerm ? 'Steuerfrei' : 'Steuerpflichtig'
+      };
+    });
+
+    const totalRealizedGains = taxData.reduce((sum, coin) => sum + coin.realizedGain, 0);
+    const totalTaxableGains = taxData.reduce((sum, coin) => sum + coin.taxableGain, 0);
+    const totalUnrealizedGains = taxData.reduce((sum, coin) => sum + coin.unrealizedGain, 0);
+    
+    const taxFreeAllowance = 600; // 600€ Freibetrag für private Veräußerungsgeschäfte
+    const taxableAfterAllowance = Math.max(0, totalTaxableGains - taxFreeAllowance);
+    const estimatedTax = taxableAfterAllowance * 0.26375; // ~26.375% Durchschnittssteuersatz
+
+    const longTermHoldings = taxData.filter(coin => coin.isLongTerm);
+    const shortTermHoldings = taxData.filter(coin => !coin.isLongTerm);
+
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f8fafc',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}>
+        {/* Header */}
+        <div style={{
+          backgroundColor: 'white',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          padding: '1rem 2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}
+            >
+              ← Dashboard
+            </button>
+            <h1 style={{
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: '#1f2937',
+              margin: 0
+            }}>
+              📊 PulseChain Steuer-Report 2024
+            </h1>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              {userEmail}
+            </span>
+            <button
+              onClick={handleLogout}
+              style={{
+                backgroundColor: '#ef4444',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
+        {/* Tax Report Content */}
+        <div style={{ padding: '2rem' }}>
+          {/* Steuer Übersicht */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: totalTaxableGains > 0 ? '2px solid #f59e0b' : '2px solid #10b981',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#1f2937', marginBottom: '1rem', fontSize: '1.125rem' }}>💰 Steuerpflichtige Gewinne</h3>
+              <div style={{
+                fontSize: '2rem',
+                fontWeight: 'bold',
+                color: totalTaxableGains > 0 ? '#f59e0b' : '#10b981',
+                marginBottom: '0.5rem'
+              }}>
+                {formatCurrency(totalTaxableGains)}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                Verkäufe unter 1 Jahr Haltefrist
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '2px solid #10b981',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#1f2937', marginBottom: '1rem', fontSize: '1.125rem' }}>🎯 Freibetrag</h3>
+              <div style={{
+                fontSize: '2rem',
+                fontWeight: 'bold',
+                color: '#10b981',
+                marginBottom: '0.5rem'
+              }}>
+                {formatCurrency(taxFreeAllowance)}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                Jährlicher Freibetrag erreicht
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: estimatedTax > 0 ? '2px solid #ef4444' : '2px solid #10b981',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#1f2937', marginBottom: '1rem', fontSize: '1.125rem' }}>🧾 Geschätzte Steuer</h3>
+              <div style={{
+                fontSize: '2rem',
+                fontWeight: 'bold',
+                color: estimatedTax > 0 ? '#ef4444' : '#10b981',
+                marginBottom: '0.5rem'
+              }}>
+                {formatCurrency(estimatedTax)}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                Bei ~26,375% Steuersatz
+              </div>
+            </div>
+          </div>
+
+          {/* Haltefrist Übersicht */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '2px solid #10b981'
+            }}>
+              <h4 style={{ color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                ✅ Langfristige Investments (>1 Jahr)
+              </h4>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981', marginBottom: '0.5rem' }}>
+                {longTermHoldings.length} Assets
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                Steuerfrei bei Verkauf
+              </div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '2px solid #f59e0b'
+            }}>
+              <h4 style={{ color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                ⚠️ Kurzfristige Investments (<1 Jahr)
+              </h4>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '0.5rem' }}>
+                {shortTermHoldings.length} Assets
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                Steuerpflichtig bei Verkauf
+              </div>
+            </div>
+          </div>
+
+          {/* Detaillierte Steuer-Tabelle */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              padding: '1.5rem 2rem',
+              borderBottom: '1px solid #e5e7eb',
+              backgroundColor: '#f8fafc'
+            }}>
+              <h3 style={{
+                fontSize: '1.125rem',
+                fontWeight: 'bold',
+                color: '#1f2937',
+                margin: 0
+              }}>
+                📋 Detaillierte Steuer-Analyse (50% Verkauf simuliert)
+              </h3>
+            </div>
+            
+            {/* Table Header */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr',
+              padding: '1rem 2rem',
+              backgroundColor: '#8b5cf6',
+              color: 'white',
+              fontSize: '0.875rem',
+              fontWeight: 'bold'
+            }}>
+              <div>Asset</div>
+              <div>Haltezeit</div>
+              <div>Status</div>
+              <div>Verkauft</div>
+              <div>Gewinn</div>
+              <div>Steuerpflicht</div>
+              <div>Kaufdatum</div>
+            </div>
+
+            {/* Table Rows */}
+            {taxData.map((coin, index) => {
+              return (
+                <div key={coin.symbol} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr',
+                  padding: '1rem 2rem',
+                  borderBottom: index < taxData.length - 1 ? '1px solid #e5e7eb' : 'none',
+                  alignItems: 'center',
+                  backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb'
+                }}>
+                  {/* Asset */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>{coin.icon}</span>
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#1f2937', fontSize: '1rem' }}>{coin.symbol}</div>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{coin.name}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Haltezeit */}
+                  <div style={{ color: '#1f2937', fontSize: '0.875rem' }}>
+                    {coin.holdingMonths} Monate
+                  </div>
+                  
+                  {/* Status */}
+                  <div style={{ 
+                    color: coin.isLongTerm ? '#10b981' : '#f59e0b',
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem'
+                  }}>
+                    {coin.taxStatus}
+                  </div>
+                  
+                  {/* Verkaufte Menge */}
+                  <div style={{ color: '#1f2937', fontSize: '0.875rem' }}>
+                    {formatNumber(coin.soldAmount, 0)}
+                  </div>
+                  
+                  {/* Realisierter Gewinn */}
+                  <div style={{ 
+                    color: coin.realizedGain >= 0 ? '#10b981' : '#ef4444',
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem'
+                  }}>
+                    {coin.realizedGain >= 0 ? '+' : ''}{formatCurrency(coin.realizedGain)}
+                  </div>
+                  
+                  {/* Steuerpflichtig */}
+                  <div style={{ 
+                    color: coin.taxableGain > 0 ? '#ef4444' : '#10b981',
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem'
+                  }}>
+                    {formatCurrency(coin.taxableGain)}
+                  </div>
+                  
+                  {/* Kaufdatum */}
+                  <div style={{ 
+                    color: '#6b7280',
+                    fontSize: '0.875rem'
+                  }}>
+                    {new Date(coin.buyDate).toLocaleDateString('de-DE')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Steuer-Zusammenfassung */}
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '0.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            marginTop: '2rem',
+            border: '2px solid #8b5cf6'
+          }}>
+            <h3 style={{ color: '#1f2937', marginBottom: '1.5rem', fontSize: '1.25rem' }}>
+              📊 Steuer-Zusammenfassung 2024
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div>
+                <div style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Realisierte Gewinne:</div>
+                <div style={{ fontWeight: 'bold', color: '#1f2937' }}>{formatCurrency(totalRealizedGains)}</div>
+              </div>
+              <div>
+                <div style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Steuerpflichtig:</div>
+                <div style={{ fontWeight: 'bold', color: '#f59e0b' }}>{formatCurrency(totalTaxableGains)}</div>
+              </div>
+              <div>
+                <div style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Nach Freibetrag:</div>
+                <div style={{ fontWeight: 'bold', color: taxableAfterAllowance > 0 ? '#ef4444' : '#10b981' }}>
+                  {formatCurrency(taxableAfterAllowance)}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Geschätzte Steuer:</div>
+                <div style={{ fontWeight: 'bold', color: '#ef4444' }}>{formatCurrency(estimatedTax)}</div>
+              </div>
+            </div>
+            <div style={{ 
+              marginTop: '1.5rem', 
+              padding: '1rem', 
+              backgroundColor: '#f3f4f6', 
+              borderRadius: '0.375rem',
+              fontSize: '0.875rem',
+              color: '#6b7280'
+            }}>
+              <strong>Hinweis:</strong> Dies ist eine vereinfachte Steuerberechnung. Konsultieren Sie einen Steuerberater für genaue Angaben. 
+              Haltefrist von 1 Jahr für steuerfreie Gewinne. Freibetrag von 600€ für private Veräußerungsgeschäfte pro Jahr.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // WALLET VIEW - PULSECHAIN FOKUS
   if (isLoggedIn && currentView === 'wallet') {
     return (
@@ -831,7 +1215,7 @@ function MainApp() {
               padding: '1.5rem',
               borderRadius: '0.5rem',
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-              border: '1px solid #e5e7eb'
+              border: '2px solid #8b5cf6'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>📊</span>
@@ -842,7 +1226,9 @@ function MainApp() {
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
                 Generieren Sie Steuerberichte für Ihre PulseChain Transaktionen.
               </p>
-              <button style={{
+              <button 
+                onClick={() => setCurrentView('tax')}
+                style={{
                 backgroundColor: '#8b5cf6',
                 color: 'white',
                 padding: '0.5rem 1rem',
@@ -852,7 +1238,7 @@ function MainApp() {
                 cursor: 'pointer',
                 width: '100%'
               }}>
-                Report erstellen (Coming Soon)
+                📊 Steuer-Report erstellen
               </button>
             </div>
           </div>
