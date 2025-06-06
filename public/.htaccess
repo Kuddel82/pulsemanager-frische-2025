@@ -1,0 +1,59 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Sicherheits-Headers für 1A Website
+  Header set X-Powered-By "Hostinger Horizons"
+  
+  # Content Security Policy - verhindert XSS Angriffe
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.web3modal.org https://pulse.walletconnect.org https://rpc.pulsechain.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.web3modal.org https://pulse.walletconnect.org https://rpc.pulsechain.com https://scan.pulsechain.com wss:; frame-src 'none'; object-src 'none'; base-uri 'self';"
+  
+  # X-Frame-Options - verhindert Clickjacking
+  Header set X-Frame-Options "DENY"
+  
+  # X-Content-Type-Options - verhindert MIME-Type Sniffing
+  Header set X-Content-Type-Options "nosniff"
+  
+  # Referrer Policy - kontrolliert Referrer-Informationen
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  
+  # Permissions Policy - kontrolliert Browser-Features
+  Header set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=()"
+  
+  # X-XSS-Protection - aktiviert XSS-Filter im Browser
+  Header set X-XSS-Protection "1; mode=block"
+  
+  # Strict-Transport-Security - erzwingt HTTPS
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  
+  # X-DNS-Prefetch-Control - kontrolliert DNS-Prefetching
+  Header set X-DNS-Prefetch-Control "off"
+  
+  # Cross-Origin-Embedder-Policy - erhöht Isolation
+  Header set Cross-Origin-Embedder-Policy "credentialless"
+  
+  # Cross-Origin-Opener-Policy - verhindert Cross-Origin-Zugriffe
+  Header set Cross-Origin-Opener-Policy "same-origin"
+  
+  # Cross-Origin-Resource-Policy - kontrolliert Cross-Origin-Requests
+  Header set Cross-Origin-Resource-Policy "same-site"
+</IfModule>
+
+# Cache-Kontrolle für bessere Performance
+<IfModule mod_expires.c>
+  ExpiresActive on
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType application/font-woff "access plus 1 year"
+  ExpiresByType application/font-woff2 "access plus 1 year"
+</IfModule>

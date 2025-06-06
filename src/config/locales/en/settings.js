@@ -1,0 +1,20 @@
+export const translationsEn = {
+  settings: "Settings",
+  theme: "Theme",
+  lightMode: "Light",
+  darkMode: "Dark",
+  systemMode: "System",
+  language: "Language",
+  english: "English",
+  german: "German",
+  savePreferences: "Save Preferences",
+  preferencesSaved: "Preferences saved!",
+  switchToLightMode: "Switch to light mode",
+  switchToDarkMode: "Switch to dark mode",
+  settingsViewTitle: "Subscription & Settings", 
+  settingsSubscriptionBilling: "Subscription & Billing", 
+  settingsManageSubscription: "View your current plan and manage billing details.", 
+  settingsNotifications: "Notification Preferences",
+  settingsCustomizeNotifications: "Customize a.s.a.p.",
+  kommtBald: "Coming soon!", // Should be "Coming soon!" in English
+};

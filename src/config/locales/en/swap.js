@@ -1,0 +1,16 @@
+export const translationsEn = {
+  tokenTrade: "Token Trade (Swap)",
+  swapViewTitle: "Token Swap",
+  swapViewSubtitle: "Exchange your tokens seamlessly.",
+  from: "From",
+  to: "To",
+  selectToken: "Select Token",
+  estimatedGas: "Estimated Gas",
+  slippageTolerance: "Slippage Tolerance",
+  swapButton: "Swap",
+  tokenTradeViewTitle: "Token Trade (via PulseX)",
+  tokenTradeOpenInNewTab: "Open PulseX in New Tab",
+  tokenTradeInterfaceTitle: "PulseX Trading Interface",
+  tokenTradeInterfaceDescription: "Swap tokens directly on PulseChain using the PulseX interface.",
+  tokenTradeEmbedNote: "This is an embedded interface of PulseX. For the best experience or if issues occur, consider using PulseX on their official website.",
+};

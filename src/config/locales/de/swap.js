@@ -1,0 +1,16 @@
+export const translationsDe = {
+  tokenTrade: "Token-Handel (Swap)",
+  swapViewTitle: "Token-Tausch",
+  swapViewSubtitle: "Tauschen Sie Ihre Token nahtlos aus.",
+  from: "Von",
+  to: "Nach",
+  selectToken: "Token auswählen",
+  estimatedGas: "Geschätzte Gasgebühr",
+  slippageTolerance: "Slippage-Toleranz",
+  swapButton: "Tauschen",
+  tokenTradeViewTitle: "Token-Handel (über PulseX)",
+  tokenTradeOpenInNewTab: "PulseX in neuem Tab öffnen",
+  tokenTradeInterfaceTitle: "PulseX Handelsschnittstelle",
+  tokenTradeInterfaceDescription: "Tauschen Sie Token direkt auf PulseChain über die PulseX-Schnittstelle.",
+  tokenTradeEmbedNote: "Dies ist eine eingebettete Schnittstelle von PulseX. Für die beste Erfahrung oder bei Problemen sollten Sie PulseX auf deren offizieller Website nutzen.",
+};
