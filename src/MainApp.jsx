@@ -11,6 +11,8 @@ function MainApp() {
   const [userEmail, setUserEmail] = useState('');
   const [currentView, setCurrentView] = useState('dashboard'); // dashboard, wallet, roi, academy, tax
   const [isChangingView, setIsChangingView] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [renderKey, setRenderKey] = useState(0);
 
   // PulseChain Ecosystem Portfolio mit ROI Daten
   const portfolioData = [
@@ -30,13 +32,21 @@ function MainApp() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isTransitioning) return; // Verhindere mehrfache Submits
+    
     if (isLogin) {
       console.log('Login:', { email, password });
+      setIsTransitioning(true);
       setUserEmail(email);
-      setIsLoggedIn(true);
-      // Kleine Verzögerung für React Rendering
+      
+      // Stufenweise State Updates für saubere Transitions
       setTimeout(() => {
-        setCurrentView('dashboard');
+        setIsLoggedIn(true);
+        setTimeout(() => {
+          setCurrentView('dashboard');
+          setRenderKey(prev => prev + 1); // Force Re-render
+          setIsTransitioning(false);
+        }, 100);
       }, 50);
     } else {
       if (password !== confirmPassword) {
@@ -52,23 +62,39 @@ function MainApp() {
   };
 
   const handleViewChange = (newView) => {
-    if (isChangingView) return; // Verhindere schnelle Klicks
+    if (isChangingView || isTransitioning) return; // Verhindere schnelle Klicks
+    if (currentView === newView) return; // Bereits in der richtigen View
+    
     setIsChangingView(true);
+    setIsTransitioning(true);
+    
+    // Dreistufiger Übergang für saubere DOM Updates
     setTimeout(() => {
-      setCurrentView(newView);
-      setIsChangingView(false);
-    }, 100);
+      setRenderKey(prev => prev + 1); // Force Re-render
+      setTimeout(() => {
+        setCurrentView(newView);
+        setTimeout(() => {
+          setIsChangingView(false);
+          setIsTransitioning(false);
+        }, 50);
+      }, 75);
+    }, 25);
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUserEmail('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setIsLogin(true);
-    setCurrentView('dashboard');
-    setIsChangingView(false);
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setIsLoggedIn(false);
+      setUserEmail('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setIsLogin(true);
+      setCurrentView('dashboard');
+      setIsChangingView(false);
+      setIsTransitioning(false);
+      setRenderKey(prev => prev + 1); // Force Clean Re-render
+    }, 100);
   };
 
   const formatCurrency = (value) => {
@@ -115,7 +141,7 @@ function MainApp() {
     const worstPerformer = roiData.reduce((worst, coin) => coin.roiPercent < worst.roiPercent ? coin : worst, roiData[0]);
 
     return (
-      <div style={{
+      <div key={`roi-view-${renderKey}`} style={{
         minHeight: '100vh',
         backgroundColor: '#f8fafc',
         fontFamily: 'system-ui, -apple-system, sans-serif'
@@ -463,7 +489,7 @@ function MainApp() {
     const shortTermHoldings = taxData.filter(coin => !coin.isLongTerm);
 
     return (
-      <div style={{
+      <div key={`tax-view-${renderKey}`} style={{
         minHeight: '100vh',
         backgroundColor: '#f8fafc',
         fontFamily: 'system-ui, -apple-system, sans-serif'
@@ -804,7 +830,7 @@ function MainApp() {
   // WALLET VIEW - PULSECHAIN FOKUS (Dashboard Button vorhanden!)
   if (isLoggedIn && currentView === 'wallet') {
     return (
-      <div style={{
+      <div key={`wallet-view-${renderKey}`} style={{
         minHeight: '100vh',
         backgroundColor: '#f8fafc',
         fontFamily: 'system-ui, -apple-system, sans-serif'
@@ -1053,7 +1079,7 @@ function MainApp() {
   // DASHBOARD ANSICHT
   if (isLoggedIn && currentView === 'dashboard') {
     return (
-      <div style={{
+      <div key={`dashboard-view-${renderKey}`} style={{
         minHeight: '100vh',
         backgroundColor: '#f8fafc',
         fontFamily: 'system-ui, -apple-system, sans-serif'
@@ -1263,7 +1289,7 @@ function MainApp() {
 
   // LOGIN/REGISTER ANSICHT
   return (
-    <div style={{
+    <div key={`login-view-${renderKey}`} style={{
       minHeight: '100vh',
       background: 'linear-gradient(to bottom right, #c084fc, #9333ea, #7c3aed)',
       display: 'flex',
