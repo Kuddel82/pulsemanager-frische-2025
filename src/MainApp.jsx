@@ -598,9 +598,9 @@ function MainApp() {
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
               border: '2px solid #10b981'
             }}>
-              <h4 style={{ color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                ✅ Langfristige Investments (>1 Jahr)
-              </h4>
+                             <h4 style={{ color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                 ✅ Langfristige Investments (&gt;1 Jahr)
+               </h4>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981', marginBottom: '0.5rem' }}>
                 {longTermHoldings.length} Assets
               </div>
@@ -616,9 +616,9 @@ function MainApp() {
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
               border: '2px solid #f59e0b'
             }}>
-              <h4 style={{ color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                ⚠️ Kurzfristige Investments (<1 Jahr)
-              </h4>
+                             <h4 style={{ color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                 ⚠️ Kurzfristige Investments (&lt;1 Jahr)
+               </h4>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '0.5rem' }}>
                 {shortTermHoldings.length} Assets
               </div>
