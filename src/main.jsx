@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from '@/App';
+import MainApp from './MainApp';
 import ErrorBoundary from '@/components/ErrorBoundary'; 
 import { logger } from '@/lib/logger'; // Assuming logger is initialized elsewhere
 import '@/index.css';
@@ -24,7 +24,7 @@ const Root = () => {
   return (
     <React.StrictMode>
       <ErrorBoundary t={(key) => key}> {/* Basic t for ErrorBoundary if context not available */}
-        <App />
+        <MainApp />
       </ErrorBoundary>
     </React.StrictMode>
   );
