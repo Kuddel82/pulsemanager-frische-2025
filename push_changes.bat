@@ -1,0 +1,9 @@
+@echo off
+echo Adding all files...
+git add -A
+echo Committing changes...
+git commit -m "Router structure complete with all views"
+echo Pushing to GitHub...
+git push origin master
+echo Done!
+pause 
