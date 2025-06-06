@@ -1,8 +1,28 @@
-// ULTRA SIMPLE VERSION - BUILD TIME: 2025-01-07 01:40
-// NO DEPENDENCIES - JUST HTML
-import React from 'react';
+// PRODUCTION VERSION - BUILD TIME: 2025-01-07 02:10
+// LOGIN WITH REGISTRATION OPTION
+import React, { useState } from 'react';
 
 function MainApp() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isLogin) {
+      console.log('Login:', { email, password });
+      alert(`Login erfolgreich für: ${email}`);
+    } else {
+      if (password !== confirmPassword) {
+        alert('Passwörter stimmen nicht überein!');
+        return;
+      }
+      console.log('Register:', { email, password });
+      alert(`Registrierung erfolgreich für: ${email}`);
+    }
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -25,12 +45,20 @@ function MainApp() {
           fontSize: '2rem',
           fontWeight: 'bold',
           color: '#1f2937',
-          marginBottom: '1.5rem',
+          marginBottom: '0.5rem',
           textAlign: 'center'
         }}>
           🚀 PulseManager
         </h1>
-        <form onSubmit={(e) => { e.preventDefault(); alert('Login clicked!'); }}>
+        <p style={{
+          textAlign: 'center',
+          color: '#6b7280',
+          marginBottom: '1.5rem',
+          fontSize: '0.875rem'
+        }}>
+          {isLogin ? 'Willkommen zurück!' : 'Erstelle deinen Account'}
+        </p>
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{
               display: 'block',
@@ -43,7 +71,9 @@ function MainApp() {
             </label>
             <input
               type="email"
-              defaultValue="dkuddel@web.de"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -52,10 +82,11 @@ function MainApp() {
                 fontSize: '1rem',
                 boxSizing: 'border-box'
               }}
+              placeholder="deine@email.de"
               required
             />
           </div>
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ marginBottom: '1rem' }}>
             <label style={{
               display: 'block',
               fontSize: '0.875rem',
@@ -67,6 +98,9 @@ function MainApp() {
             </label>
             <input
               type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={isLogin ? "current-password" : "new-password"}
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -79,6 +113,35 @@ function MainApp() {
               required
             />
           </div>
+          {!isLogin && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                color: '#374151',
+                marginBottom: '0.5rem'
+              }}>
+                Passwort bestätigen
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.5rem',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box'
+                }}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+          )}
           <button
             type="submit"
             style={{
@@ -91,14 +154,53 @@ function MainApp() {
               fontSize: '1rem',
               fontWeight: 'bold',
               cursor: 'pointer',
-              display: 'block'
+              display: 'block',
+              marginBottom: '1rem'
             }}
           >
-            🔥 JETZT ANMELDEN
+            {isLogin ? '🔥 Anmelden' : '✨ Registrieren'}
           </button>
         </form>
-        <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.75rem', color: '#6b7280' }}>
-          Version: ULTRA SIMPLE - No State
+        <div style={{
+          textAlign: 'center',
+          fontSize: '0.875rem',
+          color: '#6b7280'
+        }}>
+          {isLogin ? (
+            <>
+              Noch kein Account?{' '}
+              <button
+                onClick={() => setIsLogin(false)}
+                style={{
+                  color: '#9333ea',
+                  fontWeight: 'bold',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Jetzt registrieren
+              </button>
+            </>
+          ) : (
+            <>
+              Bereits registriert?{' '}
+              <button
+                onClick={() => setIsLogin(true)}
+                style={{
+                  color: '#9333ea',
+                  fontWeight: 'bold',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Zur Anmeldung
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
