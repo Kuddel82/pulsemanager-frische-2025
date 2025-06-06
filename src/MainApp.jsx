@@ -828,6 +828,425 @@ function MainApp() {
     );
   }
 
+  // LEARNING ACADEMY VIEW - PULSECHAIN FOKUS
+  if (isLoggedIn && currentView === 'academy') {
+    const lessons = [
+      {
+        id: 1,
+        title: "PulseChain Grundlagen",
+        description: "Was ist PulseChain? Warum wurde es erstellt?",
+        duration: "15 min",
+        difficulty: "Anfänger",
+        icon: "◉",
+        topics: ["Richard Heart's Vision", "Ethereum Fork", "Proof of Stake", "PLS Token"],
+        completed: true
+      },
+      {
+        id: 2,
+        title: "HEX verstehen",
+        description: "Das erste Certificate of Deposit auf der Blockchain",
+        duration: "20 min",
+        difficulty: "Anfänger",
+        icon: "⬟",
+        topics: ["HEX Mechanik", "Staking", "T-Shares", "Längere ist stärker"],
+        completed: true
+      },
+      {
+        id: 3,
+        title: "PulseX Trading",
+        description: "DEX Trading auf PulseChain",
+        duration: "25 min",
+        difficulty: "Fortgeschritten",
+        icon: "✕",
+        topics: ["Liquidity Pools", "Slippage", "Impermanent Loss", "Yield Farming"],
+        completed: false
+      },
+      {
+        id: 4,
+        title: "Portfolio Management",
+        description: "Diversifikation im PulseChain Ecosystem",
+        duration: "30 min",
+        difficulty: "Fortgeschritten",
+        icon: "📊",
+        topics: ["Risk Management", "DCA Strategien", "Rebalancing", "Tax Optimization"],
+        completed: false
+      },
+      {
+        id: 5,
+        title: "DeFi auf PulseChain",
+        description: "Lending, Borrowing und mehr",
+        duration: "35 min",
+        difficulty: "Experte",
+        icon: "🏦",
+        topics: ["Liquid Loans", "Compound Interest", "Flash Loans", "Arbitrage"],
+        completed: false
+      },
+      {
+        id: 6,
+        title: "PulseChain vs Ethereum",
+        description: "Technische Unterschiede und Vorteile",
+        duration: "20 min",
+        difficulty: "Fortgeschritten",
+        icon: "⚡",
+        topics: ["Gas Fees", "Transaction Speed", "Validator System", "Bridge Mechanik"],
+        completed: false
+      }
+    ];
+
+    const completedLessons = lessons.filter(lesson => lesson.completed).length;
+    const totalLessons = lessons.length;
+    const progressPercentage = (completedLessons / totalLessons) * 100;
+
+    return (
+      <div key={`academy-view-${renderKey}`} style={{
+        minHeight: '100vh',
+        backgroundColor: '#f8fafc',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}>
+        {/* Header */}
+        <div style={{
+          backgroundColor: 'white',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          padding: '1rem 2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button
+              onClick={() => handleViewChange('dashboard')}
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}
+            >
+              ← Dashboard
+            </button>
+            <h1 style={{
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: '#1f2937',
+              margin: 0
+            }}>
+              🎓 PulseChain Learning Academy
+            </h1>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              {userEmail}
+            </span>
+            <button
+              onClick={handleLogout}
+              style={{
+                backgroundColor: '#ef4444',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
+        {/* Academy Content */}
+        <div style={{ padding: '2rem' }}>
+          {/* Progress Overview */}
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '0.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            marginBottom: '2rem',
+            border: '2px solid #f59e0b'
+          }}>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: 'bold',
+              color: '#1f2937',
+              marginBottom: '1rem'
+            }}>
+              🚀 Ihr Lernfortschritt
+            </h2>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{
+                flex: 1,
+                backgroundColor: '#e5e7eb',
+                borderRadius: '0.5rem',
+                height: '0.75rem'
+              }}>
+                <div style={{
+                  backgroundColor: '#f59e0b',
+                  height: '100%',
+                  borderRadius: '0.5rem',
+                  width: `${progressPercentage}%`,
+                  transition: 'width 0.3s ease'
+                }}></div>
+              </div>
+              <span style={{ fontWeight: 'bold', color: '#f59e0b' }}>
+                {completedLessons}/{totalLessons} Lektionen
+              </span>
+            </div>
+            <p style={{ color: '#6b7280', margin: 0 }}>
+              Meistern Sie das PulseChain Ecosystem mit praxisnahen Lektionen von Grundlagen bis zu fortgeschrittenen DeFi-Strategien.
+            </p>
+          </div>
+
+          {/* Learning Path */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            overflow: 'hidden',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              padding: '1.5rem 2rem',
+              borderBottom: '1px solid #e5e7eb',
+              backgroundColor: '#f8fafc'
+            }}>
+              <h3 style={{
+                fontSize: '1.125rem',
+                fontWeight: 'bold',
+                color: '#1f2937',
+                margin: 0
+              }}>
+                📚 PulseChain Lernpfad
+              </h3>
+            </div>
+
+            {/* Lesson Cards */}
+            <div style={{ padding: '1.5rem' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+                gap: '1.5rem'
+              }}>
+                {lessons.map((lesson, index) => (
+                  <div key={lesson.id} style={{
+                    border: lesson.completed ? '2px solid #10b981' : '1px solid #e5e7eb',
+                    borderRadius: '0.5rem',
+                    padding: '1.5rem',
+                    backgroundColor: lesson.completed ? '#f0fdf4' : '#ffffff',
+                    position: 'relative'
+                  }}>
+                    {lesson.completed && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '0.75rem',
+                        right: '0.75rem',
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '1.5rem',
+                        height: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.75rem'
+                      }}>
+                        ✓
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                      <span style={{ fontSize: '2rem' }}>{lesson.icon}</span>
+                      <div>
+                        <h4 style={{ fontWeight: 'bold', color: '#1f2937', margin: 0, fontSize: '1.125rem' }}>
+                          {lesson.title}
+                        </h4>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#6b7280',
+                            backgroundColor: '#f3f4f6',
+                            padding: '0.125rem 0.5rem',
+                            borderRadius: '0.25rem'
+                          }}>
+                            {lesson.duration}
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            color: lesson.difficulty === 'Anfänger' ? '#10b981' : 
+                                   lesson.difficulty === 'Fortgeschritten' ? '#f59e0b' : '#ef4444',
+                            backgroundColor: lesson.difficulty === 'Anfänger' ? '#f0fdf4' : 
+                                           lesson.difficulty === 'Fortgeschritten' ? '#fffbeb' : '#fef2f2',
+                            padding: '0.125rem 0.5rem',
+                            borderRadius: '0.25rem',
+                            fontWeight: 'bold'
+                          }}>
+                            {lesson.difficulty}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                      {lesson.description}
+                    </p>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '0.5rem' }}>
+                        Themen:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        {lesson.topics.map((topic, topicIndex) => (
+                          <span key={topicIndex} style={{
+                            fontSize: '0.75rem',
+                            backgroundColor: '#9333ea',
+                            color: 'white',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.25rem'
+                          }}>
+                            {topic}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button style={{
+                      backgroundColor: lesson.completed ? '#6b7280' : '#f59e0b',
+                      color: 'white',
+                      padding: '0.75rem 1rem',
+                      border: 'none',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                      width: '100%',
+                      fontWeight: 'bold'
+                    }}>
+                      {lesson.completed ? '✓ Abgeschlossen' : 'Lektion starten'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Learning Resources */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📖</div>
+              <h4 style={{ color: '#1f2937', marginBottom: '0.5rem' }}>PulseChain Dokumentation</h4>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                Offizielle technische Dokumentation
+              </p>
+              <button style={{
+                backgroundColor: '#9333ea',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}>
+                Dokumentation lesen
+              </button>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎥</div>
+              <h4 style={{ color: '#1f2937', marginBottom: '0.5rem' }}>Video Tutorials</h4>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                Praktische Anleitungen und Demos
+              </p>
+              <button style={{
+                backgroundColor: '#ef4444',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}>
+                Videos ansehen
+              </button>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
+              <h4 style={{ color: '#1f2937', marginBottom: '0.5rem' }}>Community</h4>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                Diskutieren Sie mit anderen PulseChain Enthusiasten
+              </p>
+              <button style={{
+                backgroundColor: '#10b981',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}>
+                Community beitreten
+              </button>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏆</div>
+              <h4 style={{ color: '#1f2937', marginBottom: '0.5rem' }}>Zertifikate</h4>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                Erhalten Sie Abschluss-Zertifikate
+              </p>
+              <button style={{
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}>
+                Zertifikat verdienen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // WALLET VIEW - PULSECHAIN FOKUS (Dashboard Button vorhanden!)
   if (isLoggedIn && currentView === 'wallet') {
     return (
@@ -1233,24 +1652,26 @@ function MainApp() {
               </button>
             </div>
 
-            {/* Academy Card */}
+            {/* PulseChain Academy Card */}
             <div style={{
               backgroundColor: 'white',
               padding: '1.5rem',
               borderRadius: '0.5rem',
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-              border: '1px solid #e5e7eb'
+              border: '2px solid #f59e0b'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
                 <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>🎓</span>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
-                  Learning Academy
+                  PulseChain Academy
                 </h3>
               </div>
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-                Lernen Sie mehr über Ethereum, PulseChain und Crypto Trading.
+                Lernen Sie das PulseChain Ecosystem mit strukturierten Lektionen kennen.
               </p>
-              <button style={{
+              <button 
+                onClick={() => handleViewChange('academy')}
+                style={{
                 backgroundColor: '#f59e0b',
                 color: 'white',
                 padding: '0.5rem 1rem',
@@ -1258,9 +1679,10 @@ function MainApp() {
                 borderRadius: '0.375rem',
                 fontSize: '0.875rem',
                 cursor: 'pointer',
-                width: '100%'
+                width: '100%',
+                fontWeight: 'bold'
               }}>
-                Kurse starten (Coming Soon)
+                🎓 PulseChain Academy öffnen
               </button>
             </div>
 
