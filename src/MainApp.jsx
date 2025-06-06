@@ -14,16 +14,17 @@ function MainApp() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [renderKey, setRenderKey] = useState(0);
 
-  // PulseChain Ecosystem Portfolio mit ROI Daten
+  // PulseChain Ecosystem + ETH Portfolio mit ROI Daten
   const portfolioData = [
-    { symbol: 'PLS', name: 'PulseChain', amount: 2500000, price: 0.000085, change24h: 15.67, icon: '◉', buyPrice: 0.000042, buyDate: '2023-05-15' },
-    { symbol: 'PLSX', name: 'PulseX', amount: 450000, price: 0.000021, change24h: -2.34, icon: '✕', buyPrice: 0.000028, buyDate: '2023-06-20' },
-    { symbol: 'HEX', name: 'HEX', amount: 125000, price: 0.0045, change24h: 8.91, icon: '⬟', buyPrice: 0.0032, buyDate: '2023-04-10' },
-    { symbol: 'INC', name: 'Incentive', amount: 75000, price: 0.000012, change24h: 12.45, icon: '💎', buyPrice: 0.000008, buyDate: '2023-07-03' },
-    { symbol: 'LOAN', name: 'Liquid Loans', amount: 35000, price: 0.000098, change24h: -0.87, icon: '🏦', buyPrice: 0.000115, buyDate: '2023-08-12' },
-    { symbol: 'SPARK', name: 'Spark', amount: 850000, price: 0.0000034, change24h: 5.23, icon: '⚡', buyPrice: 0.0000028, buyDate: '2023-09-05' },
-    { symbol: 'TONI', name: 'Toni', amount: 180000, price: 0.000067, change24h: -3.12, icon: '🎭', buyPrice: 0.000089, buyDate: '2023-10-18' },
-    { symbol: 'MAXI', name: 'Maximus', amount: 42000, price: 0.00015, change24h: 7.89, icon: '👑', buyPrice: 0.00012, buyDate: '2023-11-22' }
+    { symbol: 'ETH', name: 'Ethereum', amount: 3.5, price: 2280, change24h: 2.45, icon: 'Ξ', buyPrice: 1850, buyDate: '2023-03-20', blockchain: 'Ethereum' },
+    { symbol: 'PLS', name: 'PulseChain', amount: 2500000, price: 0.000085, change24h: 15.67, icon: '◉', buyPrice: 0.000042, buyDate: '2023-05-15', blockchain: 'PulseChain' },
+    { symbol: 'PLSX', name: 'PulseX', amount: 450000, price: 0.000021, change24h: -2.34, icon: '✕', buyPrice: 0.000028, buyDate: '2023-06-20', blockchain: 'PulseChain' },
+    { symbol: 'HEX', name: 'HEX', amount: 125000, price: 0.0045, change24h: 8.91, icon: '⬟', buyPrice: 0.0032, buyDate: '2023-04-10', blockchain: 'PulseChain' },
+    { symbol: 'INC', name: 'Incentive', amount: 75000, price: 0.000012, change24h: 12.45, icon: '💎', buyPrice: 0.000008, buyDate: '2023-07-03', blockchain: 'PulseChain' },
+    { symbol: 'LOAN', name: 'Liquid Loans', amount: 35000, price: 0.000098, change24h: -0.87, icon: '🏦', buyPrice: 0.000115, buyDate: '2023-08-12', blockchain: 'PulseChain' },
+    { symbol: 'SPARK', name: 'Spark', amount: 850000, price: 0.0000034, change24h: 5.23, icon: '⚡', buyPrice: 0.0000028, buyDate: '2023-09-05', blockchain: 'PulseChain' },
+    { symbol: 'TONI', name: 'Toni', amount: 180000, price: 0.000067, change24h: -3.12, icon: '🎭', buyPrice: 0.000089, buyDate: '2023-10-18', blockchain: 'PulseChain' },
+    { symbol: 'MAXI', name: 'Maximus', amount: 42000, price: 0.00015, change24h: 7.89, icon: '👑', buyPrice: 0.00012, buyDate: '2023-11-22', blockchain: 'PulseChain' }
   ];
 
   const totalPortfolioValue = portfolioData.reduce((total, coin) => 
@@ -176,7 +177,7 @@ function MainApp() {
               color: '#1f2937',
               margin: 0
             }}>
-              📈 PulseChain ROI Tracker
+              📈 Crypto ROI Tracker (ETH + PulseChain)
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -524,7 +525,7 @@ function MainApp() {
               color: '#1f2937',
               margin: 0
             }}>
-              📊 PulseChain Steuer-Report 2024
+              📊 Crypto Steuer-Report 2024 (ETH + PulseChain)
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -865,7 +866,7 @@ function MainApp() {
               color: '#1f2937',
               margin: 0
             }}>
-              ◉ PulseChain Portfolio
+              📊 Crypto Portfolio (ETH + PulseChain)
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -906,7 +907,7 @@ function MainApp() {
               color: '#1f2937',
               marginBottom: '1rem'
             }}>
-              🚀 PulseChain Ecosystem Portfolio
+              🚀 Crypto Portfolio (ETH + PulseChain)
             </h2>
             <div style={{
               fontSize: '2.5rem',
@@ -917,7 +918,7 @@ function MainApp() {
               {formatCurrency(totalPortfolioValue)}
             </div>
             <p style={{ color: '#6b7280', margin: 0 }}>
-              Gesamtwert Ihrer PulseChain Assets
+              Gesamtwert Ihrer Crypto Assets
             </p>
           </div>
 
@@ -939,14 +940,14 @@ function MainApp() {
                 color: '#1f2937',
                 margin: 0
               }}>
-                📊 Ihre PulseChain Assets
+                📊 Ihre Crypto Assets (ETH + PulseChain)
               </h3>
             </div>
             
             {/* Table Header */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1fr 1fr',
+              gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1.5fr 1fr 1fr',
               padding: '1rem 2rem',
               backgroundColor: '#9333ea',
               color: 'white',
@@ -954,6 +955,7 @@ function MainApp() {
               fontWeight: 'bold'
             }}>
               <div>Asset</div>
+              <div>Chain</div>
               <div>Menge</div>
               <div>Preis</div>
               <div>Wert</div>
@@ -970,7 +972,7 @@ function MainApp() {
               return (
                 <div key={`wallet-${coin.symbol}-${index}`} style={{
                   display: 'grid',
-                  gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1fr 1fr',
+                  gridTemplateColumns: '2fr 1fr 1.5fr 1fr 1.5fr 1fr 1fr',
                   padding: '1rem 2rem',
                   borderBottom: index < portfolioData.length - 1 ? '1px solid #e5e7eb' : 'none',
                   alignItems: 'center',
@@ -985,14 +987,27 @@ function MainApp() {
                     </div>
                   </div>
                   
+                  {/* Blockchain */}
+                  <div style={{ 
+                    color: coin.blockchain === 'Ethereum' ? '#627eea' : '#9333ea', 
+                    fontWeight: '500',
+                    fontSize: '0.75rem',
+                    padding: '0.25rem 0.5rem',
+                    backgroundColor: coin.blockchain === 'Ethereum' ? '#e8f2ff' : '#f3e8ff',
+                    borderRadius: '0.375rem',
+                    textAlign: 'center'
+                  }}>
+                    {coin.blockchain === 'Ethereum' ? 'ETH' : 'PLS'}
+                  </div>
+                  
                   {/* Menge */}
                   <div style={{ color: '#1f2937', fontWeight: '500' }}>
-                    {formatNumber(coin.amount, 0)}
+                    {formatNumber(coin.amount, coin.symbol === 'ETH' ? 4 : 0)}
                   </div>
                   
                   {/* Preis */}
                   <div style={{ color: '#1f2937', fontSize: '0.875rem' }}>
-                    ${coin.price.toFixed(8)}
+                    ${coin.symbol === 'ETH' ? coin.price.toLocaleString() : coin.price.toFixed(8)}
                   </div>
                   
                   {/* Wert */}
@@ -1066,9 +1081,9 @@ function MainApp() {
             }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚡</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>
-                PulseChain
+                Multi-Chain
               </div>
-              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>Blockchain</div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>ETH + PulseChain</div>
             </div>
           </div>
         </div>
@@ -1099,7 +1114,7 @@ function MainApp() {
             color: '#1f2937',
             margin: 0
           }}>
-            🚀 PulseManager Dashboard
+            🚀 CryptoManager Dashboard
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
@@ -1138,10 +1153,10 @@ function MainApp() {
               color: '#1f2937',
               marginBottom: '0.5rem'
             }}>
-              🎉 Willkommen im PulseManager!
+              🎉 Willkommen im CryptoManager!
             </h2>
             <p style={{ color: '#6b7280', margin: 0 }}>
-              Verwalten Sie Ihr PulseChain Portfolio und verfolgen Sie Ihre Assets.
+              Verwalten Sie Ihr Multi-Chain Portfolio (ETH + PulseChain) und verfolgen Sie Ihre Assets.
             </p>
           </div>
 
@@ -1160,13 +1175,13 @@ function MainApp() {
               border: '2px solid #9333ea'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>◉</span>
+                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>📊</span>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
-                  PulseChain Portfolio
+                  Crypto Portfolio
                 </h3>
               </div>
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-                Übersicht Ihrer PulseChain Ecosystem Assets und Portfolio-Performance.
+                ETH + PulseChain Ecosystem Assets mit Performance-Tracking.
               </p>
               <button 
                 onClick={() => handleViewChange('wallet')}
@@ -1233,7 +1248,7 @@ function MainApp() {
                 </h3>
               </div>
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-                Lernen Sie mehr über PulseChain und das Ecosystem.
+                Lernen Sie mehr über Ethereum, PulseChain und Crypto Trading.
               </p>
               <button style={{
                 backgroundColor: '#f59e0b',
@@ -1264,7 +1279,7 @@ function MainApp() {
                 </h3>
               </div>
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-                Generieren Sie Steuerberichte für Ihre PulseChain Transaktionen.
+                Generieren Sie Steuerberichte für Ihre Crypto Transaktionen (ETH + PulseChain).
               </p>
               <button 
                 onClick={() => handleViewChange('tax')}
@@ -1313,7 +1328,7 @@ function MainApp() {
           marginBottom: '0.5rem',
           textAlign: 'center'
         }}>
-          🚀 PulseManager
+          🚀 CryptoManager
         </h1>
         <p style={{
           textAlign: 'center',
