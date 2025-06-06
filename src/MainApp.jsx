@@ -11,13 +11,16 @@ function MainApp() {
   const [userEmail, setUserEmail] = useState('');
   const [currentView, setCurrentView] = useState('dashboard'); // dashboard, wallet, roi, academy, tax
 
-  // Fake Portfolio Daten
+  // PulseChain Ecosystem Portfolio
   const portfolioData = [
-    { symbol: 'BTC', name: 'Bitcoin', amount: 0.15, price: 45230, change24h: 2.34, icon: '₿' },
-    { symbol: 'ETH', name: 'Ethereum', amount: 2.45, price: 2680, change24h: -1.23, icon: 'Ξ' },
-    { symbol: 'PLS', name: 'PulseChain', amount: 125000, price: 0.000085, change24h: 15.67, icon: '◉' },
-    { symbol: 'HEX', name: 'HEX', amount: 5500, price: 0.0045, change24h: 8.91, icon: '⬟' },
-    { symbol: 'PLSX', name: 'PulseX', amount: 75000, price: 0.000021, change24h: -5.44, icon: '✕' }
+    { symbol: 'PLS', name: 'PulseChain', amount: 2500000, price: 0.000085, change24h: 15.67, icon: '◉' },
+    { symbol: 'PLSX', name: 'PulseX', amount: 450000, price: 0.000021, change24h: -2.34, icon: '✕' },
+    { symbol: 'HEX', name: 'HEX', amount: 125000, price: 0.0045, change24h: 8.91, icon: '⬟' },
+    { symbol: 'INC', name: 'Incentive', amount: 75000, price: 0.000012, change24h: 12.45, icon: '💎' },
+    { symbol: 'LOAN', name: 'Liquid Loans', amount: 35000, price: 0.000098, change24h: -0.87, icon: '🏦' },
+    { symbol: 'SPARK', name: 'Spark', amount: 850000, price: 0.0000034, change24h: 5.23, icon: '⚡' },
+    { symbol: 'TONI', name: 'Toni', amount: 180000, price: 0.000067, change24h: -3.12, icon: '🎭' },
+    { symbol: 'MAXI', name: 'Maximus', amount: 42000, price: 0.00015, change24h: 7.89, icon: '👑' }
   ];
 
   const totalPortfolioValue = portfolioData.reduce((total, coin) => 
@@ -69,7 +72,7 @@ function MainApp() {
     }).format(value);
   };
 
-  // WALLET VIEW
+  // WALLET VIEW - PULSECHAIN FOKUS
   if (isLoggedIn && currentView === 'wallet') {
     return (
       <div style={{
@@ -107,7 +110,7 @@ function MainApp() {
               color: '#1f2937',
               margin: 0
             }}>
-              💰 Wallet Overview
+              ◉ PulseChain Portfolio
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -139,7 +142,8 @@ function MainApp() {
             padding: '2rem',
             borderRadius: '0.5rem',
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            marginBottom: '2rem'
+            marginBottom: '2rem',
+            border: '2px solid #9333ea'
           }}>
             <h2 style={{
               fontSize: '1.25rem',
@@ -147,18 +151,18 @@ function MainApp() {
               color: '#1f2937',
               marginBottom: '1rem'
             }}>
-              Portfolio Übersicht
+              🚀 PulseChain Ecosystem Portfolio
             </h2>
             <div style={{
               fontSize: '2.5rem',
               fontWeight: 'bold',
-              color: '#10b981',
+              color: '#9333ea',
               marginBottom: '0.5rem'
             }}>
               {formatCurrency(totalPortfolioValue)}
             </div>
             <p style={{ color: '#6b7280', margin: 0 }}>
-              Gesamtwert Ihres Portfolios
+              Gesamtwert Ihrer PulseChain Assets
             </p>
           </div>
 
@@ -171,7 +175,8 @@ function MainApp() {
           }}>
             <div style={{
               padding: '1.5rem 2rem',
-              borderBottom: '1px solid #e5e7eb'
+              borderBottom: '1px solid #e5e7eb',
+              backgroundColor: '#f8fafc'
             }}>
               <h3 style={{
                 fontSize: '1.125rem',
@@ -179,26 +184,25 @@ function MainApp() {
                 color: '#1f2937',
                 margin: 0
               }}>
-                Ihre Kryptowährungen
+                📊 Ihre PulseChain Assets
               </h3>
             </div>
             
             {/* Table Header */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr',
+              gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1fr 1fr',
               padding: '1rem 2rem',
-              backgroundColor: '#f9fafb',
-              borderBottom: '1px solid #e5e7eb',
+              backgroundColor: '#9333ea',
+              color: 'white',
               fontSize: '0.875rem',
-              fontWeight: '500',
-              color: '#6b7280'
+              fontWeight: 'bold'
             }}>
               <div>Asset</div>
               <div>Menge</div>
               <div>Preis</div>
               <div>Wert</div>
-              <div>24h Change</div>
+              <div>24h %</div>
               <div>Portfolio %</div>
             </div>
 
@@ -211,28 +215,29 @@ function MainApp() {
               return (
                 <div key={coin.symbol} style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr',
+                  gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1fr 1fr',
                   padding: '1rem 2rem',
                   borderBottom: index < portfolioData.length - 1 ? '1px solid #e5e7eb' : 'none',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb'
                 }}>
                   {/* Asset */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <span style={{ fontSize: '1.5rem' }}>{coin.icon}</span>
                     <div>
-                      <div style={{ fontWeight: 'bold', color: '#1f2937' }}>{coin.symbol}</div>
+                      <div style={{ fontWeight: 'bold', color: '#1f2937', fontSize: '1rem' }}>{coin.symbol}</div>
                       <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{coin.name}</div>
                     </div>
                   </div>
                   
                   {/* Menge */}
-                  <div style={{ color: '#1f2937' }}>
-                    {formatNumber(coin.amount, coin.amount < 1 ? 8 : 2)}
+                  <div style={{ color: '#1f2937', fontWeight: '500' }}>
+                    {formatNumber(coin.amount, 0)}
                   </div>
                   
                   {/* Preis */}
-                  <div style={{ color: '#1f2937' }}>
-                    {formatCurrency(coin.price)}
+                  <div style={{ color: '#1f2937', fontSize: '0.875rem' }}>
+                    ${coin.price.toFixed(8)}
                   </div>
                   
                   {/* Wert */}
@@ -243,13 +248,18 @@ function MainApp() {
                   {/* 24h Change */}
                   <div style={{ 
                     color: isPositive ? '#10b981' : '#ef4444',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem'
                   }}>
                     {isPositive ? '+' : ''}{coin.change24h.toFixed(2)}%
                   </div>
                   
                   {/* Portfolio % */}
-                  <div style={{ color: '#6b7280' }}>
+                  <div style={{ 
+                    color: '#6b7280',
+                    fontWeight: '500',
+                    fontSize: '0.875rem'
+                  }}>
                     {portfolioPercent.toFixed(1)}%
                   </div>
                 </div>
@@ -257,61 +267,54 @@ function MainApp() {
             })}
           </div>
 
-          {/* Action Buttons */}
+          {/* Portfolio Stats */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
             gap: '1rem',
             marginTop: '2rem'
           }}>
-            <button style={{
-              backgroundColor: '#10b981',
-              color: 'white',
-              padding: '1rem',
-              border: 'none',
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
               borderRadius: '0.5rem',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              cursor: 'pointer'
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textAlign: 'center'
             }}>
-              💰 Krypto kaufen
-            </button>
-            <button style={{
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              padding: '1rem',
-              border: 'none',
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📈</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>
+                {portfolioData.filter(coin => coin.change24h > 0).length}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>Assets im Plus</div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
               borderRadius: '0.5rem',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              cursor: 'pointer'
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textAlign: 'center'
             }}>
-              📤 Senden
-            </button>
-            <button style={{
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              padding: '1rem',
-              border: 'none',
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎯</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#9333ea' }}>
+                {portfolioData.length}
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>Total Assets</div>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
               borderRadius: '0.5rem',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              cursor: 'pointer'
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textAlign: 'center'
             }}>
-              📥 Empfangen
-            </button>
-            <button style={{
-              backgroundColor: '#8b5cf6',
-              color: 'white',
-              padding: '1rem',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}>
-              🔄 Tauschen
-            </button>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚡</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>
+                PulseChain
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>Blockchain</div>
+            </div>
           </div>
         </div>
       </div>
@@ -383,7 +386,7 @@ function MainApp() {
               🎉 Willkommen im PulseManager!
             </h2>
             <p style={{ color: '#6b7280', margin: 0 }}>
-              Sie sind erfolgreich angemeldet und bereit loszulegen!
+              Verwalten Sie Ihr PulseChain Portfolio und verfolgen Sie Ihre Assets.
             </p>
           </div>
 
@@ -399,16 +402,16 @@ function MainApp() {
               padding: '1.5rem',
               borderRadius: '0.5rem',
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-              border: '1px solid #e5e7eb'
+              border: '2px solid #9333ea'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>💰</span>
+                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>◉</span>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
-                  Wallet Overview
+                  PulseChain Portfolio
                 </h3>
               </div>
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-                Verwalten Sie Ihre Kryptowährungen und verfolgen Sie Ihr Portfolio.
+                Übersicht Ihrer PulseChain Ecosystem Assets und Portfolio-Performance.
               </p>
               <button 
                 onClick={() => setCurrentView('wallet')}
@@ -423,7 +426,7 @@ function MainApp() {
                   width: '100%'
                 }}
               >
-                Wallet öffnen
+                Portfolio anzeigen
               </button>
             </div>
 
@@ -473,7 +476,7 @@ function MainApp() {
                 </h3>
               </div>
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-                Lernen Sie mehr über Kryptowährungen und Trading-Strategien.
+                Lernen Sie mehr über PulseChain und das Ecosystem.
               </p>
               <button style={{
                 backgroundColor: '#f59e0b',
@@ -504,7 +507,7 @@ function MainApp() {
                 </h3>
               </div>
               <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-                Generieren Sie Steuerberichte für Ihre Krypto-Transaktionen.
+                Generieren Sie Steuerberichte für Ihre PulseChain Transaktionen.
               </p>
               <button style={{
                 backgroundColor: '#8b5cf6',
