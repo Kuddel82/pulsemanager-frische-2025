@@ -1,5 +1,5 @@
-// PRODUCTION VERSION - BUILD TIME: 2025-01-07 02:10
-// LOGIN WITH REGISTRATION OPTION
+// COMPLETE LOGIN + DASHBOARD - BUILD TIME: 2025-01-07 02:45
+// LOGIN WITH REGISTRATION AND DASHBOARD REDIRECT
 import React, { useState } from 'react';
 
 function MainApp() {
@@ -7,22 +7,242 @@ function MainApp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isLogin) {
       console.log('Login:', { email, password });
-      alert(`Login erfolgreich für: ${email}`);
+      setUserEmail(email);
+      setIsLoggedIn(true);
     } else {
       if (password !== confirmPassword) {
         alert('Passwörter stimmen nicht überein!');
         return;
       }
       console.log('Register:', { email, password });
-      alert(`Registrierung erfolgreich für: ${email}`);
+      alert(`Registrierung erfolgreich für: ${email}\nSie können sich jetzt anmelden!`);
+      setIsLogin(true);
+      setPassword('');
+      setConfirmPassword('');
     }
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserEmail('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setIsLogin(true);
+  };
+
+  // DASHBOARD ANSICHT
+  if (isLoggedIn) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f8fafc',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}>
+        {/* Header */}
+        <div style={{
+          backgroundColor: 'white',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          padding: '1rem 2rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <h1 style={{
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            color: '#1f2937',
+            margin: 0
+          }}>
+            🚀 PulseManager Dashboard
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              Willkommen, {userEmail}
+            </span>
+            <button
+              onClick={handleLogout}
+              style={{
+                backgroundColor: '#ef4444',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
+        {/* Dashboard Content */}
+        <div style={{ padding: '2rem' }}>
+          {/* Welcome Card */}
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '0.5rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            marginBottom: '2rem'
+          }}>
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: 'bold',
+              color: '#1f2937',
+              marginBottom: '0.5rem'
+            }}>
+              🎉 Willkommen im PulseManager!
+            </h2>
+            <p style={{ color: '#6b7280', margin: 0 }}>
+              Sie sind erfolgreich angemeldet und bereit loszulegen!
+            </p>
+          </div>
+
+          {/* Feature Cards Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '1.5rem'
+          }}>
+            {/* Wallet Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>💰</span>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
+                  Wallet Overview
+                </h3>
+              </div>
+              <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                Verwalten Sie Ihre Kryptowährungen und verfolgen Sie Ihr Portfolio.
+              </p>
+              <button style={{
+                backgroundColor: '#9333ea',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                width: '100%'
+              }}>
+                Wallet öffnen
+              </button>
+            </div>
+
+            {/* ROI Tracker Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>📈</span>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
+                  ROI Tracker
+                </h3>
+              </div>
+              <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                Verfolgen Sie Ihre Investitionen und analysieren Sie Ihre Rendite.
+              </p>
+              <button style={{
+                backgroundColor: '#10b981',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                width: '100%'
+              }}>
+                ROI anzeigen
+              </button>
+            </div>
+
+            {/* Academy Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>🎓</span>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
+                  Learning Academy
+                </h3>
+              </div>
+              <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                Lernen Sie mehr über Kryptowährungen und Trading-Strategien.
+              </p>
+              <button style={{
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                width: '100%'
+              }}>
+                Kurse starten
+              </button>
+            </div>
+
+            {/* Tax Report Card */}
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '2rem', marginRight: '0.75rem' }}>📊</span>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#1f2937', margin: 0 }}>
+                  Tax Reports
+                </h3>
+              </div>
+              <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                Generieren Sie Steuerberichte für Ihre Krypto-Transaktionen.
+              </p>
+              <button style={{
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                width: '100%'
+              }}>
+                Report erstellen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // LOGIN/REGISTER ANSICHT
   return (
     <div style={{
       minHeight: '100vh',
