@@ -801,7 +801,7 @@ function MainApp() {
     );
   }
 
-  // WALLET VIEW - PULSECHAIN FOKUS
+  // WALLET VIEW - PULSECHAIN FOKUS (Dashboard Button vorhanden!)
   if (isLoggedIn && currentView === 'wallet') {
     return (
       <div style={{
