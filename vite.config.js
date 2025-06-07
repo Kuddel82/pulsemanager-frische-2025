@@ -184,6 +184,15 @@ logger.error = (msg, options) => {
 export default defineConfig({
 	customLogger: logger,
 	plugins: [react(), addTransformIndexHtml],
+	build: {
+		sourcemap: true, // 🔍 ENABLE SOURCE MAPS for better error diagnosis
+		minify: false,   // 🔍 DISABLE MINIFICATION to see actual function names
+		rollupOptions: {
+			output: {
+				manualChunks: undefined // 🔍 PREVENT CHUNKING for easier debugging
+			}
+		}
+	},
 	server: {
 		cors: true,
 		headers: {
