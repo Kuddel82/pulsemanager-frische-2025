@@ -5,11 +5,11 @@ import { logger } from '@/lib/logger';
 import { useAppContext } from '@/contexts/AppContext';
 
 const ProtectedRoute = ({ children, requirePremium = false }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const { t, subscriptionStatus } = useAppContext();
   const location = useLocation();
 
-  logger.debug(`[ProtectedRoute] Path: ${location.pathname}, AuthLoading: ${authLoading}, User: ${user ? user.id : 'null'}, RequirePremium: ${requirePremium}`);
+  logger.debug(`[ProtectedRoute] Path: ${location.pathname}, AuthLoading: ${authLoading}, User: ${user ? user.id : 'null'}, IsAuthenticated: ${isAuthenticated}, RequirePremium: ${requirePremium}`);
 
   if (authLoading) {
     logger.info(`[ProtectedRoute] Auth is loading for path: ${location.pathname}. Displaying loading indicator.`);
@@ -27,8 +27,9 @@ const ProtectedRoute = ({ children, requirePremium = false }) => {
     );
   }
 
-  if (!user) {
-    logger.warn(`[ProtectedRoute] No user found for path: ${location.pathname}. Redirecting to /auth.`);
+  // STRICT: Check both user AND isAuthenticated flag
+  if (!user || !isAuthenticated) {
+    logger.warn(`[ProtectedRoute] User not authenticated for path: ${location.pathname}. User: ${!!user}, IsAuthenticated: ${isAuthenticated}. Redirecting to /auth/login.`);
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 

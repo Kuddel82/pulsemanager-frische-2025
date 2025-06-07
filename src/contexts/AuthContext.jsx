@@ -15,41 +15,49 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    const getSession = async () => {
+    // SIMPLIFIED: Only check if there's an existing valid session on startup
+    const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        setUser(session?.user ?? null);
+        
+        if (error) {
+          logger.error('Session error:', error);
+          setUser(null);
+          setIsAuthenticated(false);
+        } else if (session?.user && session.access_token) {
+          // Only restore session if it has a valid access token
+          logger.info('Valid session found, restoring user');
+          setUser(session.user);
+          setIsAuthenticated(true);
+        } else {
+          logger.info('No valid session found');
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       } catch (error) {
-        logger.error('Error getting session:', error);
+        logger.error('Auth initialization error:', error);
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
     };
 
-    getSession();
+    initializeAuth();
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
+    // STRICT: Only listen for explicit sign out events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      logger.debug('Auth state change:', event, session?.user?.id);
+      logger.debug('Auth event:', event);
       
-      // ✅ Only set user on successful sign in or valid session
-      if (event === 'SIGNED_IN' && session?.user) {
-        logger.info('User successfully signed in via auth state change');
-        setUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        logger.info('User signed out via auth state change');
+      if (event === 'SIGNED_OUT') {
+        logger.info('User signed out');
         setUser(null);
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        logger.info('Token refreshed, maintaining user session');
-        setUser(session.user);
-      } else {
-        // For any other events or invalid sessions, clear user
-        setUser(null);
+        setIsAuthenticated(false);
       }
+      // DO NOT automatically set user on other events
       
       setLoading(false);
     });
@@ -62,8 +70,11 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    isAuthenticated,
     signIn: async (email, password) => {
       try {
+        logger.info('Attempting sign in for:', email);
+        
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password
@@ -71,18 +82,31 @@ export const AuthProvider = ({ children }) => {
         
         if (error) {
           logger.error('Sign in error:', error);
+          // CRITICAL: Ensure no user is set on error
+          setUser(null);
+          setIsAuthenticated(false);
           throw error;
         }
         
-        // ✅ Ensure we have a valid user before returning success
-        if (!data.user) {
-          throw new Error('Anmeldung fehlgeschlagen - Kein Benutzer erhalten');
+        // ✅ STRICT validation before setting user
+        if (!data.user || !data.session || !data.session.access_token) {
+          logger.error('Invalid sign in response - missing user or session');
+          setUser(null);
+          setIsAuthenticated(false);
+          throw new Error('Anmeldung fehlgeschlagen - Ungültige Antwort vom Server');
         }
         
-        logger.info('User signed in successfully:', data.user.id);
+        // ✅ ONLY set user if everything is valid
+        logger.info('Sign in successful, setting user:', data.user.id);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        
         return data;
       } catch (error) {
         logger.error('SignIn failed:', error);
+        // CRITICAL: Always clear user state on any error
+        setUser(null);
+        setIsAuthenticated(false);
         throw error;
       }
     },
@@ -98,8 +122,21 @@ export const AuthProvider = ({ children }) => {
       return data;
     },
     signOut: async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        
+        // Immediately clear user state
+        setUser(null);
+        setIsAuthenticated(false);
+        logger.info('User signed out successfully');
+      } catch (error) {
+        logger.error('Sign out error:', error);
+        // Even on error, clear the user state locally
+        setUser(null);
+        setIsAuthenticated(false);
+        throw error;
+      }
     },
     resetPassword: async (email) => {
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
