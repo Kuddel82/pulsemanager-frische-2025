@@ -1,8 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Footer from '@/components/layout/Footer';
-import { AppProvider, useAppContext } from '@/contexts/AppContext';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { cn } from '@/lib/utils';
 import FeedbackModal from '@/components/FeedbackModal';
 import { logger } from '@/lib/logger';
@@ -28,13 +27,7 @@ const MinimalLayout = () => {
     );
   };
 
-  return (
-    <AuthProvider>
-      <AppProvider>
-        <LayoutContent />
-      </AppProvider>
-    </AuthProvider>
-  );
+  return <LayoutContent />;
 };
 
 const Suspense = ({ fallback, children }) => {
