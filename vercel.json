@@ -9,14 +9,14 @@
     { "source": "/(.*)", "destination": "/" }
   ],
   "env": {
-    "BUILD_ID": "runtime-errors-fixed-2025-01-14",
+    "BUILD_ID": "FORCE_CORRECT_VERSION_2025-01-14-13-45",
     "VITE_SUPABASE_URL": "https://haixlpufbsboumlzlqcf.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaXhscHVmYnNib3VtbHpscWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NjU2MjQsImV4cCI6MjA2NDQ0MTYyNH0.iY-MiQCWyCnnOh40GokRSQIK4HM_cd0kG6-02-ijZVE"
   },
   "build": {
     "env": {
       "NODE_ENV": "production",
-      "FORCE_REBUILD": "true",
+      "FORCE_REBUILD": "CORRECT_VERSION_2025-01-14",
       "VITE_SUPABASE_URL": "https://haixlpufbsboumlzlqcf.supabase.co",
       "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaXhscHVmYnNib3VtbHpscWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NjU2MjQsImV4cCI6MjA2NDQ0MTYyNH0.iY-MiQCWyCnnOh40GokRSQIK4HM_cd0kG6-02-ijZVE"
     }
