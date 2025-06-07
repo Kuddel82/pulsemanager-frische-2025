@@ -12,7 +12,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requirePremium = false,
 }) => {
-  const { user, isPremium, isTrialActive, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -28,8 +28,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requirePremium && !(isPremium() || isTrialActive())) {
-    toast.error('Premium oder aktiver Testzeitraum erforderlich');
+  if (requirePremium) {
+    toast.error('Premium erforderlich');
     return <Navigate to="/abo" replace />;
   }
 
