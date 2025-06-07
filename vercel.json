@@ -5,6 +5,9 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ],
   "env": {
     "BUILD_ID": "runtime-errors-fixed-2025-01-14"
   },
@@ -14,8 +17,6 @@
       "FORCE_REBUILD": "true"
     }
   },
-  "functions": {},
-  "routes": [],
   "headers": [
     {
       "source": "/(.*)",
