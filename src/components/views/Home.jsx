@@ -170,3 +170,4 @@ const XCircleIcon = (props) => (
 );
 
 export { Home };
+export default Home;

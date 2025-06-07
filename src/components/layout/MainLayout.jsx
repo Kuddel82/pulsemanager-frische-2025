@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import Footer from '@/components/layout/Footer';
-import { AppProvider } from '@/contexts/AppContext';
+import { AppProvider, useAppContext } from '@/contexts/AppContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import FeedbackModal from '@/components/FeedbackModal';

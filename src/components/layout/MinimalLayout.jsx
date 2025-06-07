@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Footer from '@/components/layout/Footer';
-import { AppProvider } from '@/contexts/AppContext';
+import { AppProvider, useAppContext } from '@/contexts/AppContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import FeedbackModal from '@/components/FeedbackModal';

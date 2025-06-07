@@ -1,55 +1,34 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { AppProvider } from '@/contexts/AppContext';
-import { TranslationProvider } from '@/contexts/TranslationContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { wagmiConfig } from '@/lib/walletConnect';
+import { Toaster } from '@/components/ui/toaster';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import AppRoutes from '@/routes/index';
 
-// Emergency Views - Only existing ones
-import DashboardView from '@/components/views/DashboardView';
-import WalletView from '@/components/views/WalletView';
-import PulseChainInfoView from '@/components/views/PulseChainInfoView';
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-// Emergency minimal layout
-function SimpleLayout({ children }) {
-  return (
-    <div className="min-h-screen bg-white">
-      <nav className="bg-blue-600 text-white p-4">
-        <h1 className="text-xl font-bold">PulseManager</h1>
-      </nav>
-      <main className="container mx-auto p-4">
-        {children}
-      </main>
-    </div>
-  );
-}
-
-// Emergency App Routes
-function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<SimpleLayout><DashboardView /></SimpleLayout>} />
-      <Route path="/dashboard" element={<SimpleLayout><DashboardView /></SimpleLayout>} />
-      <Route path="/wallet" element={<SimpleLayout><WalletView /></SimpleLayout>} />
-      <Route path="/pulsechain-info" element={<SimpleLayout><PulseChainInfoView /></SimpleLayout>} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
-  );
-}
-
-// Emergency Main App
 export default function MainApp() {
   return (
-    <ThemeProvider>
-      <TranslationProvider>
-        <AuthProvider>
-          <AppProvider>
-            <Router>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider config={wagmiConfig}>
+          <Router>
+            <div className="min-h-screen bg-background">
               <AppRoutes />
-            </Router>
-          </AppProvider>
-        </AuthProvider>
-      </TranslationProvider>
-    </ThemeProvider>
+              <Toaster />
+            </div>
+          </Router>
+        </WagmiProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 } 

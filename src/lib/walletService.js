@@ -161,3 +161,14 @@ export const walletService = {
     }
   }
 }; 
+
+// Separate export for ROI Tracker compatibility
+export const getAllPulsechainTokensFromBlockscout = async (walletAddress) => {
+  try {
+    // Reuse the existing function from walletService
+    return await walletService.getAllTokenBalances(walletAddress);
+  } catch (error) {
+    logger.error('Error in getAllPulsechainTokensFromBlockscout:', error);
+    return [];
+  }
+};

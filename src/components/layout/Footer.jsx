@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-export function Footer() {
+function Footer() {
   return (
     <footer className="border-t">
       <div className="container mx-auto px-4 py-8">
@@ -63,3 +63,5 @@ export function Footer() {
     </footer>
   );
 }
+
+export default Footer;
