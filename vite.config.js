@@ -185,11 +185,15 @@ export default defineConfig({
 	customLogger: logger,
 	plugins: [react(), addTransformIndexHtml],
 	build: {
-		sourcemap: true, // 🔍 ENABLE SOURCE MAPS for better error diagnosis
-		minify: false,   // 🔍 DISABLE MINIFICATION to see actual function names
+		sourcemap: false, // ✅ PRODUCTION: Source maps disabled for performance
+		minify: true,     // ✅ PRODUCTION: Minification enabled for smaller bundle
 		rollupOptions: {
 			output: {
-				manualChunks: undefined // 🔍 PREVENT CHUNKING for easier debugging
+				manualChunks: {
+					vendor: ['react', 'react-dom'],
+					router: ['react-router-dom'],
+					ui: ['@radix-ui/react-toast', '@radix-ui/react-dialog']
+				}
 			}
 		}
 	},
