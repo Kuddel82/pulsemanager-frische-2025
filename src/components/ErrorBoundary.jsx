@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 
 class ErrorBoundary extends React.Component {
@@ -60,12 +59,12 @@ class ErrorBoundary extends React.Component {
               </details>
             )}
 
-            <Button 
+            <button 
               onClick={() => window.location.reload()}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200"
             >
               {this.props.t?.errorBoundaryRefresh || "Refresh Page"}
-            </Button>
+            </button>
           </div>
         </div>
       );

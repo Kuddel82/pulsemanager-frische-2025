@@ -33,8 +33,24 @@ export const AuthProvider = ({ children }) => {
     getSession();
 
     // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      logger.debug('Auth state change:', event, session?.user?.id);
+      
+      // ✅ Only set user on successful sign in or valid session
+      if (event === 'SIGNED_IN' && session?.user) {
+        logger.info('User successfully signed in via auth state change');
+        setUser(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        logger.info('User signed out via auth state change');
+        setUser(null);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        logger.info('Token refreshed, maintaining user session');
+        setUser(session.user);
+      } else {
+        // For any other events or invalid sessions, clear user
+        setUser(null);
+      }
+      
       setLoading(false);
     });
 
