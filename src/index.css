@@ -1,52 +1,23 @@
+@import url('./styles/pulsechain-design.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 262.1 83.3% 57.8%; /* Vibrant Purple */
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 302.1 83.3% 57.8%; /* Vibrant Pink/Magenta */
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 262.1 83.3% 57.8%; /* Matching Primary */
-
-    --radius: 0.75rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
+    /* 🔥 PulseChain Brand Integration */
+    --background: 222.2 84% 4.9%; /* Dark by default */
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 217.2 32.6% 17.5%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 217.2 32.6% 17.5%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 262.1 83.3% 57.8%; /* Consistent Purple */
-    --primary-foreground: 210 40% 98%;
+    /* 🎯 PulseChain Green as Primary */
+    --primary: 122 100% 53%; /* #00ff55 */
+    --primary-foreground: 0 0% 0%; /* Black text on green */
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -54,15 +25,41 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 302.1 83.3% 57.8%; /* Consistent Pink/Magenta */
+    /* 🌸 PulseChain Pink as Accent */
+    --accent: 320 100% 50%; /* #ff0099 */
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 262.1 83.3% 57.8%; /* Matching Primary */
+    --ring: 122 100% 53%; /* PulseChain Green */
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Already dark by default - PulseChain style */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 217.2 32.6% 17.5%;
+    --card-foreground: 210 40% 98%;
+    --popover: 217.2 32.6% 17.5%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 122 100% 53%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 320 100% 50%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 122 100% 53%;
   }
 }
 
@@ -76,12 +73,33 @@
   }
 }
 
-/* Custom gradient text */
+/* 🔥 PulseChain Gradient Text */
 .gradient-text {
-  @apply bg-gradient-to-r from-primary via-accent to-purple-600 bg-clip-text text-transparent;
+  background: linear-gradient(135deg, #00ff55 0%, #0099ff 50%, #ff0099 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* Glassmorphism Card example */
+/* 🌟 PulseChain Card Styles */
 .glass-card {
-  @apply bg-white/30 dark:bg-slate-800/30 backdrop-blur-lg border border-white/20 dark:border-slate-700/20 rounded-xl shadow-lg;
+  @apply bg-white/5 dark:bg-white/5 backdrop-blur-lg border border-white/10 dark:border-white/10 rounded-xl shadow-lg;
+}
+
+/* 🚀 Community Utility Classes */
+.pulse-bg {
+  background: var(--bg-primary);
+}
+
+.pulse-card-bg {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.pulse-text {
+  color: var(--text-primary);
+}
+
+.pulse-text-secondary {
+  color: var(--text-secondary);
 }

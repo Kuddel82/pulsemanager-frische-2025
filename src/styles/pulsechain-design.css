@@ -1,0 +1,279 @@
+/* 🔥 PulseChain Community Design System */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  /* 🎨 PulseChain Brand Colors (from PulseX.com/brand) */
+  --pulse-green-start: #0f5;
+  --pulse-green-end: #0f9;
+  --pulse-red-start: #f00;
+  --pulse-red-end: #f03;
+  
+  /* 🌈 PulseChain Gradients */
+  --pulse-gradient-green: linear-gradient(30deg, #0f5 0%, #0f9 100%);
+  --pulse-gradient-red: linear-gradient(-30deg, #f00 0%, #f03 100%);
+  --pulse-gradient-primary: linear-gradient(135deg, #0f5 0%, #0f9 50%, #f0f 100%);
+  
+  /* 🌙 Dark Theme (PulseChain Style) */
+  --bg-primary: #0a0b0f;
+  --bg-secondary: #12141a;
+  --bg-card: #1a1d26;
+  --bg-hover: #242830;
+  
+  /* 📝 Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #a0a8b8;
+  --text-muted: #6b7280;
+  
+  /* 🎯 Accent Colors */
+  --accent-green: #00ff55;
+  --accent-pink: #ff0099;
+  --accent-blue: #0099ff;
+  
+  /* 🔧 Utility */
+  --border-color: #2a2d37;
+  --shadow-color: rgba(0, 255, 85, 0.1);
+}
+
+/* 🎨 Global Styles */
+* {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+/* 🏷️ Typography */
+.pulse-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: var(--pulse-gradient-green);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+}
+
+.pulse-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.pulse-text-gradient {
+  background: var(--pulse-gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 🃏 Cards */
+.pulse-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.pulse-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-green);
+  box-shadow: 0 8px 32px var(--shadow-color);
+  transform: translateY(-2px);
+}
+
+.pulse-card-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.pulse-card-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--pulse-gradient-green);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: inherit;
+  z-index: -1;
+}
+
+.pulse-card-glow:hover::before {
+  opacity: 0.1;
+}
+
+/* 🔘 Buttons */
+.pulse-btn {
+  background: var(--pulse-gradient-green);
+  color: #000;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pulse-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 255, 85, 0.3);
+}
+
+.pulse-btn-outline {
+  background: transparent;
+  color: var(--accent-green);
+  border: 2px solid var(--accent-green);
+}
+
+.pulse-btn-outline:hover {
+  background: var(--accent-green);
+  color: #000;
+}
+
+.pulse-btn-danger {
+  background: var(--pulse-gradient-red);
+  color: #fff;
+}
+
+/* 📊 Stats/Metrics */
+.pulse-stat {
+  text-align: center;
+  padding: 1rem;
+}
+
+.pulse-stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  background: var(--pulse-gradient-green);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pulse-stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+/* 🔗 Navigation */
+.pulse-nav {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  backdrop-filter: blur(20px);
+}
+
+.pulse-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 8px;
+  margin: 0.25rem;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.pulse-nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--accent-green);
+}
+
+.pulse-nav-item.active {
+  background: rgba(0, 255, 85, 0.1);
+  color: var(--accent-green);
+  border-left: 3px solid var(--accent-green);
+}
+
+/* 💫 Animations */
+@keyframes pulseGlow {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(0, 255, 85, 0.3);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(0, 255, 85, 0.6);
+  }
+}
+
+.pulse-glow-animation {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* 🎯 Community Badge */
+.pulse-community-badge {
+  background: var(--pulse-gradient-primary);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 📱 Responsive */
+@media (max-width: 768px) {
+  .pulse-title {
+    font-size: 2rem;
+  }
+  
+  .pulse-card {
+    padding: 1rem;
+  }
+  
+  .pulse-nav-item {
+    padding: 0.75rem 1rem;
+  }
+}
+
+/* 🌟 Special Effects */
+.pulse-border-gradient {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: 16px;
+}
+
+.pulse-border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  background: var(--pulse-gradient-green);
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: subtract;
+}
+
+/* 🎪 Loading States */
+.pulse-loading {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+} 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import {
   Settings
 } from 'lucide-react';
 
-const MainLayout = () => {
+const PulseLayout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -38,7 +38,7 @@ const MainLayout = () => {
       id: 'roi',
       label: 'ROI Tracker',
       icon: TrendingUp,
-      path: '/roi-tracker',
+      path: '/pulsechain-roi',
       description: 'Track Performance'
     },
     {
@@ -189,38 +189,11 @@ const MainLayout = () => {
       {/* 📱 Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="p-8">
-          <Suspense fallback={<FullPageLoader />}>
-            <Outlet />
-          </Suspense>
+          {children}
         </div>
       </main>
     </div>
   );
 };
 
-const Suspense = ({ fallback, children }) => {
-  const [isClient, setIsClient] = React.useState(false);
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
-  return isClient ? <React.Suspense fallback={fallback}>{children}</React.Suspense> : fallback;
-}
-
-const FullPageLoader = () => {
-  const { t } = useAppContext();
-  const safeT = (key, fallback) => (typeof t === 'function' ? t(key) || fallback : fallback);
-  
-  return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <svg className="animate-spin h-12 w-12 text-primary mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="text-lg font-semibold text-primary">{safeT('common.loading', 'Loading...')}</p>
-      </div>
-    </div>
-  );
-};
-
-export default MainLayout;
+export default PulseLayout; 
