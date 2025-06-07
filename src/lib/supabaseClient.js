@@ -86,19 +86,19 @@ const createMockSupabaseClient = () => {
 
 export const initializeSupabase = () => {
   try {
-    // 🔧 DEVELOPMENT: Fallback zu Demo-Werten wenn .env fehlt
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://demo-project.supabase.co';
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'demo-anon-key';
+    // 🔥 PRODUCTION FIX: Real Supabase credentials from environment
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('demo')) {
-      logger.warn('🚧 DEVELOPMENT MODE: Using demo Supabase config. Create .env file for production!');
-    }
+    logger.info('🔍 Environment check:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseAnonKey,
+      url: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'MISSING'
+    });
 
-    // 🚧 DEVELOPMENT: Mock für Demo-Modus
-    if (supabaseUrl.includes('demo')) {
-      logger.info('🔧 Using MOCK Supabase client for development');
-      supabaseInstance = createMockSupabaseClient();
-    } else {
+    // 🚨 CRITICAL FIX: Use real Supabase if credentials exist
+    if (supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('https://') && !supabaseUrl.includes('demo')) {
+      logger.info('✅ Using REAL Supabase client with production credentials');
       supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
         auth: {
           autoRefreshToken: true,
@@ -106,6 +106,11 @@ export const initializeSupabase = () => {
           detectSessionInUrl: true,
         },
       });
+    } else {
+      // 🚧 FALLBACK: Mock client only if no real credentials
+      logger.warn('🚧 FALLBACK: Using MOCK Supabase client (no valid production credentials found)');
+      logger.warn('URL:', supabaseUrl, 'KEY present:', !!supabaseAnonKey);
+      supabaseInstance = createMockSupabaseClient();
     }
 
     logger.info('Supabase client initialized successfully');

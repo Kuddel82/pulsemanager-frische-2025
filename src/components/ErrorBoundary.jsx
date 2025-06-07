@@ -16,6 +16,21 @@ class ErrorBoundary extends React.Component {
     this.setState({ errorInfo });
     console.error("ErrorBoundary caught an error:", error, errorInfo);
     
+    // ENHANCED ERROR LOGGING FOR RUNTIME DEBUGGING
+    console.error("🚨 RUNTIME ERROR DETAILS:", {
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    });
+    
+    // Try to identify the failing component
+    if (errorInfo.componentStack) {
+      const failingComponent = errorInfo.componentStack.split('\n')[1];
+      console.error("🎯 FAILING COMPONENT:", failingComponent);
+    }
   }
 
   render() {
