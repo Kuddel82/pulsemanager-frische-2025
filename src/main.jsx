@@ -22,11 +22,12 @@ const Root = () => {
   }, []);
 
   return (
-    <React.StrictMode>
+    // 🚨 STRICT MODE DISABLED: Causing runtime errors with empty messages in production
+    // <React.StrictMode>
       <ErrorBoundary t={(key) => key}> {/* Basic t for ErrorBoundary if context not available */}
         <MainApp />
       </ErrorBoundary>
-    </React.StrictMode>
+    // </React.StrictMode>
   );
 };
 
