@@ -74,16 +74,16 @@ const AppRoutes = () => {
         }
       >
         <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<Home />} /> {/* Dashboard can point to Home or a specific DashboardView */}
-        <Route path="/wallet" element={<ProtectedRoute requirePremium={true}><WalletView /></ProtectedRoute>} />
-        <Route path="/roi-tracker" element={<ProtectedRoute requirePremium={true}><ROITrackerView /></ProtectedRoute>} />
-        <Route path="/tax-report" element={<ProtectedRoute requirePremium={true}><TaxReportView /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<Home />} />
+        <Route path="/wallet" element={<WalletView />} />
+        <Route path="/roi-tracker" element={<ROITrackerView />} />
+        <Route path="/tax-report" element={<TaxReportView />} />
         <Route path="/pulsechain-info" element={<PulseChainInfoView />} />
         <Route path="/bridge" element={<BridgeView />} />
         <Route path="/swap" element={<SwapView />} />
         <Route path="/market" element={<MarketView />} />
-        <Route path="/nft-portfolio" element={<ProtectedRoute requirePremium={true}><NftPortfolioView /></ProtectedRoute>} />
-        <Route path="/yield-optimizer" element={<ProtectedRoute requirePremium={true}><YieldOptimizerView /></ProtectedRoute>} />
+        <Route path="/nft-portfolio" element={<NftPortfolioView />} />
+        <Route path="/yield-optimizer" element={<YieldOptimizerView />} />
         <Route path="/settings" element={<SettingsView />} />
         <Route path="/academy" element={<AcademyView />} />
         <Route path="/subscription" element={<SubscriptionModal isOpen={true} onClose={() => window.history.back()} />} /> 
