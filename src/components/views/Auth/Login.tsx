@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
@@ -16,6 +15,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [errorMessage, setErrorMessage] = useState('');
 
   // 📝 Handle Form Input Changes
   const handleChange = (e) => {
@@ -31,6 +31,8 @@ const Login = () => {
         [name]: ''
       }));
     }
+    // Clear error message
+    setErrorMessage('');
   };
 
   // ✅ Validate Form
@@ -60,13 +62,15 @@ const Login = () => {
     if (!validateForm()) return;
     
     setIsLoading(true);
+    setErrorMessage('');
+    
     try {
       await signIn(formData.email, formData.password);
-      toast.success('🎉 Erfolgreich eingeloggt!');
+      // Success - AuthContext will handle navigation
       navigate('/');
     } catch (error) {
       console.error('Login error:', error);
-      toast.error(error.message || 'Login fehlgeschlagen');
+      setErrorMessage(error.message || 'Login fehlgeschlagen');
     } finally {
       setIsLoading(false);
     }
@@ -95,6 +99,13 @@ const Login = () => {
             <LogIn className="h-6 w-6 text-green-400" />
             <h2 className="text-xl font-bold pulse-text">Anmelden</h2>
           </div>
+
+          {/* ❌ Error Message */}
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-400/10 border border-red-400/20 rounded-lg">
+              <p className="text-red-400 text-sm">{errorMessage}</p>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-6">
             {/* 📧 Email Field */}

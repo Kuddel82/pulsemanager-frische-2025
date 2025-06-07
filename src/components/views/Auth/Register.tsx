@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
 import { UserPlus, Mail, Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 
 const Register = () => {
@@ -18,6 +17,8 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // 📝 Handle Form Input Changes
   const handleChange = (e) => {
@@ -33,6 +34,9 @@ const Register = () => {
         [name]: ''
       }));
     }
+    // Clear messages
+    setErrorMessage('');
+    setSuccessMessage('');
   };
 
   // 🔒 Password Requirements
@@ -87,13 +91,15 @@ const Register = () => {
     if (!validateForm()) return;
     
     setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    
     try {
       await signUp(formData.email, formData.password);
-      toast.success('🎉 Registrierung erfolgreich! Bitte bestätige deine Email.');
-      // Don't navigate immediately - user needs to confirm email first
+      setSuccessMessage('🎉 Registrierung erfolgreich! Bitte bestätige deine Email.');
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error.message || 'Registrierung fehlgeschlagen');
+      setErrorMessage(error.message || 'Registrierung fehlgeschlagen');
     } finally {
       setIsLoading(false);
     }
@@ -122,6 +128,20 @@ const Register = () => {
             <UserPlus className="h-6 w-6 text-green-400" />
             <h2 className="text-xl font-bold pulse-text">Registrieren</h2>
           </div>
+
+          {/* ✅ Success Message */}
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-400/10 border border-green-400/20 rounded-lg">
+              <p className="text-green-400 text-sm">{successMessage}</p>
+            </div>
+          )}
+
+          {/* ❌ Error Message */}
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-400/10 border border-red-400/20 rounded-lg">
+              <p className="text-red-400 text-sm">{errorMessage}</p>
+            </div>
+          )}
 
           <form onSubmit={handleRegister} className="space-y-6">
             {/* 📧 Email Field */}

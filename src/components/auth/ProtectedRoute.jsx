@@ -1,14 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
 import { logger } from '@/lib/logger';
 import { useAppContext } from '@/contexts/AppContext';
 
 const ProtectedRoute = ({ children, requirePremium = false }) => {
   const { user, loading: authLoading } = useAuth();
   const { t, subscriptionStatus } = useAppContext();
-  const { toast } = useToast();
   const location = useLocation();
 
   logger.debug(`[ProtectedRoute] Path: ${location.pathname}, AuthLoading: ${authLoading}, User: ${user ? user.id : 'null'}, RequirePremium: ${requirePremium}`);
@@ -16,29 +14,26 @@ const ProtectedRoute = ({ children, requirePremium = false }) => {
   if (authLoading) {
     logger.info(`[ProtectedRoute] Auth is loading for path: ${location.pathname}. Displaying loading indicator.`);
     return (
-      <div className="flex justify-center items-center h-screen bg-background">
-        <p className="text-xl text-primary">{typeof t === 'function' ? t('loadingApp') : "Laden..."}</p>
+      <div className="flex justify-center items-center h-screen pulse-bg">
+        <div className="text-center">
+          <div className="h-16 w-16 pulse-border-gradient flex items-center justify-center mx-auto mb-4">
+            <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center">
+              <span className="text-2xl font-bold text-black">PM</span>
+            </div>
+          </div>
+          <p className="text-xl pulse-text-gradient">{typeof t === 'function' ? t('loadingApp') : "PulseManager lädt..."}</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     logger.warn(`[ProtectedRoute] No user found for path: ${location.pathname}. Redirecting to /auth.`);
-    toast({
-      title: typeof t === 'function' ? t('auth.loginRequiredTitle') : "Anmeldung erforderlich",
-      description: typeof t === 'function' ? t('auth.loginRequiredDescription') : "Bitte melden Sie sich an, um fortzufahren.",
-      variant: "destructive",
-    });
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   if (requirePremium && subscriptionStatus !== 'active') {
     logger.warn(`[ProtectedRoute] Premium required for path: ${location.pathname}, but user subscription is ${subscriptionStatus}. Redirecting to /dashboard.`);
-    toast({
-      title: typeof t === 'function' ? t('subscription.premiumRequiredTitle') : "Premium-Funktion",
-      description: typeof t === 'function' ? t('subscription.premiumRequiredDescription') : "Diese Funktion ist nur für Premium-Benutzer verfügbar.",
-      variant: "destructive",
-    });
     return <Navigate to="/dashboard" replace />; 
   }
 
