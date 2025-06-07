@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { Wallet } from 'lucide-react';
+import { TrendingUp, Activity, Users, ExternalLink } from 'lucide-react';
 import { logger } from '@/lib/logger';
 
 const Home = () => {
@@ -42,10 +42,6 @@ const Home = () => {
     );
   }
 
-  const premiumUntilDate = user?.premium_until 
-    ? new Date(user.premium_until).toLocaleDateString(language, { year: 'numeric', month: 'long', day: 'numeric' })
-    : safeT('home.premiumNotActive', 'Not active');
-
   return (
     <div className="min-h-screen pulse-text">
       {/* 🎯 PulseChain Welcome Header */}
@@ -73,74 +69,101 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 🚀 Quick Actions - Clean & Minimal */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <button
-          onClick={() => navigate('/wallet')}
-          className="pulse-card pulse-card-glow p-6 text-center group cursor-pointer"
-        >
-          <Wallet className="h-8 w-8 text-green-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
-          <h3 className="font-semibold pulse-text mb-1">Wallet</h3>
-          <p className="text-xs pulse-text-secondary">Connect & Monitor</p>
-        </button>
-
-        <button
-          onClick={() => navigate('/roi-tracker')}
-          className="pulse-card pulse-card-glow p-6 text-center group cursor-pointer"
-        >
-          <svg className="h-8 w-8 text-blue-400 mx-auto mb-3 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-          <h3 className="font-semibold pulse-text mb-1">ROI Tracker</h3>
-          <p className="text-xs pulse-text-secondary">Track Performance</p>
-        </button>
-
-        <button
-          onClick={() => navigate('/tax-report')}
-          className="pulse-card pulse-card-glow p-6 text-center group cursor-pointer"
-        >
-          <svg className="h-8 w-8 text-purple-400 mx-auto mb-3 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="font-semibold pulse-text mb-1">Tax Report</h3>
-          <p className="text-xs pulse-text-secondary">Export Reports</p>
-        </button>
-
-        <button
-          onClick={() => navigate('/settings')}
-          className="pulse-card pulse-card-glow p-6 text-center group cursor-pointer"
-        >
-          <svg className="h-8 w-8 text-gray-400 mx-auto mb-3 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <h3 className="font-semibold pulse-text mb-1">Settings</h3>
-          <p className="text-xs pulse-text-secondary">Preferences</p>
-        </button>
-      </div>
-
-      {/* 📊 Simple Stats */}
-      <div className="mt-12 pulse-card p-6">
-        <h2 className="pulse-text-gradient text-xl font-bold mb-4">PulseChain Community Dashboard</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">$0.00</div>
-            <div className="text-sm pulse-text-secondary">Portfolio Value</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-400">0</div>
-            <div className="text-sm pulse-text-secondary">Connected Wallets</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-400">0</div>
-            <div className="text-sm pulse-text-secondary">Tax Entries</div>
-          </div>
+      {/* 📊 Portfolio Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="pulse-card p-6 text-center">
+          <div className="text-3xl font-bold text-green-400 mb-2">$0.00</div>
+          <div className="text-sm pulse-text-secondary mb-1">Portfolio Value</div>
+          <div className="text-xs text-green-400">+0.00% (24h)</div>
+        </div>
+        <div className="pulse-card p-6 text-center">
+          <div className="text-3xl font-bold text-blue-400 mb-2">0</div>
+          <div className="text-sm pulse-text-secondary mb-1">Connected Wallets</div>
+          <div className="text-xs pulse-text-secondary">Ready to connect</div>
+        </div>
+        <div className="pulse-card p-6 text-center">
+          <div className="text-3xl font-bold text-purple-400 mb-2">0</div>
+          <div className="text-sm pulse-text-secondary mb-1">Tax Entries</div>
+          <div className="text-xs pulse-text-secondary">Export ready</div>
         </div>
       </div>
 
+      {/* 📈 Recent Activity */}
+      <div className="pulse-card p-6 mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <Activity className="h-6 w-6 text-green-400" />
+          <h2 className="text-xl font-bold pulse-text">Recent Activity</h2>
+        </div>
+        <div className="text-center py-8">
+          <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="pulse-text-secondary">No recent activity</p>
+          <p className="text-sm pulse-text-secondary mt-2">Connect your wallet to start tracking</p>
+        </div>
+      </div>
+
+      {/* 🌐 PulseChain Community */}
+      <div className="pulse-card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Users className="h-6 w-6 text-green-400" />
+          <h2 className="text-xl font-bold pulse-text">PulseChain Community</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <a 
+            href="https://pulsechain.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+          >
+            <div>
+              <div className="font-medium pulse-text group-hover:text-green-400">🔗 PulseChain.com</div>
+              <div className="text-sm pulse-text-secondary">Official PulseChain website</div>
+            </div>
+            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+          </a>
+          
+          <a 
+            href="https://scan.pulsechain.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+          >
+            <div>
+              <div className="font-medium pulse-text group-hover:text-green-400">🔍 PulseScan</div>
+              <div className="text-sm pulse-text-secondary">Blockchain explorer</div>
+            </div>
+            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+          </a>
+          
+          <a 
+            href="https://app.pulsex.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+          >
+            <div>
+              <div className="font-medium pulse-text group-hover:text-green-400">💱 PulseX DEX</div>
+              <div className="text-sm pulse-text-secondary">Decentralized exchange</div>
+            </div>
+            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+          </a>
+          
+          <a 
+            href="https://www.pulsewatch.app" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+          >
+            <div>
+              <div className="font-medium pulse-text group-hover:text-green-400">📊 PulseWatch</div>
+              <div className="text-sm pulse-text-secondary">Portfolio tracker</div>
+            </div>
+            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+          </a>
+        </div>
+      </div>
     </div>
   );
-  };
+};
   
-  export { Home };
+export { Home };
 export default Home;
