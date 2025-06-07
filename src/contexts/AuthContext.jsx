@@ -47,12 +47,28 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     signIn: async (email, password) => {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (error) {
+          logger.error('Sign in error:', error);
+          throw error;
+        }
+        
+        // ✅ Ensure we have a valid user before returning success
+        if (!data.user) {
+          throw new Error('Anmeldung fehlgeschlagen - Kein Benutzer erhalten');
+        }
+        
+        logger.info('User signed in successfully:', data.user.id);
+        return data;
+      } catch (error) {
+        logger.error('SignIn failed:', error);
+        throw error;
+      }
     },
     signUp: async (email, password) => {
       const { data, error } = await supabase.auth.signUp({

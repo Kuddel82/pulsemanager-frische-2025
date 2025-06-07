@@ -19,6 +19,7 @@ import ROITrackerView from '@/components/views/ROITrackerView';
 import TaxReportView from '@/components/views/TaxReportView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
+import NotFound from '@/components/NotFound';
 
 // Legal pages
 import DisclaimerView from '@/components/views/DisclaimerView';
@@ -100,7 +101,7 @@ const AppRoutes = () => {
       </Route>
       
       {/* Fallback for any other path */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };

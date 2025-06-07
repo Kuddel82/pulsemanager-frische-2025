@@ -64,12 +64,24 @@ const Login = () => {
     setErrorMessage('');
     
     try {
-      await signIn(formData.email, formData.password);
-      // Success - AuthContext will handle navigation
-      navigate('/');
+      const result = await signIn(formData.email, formData.password);
+      
+      // ✅ Only navigate on successful authentication
+      if (result && result.user) {
+        navigate('/');
+      } else {
+        throw new Error('Login fehlgeschlagen - Bitte überprüfe deine Anmeldedaten');
+      }
     } catch (error) {
       console.error('Login error:', error);
-      setErrorMessage(error.message || 'Login fehlgeschlagen');
+      // ❌ Enhanced error handling
+      const errorMsg = error.message || 'Hoppla, da ist etwas schief gelaufen. Bitte versuche es erneut.';
+      setErrorMessage(errorMsg);
+      
+      // Clear form on repeated errors to prevent user confusion
+      if (errorMsg.includes('Invalid login credentials')) {
+        setErrorMessage('Email oder Passwort ist falsch. Bitte überprüfe deine Angaben.');
+      }
     } finally {
       setIsLoading(false);
     }

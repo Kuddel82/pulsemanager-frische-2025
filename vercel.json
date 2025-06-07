@@ -9,19 +9,29 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
   ],
+  "routes": [
+    {
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "headers": { "cache-control": "public, max-age=31536000, immutable" }
+    },
+    {
+      "src": "/((?!api/.*).*)",
+      "dest": "/index.html"
+    }
+  ],
   "env": {
-    "BUILD_ID": "QUICK_ROUTING_FIX_2025-01-14-17-35",
+    "BUILD_ID": "LOGIN_404_FIX_2025-01-14-19-15",
     "VITE_SUPABASE_URL": "https://haixlpufbsboumlzlqcf.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaXhscHVmYnNib3VtbHpscWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NjU2MjQsImV4cCI6MjA2NDQ0MTYyNH0.iY-MiQCWyCnnOh40GokRSQIK4HM_cd0kG6-02-ijZVE"
   },
   "build": {
     "env": {
       "NODE_ENV": "production",
-      "FORCE_REBUILD": "QUICK_ROUTING_FIX_2025-01-14",
+      "FORCE_REBUILD": "LOGIN_404_FIX_2025-01-14-19-15",
       "VITE_SUPABASE_URL": "https://haixlpufbsboumlzlqcf.supabase.co",
       "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaXhscHVmYnNib3VtbHpscWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NjU2MjQsImV4cCI6MjA2NDQ0MTYyNH0.iY-MiQCWyCnnOh40GokRSQIK4HM_cd0kG6-02-ijZVE"
     }
