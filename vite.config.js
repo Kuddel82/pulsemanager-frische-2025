@@ -191,8 +191,8 @@ export default defineConfig({
 			output: {
 				manualChunks: {
 					vendor: ['react', 'react-dom'],
-					router: ['react-router-dom'],
-					ui: ['@radix-ui/react-toast', '@radix-ui/react-dialog']
+					router: ['react-router-dom']
+					// ✅ FIXED: Removed Radix-UI to prevent DOM portal conflicts
 				}
 			}
 		}
