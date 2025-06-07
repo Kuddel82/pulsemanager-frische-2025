@@ -1,103 +1,42 @@
-import { useState, useEffect } from "react"
+import { useState } from 'react';
 
-const TOAST_LIMIT = 1
-
-let count = 0
-function generateId() {
-  count = (count + 1) % Number.MAX_VALUE
-  return count.toString()
-}
-
-const toastStore = {
-  state: {
-    toasts: [],
-  },
-  listeners: [],
+// STUB: Simplified toast system to replace Radix-UI Toast for DOM stability
+export const useToast = () => {
+  console.log('🔧 Using STUB useToast - Radix-UI disabled for DOM stability');
   
-  getState: () => toastStore.state,
+  const [toasts, setToasts] = useState([]);
   
-  setState: (nextState) => {
-    if (typeof nextState === 'function') {
-      toastStore.state = nextState(toastStore.state)
-    } else {
-      toastStore.state = { ...toastStore.state, ...nextState }
-    }
+  const toast = (options) => {
+    const { title, description, variant = "default" } = options;
     
-    toastStore.listeners.forEach(listener => listener(toastStore.state))
-  },
-  
-  subscribe: (listener) => {
-    toastStore.listeners.push(listener)
-    return () => {
-      toastStore.listeners = toastStore.listeners.filter(l => l !== listener)
-    }
-  }
-}
-
-export const toast = ({ ...props }) => {
-  const id = generateId()
-
-  const update = (props) =>
-    toastStore.setState((state) => ({
-      ...state,
-      toasts: state.toasts.map((t) =>
-        t.id === id ? { ...t, ...props } : t
-      ),
-    }))
-
-  const dismiss = () => toastStore.setState((state) => ({
-    ...state,
-    toasts: state.toasts.filter((t) => t.id !== id),
-  }))
-
-  toastStore.setState((state) => ({
-    ...state,
-    toasts: [
-      { ...props, id, dismiss },
-      ...state.toasts,
-    ].slice(0, TOAST_LIMIT),
-  }))
-
-  return {
-    id,
-    dismiss,
-    update,
-  }
-}
-
-export function useToast() {
-  const [state, setState] = useState(toastStore.getState())
-  
-  useEffect(() => {
-    const unsubscribe = toastStore.subscribe((state) => {
-      setState(state)
-    })
+    // Log to console instead of DOM manipulation
+    const logPrefix = variant === "destructive" ? "❌" : "✅";
+    console.log(`${logPrefix} TOAST:`, title, description);
     
-    return unsubscribe
-  }, [])
+    // Simple state management without DOM portals
+    const newToast = {
+      id: Date.now(),
+      title,
+      description,
+      variant,
+      timestamp: new Date().toISOString()
+    };
+    
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== newToast.id));
+    }, 3000);
+    
+    return newToast;
+  };
   
-  useEffect(() => {
-    const timeouts = []
+  return { toast, toasts };
+};
 
-    state.toasts.forEach((toast) => {
-      if (toast.duration === Infinity) {
-        return
-      }
-
-      const timeout = setTimeout(() => {
-        toast.dismiss()
-      }, toast.duration || 5000)
-
-      timeouts.push(timeout)
-    })
-
-    return () => {
-      timeouts.forEach((timeout) => clearTimeout(timeout))
-    }
-  }, [state.toasts])
-
-  return {
-    toast,
-    toasts: state.toasts,
-  }
-}
+export const toast = (options) => {
+  console.log('🔧 Direct toast call - Logging instead of DOM manipulation');
+  const logPrefix = options.variant === "destructive" ? "❌" : "✅";
+  console.log(`${logPrefix} TOAST:`, options.title, options.description);
+};
