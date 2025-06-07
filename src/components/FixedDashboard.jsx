@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
 // ✅ RICHTIG: Funktionale Komponente mit korrekten Hooks
 const FixedDashboard = () => {
   // ✅ RICHTIG: useAuth Hook statt direkter useContext
-  const { user, loading: authLoading, isPremium } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t, subscriptionStatus, daysRemaining } = useAppContext();
   
   // ✅ RICHTIG: Separate loading states
@@ -126,12 +126,12 @@ const FixedDashboard = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Crown className={`h-6 w-6 ${isPremium() ? 'text-yellow-500' : 'text-gray-400'}`} />
+            <Crown className={`h-6 w-6 ${subscriptionStatus === 'active' ? 'text-yellow-500' : 'text-gray-400'}`} />
             Premium Status
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isPremium() ? (
+          {subscriptionStatus === 'active' ? (
             <div className="flex items-center gap-2 text-green-600">
               <Shield className="h-5 w-5" />
               <span>Premium Active ({daysRemaining} days remaining)</span>
@@ -188,7 +188,7 @@ const FixedDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Button 
           className="h-20 text-lg"
-          disabled={!isPremium()}
+          disabled={subscriptionStatus !== 'active'}
         >
           <Wallet className="h-6 w-6 mr-2" />
           Connect Wallet
@@ -196,7 +196,7 @@ const FixedDashboard = () => {
         <Button 
           variant="outline" 
           className="h-20 text-lg"
-          disabled={!isPremium()}
+          disabled={subscriptionStatus !== 'active'}
         >
           View Transactions
         </Button>
