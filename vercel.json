@@ -1,14 +1,30 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ],
-  "buildCommand": "rm -rf node_modules .vercel dist && npm install && npm run build",
+  "version": 2,
+  "framework": "vite",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "installCommand": "npm ci",
+  "devCommand": "npm run dev",
   "env": {
-    "VERCEL_FORCE_NO_BUILD_CACHE": "1",
-    "BUILD_TIMESTAMP": "2025-01-07-01-08",
-    "FORCE_REBUILD": "true"
+    "BUILD_ID": "runtime-errors-fixed-2025-01-14"
   },
-  "framework": null,
-  "installCommand": "npm install --force"
+  "build": {
+    "env": {
+      "NODE_ENV": "production",
+      "FORCE_REBUILD": "true"
+    }
+  },
+  "functions": {},
+  "routes": [],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ]
 }
