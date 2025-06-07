@@ -3,9 +3,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { APP_TRANSLATIONS, TRIAL_DURATION_DAYS } from '@/config/appConfig';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-// Build cache fix - ensure named import is recognized
 import { logger } from '@/lib/logger';
-import { retryOperation, retryStrategies } from '@/lib/retryService';
 
 const STRIPE_PUBLISHABLE_KEY = "pk_test_51RVSOiReZk1QDkJzpBL8DbDgdDNl7SAIWpc458u9AA4MI3chDaT6vLQbJsFOCl87Bd6C2lxxxCoWXLmC1BI50BUM00sOJUzDCI";
 const STRIPE_PRICE_ID = "price_1RVTzmDe4UZAo4ngzD0sb17m";
@@ -103,9 +101,9 @@ export const useStripeSubscription = (user, supabaseClient, isSupabaseClientRead
     };
 
     try {
-      return await retryOperation(operation, retryStrategies.database);
+      return await operation();
     } catch (e) {
-      logger.error("Exception in ensureUserProfileExists after retries:", e.originalError || e);
+      logger.error("Exception in ensureUserProfileExists:", e);
       currentToast({ title: currentT.profileErrorTitle || "Profile Error", description: currentT.profileErrorUnexpected || "An unexpected error occurred while managing your profile.", variant: "destructive" });
       return null;
     }
@@ -155,7 +153,7 @@ export const useStripeSubscription = (user, supabaseClient, isSupabaseClientRead
     };
 
     try {
-      profileDataToUse = await retryOperation(operation, retryStrategies.database);
+      profileDataToUse = await operation();
 
       if (profileDataToUse) {
         logger.info("checkSubscriptionStatus: Profile data found/created:", profileDataToUse);
@@ -181,8 +179,8 @@ export const useStripeSubscription = (user, supabaseClient, isSupabaseClientRead
         setStripeCustomerId(null);
       }
     } catch (error) {
-      logger.error("Error checking subscription status after retries:", error.originalError || error);
-      currentToast({ title: currentT.subscriptionErrorTitle || "Subscription Error", description: `${currentT.subscriptionErrorCheck || "Failed to check subscription status."} ${(error.originalError || error).message}`, variant: "destructive" });
+      logger.error("Error checking subscription status:", error);
+      currentToast({ title: currentT.subscriptionErrorTitle || "Subscription Error", description: `${currentT.subscriptionErrorCheck || "Failed to check subscription status."} ${error.message}`, variant: "destructive" });
       setSubscriptionStatus('error');
       setDaysRemaining(0);
     } finally {
@@ -240,9 +238,9 @@ export const useStripeSubscription = (user, supabaseClient, isSupabaseClientRead
             }
         };
         try {
-            await retryOperation(operation, retryStrategies.database);
+            await operation();
         } catch (updateError) {
-             currentToast({ title: currentT.profileErrorTitle || "Profile Update Error", description: `${currentT.profileErrorUpdate || "Failed to save subscription changes."} ${(updateError.originalError || updateError).message}`, variant: "destructive" });
+             currentToast({ title: currentT.profileErrorTitle || "Profile Update Error", description: `${currentT.profileErrorUpdate || "Failed to save subscription changes."} ${updateError.message}`, variant: "destructive" });
         }
     }
     // REMOVED: await checkSubscriptionStatus(); - this was causing circular dependency!
@@ -351,10 +349,10 @@ export const useStripeSubscription = (user, supabaseClient, isSupabaseClientRead
     };
 
     try {
-      await retryOperation(operation, retryStrategies.supabaseFunction);
+      await operation();
     } catch (error) {
-      logger.error("Error redirecting to customer portal after retries:", error.originalError || error);
-      currentToast({ title: currentT.errorTitle || "Error", description: `${currentT.stripePortalGenericError || "Could not open customer portal. Please try again."} ${(error.originalError || error).message}`, variant: "destructive" });
+      logger.error("Error redirecting to customer portal:", error);
+      currentToast({ title: currentT.errorTitle || "Error", description: `${currentT.stripePortalGenericError || "Could not open customer portal. Please try again."} ${error.message}`, variant: "destructive" });
     }
   };
 
