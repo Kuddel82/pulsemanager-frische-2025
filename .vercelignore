@@ -1,0 +1,5 @@
+# VERCEL AGGRESSIVE REDEPLOY
+# Ensure ALL changes are deployed
+
+# Don't ignore anything critical
+# Force full rebuild 
