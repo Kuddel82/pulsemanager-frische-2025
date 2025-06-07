@@ -13,47 +13,20 @@
       "destination": "/index.html"
     }
   ],
-  "routes": [
-    {
-      "src": "/dashboard",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/wallet",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/roi-tracker",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/tax-report",
-      "dest": "/index.html"
-    }
-  ],
   "env": {
-    "BUILD_ID": "FORCE_VERCEL_NOW_2025-01-14-17-25",
+    "BUILD_ID": "QUICK_ROUTING_FIX_2025-01-14-17-35",
     "VITE_SUPABASE_URL": "https://haixlpufbsboumlzlqcf.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaXhscHVmYnNib3VtbHpscWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NjU2MjQsImV4cCI6MjA2NDQ0MTYyNH0.iY-MiQCWyCnnOh40GokRSQIK4HM_cd0kG6-02-ijZVE"
   },
   "build": {
     "env": {
       "NODE_ENV": "production",
-      "FORCE_REBUILD": "FORCE_VERCEL_NOW_2025-01-14",
+      "FORCE_REBUILD": "QUICK_ROUTING_FIX_2025-01-14",
       "VITE_SUPABASE_URL": "https://haixlpufbsboumlzlqcf.supabase.co",
       "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaXhscHVmYnNib3VtbHpscWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NjU2MjQsImV4cCI6MjA2NDQ0MTYyNH0.iY-MiQCWyCnnOh40GokRSQIK4HM_cd0kG6-02-ijZVE"
     }
   },
   "headers": [
-    {
-      "source": "/",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    },
     {
       "source": "/assets/(.*)",
       "headers": [
