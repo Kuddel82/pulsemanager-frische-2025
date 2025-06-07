@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'react-hot-toast';
+// STUB: console.log statt react-hot-toast für DOM-Stabilität
+const toast = {
+  success: (msg) => console.log('✅ SUCCESS TOAST:', msg),
+  error: (msg) => console.log('❌ ERROR TOAST:', msg)
+};
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

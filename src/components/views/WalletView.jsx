@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
-import { formatEther, formatUnits } from 'viem';
+import { RefreshCw, Copy, ExternalLink, Wallet, TrendingUp, Eye, EyeOff } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { formatEther } from 'viem';
 import { useAuth } from '@/contexts/AuthContext';
-import { Wallet, RefreshCw, Copy, ExternalLink, TrendingUp } from 'lucide-react';
 
 // 🔥 PulseChain Tokens (OBERSTE PRIORITÄT)
 const PULSECHAIN_TOKENS = [
@@ -68,24 +70,31 @@ const ETHEREUM_TOKENS = [
   }
 ];
 
+// STUB: Wagmi hooks ersetzt durch statische Daten
+const stubWalletData = {
+  address: null,
+  isConnected: false,
+  chain: null,
+  nativeBalance: { data: { value: BigInt(0), formatted: '0' } }
+};
+
 const WalletView = () => {
-  const { user } = useAuth();
-  const { address, isConnected, chain } = useAccount();
-  const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
+  console.log('🔧 WalletView mit STUB Wagmi hooks - DOM-Stabilität Test');
   
+  // STUB: Ersetzt echte Wagmi hooks
+  const { address, isConnected, chain } = stubWalletData;
+  const connect = () => console.log('STUB: connect disabled');
+  const connectors = [];
+  const disconnect = () => console.log('STUB: disconnect disabled');
+  const { data: nativeBalance } = stubWalletData;
+
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [tokenBalances, setTokenBalances] = useState({});
   const [tokenPrices, setTokenPrices] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' | 'error'
-
-  // 🔗 Get native balance for current chain
-  const { data: nativeBalance } = useBalance({
-    address: address,
-    enabled: isConnected && !!address,
-  });
 
   // 💰 Fetch Token Balances
   const fetchTokenBalances = async () => {
@@ -101,7 +110,7 @@ const WalletView = () => {
         const nativeToken = currentTokens.find(t => t.isNative);
         if (nativeToken) {
           balances[nativeToken.symbol] = {
-            balance: formatEther(nativeBalance.value),
+            balance: formatEther(nativeBalance.data.value),
             decimals: nativeToken.decimals,
             symbol: nativeToken.symbol,
             name: nativeToken.name

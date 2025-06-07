@@ -1,15 +1,30 @@
+// TEMPORARY STUB: Wagmi hooks disabled for DOM conflict testing  
+// import { useConnect, useDisconnect, useAccount } from 'wagmi'
 import React, { useState } from 'react'
-import { useConnect, useDisconnect, useAccount } from 'wagmi'
-import { Button } from './button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog'
 import { Wallet, LogOut, CheckCircle } from 'lucide-react'
 
+// STUB: Wagmi hooks ersetzt durch statische Daten
+const stubWalletData = {
+  connectors: [],
+  connect: () => console.log('STUB: connect disabled'),
+  isPending: false,
+  address: null,
+  isConnected: false,
+  disconnect: () => console.log('STUB: disconnect disabled')
+};
+
 const WalletConnectButton = () => {
+  console.log('🔧 WalletConnectButton mit STUB Wagmi hooks - DOM-Stabilität Test');
+  
+  // STUB: Ersetzt echte Wagmi hooks
+  const { connectors, connect, isPending } = stubWalletData;
+  const { disconnect } = stubWalletData;
+  const { address, isConnected } = stubWalletData;
+
   const [isOpen, setIsOpen] = useState(false)
-  const { connectors, connect, isPending } = useConnect()
-  const { disconnect } = useDisconnect()
-  const { address, isConnected } = useAccount()
 
   const handleConnect = (connector) => {
     connect({ connector })
