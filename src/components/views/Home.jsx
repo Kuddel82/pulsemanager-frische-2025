@@ -9,8 +9,8 @@ import { logger } from '@/lib/logger';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { user, isPremium, signOut, loading: authLoading } = useAuth();
-  const { t, language } = useAppContext();
+  const { user, signOut, loading: authLoading } = useAuth();
+  const { t, language, subscriptionStatus } = useAppContext();
 
   const safeT = (key, fallback) => {
     if (typeof t === 'function') {
@@ -73,7 +73,7 @@ const Home = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
-            {isPremium() ? (
+            {subscriptionStatus === 'active' ? (
               <p className="text-lg text-green-600 dark:text-green-400 font-medium flex items-center">
                 <ShieldCheckIcon className="h-5 w-5 mr-2" /> {safeT('home.premiumActive', 'Premium Active until:')} {premiumUntilDate}
               </p>
@@ -82,7 +82,7 @@ const Home = () => {
                  <XCircleIcon className="h-5 w-5 mr-2" /> {safeT('home.premiumNotActiveFull', 'No Premium access.')}
               </p>
             )}
-             {!isPremium() && (
+             {subscriptionStatus !== 'active' && (
                 <Button 
                     onClick={() => navigate('/subscription')} 
                     className="mt-4 w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
@@ -101,7 +101,7 @@ const Home = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
-            {isPremium() ? (
+            {subscriptionStatus === 'active' ? (
               <>
                 <p className="text-slate-600 dark:text-slate-300 mb-4">{safeT('home.walletAccessGranted', 'Your premium access grants you entry to the wallet features.')}</p>
                 <Button 

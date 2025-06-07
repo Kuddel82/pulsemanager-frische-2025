@@ -6,8 +6,8 @@ import { logger } from '@/lib/logger';
 import { useAppContext } from '@/contexts/AppContext';
 
 const ProtectedRoute = ({ children, requirePremium = false }) => {
-  const { user, isPremium, loading: authLoading } = useAuth();
-  const { t } = useAppContext();
+  const { user, loading: authLoading } = useAuth();
+  const { t, subscriptionStatus } = useAppContext();
   const { toast } = useToast();
   const location = useLocation();
 
@@ -32,8 +32,8 @@ const ProtectedRoute = ({ children, requirePremium = false }) => {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  if (requirePremium && !isPremium()) {
-    logger.warn(`[ProtectedRoute] Premium required for path: ${location.pathname}, but user is not premium. Redirecting to /dashboard.`);
+  if (requirePremium && subscriptionStatus !== 'active') {
+    logger.warn(`[ProtectedRoute] Premium required for path: ${location.pathname}, but user subscription is ${subscriptionStatus}. Redirecting to /dashboard.`);
     toast({
       title: typeof t === 'function' ? t('subscription.premiumRequiredTitle') : "Premium-Funktion",
       description: typeof t === 'function' ? t('subscription.premiumRequiredDescription') : "Diese Funktion ist nur für Premium-Benutzer verfügbar.",
