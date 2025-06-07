@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
@@ -164,24 +163,24 @@ const Login = () => {
               )}
             </div>
 
-            {/* 🚀 Login Button */}
-            <Button
+            {/* 🚀 Login Button - NATIVE HTML */}
+            <button
               type="submit"
               disabled={isLoading}
-              className="w-full pulse-btn py-3 text-lg font-semibold"
+              className="w-full py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
             >
               {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <>
+                  <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
                   Anmeldung läuft...
-                </div>
+                </>
               ) : (
-                <div className="flex items-center gap-2">
+                <>
                   <LogIn className="h-5 w-5" />
                   Anmelden
-                </div>
+                </>
               )}
-            </Button>
+            </button>
           </form>
 
           {/* 🔗 Links */}
