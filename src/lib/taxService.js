@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';

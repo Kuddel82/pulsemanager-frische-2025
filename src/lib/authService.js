@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
 import { userDbService } from './userDbService';
 import { checkPremiumStatus } from './userService'; 
 import { logger } from './logger';

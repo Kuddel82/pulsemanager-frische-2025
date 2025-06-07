@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '../../lib/supabase';
 import { useAppContext } from '@/contexts/AppContext';
 import { Loader2 } from 'lucide-react';
 import { logger } from '@/lib/logger';

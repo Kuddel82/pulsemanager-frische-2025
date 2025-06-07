@@ -1,5 +1,5 @@
 // Cache invalidation - 2024-03-19
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from './supabase';
 import { logger } from '@/lib/logger';
 import { userDbService } from './userDbService';
 

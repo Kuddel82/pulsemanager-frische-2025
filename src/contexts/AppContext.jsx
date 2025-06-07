@@ -5,7 +5,7 @@ import { useStripeSubscription } from '@/hooks/useStripeSubscription';
 import { useWalletConnect } from '@/hooks/useWalletConnect';
 import { APP_TRANSLATIONS, PROTECTED_VIEWS_CONFIG, PUBLIC_VIEWS_CONFIG, TRIAL_DURATION_DAYS } from '@/config/appConfig';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabaseClient'; 
+import { supabase } from '../lib/supabase'; 
 
 const AppContext = createContext();
 
@@ -221,6 +221,7 @@ export const AppProvider = ({ children }) => {
     setTheme,
     toggleTheme,
     supabase,
+    supabaseClient: supabase,
     user,
     session,
     loadingAuth, 

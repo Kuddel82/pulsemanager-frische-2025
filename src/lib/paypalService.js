@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
 import { logger } from './logger';
 
 const PAYPAL_API_URL = 'https://api-m.paypal.com';
