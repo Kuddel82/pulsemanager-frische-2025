@@ -3,7 +3,6 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { wagmiConfig } from '@/lib/walletConnect';
-import { Toaster } from '@/components/ui/toaster';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
@@ -31,7 +30,6 @@ export default function MainApp() {
               <AppProvider>
                 <div className="min-h-screen bg-background">
                   <AppRoutes />
-                  <Toaster />
                 </div>
               </AppProvider>
             </Router>

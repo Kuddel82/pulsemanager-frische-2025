@@ -4,7 +4,6 @@ import { formatEther, formatUnits } from 'viem';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Wallet, RefreshCw, Copy, ExternalLink, TrendingUp } from 'lucide-react';
-import { useToast } from "@/components/ui/use-toast";
 
 // 🔥 PulseChain Tokens (OBERSTE PRIORITÄT)
 const PULSECHAIN_TOKENS = [
@@ -75,12 +74,13 @@ const WalletView = () => {
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(false);
   const [tokenBalances, setTokenBalances] = useState({});
   const [tokenPrices, setTokenPrices] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' | 'error'
 
   // 🔗 Get native balance for current chain
   const { data: nativeBalance } = useBalance({
@@ -123,7 +123,9 @@ const WalletView = () => {
 
       setTokenBalances(balances);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to fetch token balances", variant: "destructive" });
+      setMessage("Failed to fetch token balances");
+      setMessageType('error');
+      setTimeout(() => setMessage(''), 5000);
     } finally {
       setIsRefreshing(false);
     }
@@ -167,9 +169,13 @@ const WalletView = () => {
       setIsLoading(true);
       const connector = connectors.find(c => c.id === 'metaMask') || connectors[0];
       await connect({ connector });
-      toast({ title: "Wallet Connected", description: "Successfully connected to your wallet", variant: "default" });
+      setMessage("Successfully connected to your wallet");
+      setMessageType('success');
+      setTimeout(() => setMessage(''), 5000);
     } catch (error) {
-      toast({ title: "Connection Failed", description: error.message, variant: "destructive" });
+      setMessage(error.message || "Connection failed");
+      setMessageType('error');
+      setTimeout(() => setMessage(''), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -185,7 +191,9 @@ const WalletView = () => {
   const copyAddress = () => {
     if (address) {
       navigator.clipboard.writeText(address);
-      toast({ title: "Address Copied", description: "Wallet address copied to clipboard", variant: "default" });
+      setMessage("Wallet address copied to clipboard");
+      setMessageType('success');
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
@@ -251,6 +259,17 @@ const WalletView = () => {
           </Button>
         )}
       </div>
+
+      {/* 📢 Message Display */}
+      {message && (
+        <div className={`p-3 rounded-lg border ${
+          messageType === 'success' 
+            ? 'bg-green-400/10 border-green-400/20 text-green-400' 
+            : 'bg-red-400/10 border-red-400/20 text-red-400'
+        }`}>
+          <p className="text-sm">{message}</p>
+        </div>
+      )}
 
       {/* 💼 Wallet Connection */}
       <div className="pulse-card p-6">
