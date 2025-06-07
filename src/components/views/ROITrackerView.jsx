@@ -1,265 +1,204 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { useAppContext } from '@/contexts/AppContext';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { TrendingUp, PlusCircle, Wallet, Loader2, Info } from 'lucide-react';
+import { TrendingUp, PlusCircle, BarChart3 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
-import InvestmentTable from '@/components/roi/InvestmentTable';
-import InvestmentForm from '@/components/roi/InvestmentForm';
 import { dbService } from '@/lib/dbService';
-import { logger } from '@/lib/logger';
-import { getAllPulsechainTokensFromBlockscout } from '@/lib/walletService';
-import { fetchTokenPrices } from '@/lib/priceService';
 
 const ROITrackerView = () => {
-  const { 
-    t, 
-    wcIsConnected, 
-    wcConnectWallet: globalHandleWalletConnect, 
-    user, 
-    appDataVersion, 
-    incrementAppDataVersion,
-    connectedWalletAddress: globalConnectedWalletAddress 
-  } = useAppContext();
-  
+  const { user } = useAuth();
   const { toast } = useToast();
   const [investments, setInvestments] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentInvestment, setCurrentInvestment] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showWalletConnectPrompt, setShowWalletConnectPrompt] = useState(false);
 
-  const latestValues = useRef({ user, toast, t, appDataVersion });
-  latestValues.current = { user, toast, t, appDataVersion };
-
-  const fetchInvestments = useCallback(async () => {
-    const { user: currentUser, toast: currentToast, t: currentT } = latestValues.current;
-    
-    if (!currentUser?.id) {
+  // 📊 Fetch Investments
+  const fetchInvestments = async () => {
+    if (!user?.id) {
       setInvestments([]);
       return;
     }
+    
     setIsLoading(true);
-    logger.info("ROITrackerView: Fetching investments");
     try {
-      const { data, error } = await dbService.getRoiEntries(currentUser.id);
-
-      if (error) {
-        throw error;
-      }
+      const { data, error } = await dbService.getRoiEntries(user.id);
+      if (error) throw error;
       setInvestments(data || []);
     } catch (error) {
-      currentToast({
-        title: currentT.errorFetchingInvestments || "Error Fetching Investments",
-        description: error.message || (currentT.couldNotFetchInvestments || "Could not fetch investments from the database."),
+      toast({
+        title: "Error Loading Investments",
+        description: error.message,
         variant: "destructive",
       });
-      logger.error("Error fetching investments via dbService:", error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (user?.id) {
       fetchInvestments();
-    } else {
-      setInvestments([]); 
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    if (user?.id && appDataVersion > 0) {
-      fetchInvestments();
-    }
-  }, [appDataVersion]);
-
-  const handleSyncWalletAssets = async () => {
-    if (!wcIsConnected || !globalConnectedWalletAddress) {
-      toast({
-        title: t.walletConnectErrorTitle || "WalletConnect Error",
-        description: t.walletConnectErrorUnknown || "Please connect your wallet first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const tokens = await getAllPulsechainTokensFromBlockscout(globalConnectedWalletAddress);
-      const prices = await fetchTokenPrices(tokens.map(t => t.symbol));
-
-      const newInvestments = tokens.map(token => ({
-        name: token.name,
-        symbol: token.symbol,
-        quantity: token.balance,
-        purchase_date: new Date().toISOString().split('T')[0],
-        purchase_price: prices[token.symbol] || 0,
-        current_value: (prices[token.symbol] || 0) * token.balance,
-        wallet_address: globalConnectedWalletAddress,
-        source: 'wallet'
-      }));
-
-      for (const investment of newInvestments) {
-        await dbService.addRoiEntry(user.id, investment);
-      }
-
-      toast({
-        title: t.success || "Success",
-        description: t.walletAssetsSynced || "Wallet assets synced successfully.",
-        variant: "success",
-      });
-
-      incrementAppDataVersion();
-    } catch (error) {
-      toast({
-        title: t.errorSyncingWalletAssets || "Error Syncing Wallet Assets",
-        description: error.message || (t.couldNotSyncWalletAssets || "Could not sync wallet assets with the database."),
-        variant: "destructive",
-      });
-      logger.error("Error syncing wallet assets:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const openModal = (investment = null) => {
-    setCurrentInvestment(investment);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setCurrentInvestment(null);
-  };
-
-  const onInvestmentSavedOrDeleted = () => {
-    incrementAppDataVersion();
-    closeModal();
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } }
-  };
+  // 💰 Calculate Totals
+  const totalInvested = investments.reduce((sum, inv) => sum + (inv.purchase_price * inv.quantity), 0);
+  const currentValue = investments.reduce((sum, inv) => sum + (inv.current_value || 0), 0);
+  const totalGain = currentValue - totalInvested;
+  const gainPercentage = totalInvested > 0 ? ((totalGain / totalInvested) * 100) : 0;
 
   if (!user) {
-    const dummyInvestments = [
-      { name: 'PulseX', symbol: 'PLSX', quantity: 10000, purchase_date: '2023-01-01', purchase_price: 100, current_value: 120, wallet_address: '0x123...', source: 'demo' },
-      { name: 'HEX', symbol: 'HEX', quantity: 5000, purchase_date: '2023-02-01', purchase_price: 50, current_value: 80, wallet_address: '0x123...', source: 'demo' },
-    ];
     return (
-      <motion.div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <h2 className="text-2xl font-semibold mb-3">Demo: ROI Tracker</h2>
-        <p className="text-muted-foreground mb-6 max-w-md">Melde dich an und verbinde deine Wallet, um deine echten Investments zu sehen.</p>
-        <InvestmentTable investments={dummyInvestments} />
-      </motion.div>
-    );
-  }
-
-  if (showWalletConnectPrompt && !wcIsConnected) {
-    return (
-      <motion.div
-        className="flex flex-col items-center justify-center h-full text-center p-8"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Wallet className="h-16 w-16 text-primary mb-6" />
-        <h2 className="text-2xl font-semibold mb-3">{t.connectWalletToView || "Connect Wallet to View"}</h2>
-        <p className="text-muted-foreground mb-6 max-w-md">
-          {t.roiTrackerWalletMessagePulseX || "Please connect your wallet to access the ROI Tracker. Wallet data will be automatically synced. Initial purchase data reflects current values; edit entries with your PulseX purchase details for accurate historical ROI."}
-        </p>
-        <Button
-          onClick={globalHandleWalletConnect}
-          className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105"
-        >
-          <Wallet className="mr-2 h-5 w-5" />
-          {t.connectWallet}
-        </Button>
-      </motion.div>
+      <div className="pulse-card p-8 text-center">
+        <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+        <h2 className="pulse-title mb-2">ROI Tracker</h2>
+        <p className="pulse-text-secondary">Please log in to track your investments</p>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      className="space-y-8"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+    <div className="space-y-6">
+      {/* 🎯 Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold gradient-text mb-2">{t.roiTrackerTitle || "ROI Tracker"}</h1>
-          <p className="text-muted-foreground text-lg">{t.roiTrackerSubtitle || "Track the performance of your investments."}</p>
+          <h1 className="pulse-title mb-2">PulseChain ROI Tracker</h1>
+          <p className="pulse-subtitle">Track your PulseChain investment performance</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
-          <Button onClick={() => openModal()} className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            {t.addManualInvestment || "Add Manual Investment"}
-          </Button>
-          {wcIsConnected && globalConnectedWalletAddress && (
-            <Button onClick={handleSyncWalletAssets} className="bg-gradient-to-r from-green-500 to-cyan-600 hover:from-green-600 hover:to-cyan-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Wallet className="mr-2 h-5 w-5" />}
-              {t.syncWalletAssetsButton || 'Wallet-Assets übernehmen'}
+        <Button className="pulse-btn">
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add Investment
+        </Button>
+      </div>
+
+      {/* 📊 Portfolio Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="pulse-card p-6 text-center">
+          <div className="text-2xl font-bold text-blue-400 mb-1">
+            ${totalInvested.toFixed(2)}
+          </div>
+          <div className="text-sm pulse-text-secondary">Total Invested</div>
+        </div>
+        
+        <div className="pulse-card p-6 text-center">
+          <div className="text-2xl font-bold text-green-400 mb-1">
+            ${currentValue.toFixed(2)}
+          </div>
+          <div className="text-sm pulse-text-secondary">Current Value</div>
+        </div>
+        
+        <div className="pulse-card p-6 text-center">
+          <div className={`text-2xl font-bold mb-1 ${totalGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            ${totalGain.toFixed(2)}
+          </div>
+          <div className="text-sm pulse-text-secondary">Total Gain/Loss</div>
+        </div>
+        
+        <div className="pulse-card p-6 text-center">
+          <div className={`text-2xl font-bold mb-1 ${gainPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {gainPercentage.toFixed(1)}%
+          </div>
+          <div className="text-sm pulse-text-secondary">ROI %</div>
+        </div>
+      </div>
+
+      {/* 📈 Investments List */}
+      <div className="pulse-card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold pulse-text">Your Investments</h3>
+          <div className="text-sm pulse-text-secondary">
+            {investments.length} investment{investments.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-pulse">
+              <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="pulse-text-secondary">Loading investments...</p>
+            </div>
+          </div>
+        ) : investments.length === 0 ? (
+          <div className="text-center py-12">
+            <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h4 className="text-xl font-semibold pulse-text mb-2">No Investments Yet</h4>
+            <p className="pulse-text-secondary mb-6">Start tracking your PulseChain investments</p>
+            <Button className="pulse-btn">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Your First Investment
             </Button>
-          )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="text-left py-3 pulse-text-secondary">Asset</th>
+                  <th className="text-right py-3 pulse-text-secondary">Quantity</th>
+                  <th className="text-right py-3 pulse-text-secondary">Invested</th>
+                  <th className="text-right py-3 pulse-text-secondary">Current</th>
+                  <th className="text-right py-3 pulse-text-secondary">Gain/Loss</th>
+                </tr>
+              </thead>
+              <tbody>
+                {investments.map((investment, index) => {
+                  const invested = investment.purchase_price * investment.quantity;
+                  const current = investment.current_value || 0;
+                  const gainLoss = current - invested;
+                  const gainLossPercent = invested > 0 ? ((gainLoss / invested) * 100) : 0;
+                  
+                  return (
+                    <tr key={index} className="border-b border-white/5 hover:bg-white/5">
+                      <td className="py-4">
+                        <div>
+                          <div className="font-semibold pulse-text">{investment.symbol}</div>
+                          <div className="text-sm pulse-text-secondary">{investment.name}</div>
+                        </div>
+                      </td>
+                      <td className="text-right py-4 pulse-text">
+                        {investment.quantity?.toLocaleString()}
+                      </td>
+                      <td className="text-right py-4 pulse-text">
+                        ${invested.toFixed(2)}
+                      </td>
+                      <td className="text-right py-4 pulse-text">
+                        ${current.toFixed(2)}
+                      </td>
+                      <td className="text-right py-4">
+                        <div className={gainLoss >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          ${gainLoss.toFixed(2)}
+                        </div>
+                        <div className={`text-xs ${gainLossPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {gainLossPercent.toFixed(1)}%
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 🚀 Quick Actions */}
+      <div className="pulse-card p-6">
+        <h3 className="font-semibold pulse-text mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button className="p-4 text-left hover:bg-white/5 rounded-lg transition-colors">
+            <div className="font-medium pulse-text">📊 Export Report</div>
+            <div className="text-sm pulse-text-secondary">Download investment data</div>
+          </button>
+          <button className="p-4 text-left hover:bg-white/5 rounded-lg transition-colors">
+            <div className="font-medium pulse-text">💼 Sync Wallet</div>
+            <div className="text-sm pulse-text-secondary">Import from connected wallet</div>
+          </button>
+          <button className="p-4 text-left hover:bg-white/5 rounded-lg transition-colors">
+            <div className="font-medium pulse-text">📈 View Charts</div>
+            <div className="text-sm pulse-text-secondary">Performance visualization</div>
+          </button>
         </div>
-      </motion.div>
-
-      {isLoading && (
-        <motion.div variants={itemVariants} className="flex justify-center items-center py-12">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </motion.div>
-      )}
-
-      {!isLoading && investments.length === 0 && (
-        <motion.div variants={itemVariants}>
-          <Card className="shadow-xl hover:shadow-2xl transition-shadow duration-300 border-border/20 bg-background/70 dark:bg-slate-800/70 backdrop-blur-sm text-center py-12">
-            <CardHeader>
-              <TrendingUp className="h-12 w-12 mx-auto text-primary mb-4" />
-              <CardTitle className="text-xl">{t.noInvestmentsTrackedTitle || "No Investments Yet"}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{t.noInvestmentsTrackedPulseX || "No investments tracked yet. Add one manually or connect your wallet to sync automatically. For synced assets, edit initial purchase data with your PulseX purchase details for accurate historical ROI."}</p>
-              <div className="mt-4 p-3 bg-sky-100 dark:bg-sky-900/30 border-l-4 border-sky-500 text-sky-700 dark:text-sky-300 rounded-md flex items-start">
-                <Info className="h-5 w-5 mr-2 mt-0.5 text-sky-500 flex-shrink-0" />
-                <p className="text-sm">{t.roiTrackerInfoWalletSyncPulseX || "Assets from connected wallets are synced. For accurate historical ROI, initial purchase data (price & date) reflects current values at the time of sync. Please EDIT these entries with your actual purchase details from PulseX (or other sources)."}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {!isLoading && investments.length > 0 && (
-        <motion.div variants={itemVariants}>
-          <InvestmentTable 
-            investments={investments} 
-            onEdit={openModal} 
-            onDelete={onInvestmentSavedOrDeleted} 
-            isLoading={isLoading} 
-          />
-        </motion.div>
-      )}
-
-      <InvestmentForm
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        investment={currentInvestment}
-        onSave={onInvestmentSavedOrDeleted} 
-      />
-    </motion.div>
+      </div>
+    </div>
   );
 };
 
