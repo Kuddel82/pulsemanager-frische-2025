@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { TrendingUp, PlusCircle, BarChart3 } from 'lucide-react';
 import { dbService } from '@/lib/dbService';
 
@@ -66,10 +65,10 @@ const ROITrackerView = () => {
             </div>
           )}
         </div>
-        <Button className="pulse-btn">
-          <PlusCircle className="mr-2 h-4 w-4" />
+        <button className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2">
+          <PlusCircle className="h-4 w-4" />
           Add Investment
-        </Button>
+        </button>
       </div>
 
       {/* 📊 Portfolio Overview */}
@@ -124,10 +123,10 @@ const ROITrackerView = () => {
             <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h4 className="text-xl font-semibold pulse-text mb-2">No Investments Yet</h4>
             <p className="pulse-text-secondary mb-6">Start tracking your PulseChain investments</p>
-            <Button className="pulse-btn">
-              <PlusCircle className="mr-2 h-4 w-4" />
+            <button className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
               Add Your First Investment
-            </Button>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">

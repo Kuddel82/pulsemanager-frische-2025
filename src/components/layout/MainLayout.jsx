@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { Button } from '@/components/ui/button';
 import { 
   Home, 
   Wallet, 
@@ -88,14 +87,12 @@ const MainLayout = () => {
               <h1 className="text-lg font-bold pulse-text-gradient">PulseManager</h1>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
             {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -213,12 +210,12 @@ const SidebarContent = ({ navItems, isActive, handleNavigate, user, isPremium, n
           }
         </p>
         {!isPremium && (
-          <Button 
+          <button 
             onClick={() => navigate('/subscription')}
-            className="w-full mt-3 pulse-btn text-xs"
+            className="w-full mt-3 py-2 px-4 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 text-xs"
           >
             Upgrade Now
-          </Button>
+          </button>
         )}
       </div>
 
@@ -241,24 +238,20 @@ const SidebarContent = ({ navItems, isActive, handleNavigate, user, isPremium, n
 
       {/* Action Buttons */}
       <div className="flex gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={() => navigate('/settings')}
-          className="flex-1 text-xs pulse-text-secondary hover:text-green-400"
+          className="flex-1 flex items-center justify-center gap-1 py-2 px-3 hover:bg-white/10 rounded-lg transition-colors text-xs pulse-text-secondary hover:text-green-400"
         >
-          <Settings className="h-4 w-4 mr-1" />
+          <Settings className="h-4 w-4" />
           Settings
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
+        </button>
+        <button
           onClick={handleLogout}
-          className="flex-1 text-xs text-red-400 hover:text-red-300"
+          className="flex-1 flex items-center justify-center gap-1 py-2 px-3 hover:bg-red-400/10 rounded-lg transition-colors text-xs text-red-400 hover:text-red-300"
         >
-          <LogOut className="h-4 w-4 mr-1" />
+          <LogOut className="h-4 w-4" />
           Logout
-        </Button>
+        </button>
       </div>
     </div>
   </>

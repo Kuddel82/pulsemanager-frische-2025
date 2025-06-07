@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { FileText, Download, AlertTriangle } from 'lucide-react';
 import { dbService } from '@/lib/dbService';
 
@@ -96,14 +95,14 @@ const TaxReportView = () => {
             </div>
           )}
         </div>
-        <Button 
+        <button 
           onClick={exportCSV} 
           disabled={isLoading || transactions.length === 0}
-          className="pulse-btn"
+          className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
         >
-          <Download className="mr-2 h-4 w-4" />
+          <Download className="h-4 w-4" />
           Export CSV
-        </Button>
+        </button>
       </div>
 
       {/* ⚠️ Disclaimer */}

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
 import { formatEther, formatUnits } from 'viem';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { Wallet, RefreshCw, Copy, ExternalLink, TrendingUp } from 'lucide-react';
 
 // 🔥 PulseChain Tokens (OBERSTE PRIORITÄT)
@@ -249,14 +248,14 @@ const WalletView = () => {
           </p>
         </div>
         {isConnected && (
-          <Button 
+          <button 
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="pulse-btn"
+            className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
+          </button>
         )}
       </div>
 
@@ -280,18 +279,18 @@ const WalletView = () => {
             <p className="pulse-text-secondary mb-6">
               Connect MetaMask to view your {chain?.id === 369 ? "PulseChain" : "Ethereum"} assets
             </p>
-            <Button 
+            <button 
               onClick={handleConnect} 
               disabled={isLoading}
-              className="pulse-btn"
+              className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
             >
               {isLoading ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
-                <Wallet className="mr-2 h-4 w-4" />
+                <Wallet className="h-4 w-4" />
               )}
               Connect Wallet
-            </Button>
+            </button>
           </div>
         ) : (
           <div>
@@ -313,13 +312,12 @@ const WalletView = () => {
                   </button>
                 </div>
               </div>
-              <Button 
+              <button 
                 onClick={() => disconnect()} 
-                variant="outline"
-                className="text-red-400 border-red-400 hover:bg-red-400/10"
+                className="py-2 px-4 border border-red-400 text-red-400 rounded-lg hover:bg-red-400/10 focus:outline-none focus:ring-2 focus:ring-red-400/50 transition-all duration-200"
               >
                 Disconnect
-              </Button>
+              </button>
             </div>
 
             {/* 📊 Token Balances */}
