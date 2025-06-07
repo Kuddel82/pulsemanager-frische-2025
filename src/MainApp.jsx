@@ -1909,4 +1909,5 @@ function MainApp() {
   );
 }
 
-export default MainApp; 
+export default MainApp; c o n s o l e . l o g ( ' H A R D   B L O C K   C O M M I T   T E S T ' ) ;  
+ 
