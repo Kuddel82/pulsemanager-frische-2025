@@ -7,8 +7,8 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
-// 🔍 STEP 5: Testing AppProvider (Router + QueryClient + Wagmi + Auth + App)
-// AppProvider is the most complex provider with many custom hooks!
+// 🔧 FIXED: Correct Provider Hierarchy - Router OUTSIDE AppProvider!
+// This fixes the useNavigate error in useStripeSubscription
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,10 +23,10 @@ const DebugPage = () => (
   <div className="min-h-screen bg-slate-900 text-white p-8">
     <div className="max-w-2xl mx-auto text-center">
       <h1 className="text-4xl font-bold mb-4 text-green-400">
-        🔍 STEP 5: APP PROVIDER TEST
+        🔧 FIXED: ROUTER HIERARCHY
       </h1>
       <p className="text-xl mb-8">
-        Testing if AppProvider causes runtime errors
+        Router moved outside AppProvider to fix useNavigate error
       </p>
       
       <div className="bg-slate-800 p-6 rounded-lg">
@@ -35,18 +35,18 @@ const DebugPage = () => (
           <li>✅ ErrorBoundary: Working</li>
           <li>✅ Basic JSX: Working</li>
           <li>✅ CSS Classes: Working</li>
-          <li>✅ Router: Working</li>
           <li>✅ QueryClient: Working</li>
           <li>✅ WagmiProvider: Working</li>
           <li>✅ AuthProvider: Working</li>
-          <li>⚠️ AppProvider: TESTING... (MOST COMPLEX!)</li>
-          <li>⏳ Runtime Errors: Testing...</li>
+          <li>✅ Router: MOVED TO CORRECT POSITION</li>
+          <li>⏳ AppProvider: Testing with Router context available...</li>
+          <li>⏳ Runtime Errors: Should be FIXED!</li>
         </ul>
       </div>
       
       <div className="mt-8 text-sm text-slate-400">
-        <p>Testing AppProvider - most complex provider with custom hooks!</p>
-        <p>Build: APP-PROVIDER-TEST - {new Date().toISOString()}</p>
+        <p>FIXED: Router hierarchy corrected - useNavigate should work now!</p>
+        <p>Build: HIERARCHY-FIXED - {new Date().toISOString()}</p>
       </div>
     </div>
   </div>
@@ -58,13 +58,13 @@ export default function MainApp() {
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
           <AuthProvider>
-            <AppProvider>
-              <Router>
+            <Router>
+              <AppProvider>
                 <Routes>
                   <Route path="*" element={<DebugPage />} />
                 </Routes>
-              </Router>
-            </AppProvider>
+              </AppProvider>
+            </Router>
           </AuthProvider>
         </WagmiProvider>
       </QueryClientProvider>
