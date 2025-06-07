@@ -24,14 +24,12 @@
     "@radix-ui/react-switch": "^1.0.3",
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toast": "^1.1.5",
-    "@reown/appkit": "^1.7.8",
-    "@reown/appkit-adapter-wagmi": "^1.7.8",
+
     "@stripe/stripe-js": "^2.4.0",
     "@supabase/supabase-js": "^2.39.1",
     "@tanstack/react-query": "^5.80.5",
-    "@walletconnect/ethereum-provider": "^2.21.1",
-    "@web3modal/ethers5": "^4.1.10",
-    "@web3modal/wagmi": "^5.1.11",
+
+
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
