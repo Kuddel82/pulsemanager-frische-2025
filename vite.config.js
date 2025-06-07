@@ -208,14 +208,6 @@ export default defineConfig({
 		extensions: ['.jsx', '.js', '.tsx', '.ts', '.json', ],
 		alias: {
 			'@': path.resolve(__dirname, './src'),
-			// CRITICAL: Disable Radix-UI to prevent DOM conflicts
-			'@/components/ui/button': path.resolve(__dirname, './src/lib/disableRadixUI.js'),
-			'@/components/ui/input': path.resolve(__dirname, './src/lib/disableRadixUI.js'),
-			'@/components/ui/label': path.resolve(__dirname, './src/lib/disableRadixUI.js'),
-			'@/components/ui/card': path.resolve(__dirname, './src/lib/disableRadixUI.js'),
-			'@/components/ui/alert': path.resolve(__dirname, './src/lib/disableRadixUI.js'),
-			'@/components/ui/dialog': path.resolve(__dirname, './src/lib/disableRadixUI.js'),
-			'@/components/ui/use-toast': path.resolve(__dirname, './src/lib/disableRadixUI.js'),
 		},
 	},
 });

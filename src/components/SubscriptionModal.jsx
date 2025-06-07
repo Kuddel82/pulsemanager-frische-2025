@@ -1,8 +1,6 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Lock, X } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 
@@ -26,43 +24,51 @@ const SubscriptionModal = ({ isOpen, onClose, onSubscribe }) => {
   return (
     <AnimatePresence>
       {isOpen && (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-          <DialogContent className="sm:max-w-[425px] bg-background/90 backdrop-blur-md border-primary/30 shadow-2xl rounded-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-md mx-4 pulse-card p-6 border border-green-400/20 shadow-2xl">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.3 }}
             >
-              <DialogHeader className="mb-4">
+              {/* Header */}
+              <div className="mb-6">
                 <div className="flex items-center justify-center mb-4">
-                  <Lock className="h-12 w-12 text-primary" />
+                  <Lock className="h-12 w-12 text-green-400" />
                 </div>
-                <DialogTitle className="text-2xl font-bold text-center gradient-text">
+                <h2 className="text-2xl font-bold text-center pulse-text-gradient mb-2">
                   {getTranslation('subscriptionModalTitle', defaultTranslations.subscriptionModalTitle)}
-                </DialogTitle>
-                <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={onClose}>
-                  <X className="h-5 w-5" />
-                </Button>
-              </DialogHeader>
-              <DialogDescription className="text-center text-foreground/80 space-y-3 mb-6">
-                <p>{getTranslation('subscriptionModalText1', defaultTranslations.subscriptionModalText1)}</p>
-                <p>{getTranslation('subscriptionModalText2', defaultTranslations.subscriptionModalText2)}</p>
-                <p className="text-sm text-muted-foreground">
+                </h2>
+                <button 
+                  onClick={onClose}
+                  className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5 text-gray-400 hover:text-white" />
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="text-center space-y-3 mb-6">
+                <p className="pulse-text">{getTranslation('subscriptionModalText1', defaultTranslations.subscriptionModalText1)}</p>
+                <p className="pulse-text">{getTranslation('subscriptionModalText2', defaultTranslations.subscriptionModalText2)}</p>
+                <p className="text-sm pulse-text-secondary">
                   {getTranslation('subscriptionModalText3', defaultTranslations.subscriptionModalText3)}
                 </p>
-              </DialogDescription>
-              <DialogFooter>
-                <Button 
+              </div>
+              
+              {/* Footer */}
+              <div>
+                <button 
                   onClick={onSubscribe} 
-                  className="w-full text-lg py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white"
+                  className="w-full py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-bold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 text-lg"
                 >
                   {getTranslation('subscribeButton', defaultTranslations.subscribeButton)}
-                </Button>
-              </DialogFooter>
+                </button>
+              </div>
             </motion.div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
       )}
     </AnimatePresence>
   );
