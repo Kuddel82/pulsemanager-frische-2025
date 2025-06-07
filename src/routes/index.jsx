@@ -4,7 +4,9 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
 
-import AuthPage from '@/components/auth/AuthPage';
+// ✅ NEW PULSECHAIN AUTH COMPONENTS
+import Login from '@/components/views/Auth/Login';
+import Register from '@/components/views/Auth/Register';
 import UpdatePasswordPage from '@/components/auth/UpdatePasswordPage';
 
 import MainLayout from '@/components/layout/MainLayout'; 
@@ -39,12 +41,17 @@ const AppRoutes = () => {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-4">
+      <div className="flex items-center justify-center min-h-screen pulse-bg p-4">
         <div className="animate-pulse text-center">
-          <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-2xl font-semibold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+          <div className="h-16 w-16 pulse-border-gradient flex items-center justify-center mx-auto mb-4">
+            <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center">
+              <span className="text-2xl font-bold text-black">PM</span>
+            </div>
+          </div>
+          <p className="text-2xl font-semibold pulse-text-gradient">
              {safeT('loadingApp', 'PulseManager lädt...')}
           </p>
+          <p className="pulse-text-secondary mt-2">Community Edition</p>
         </div>
       </div>
     );
@@ -52,9 +59,13 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Routes with MinimalLayout (auth, legal pages) */}
+      {/* 🔐 AUTH ROUTES - NEW PULSECHAIN DESIGN */}
+      <Route path="/auth/login" element={<Login />} />
+      <Route path="/auth/register" element={<Register />} />
+      <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
+      
+      {/* Other minimal layout routes */}
       <Route element={<MinimalLayout />}>
-        <Route path="/auth" element={<AuthPage />} />
         <Route path="/update-password" element={<UpdatePasswordPage />} />
         <Route path="/disclaimer" element={<DisclaimerView />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyView />} />
