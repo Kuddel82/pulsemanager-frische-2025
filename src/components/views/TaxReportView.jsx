@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { FileText, Download, AlertTriangle } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
 import { dbService } from '@/lib/dbService';
 
 const TaxReportView = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedYear] = useState(new Date().getFullYear());
+  const [statusMessage, setStatusMessage] = useState('');
 
   // 📊 Load transactions
   const loadTransactions = async () => {
@@ -21,12 +20,10 @@ const TaxReportView = () => {
       const { data, error } = await dbService.getRoiEntries(user.id);
       if (error) throw error;
       setTransactions(data || []);
+      setStatusMessage('');
     } catch (error) {
-      toast({
-        title: "Error Loading Data",
-        description: error.message,
-        variant: "destructive",
-      });
+      setStatusMessage(`Error loading data: ${error.message}`);
+      console.error('Tax Report Error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +43,7 @@ const TaxReportView = () => {
   // 📄 Export CSV
   const exportCSV = () => {
     if (transactions.length === 0) {
-      toast({ title: "No Data", description: "No transactions to export", variant: "destructive" });
+      setStatusMessage('No transactions to export');
       return;
     }
 
@@ -73,7 +70,7 @@ const TaxReportView = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    toast({ title: "Export Complete", description: "Tax report downloaded successfully" });
+    setStatusMessage('Tax report downloaded successfully');
   };
 
   if (!user) {
@@ -93,6 +90,11 @@ const TaxReportView = () => {
         <div>
           <h1 className="pulse-title mb-2">PulseChain Tax Report {selectedYear}</h1>
           <p className="pulse-subtitle">Export your transaction data for tax purposes</p>
+          {statusMessage && (
+            <div className={`mt-2 text-sm ${statusMessage.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+              {statusMessage}
+            </div>
+          )}
         </div>
         <Button 
           onClick={exportCSV} 

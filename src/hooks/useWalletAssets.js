@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
-import { useToast } from "@/components/ui/use-toast";
+// REMOVED: useToast to prevent DOM conflicts
 import { useAppContext } from '@/contexts/AppContext';
 import { fetchTokenPrices as fetchPricesFromApi } from '@/lib/priceService';
 import { dbService } from '@/lib/dbService'; 
@@ -31,11 +31,10 @@ export const useWalletAssets = () => {
     t,
     isSupabaseClientReady
   } = useAppContext();
-  const { toast } = useToast();
-
   const [assets, setAssets] = useState([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(null);
+  const [statusMessage, setStatusMessage] = useState('');
   
   const connectedWalletAddress = wcAccounts?.[0] || null;
 
@@ -87,21 +86,13 @@ export const useWalletAssets = () => {
         }
         logger.info("syncWalletAssetsToSupabase: Tax entries synced successfully.");
 
-        toast({
-            title: t.walletAssetsSyncedTitle,
-            description: t.walletAssetsSyncedDescPulseXWithYieldInfo(walletAssetsToSync.length),
-            variant: "success"
-        });
+        setStatusMessage(`Assets synced successfully: ${walletAssetsToSync.length} items`);
         
     } catch (error) {
         logger.error("syncWalletAssetsToSupabase: Overall catch block error:", error);
-        toast({
-            title: t.errorSyncingWalletAssets,
-            description: error.message,
-            variant: "destructive"
-        });
+        setStatusMessage(`Error syncing wallet assets: ${error.message}`);
     }
-  }, [user, connectedWalletAddress, toast, t]);
+  }, [user, connectedWalletAddress, t]);
 
 
   const fetchAssets = useCallback(async (isManualRefresh = false) => {
@@ -205,31 +196,25 @@ export const useWalletAssets = () => {
         }
         
         if (isManualRefresh) {
-          toast({
-            title: t.assetsRefreshedTitle,
-            description: t.assetsRefreshedDesc(fetchedAssetsList.length),
-            variant: "success"
-          });
+          setStatusMessage(`Assets refreshed: ${fetchedAssetsList.length} items`);
         }
             
       } catch (error) {
         logger.error("useWalletAssets fetchAssets: Error fetching assets:", error);
-        toast({
-          title: t.errorFetchingData,
-          description: error.message,
-          variant: "destructive"
-        });
+        setStatusMessage(`Error fetching data: ${error.message}`);
         setAssets([]); 
       }
     }
     setIsLoadingAssets(false);
-  }, [wcIsConnected, connectedWalletAddress, wcProvider, user, syncWalletAssetsToSupabase, toast, t, isSupabaseClientReady]);
+  }, [wcIsConnected, connectedWalletAddress, wcProvider, user, syncWalletAssetsToSupabase, t, isSupabaseClientReady]);
 
   return { 
     assets, 
     isLoadingAssets, 
     lastFetchTime, 
     fetchAssets,
-    connectedWalletAddress
+    connectedWalletAddress,
+    statusMessage,
+    clearStatus: () => setStatusMessage('')
   };
 };

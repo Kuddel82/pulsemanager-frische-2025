@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, PlusCircle, BarChart3 } from 'lucide-react';
-import { useToast } from "@/components/ui/use-toast";
 import { dbService } from '@/lib/dbService';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [investments, setInvestments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
   // 📊 Fetch Investments
   const fetchInvestments = async () => {
@@ -23,12 +22,10 @@ const ROITrackerView = () => {
       const { data, error } = await dbService.getRoiEntries(user.id);
       if (error) throw error;
       setInvestments(data || []);
+      setStatusMessage('');
     } catch (error) {
-      toast({
-        title: "Error Loading Investments",
-        description: error.message,
-        variant: "destructive",
-      });
+      setStatusMessage(`Error loading investments: ${error.message}`);
+      console.error('ROI Tracker Error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +60,11 @@ const ROITrackerView = () => {
         <div>
           <h1 className="pulse-title mb-2">PulseChain ROI Tracker</h1>
           <p className="pulse-subtitle">Track your PulseChain investment performance</p>
+          {statusMessage && (
+            <div className={`mt-2 text-sm ${statusMessage.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+              {statusMessage}
+            </div>
+          )}
         </div>
         <Button className="pulse-btn">
           <PlusCircle className="mr-2 h-4 w-4" />

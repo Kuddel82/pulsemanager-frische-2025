@@ -1,5 +1,4 @@
 import { loadStripe } from '@stripe/stripe-js';
-import { useToast } from "@/components/ui/use-toast";
 import { useState, useEffect } from 'react';
 
 const STRIPE_PUBLISHABLE_KEY = "pk_test_51RVSOiReZk1QDkJzpBL8DbDgdDNl7SAIWpc458u9AA4MI3chDaT6vLQbJsFOCl87Bd6C2lxxxCoWXLmC1BI50BUM00sOJUzDCI";
@@ -14,9 +13,9 @@ const getStripe = () => {
 };
 
 export const useStripeSubscription = (user, supabaseClient) => {
-  const { toast } = useToast();
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // 📊 Simple subscription check
   const checkSubscriptionStatus = async () => {
@@ -46,12 +45,16 @@ export const useStripeSubscription = (user, supabaseClient) => {
           });
         
         setSubscriptionStatus('trialing');
-      } else {
+      } else if (data && data.subscription_status) {
         setSubscriptionStatus(data.subscription_status);
+      } else {
+        // Handle case where user exists but has no subscription_status
+        setSubscriptionStatus('trialing');
       }
     } catch (error) {
       console.error('Subscription check error:', error);
       setSubscriptionStatus('trialing'); // Default fallback
+      setErrorMessage('Subscription status could not be loaded');
     } finally {
       setLoadingSubscription(false);
     }
@@ -59,15 +62,17 @@ export const useStripeSubscription = (user, supabaseClient) => {
 
   // 💳 Simple Stripe checkout
   const handleStripeSubscriptionCheckout = async () => {
+    setErrorMessage('');
+    
     if (!user) {
-      toast({ title: "Error", description: "Please log in first", variant: "destructive" });
+      setErrorMessage('Please log in first');
       return;
     }
 
     try {
       const stripe = await getStripe();
       if (!stripe) {
-        toast({ title: "Error", description: "Stripe failed to load", variant: "destructive" });
+        setErrorMessage('Stripe failed to load');
         return;
       }
 
@@ -81,10 +86,10 @@ export const useStripeSubscription = (user, supabaseClient) => {
       });
 
       if (error) {
-        toast({ title: "Stripe Error", description: error.message, variant: "destructive" });
+        setErrorMessage(`Stripe Error: ${error.message}`);
       }
     } catch (error) {
-      toast({ title: "Error", description: "Could not connect to Stripe", variant: "destructive" });
+      setErrorMessage('Could not connect to Stripe');
     }
   };
 
@@ -100,11 +105,11 @@ export const useStripeSubscription = (user, supabaseClient) => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('stripe_success') && user?.id) {
       setSubscriptionStatus('active');
-      toast({ title: "Success!", description: "Premium activated!", variant: "default" });
+      setErrorMessage(''); // Clear any previous errors
       window.history.replaceState({}, '', window.location.pathname);
     }
     if (urlParams.get('stripe_cancel')) {
-      toast({ title: "Cancelled", description: "Subscription cancelled", variant: "destructive" });
+      setErrorMessage('Subscription cancelled');
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [user?.id]);
@@ -114,5 +119,7 @@ export const useStripeSubscription = (user, supabaseClient) => {
     loadingSubscription,
     handleStripeSubscriptionCheckout,
     checkSubscriptionStatus,
+    errorMessage,
+    clearError: () => setErrorMessage(''),
   };
 };

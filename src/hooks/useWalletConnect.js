@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useToast } from "@/components/ui/use-toast";
+// REMOVED: useToast to prevent DOM conflicts
 import { APP_TRANSLATIONS } from '@/config/appConfig'; 
 import { logger } from '@/lib/logger';
 
@@ -7,7 +7,6 @@ import { logger } from '@/lib/logger';
 export const useWalletConnect = () => {
   logger.info("🔧 SIMPLIFIED: useWalletConnect hook - WalletConnect removed for stability");
   
-  const { toast } = useToast();
   const [language] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('appLanguage') || 'de';
@@ -15,6 +14,7 @@ export const useWalletConnect = () => {
     return 'de';
   });
   const t = APP_TRANSLATIONS[language] || APP_TRANSLATIONS['de'];
+  const [statusMessage, setStatusMessage] = useState('');
 
   // Mock state - all disconnected/empty
   const provider = null;
@@ -26,22 +26,15 @@ export const useWalletConnect = () => {
 
   const connectWallet = useCallback(async (walletType = 'walletconnect') => {
     logger.info("🚧 SIMPLIFIED: connectWallet called - WalletConnect removed");
-    toast({ 
-      title: t.walletConnectDisabled || "Wallet Connect Disabled", 
-      description: t.walletConnectRemovedForStability || "WalletConnect temporarily removed for app stability", 
-      variant: "warning" 
-    });
-  }, [toast, t]);
+    setStatusMessage(t.walletConnectRemovedForStability || "WalletConnect temporarily removed for app stability");
+  }, [t]);
 
   const disconnectWallet = useCallback(async (showToast = true) => {
     logger.info("🚧 SIMPLIFIED: disconnectWallet called - WalletConnect removed");
     if (showToast) {
-      toast({ 
-        title: t.walletDisconnected || "Wallet Disconnected", 
-        variant: "info" 
-      });
+      setStatusMessage(t.walletDisconnected || "Wallet Disconnected");
     }
-  }, [toast, t]);
+  }, [t]);
 
   const getProvider = useCallback(() => {
     logger.info("🚧 SIMPLIFIED: getProvider called - WalletConnect removed");
@@ -57,6 +50,8 @@ export const useWalletConnect = () => {
     error,
     connectWallet,
     disconnectWallet,
-    getProvider
+    getProvider,
+    statusMessage,
+    clearStatus: () => setStatusMessage('')
   };
 };
