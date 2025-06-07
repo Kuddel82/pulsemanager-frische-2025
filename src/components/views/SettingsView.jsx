@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Settings, CreditCard, Bell } from 'lucide-react';
@@ -8,14 +7,33 @@ import { useAppContext } from '@/contexts/AppContext';
 
 const SettingsView = () => {
   const { 
+    user, 
+    t, 
+    theme, 
+    toggleTheme, 
     language, 
-    translations, 
+    setLanguage, 
     subscriptionStatus, 
-    daysRemaining, 
+    daysRemaining,
+    checkSubscriptionStatus,
+    translations, 
     setShowSubscriptionModal, 
     handleSubscription 
   } = useAppContext();
-  const t = translations[language];
+
+  // TEMPORARY DEBUG: Manual subscription refresh for owner
+  const handleRefreshSubscription = async () => {
+    if (checkSubscriptionStatus) {
+      try {
+        await checkSubscriptionStatus();
+        console.log("✅ Subscription status refreshed!");
+        // Force page reload to update UI
+        window.location.reload();
+      } catch (error) {
+        console.error("❌ Error refreshing subscription:", error);
+      }
+    }
+  };
 
   return (
     <motion.div
@@ -27,6 +45,24 @@ const SettingsView = () => {
         <Settings className="h-8 w-8 text-primary mr-3" />
         <h1 className="text-3xl font-bold gradient-text">{t.settingsViewTitle}</h1>
       </div>
+
+      {/* TEMPORARY DEBUG SECTION FOR OWNER */}
+      {user?.email === 'dkuddel@web.de' && (
+        <div className="bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg border-2 border-yellow-400">
+          <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+            🔧 Owner Debug Tools
+          </h3>
+          <p className="text-yellow-700 dark:text-yellow-300 mb-3">
+            Current Status: <strong>{subscriptionStatus || 'loading...'}</strong>
+          </p>
+          <button 
+            onClick={handleRefreshSubscription}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded font-medium"
+          >
+            🔄 Refresh Premium Status
+          </button>
+        </div>
+      )}
 
       <div className="space-y-8">
         <Card className="bg-background/70 dark:bg-slate-800/70 shadow-lg">
