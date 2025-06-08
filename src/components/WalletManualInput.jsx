@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import { getWalletBalance, getWalletData } from '@/lib/blockscoutAPI';
 import WalletBalanceService from '@/lib/walletBalanceService';
 import { Plus, Wallet, Trash2, Edit3, Eye, EyeOff, Copy, CheckCircle, RefreshCw, ExternalLink, DollarSign } from 'lucide-react';
 
@@ -154,33 +153,11 @@ const WalletManualInput = memo(function WalletManualInput() {
   };
 
   const refreshWalletBalance = async (wallet) => {
-    try {
-      setError('');
-      const balanceData = await getWalletBalance(wallet.address, wallet.chain_id);
-      
-      const { error } = await supabase
-        .from('wallets')
-        .update({
-          balance_eth: parseFloat(balanceData.balance.formatted),
-          last_sync: new Date().toISOString()
-        })
-        .eq('id', wallet.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      setSuccess(`💰 Balance aktualisiert: ${balanceData.balance.display}`);
-      loadWallets();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Error refreshing balance:', err);
-      
-      if (err.message.includes('CORS_ERROR')) {
-        setError('⚠️ API-Zugriff blockiert: Blockchain-APIs haben CORS-Beschränkungen. Balance muss manuell über andere Tools geprüft werden.');
-      } else {
-        setError('Fehler beim Aktualisieren der Balance: ' + err.message);
-      }
-    }
+    // 🔄 VEREINFACHT: Anstatt CORS-anfällige API-Calls zu machen,
+    // leiten wir Benutzer zum manuellen Balance-Editor um
+    setSuccess('💡 Tipp: Öffnen Sie den Explorer und verwenden Sie das Dollar-Symbol ($) um die Balance manuell einzugeben. Das Portfolio-System verwendet automatisch echte Preise für alle Token!');
+    openExplorer(wallet);
+    setTimeout(() => setSuccess(''), 8000);
   };
 
   // 🎯 NEW: Manual Balance Update Functions
