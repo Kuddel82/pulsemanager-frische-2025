@@ -12,10 +12,13 @@ import {
   Coins, 
   BarChart3, 
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  EyeOff,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import CentralDataService from '@/services/CentralDataService';
+import { getHiddenTokens, hideToken as hideTokenService, showToken as showTokenService } from '@/services/HiddenTokenService';
 
 const PortfolioView = () => {
   const { user } = useAuth();
@@ -23,6 +26,10 @@ const PortfolioView = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
+  
+  // 🙈 Token-Hiding Feature
+  const [hiddenTokens, setHiddenTokens] = useState([]);
+  const [showHidden, setShowHidden] = useState(false);
 
   // Portfolio laden
   const loadPortfolioData = async () => {
@@ -41,6 +48,15 @@ const PortfolioView = () => {
         setPortfolioData(data);
         setStatusMessage(`✅ Portfolio geladen: ${data.tokenCount} Tokens, $${data.totalValue.toFixed(2)}`);
         console.log('✅ PORTFOLIO: Portfolio loaded successfully');
+        
+        // 🙈 Lade versteckte Tokens
+        try {
+          const hidden = await getHiddenTokens(user.id);
+          setHiddenTokens(hidden);
+          console.log('✅ HIDDEN_TOKENS: Loaded hidden tokens for portfolio');
+        } catch (hiddenError) {
+          console.warn('⚠️ HIDDEN_TOKENS: Could not load hidden tokens:', hiddenError);
+        }
       } else {
         setError(data.error);
         setStatusMessage(`❌ Fehler: ${data.error}`);
@@ -100,6 +116,61 @@ const PortfolioView = () => {
   };
 
   const stats = getPortfolioStats();
+  
+  // 🙈 Token-Hiding Funktionen
+  const getTokenIdentifier = (token) => {
+    // Nutze contractAddress oder symbol als eindeutigen Identifier
+    return token.contractAddress && token.contractAddress !== 'native' 
+      ? token.contractAddress 
+      : token.symbol;
+  };
+
+  const hideToken = async (token) => {
+    if (!user?.id) return;
+    
+    try {
+      const tokenId = getTokenIdentifier(token);
+      const updated = await hideTokenService(user.id, tokenId);
+      setHiddenTokens(updated);
+      console.log('🙈 TOKEN_HIDDEN: Successfully hidden token:', token.symbol);
+    } catch (error) {
+      console.error('💥 HIDE_TOKEN: Failed to hide token:', error);
+    }
+  };
+
+  const showToken = async (token) => {
+    if (!user?.id) return;
+    
+    try {
+      const tokenId = getTokenIdentifier(token);
+      const updated = await showTokenService(user.id, tokenId);
+      setHiddenTokens(updated);
+      console.log('👁️ TOKEN_SHOWN: Successfully shown token:', token.symbol);
+    } catch (error) {
+      console.error('💥 SHOW_TOKEN: Failed to show token:', error);
+    }
+  };
+
+  // 📊 Token-Filterung basierend auf showHidden und hiddenTokens
+  const getFilteredTokens = () => {
+    if (!portfolioData?.tokens) return [];
+    
+    if (showHidden) {
+      // Zeige alle Tokens
+      return portfolioData.tokens;
+    } else {
+      // Verstecke Tokens die in hiddenTokens sind
+      return portfolioData.tokens.filter(token => {
+        const tokenId = getTokenIdentifier(token);
+        return !hiddenTokens.includes(tokenId);
+      });
+    }
+  };
+
+  const isTokenHidden = (token) => {
+    const tokenId = getTokenIdentifier(token);
+    return hiddenTokens.includes(tokenId);
+  };
 
   // Fallback für leere Daten
   if (!user?.id) {
@@ -237,18 +308,40 @@ const PortfolioView = () => {
       {/* Token Holdings Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Coins className="h-5 w-5" />
-            Token Holdings
-            {portfolioData && (
-              <Badge variant="outline" className="ml-2">
-                {portfolioData.tokens?.length || 0} Tokens
-              </Badge>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Coins className="h-5 w-5" />
+              Token Holdings
+              {portfolioData && (
+                <Badge variant="outline" className="ml-2">
+                  {getFilteredTokens().length} von {portfolioData.tokens?.length || 0} Tokens
+                </Badge>
+              )}
+              {hiddenTokens.length > 0 && !showHidden && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {hiddenTokens.length} versteckt
+                </Badge>
+              )}
+            </CardTitle>
+            
+            {/* 🙈 Token-Hiding Controls */}
+            {portfolioData?.tokens && hiddenTokens.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showHidden}
+                    onChange={(e) => setShowHidden(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-gray-600">Versteckte Tokens anzeigen</span>
+                </label>
+              </div>
             )}
-          </CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
-          {portfolioData?.tokens && portfolioData.tokens.length > 0 ? (
+          {portfolioData?.tokens && getFilteredTokens().length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -260,10 +353,11 @@ const PortfolioView = () => {
                     <th className="text-right p-3 font-medium">Wert</th>
                     <th className="text-right p-3 font-medium">Anteil</th>
                     <th className="text-center p-3 font-medium">Links</th>
+                    <th className="text-center p-3 font-medium">Aktion</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {portfolioData.tokens.slice(0, 20).map((token, index) => (
+                  {getFilteredTokens().slice(0, 20).map((token, index) => (
                     <tr key={`${token.symbol}-${token.contractAddress}-${index}`} className="border-b hover:bg-gray-50">
                       <td className="p-3">
                         <div className="flex items-center space-x-2">
@@ -343,14 +437,36 @@ const PortfolioView = () => {
                           )}
                         </div>
                       </td>
+                      
+                      {/* 🙈 Token-Hiding Aktion */}
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => isTokenHidden(token) ? showToken(token) : hideToken(token)}
+                          className={`p-1 rounded transition-colors ${
+                            isTokenHidden(token) 
+                              ? 'text-gray-400 hover:text-blue-500' 
+                              : 'text-gray-600 hover:text-red-500'
+                          }`}
+                          title={isTokenHidden(token) ? 'Token einblenden' : 'Token ausblenden'}
+                        >
+                          {isTokenHidden(token) ? (
+                            <Eye className="h-4 w-4" />
+                          ) : (
+                            <EyeOff className="h-4 w-4" />
+                          )}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               
-              {portfolioData.tokens.length > 20 && (
+              {getFilteredTokens().length > 20 && (
                 <div className="mt-4 text-center text-sm text-gray-500">
-                  Zeige die ersten 20 von {portfolioData.tokens.length} Tokens
+                  Zeige die ersten 20 von {getFilteredTokens().length} Tokens
+                  {!showHidden && hiddenTokens.length > 0 && (
+                    <span className="text-gray-400"> ({hiddenTokens.length} versteckt)</span>
+                  )}
                 </div>
               )}
             </div>
@@ -430,6 +546,7 @@ const PortfolioView = () => {
             <p><strong>Echte Preise:</strong> Alle Token-Preise werden von verifizierten Quellen bezogen.</p>
             <p><strong>Auto-Refresh:</strong> Das Portfolio wird automatisch alle 5 Minuten aktualisiert.</p>
             <p><strong>Mindest-Wert:</strong> Nur Token mit einem Wert ≥ $0.01 werden angezeigt.</p>
+            <p><strong>Scam-Schutz:</strong> Unerwünschte Token können mit dem 👁️-Icon ausgeblendet werden.</p>
             <p><strong>PulseChain fokus:</strong> Optimiert für PulseChain Token und Ecosystem.</p>
           </div>
         </CardContent>
