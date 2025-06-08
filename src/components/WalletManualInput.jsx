@@ -520,8 +520,8 @@ const WalletManualInput = memo(function WalletManualInput() {
           </div>
         </div>
       </div>
-          </div>
-    );
+    </div>
+  );
 });
 
 export default WalletManualInput; 
