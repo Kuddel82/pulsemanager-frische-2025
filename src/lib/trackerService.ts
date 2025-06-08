@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
 import { walletService } from './walletService';
 
 export interface Transaction {

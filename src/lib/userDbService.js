@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabaseClient';
 import { logger } from '@/lib/logger';
 
 export const userDbService = {
