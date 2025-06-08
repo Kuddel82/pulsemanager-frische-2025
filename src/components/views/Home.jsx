@@ -1,17 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { TrendingUp, Activity, Users, ExternalLink } from 'lucide-react';
+import { TrendingUp, Activity, Users, ExternalLink, RefreshCw, Download, FileText, Crown } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
 import WalletManualInput from '@/components/WalletManualInput';
 import ROICalculator from '@/components/ROICalculator';
+import CentralDataService from '@/services/CentralDataService';
 
 const Home = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
   const { t, language, subscriptionStatus } = useAppContext();
+
+  // 💎 Portfolio Dashboard State
+  const [portfolioData, setPortfolioData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
 
   const safeT = (key, fallback) => {
     if (typeof t === 'function') {
@@ -19,6 +25,83 @@ const Home = () => {
     }
     return fallback;
   };
+
+  // 💎 Portfolio-Daten laden
+  const loadDashboardData = async () => {
+    if (!user?.id) return;
+    
+    setDashboardLoading(true);
+    try {
+      console.log('🏠 DASHBOARD: Loading portfolio data...');
+      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      
+      if (data.isLoaded) {
+        setPortfolioData(data);
+        setLastUpdate(new Date());
+        console.log('✅ DASHBOARD: Portfolio loaded successfully');
+      } else {
+        console.warn('⚠️ DASHBOARD: Portfolio could not be loaded:', data.error);
+      }
+    } catch (error) {
+      console.error('💥 DASHBOARD: Error loading portfolio:', error);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  // 📊 Format-Funktionen
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value || 0);
+  };
+
+  // 💾 CSV Export Funktion
+  const exportToCSV = () => {
+    if (!portfolioData?.tokens) {
+      alert('❌ Keine Portfolio-Daten zum Exportieren verfügbar');
+      return;
+    }
+
+    try {
+      const csvData = portfolioData.tokens.map(token => ({
+        Symbol: token.symbol,
+        Name: token.name || 'Unknown',
+        Balance: token.balance,
+        Preis_USD: token.price,
+        Wert_USD: token.value,
+        Anteil_Prozent: token.percentageOfPortfolio?.toFixed(2) || '0',
+        Contract_Address: token.contractAddress || 'Native'
+      }));
+
+      const headers = Object.keys(csvData[0]).join(',');
+      const rows = csvData.map(row => Object.values(row).join(','));
+      const csv = [headers, ...rows].join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PulseManager_Portfolio_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ DASHBOARD: CSV Export successful');
+    } catch (error) {
+      console.error('💥 DASHBOARD: CSV Export failed:', error);
+      alert('❌ CSV Export fehlgeschlagen');
+    }
+  };
+
+  // Initiales Laden
+  useEffect(() => {
+    if (user?.id) {
+      loadDashboardData();
+    }
+  }, [user?.id]);
   
   const handleLogout = async () => {
     logger.info('Home: Attempting logout.');
@@ -72,23 +155,73 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 📊 Portfolio Overview - Schnellübersicht */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      {/* 📊 Portfolio Overview - Echte Daten */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {/* Portfolio Value */}
         <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="text-3xl font-bold text-green-400 mb-2">---</div>
+          <div className="text-3xl font-bold text-green-400 mb-2">
+            {dashboardLoading ? (
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto" />
+            ) : (
+              formatCurrency(portfolioData?.totalValue || 0)
+            )}
+          </div>
           <div className="text-sm pulse-text-secondary mb-1">Portfolio Value</div>
-          <div className="text-xs pulse-text-secondary">Siehe ROI Calculator unten</div>
+          <div className="text-xs pulse-text-secondary">
+            {lastUpdate ? `Letzte Aktualisierung: ${lastUpdate.toLocaleTimeString()}` : 'Klicke Refresh für Daten'}
+          </div>
         </div>
+
+        {/* Wallets Count */}
         <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="text-3xl font-bold text-blue-400 mb-2">---</div>
-          <div className="text-sm pulse-text-secondary mb-1">Wallets & Investments</div>
-          <div className="text-xs pulse-text-secondary">Manuelle Eingabe verfügbar</div>
+          <div className="text-3xl font-bold text-blue-400 mb-2">
+            {portfolioData?.walletCount || 0}
+          </div>
+          <div className="text-sm pulse-text-secondary mb-1">Connected Wallets</div>
+          <div className="text-xs pulse-text-secondary">
+            Multi-Chain Support
+          </div>
         </div>
+
+        {/* Token Count */}
         <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="text-3xl font-bold text-purple-400 mb-2">✅</div>
-          <div className="text-sm pulse-text-secondary mb-1">CSV Export</div>
-          <div className="text-xs pulse-text-secondary">DSGVO-konform</div>
+          <div className="text-3xl font-bold text-purple-400 mb-2">
+            {portfolioData?.tokenCount || 0}
+          </div>
+          <div className="text-sm pulse-text-secondary mb-1">Token Holdings</div>
+          <div className="text-xs pulse-text-secondary">
+            Diverse Investments
+          </div>
         </div>
+
+        {/* CSV Export Button */}
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <button 
+            onClick={exportToCSV}
+            disabled={!portfolioData?.tokens}
+            className="w-full h-full flex flex-col items-center justify-center hover:bg-white/5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="text-3xl font-bold text-orange-400 mb-2">
+              <Download className="h-8 w-8 mx-auto" />
+            </div>
+            <div className="text-sm pulse-text-secondary mb-1">CSV Export</div>
+            <div className="text-xs pulse-text-secondary">
+              Portfolio als CSV
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* 🔄 Refresh Button */}
+      <div className="flex justify-center mb-6">
+        <button
+          onClick={loadDashboardData}
+          disabled={dashboardLoading}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-semibold rounded-lg hover:from-green-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          <RefreshCw className={`h-4 w-4 ${dashboardLoading ? 'animate-spin' : ''}`} />
+          {dashboardLoading ? 'Lade Portfolio...' : 'Portfolio Aktualisieren'}
+        </button>
       </div>
 
       {/* 🔌 WalletReader - DOM-sichere Wallet-Verbindung */}
@@ -106,16 +239,104 @@ const Home = () => {
         <ROICalculator />
       </div>
 
-      {/* 📈 Recent Activity */}
-      <div className="pulse-card p-6 mb-8" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-        <div className="flex items-center gap-3 mb-4">
-          <Activity className="h-6 w-6 text-green-400" />
-          <h2 className="text-xl font-bold pulse-text">Recent Activity</h2>
+      {/* 📈 Recent Activity & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Portfolio Status */}
+        <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <div className="flex items-center gap-3 mb-4">
+            <Activity className="h-6 w-6 text-green-400" />
+            <h2 className="text-xl font-bold pulse-text">Portfolio Status</h2>
+          </div>
+          
+          {portfolioData ? (
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 bg-green-500/10 rounded-lg">
+                <span className="text-sm pulse-text-secondary">✅ Portfolio geladen</span>
+                <span className="text-sm text-green-400 font-medium">{portfolioData.tokenCount} Tokens</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-blue-500/10 rounded-lg">
+                <span className="text-sm pulse-text-secondary">💼 Wallets verbunden</span>
+                <span className="text-sm text-blue-400 font-medium">{portfolioData.walletCount} Wallets</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-purple-500/10 rounded-lg">
+                <span className="text-sm pulse-text-secondary">💰 Gesamtwert</span>
+                <span className="text-sm text-purple-400 font-medium">{formatCurrency(portfolioData.totalValue)}</span>
+              </div>
+              {lastUpdate && (
+                <div className="text-xs pulse-text-secondary text-center mt-3">
+                  Letzte Aktualisierung: {lastUpdate.toLocaleString()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="pulse-text-secondary">Keine Portfolio-Daten geladen</p>
+              <p className="text-sm pulse-text-secondary mt-2">Klicke "Portfolio Aktualisieren" für Live-Daten</p>
+            </div>
+          )}
         </div>
-        <div className="text-center py-8">
-          <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="pulse-text-secondary">No recent activity</p>
-          <p className="text-sm pulse-text-secondary mt-2">Connect your wallet to start tracking</p>
+
+        {/* Quick Actions & Exports */}
+        <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <div className="flex items-center gap-3 mb-4">
+            <FileText className="h-6 w-6 text-orange-400" />
+            <h2 className="text-xl font-bold pulse-text">Quick Actions</h2>
+          </div>
+          
+          <div className="space-y-3">
+            {/* Portfolio CSV Export */}
+            <button
+              onClick={exportToCSV}
+              disabled={!portfolioData?.tokens}
+              className="w-full flex items-center justify-between p-4 bg-orange-500/10 rounded-lg hover:bg-orange-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-3">
+                <Download className="h-5 w-5 text-orange-400" />
+                <div className="text-left">
+                  <div className="font-medium pulse-text">Portfolio CSV Export</div>
+                  <div className="text-sm pulse-text-secondary">Alle Token-Holdings als CSV</div>
+                </div>
+              </div>
+              <div className="text-sm text-orange-400 font-medium">
+                {portfolioData?.tokens?.length || 0} Tokens
+              </div>
+            </button>
+
+            {/* Tax Report Navigation */}
+            <button
+              onClick={() => navigate('/tax-report')}
+              className="w-full flex items-center justify-between p-4 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-red-400" />
+                <div className="text-left">
+                  <div className="font-medium pulse-text">Tax Report</div>
+                  <div className="text-sm pulse-text-secondary">Steuer-Export (CSV/PDF)</div>
+                </div>
+              </div>
+              <div className="text-sm text-red-400 font-medium">
+                →
+              </div>
+            </button>
+
+            {/* ROI Tracker Navigation */}
+            <button
+              onClick={() => navigate('/roi-tracker')}
+              className="w-full flex items-center justify-between p-4 bg-green-500/10 rounded-lg hover:bg-green-500/20 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-5 w-5 text-green-400" />
+                <div className="text-left">
+                  <div className="font-medium pulse-text">ROI Tracker</div>
+                  <div className="text-sm pulse-text-secondary">Performance Analyse</div>
+                </div>
+              </div>
+              <div className="text-sm text-green-400 font-medium">
+                →
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
