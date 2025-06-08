@@ -7,26 +7,52 @@ import { supabase } from '@/lib/supabaseClient';
 export class CentralDataService {
   
   // 🏷️ OFFIZIELLE PULSECHAIN API ENDPOINTS (verifiziert)
-  static PULSECHAIN_API = 'https://api.scan.pulsechain.com/api';
+  // 🌐 MULTI-CHAIN CONFIGURATION
+  static CHAINS = {
+    PULSECHAIN: {
+      id: 369,
+      name: 'PulseChain',
+      nativeSymbol: 'PLS',
+      apiProxy: '/api/pulsechain',
+      explorerBase: 'https://scan.pulsechain.com'
+    },
+    ETHEREUM: {
+      id: 1,
+      name: 'Ethereum',
+      nativeSymbol: 'ETH',
+      apiProxy: '/api/ethereum-proxy',
+      explorerBase: 'https://etherscan.io'
+    }
+  };
+
   static PROXY_ENDPOINTS = {
     pulsechain: '/api/pulsechain',
+    ethereum: '/api/ethereum-proxy',
     pulsewatch: '/api/pulsewatch', 
     dexscreener: '/api/dexscreener-proxy'
   };
 
-  // 💰 LIVE-PREISE ONLY: Entferne alle übertriebenen Fallback-Preise
+  // 💰 MINIMAL FALLBACKS: Nur für native & Stablecoins (Multi-Chain)
   static FALLBACK_PRICES = {
-    // ⚠️ NUR ABSOLUTE MINIMAL-FALLBACKS (nur wenn kein Live-Preis verfügbar)
-    // Native PulseChain Tokens (oft nicht in DexScreener)
+    // ⚠️ NUR ABSOLUTE MINIMAL-FALLBACKS (wenn kein Live-Preis verfügbar)
+    
+    // 🔗 PulseChain Native Tokens
     'PLS': 0.000088,      // Native PulseChain
     'PLSX': 0.00002622,   // PulseX
     'HEX': 0.005943,      // HEX
     
-    // ❌ ALLE ANDEREN FALLBACKS ENTFERNT - VERWENDE NUR LIVE-PREISE!
-    // Stablecoins (nur als letzte Reserve)
+    // 🔗 Ethereum Native Tokens 
+    'ETH': 2400,          // Ethereum (minimal fallback)
+    'WETH': 2400,         // Wrapped Ethereum
+    
+    // 🔗 Stablecoins (Multi-Chain)
     'DAI': 1.0,
     'USDC': 1.0,
-    'USDT': 1.0
+    'USDT': 1.0,
+    'USDC.e': 1.0,        // Bridged USDC
+    
+    // 🔗 Wichtige WGEP Token (falls Live-Preis fehlt)
+    'WGEP': 0.00001       // WGEP minimal fallback
   };
 
   // 🌐 ZUSÄTZLICHE API-ENDPUNKTE
@@ -42,6 +68,31 @@ export class CentralDataService {
     '0x83D0cF6A8bc7d9aF84B7fc1a6A8ad51f1e1E6fE1', // PLSX Drucker
     // Weitere Drucker-Contracts hier hinzufügen
   ];
+
+  /**
+   * 🌐 HELPER: Chain-Konfiguration anhand Chain-ID abrufen
+   */
+  static getChainConfig(chainId) {
+    for (const [key, config] of Object.entries(this.CHAINS)) {
+      if (config.id === chainId) {
+        return config;
+      }
+    }
+    // Fallback zu PulseChain
+    return this.CHAINS.PULSECHAIN;
+  }
+
+  /**
+   * 🔗 HELPER: DexScreener URL für verschiedene Chains
+   */
+  static getDexScreenerUrl(contractAddress, chainId) {
+    const chainNames = {
+      369: 'pulsechain',
+      1: 'ethereum'
+    };
+    const chainName = chainNames[chainId] || 'pulsechain';
+    return `https://dexscreener.com/${chainName}/${contractAddress}`;
+  }
 
   /**
    * 🎯 HAUPTFUNKTION: Lade komplette Portfolio-Daten mit echten Preisen (FIXED)
@@ -156,19 +207,22 @@ export class CentralDataService {
   }
 
   /**
-   * 🪙 Lade echte Token-Balances von PulseChain API (PRECISION FIXED)
+   * 🪙 MULTI-CHAIN: Lade Token-Balances von verschiedenen Chains (PRECISION FIXED)
    */
   static async loadRealTokenBalancesFixed(wallets) {
     const allTokens = [];
     let totalValue = 0;
 
     for (const wallet of wallets) {
-      console.log(`🔍 FIXED: Loading tokens for wallet: ${wallet.address}`);
+      const chainId = wallet.chain_id || 369; // Default PulseChain
+      const chain = this.getChainConfig(chainId);
+      
+      console.log(`🔍 MULTI-CHAIN: Loading tokens for wallet ${wallet.address} on ${chain.name}`);
       
       try {
-        // Verwende PulseChain Proxy für Token-Liste
+        // Verwende entsprechenden Chain-Proxy
         const response = await fetch(
-          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokenlist&module=account`
+          `${chain.apiProxy}?address=${wallet.address}&action=tokenlist&module=account`
         );
         
         if (!response.ok) {
@@ -231,8 +285,12 @@ export class CentralDataService {
                   
                   // Raw data for debugging
                   rawBalance: rawBalance,
-                  source: 'pulsechain_api',
-                  calculationMethod: 'bigint_precision'
+                  source: `${chain.name.toLowerCase()}_api`,
+                  calculationMethod: 'bigint_precision',
+                  
+                  // 🌐 Chain-spezifische Info
+                  chainBadge: chain.name === 'Ethereum' ? 'ETH' : 'PLS',
+                  explorerBase: chain.explorerBase
                 };
                 
                 allTokens.push(token);
@@ -259,26 +317,38 @@ export class CentralDataService {
   }
 
   /**
-   * 💰 LIVE-PREISE LADEN: DexScreener + GeckoTerminal (NEUE LOGIK)
+   * 💰 MULTI-CHAIN LIVE-PREISE: DexScreener + GeckoTerminal für alle Chains
    */
   static async loadRealTokenPricesFixed(tokens) {
-    console.log(`💰 LIVE PRICES: Loading prices for ${tokens.length} tokens (DexScreener + GeckoTerminal)`);
+    console.log(`💰 MULTI-CHAIN PRICES: Loading prices for ${tokens.length} tokens`);
     
     const priceMap = new Map();
     let updatedCount = 0;
     let apiCalls = 0;
     
-    // Get unique contract addresses (nicht-native Tokens)
-    const contractAddresses = [...new Set(
-      tokens
-        .filter(token => token.contractAddress && token.contractAddress !== 'native' && token.contractAddress !== '0x')
-        .map(token => token.contractAddress.toLowerCase())
-    )];
+    // Gruppiere Tokens nach Chain
+    const tokensByChain = {
+      369: [], // PulseChain
+      1: []    // Ethereum
+    };
     
-    console.log(`🔗 LIVE: Fetching prices for ${contractAddresses.length} contracts`);
+    tokens.forEach(token => {
+      if (token.contractAddress && token.contractAddress !== 'native' && token.contractAddress !== '0x') {
+        const chainId = token.chainId || 369;
+        if (!tokensByChain[chainId]) tokensByChain[chainId] = [];
+        tokensByChain[chainId].push(token);
+      }
+    });
 
-    // 🌟 PRIORITY 1: DexScreener API (Primary Source)
-    if (contractAddresses.length > 0) {
+    // 🌟 PRIORITY 1: DexScreener API für jede Chain separat
+    for (const [chainId, chainTokens] of Object.entries(tokensByChain)) {
+      if (chainTokens.length === 0) continue;
+      
+      const chainConfig = this.getChainConfig(parseInt(chainId));
+      const contractAddresses = [...new Set(chainTokens.map(t => t.contractAddress.toLowerCase()))];
+      
+      console.log(`🔗 ${chainConfig.name.toUpperCase()}: Fetching prices for ${contractAddresses.length} contracts`);
+
       try {
         const batchSize = 30; // DexScreener limit
         
@@ -305,13 +375,13 @@ export class CentralDataService {
                     priceMap.set(contractAddress, price);
                     updatedCount++;
                     
-                    console.log(`🟢 DEXSCREENER: ${pair.baseToken.symbol} = $${price}`);
+                    console.log(`🟢 ${chainConfig.name.toUpperCase()}: ${pair.baseToken.symbol} = $${price}`);
                   }
                 }
               }
             }
           } catch (batchError) {
-            console.warn(`⚠️ DexScreener batch error:`, batchError.message);
+            console.warn(`⚠️ DexScreener ${chainConfig.name} batch error:`, batchError.message);
           }
           
           // Rate limiting
@@ -320,19 +390,32 @@ export class CentralDataService {
           }
         }
       } catch (error) {
-        console.error('💥 DexScreener API error:', error);
+        console.error(`💥 DexScreener ${chainConfig.name} API error:`, error);
       }
     }
 
-    // 🔵 PRIORITY 2: GeckoTerminal API (für Tokens ohne DexScreener Preis)
-    const missingTokens = contractAddresses.filter(addr => !priceMap.has(addr));
-    if (missingTokens.length > 0) {
-      console.log(`🔵 GECKOTERMINAL: Fetching ${missingTokens.length} missing prices`);
+    // 🔵 PRIORITY 2: GeckoTerminal API für alle Chains (für fehlende Preise)
+    const allMissingTokens = [];
+    tokens.forEach(token => {
+      if (token.contractAddress && !priceMap.has(token.contractAddress.toLowerCase())) {
+        allMissingTokens.push({
+          contractAddress: token.contractAddress.toLowerCase(),
+          chainId: token.chainId || 369,
+          symbol: token.symbol
+        });
+      }
+    });
+
+    if (allMissingTokens.length > 0) {
+      console.log(`🔵 GECKOTERMINAL: Fetching ${allMissingTokens.length} missing prices from all chains`);
       
-      for (const contractAddress of missingTokens.slice(0, 50)) { // Limit für Performance
+      for (const tokenInfo of allMissingTokens.slice(0, 50)) { // Performance Limit
         try {
+          const chainConfig = this.getChainConfig(tokenInfo.chainId);
+          const networkName = chainConfig.name.toLowerCase() === 'ethereum' ? 'eth' : 'pulsechain';
+          
           const response = await fetch(
-            `${this.ADDITIONAL_PRICE_APIS.geckoterminal}/${contractAddress}`
+            `https://api.geckoterminal.com/api/v2/networks/${networkName}/tokens/${tokenInfo.contractAddress}`
           );
           
           apiCalls++;
@@ -343,10 +426,10 @@ export class CentralDataService {
             if (data.data && data.data.attributes && data.data.attributes.price_usd) {
               const price = parseFloat(data.data.attributes.price_usd);
               
-              priceMap.set(contractAddress, price);
+              priceMap.set(tokenInfo.contractAddress, price);
               updatedCount++;
               
-              console.log(`🔵 GECKOTERMINAL: ${data.data.attributes.symbol} = $${price}`);
+              console.log(`🔵 GECKOTERMINAL ${chainConfig.name.toUpperCase()}: ${tokenInfo.symbol} = $${price}`);
             }
           }
         } catch (geckoError) {
@@ -493,12 +576,15 @@ export class CentralDataService {
     const roiStats = { daily: 0, weekly: 0, monthly: 0 };
 
     for (const wallet of wallets) {
+      const chainId = wallet.chain_id || 369;
+      const chain = this.getChainConfig(chainId);
+      
       try {
-        console.log(`📊 FIXED: Loading ROI transactions for wallet: ${wallet.address}`);
+        console.log(`📊 MULTI-CHAIN ROI: Loading transactions for wallet ${wallet.address} on ${chain.name}`);
         
         // PERFORMANCE FIX: Balanced transaction loading (500 instead of 2000)
         const response = await fetch(
-          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=500`
+          `${chain.apiProxy}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=500`
         );
         
         if (!response.ok) continue;
@@ -555,6 +641,8 @@ export class CentralDataService {
                 const roiTx = {
                   walletId: wallet.id,
                   walletAddress: wallet.address,
+                  chainId: chainId,
+                  chainName: chain.name,
                   
                   txHash: tx.hash,
                   blockNumber: parseInt(tx.blockNumber),
@@ -575,8 +663,9 @@ export class CentralDataService {
                   fromAddress: tx.from,
                   toAddress: tx.to,
                   
-                  explorerUrl: `https://scan.pulsechain.com/tx/${tx.hash}`,
-                  dexScreenerUrl: `https://dexscreener.com/pulsechain/${tx.contractAddress}`
+                  // 🌐 DYNAMIC EXPLORER URLS
+                  explorerUrl: `${chain.explorerBase}/tx/${tx.hash}`,
+                  dexScreenerUrl: this.getDexScreenerUrl(tx.contractAddress, chainId)
                 };
                 
                 allTransactions.push(roiTx);
@@ -626,12 +715,15 @@ export class CentralDataService {
     };
 
     for (const wallet of wallets) {
+      const chainId = wallet.chain_id || 369;
+      const chain = this.getChainConfig(chainId);
+      
       try {
-        console.log(`📄 FIXED: Loading tax transactions for wallet: ${wallet.address}`);
+        console.log(`📄 MULTI-CHAIN TAX: Loading transactions for wallet ${wallet.address} on ${chain.name}`);
         
-        // PERFORMANCE FIX: Balanced transaction loading (1000 instead of 5000)
+        // 📈 ERWEITERT: Höheres Transaktionslimit für bessere Steuerdaten
         const response = await fetch(
-          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=1000`
+          `${chain.apiProxy}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=2000`
         );
         
         if (!response.ok) continue;
@@ -675,6 +767,8 @@ export class CentralDataService {
             const taxTx = {
               walletId: wallet.id,
               walletAddress: wallet.address,
+              chainId: chainId,
+              chainName: chain.name,
               
               txHash: tx.hash,
               blockNumber: parseInt(tx.blockNumber),
@@ -689,6 +783,7 @@ export class CentralDataService {
               amountRaw: tx.value,
               price: price,
               valueUSD: value,
+              priceSource: priceSource,
               
               direction: isIncoming ? 'in' : 'out',
               txType: 'transfer',
@@ -705,8 +800,9 @@ export class CentralDataService {
               taxCategory: this.getTaxCategory(tx, amount, isIncoming),
               isROITransaction: isIncoming && this.isROITransaction(tx, amount),
               
-              explorerUrl: `https://scan.pulsechain.com/tx/${tx.hash}`,
-              dexScreenerUrl: `https://dexscreener.com/pulsechain/${tx.contractAddress}`,
+              // 🌐 DYNAMIC EXPLORER URLS
+              explorerUrl: `${chain.explorerBase}/tx/${tx.hash}`,
+              dexScreenerUrl: this.getDexScreenerUrl(tx.contractAddress, chainId),
               
               createdAt: new Date().toISOString()
             };
