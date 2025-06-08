@@ -69,7 +69,7 @@ export class WalletParser {
     const timestamp = Date.now();
     
     try {
-      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.5 for: ${walletAddress} [${timestamp}]`);
+      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.6 for: ${walletAddress} [${timestamp}]`);
       
       // Get native PLS balance via proxy
       const nativeUrl = `${proxyBaseUrl}?address=${walletAddress}&action=balance`;
