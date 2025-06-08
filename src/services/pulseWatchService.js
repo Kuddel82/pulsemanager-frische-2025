@@ -3,8 +3,8 @@
 
 export class PulseWatchService {
   
-  // 🌐 PulseWatch API Endpoints
-  static API_BASE = 'https://api.pulsewatch.app';
+  // 🌐 PulseWatch API Endpoints - Verwende Proxy für CORS-freien Zugriff
+  static API_BASE = '/api/pulsewatch'; // Geändert zu unserem Proxy
   static SCAN_BASE = 'https://scan.pulsechain.com/api';
   
   // 📊 ROI-Transaktionen von Wallet abrufen
@@ -34,21 +34,30 @@ export class PulseWatchService {
     }
   }
 
-  // 🎯 PulseWatch API (falls verfügbar)
+  // 🎯 PulseWatch API (über Proxy)
   static async fetchFromPulseWatch(walletAddress, limit) {
-    const response = await fetch(`${this.API_BASE}/address/${walletAddress}/transactions?limit=${limit}`, {
+    const response = await fetch(`${this.API_BASE}?address=${walletAddress}&action=transactions&limit=${limit}`, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'PulseManager/1.0'
+        'Accept': 'application/json'
       }
     });
     
     if (!response.ok) {
-      throw new Error(`PulseWatch API: ${response.status}`);
+      throw new Error(`PulseWatch Proxy: ${response.status}`);
     }
     
-    const data = await response.json();
+    const result = await response.json();
+    
+    // Handhabe Proxy-Response Format
+    const data = result.data || result;
+    
+    // Falls API nicht verfügbar ist, verwende Fallback
+    if (result._metadata && result._metadata.status !== 'success') {
+      console.log('⚠️ PulseWatch API nicht verfügbar, verwende Fallback');
+      return [];
+    }
+    
     return this.parseROITransactions(data, walletAddress);
   }
 
