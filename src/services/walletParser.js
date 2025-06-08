@@ -164,8 +164,8 @@ export class WalletParser {
         }
       }
       
-             // Filter Token mit Wert über 1 Cent (reduziert Noise)
-       const processedTokens = tokens.filter(token => token.valueUSD >= 0.01);
+             // Filter nur völlig wertlose Token (< $0.001) - zeige mehr Token an
+       const processedTokens = tokens.filter(token => token.valueUSD >= 0.001);
       
              // Calculate total portfolio value mit echten Preisen
        const totalTokenValue = processedTokens.reduce((sum, token) => sum + token.valueUSD, 0);

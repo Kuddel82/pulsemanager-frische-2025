@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { WalletParser } from '@/services/walletParser';
 import { TokenPriceService } from '@/services/tokenPriceService';
 import { supabase } from '@/lib/supabaseClient';
+import '@/styles/pulsechain-design.css';
 
 const PortfolioView = () => {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ const PortfolioView = () => {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [wallets, setWallets] = useState([]);
+  const [showAllTokens, setShowAllTokens] = useState(false);
 
   // 📊 Portfolio-Daten laden
   const loadPortfolioData = async () => {
@@ -62,8 +64,18 @@ const PortfolioView = () => {
       console.log(`💰 Aktualisiere Preise für ${uniqueTokens.length} einzigartige Token...`);
       const currentPrices = await TokenPriceService.getBatchPrices(uniqueTokens);
       
-      // Berechne Portfolio-Statistiken
+      // Debug: Token-Anzahl und Werte loggen
+      console.log(`🔍 DEBUG TOKEN COUNT: ${tokenBalances.length} tokens loaded from DB`);
+      tokenBalances.forEach(token => {
+        const price = currentPrices[token.token_symbol] || 0;
+        const value = token.balance * price;
+        console.log(`🪙 DEBUG TOKEN: ${token.token_symbol} | Balance: ${token.balance} | Price: $${price} | Value: $${value.toFixed(2)}`);
+      });
+
+      // Berechne Portfolio-Statistiken mit Debug-Ausgabe
       const portfolioStats = calculatePortfolioStats(tokenBalances, currentPrices);
+      
+      console.log(`💰 DEBUG PORTFOLIO STATS:`, portfolioStats);
       
       setPortfolioData({
         tokens: tokenBalances,
@@ -147,7 +159,7 @@ const PortfolioView = () => {
       totalPLSValue,
       totalTokenValue,
       totalTokens: tokens.length,
-      topHoldings: tokenStats.slice(0, 10),
+      topHoldings: tokenStats.slice(0, 20), // Zeige mehr Top Holdings
       allHoldings: tokenStats,
       lastUpdated: new Date()
     };
@@ -186,11 +198,11 @@ const PortfolioView = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-6">
+      <div className="min-h-screen pulse-bg p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-            <h2 className="text-xl font-semibold text-white mb-2">Portfolio wird geladen...</h2>
+          <div className="pulse-card text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-400 mx-auto mb-4"></div>
+            <h2 className="text-xl font-semibold pulse-text-gradient mb-2">Portfolio wird geladen...</h2>
             <p className="text-gray-300">Echte Token-Preise werden abgerufen...</p>
           </div>
         </div>
@@ -200,15 +212,15 @@ const PortfolioView = () => {
 
   if (!portfolioData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-6">
+      <div className="min-h-screen pulse-bg p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
-            <h2 className="text-xl font-semibold text-white mb-4">Keine Portfolio-Daten gefunden</h2>
+          <div className="pulse-card text-center">
+            <h2 className="text-xl font-semibold pulse-text-gradient mb-4">Keine Portfolio-Daten gefunden</h2>
             <p className="text-gray-300 mb-6">Bitte fügen Sie zuerst eine Wallet hinzu und aktualisieren Sie die Daten.</p>
             <button
               onClick={refreshAllWallets}
               disabled={refreshing}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
+              className="pulse-btn"
             >
               {refreshing ? 'Aktualisierung läuft...' : 'Wallets aktualisieren'}
             </button>
@@ -221,22 +233,22 @@ const PortfolioView = () => {
   const { stats } = portfolioData;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-6">
+    <div className="min-h-screen pulse-bg p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* 📊 Portfolio-Header */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6">
+        <div className="pulse-card">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Portfolio Übersicht</h1>
-              <p className="text-gray-300">
+              <h1 className="pulse-title mb-2">Portfolio Übersicht</h1>
+              <p className="pulse-subtitle">
                 Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
               </p>
             </div>
             <button
               onClick={refreshAllWallets}
               disabled={refreshing}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
+              className="pulse-btn disabled:opacity-50 flex items-center space-x-2"
             >
               <span>{refreshing ? '🔄' : '↻'}</span>
               <span>{refreshing ? 'Aktualisiert...' : 'Aktualisieren'}</span>
@@ -245,53 +257,63 @@ const PortfolioView = () => {
           
           {/* Portfolio-Statistiken */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white/5 rounded-xl p-4">
-              <h3 className="text-gray-300 text-sm font-medium mb-1">Gesamt-Portfolio</h3>
-              <p className="text-2xl font-bold text-white">{formatValue(stats.totalValue)}</p>
+            <div className="pulse-stat bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-xl p-4 border border-green-500/20">
+              <h3 className="pulse-stat-label">Gesamt-Portfolio</h3>
+              <p className="pulse-stat-value">{formatValue(stats.totalValue)}</p>
               <p className="text-green-400 text-sm">+0.00% (24h)</p>
             </div>
             
-            <div className="bg-white/5 rounded-xl p-4">
-              <h3 className="text-gray-300 text-sm font-medium mb-1">PLS Wert</h3>
-              <p className="text-2xl font-bold text-white">{formatValue(stats.totalPLSValue)}</p>
-              <p className="text-gray-400 text-sm">{((stats.totalPLSValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
+            <div className="pulse-stat bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-xl p-4 border border-blue-500/20">
+              <h3 className="pulse-stat-label">PLS Wert</h3>
+              <p className="pulse-stat-value">{formatValue(stats.totalPLSValue)}</p>
+              <p className="text-blue-400 text-sm">{((stats.totalPLSValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
             </div>
             
-            <div className="bg-white/5 rounded-xl p-4">
-              <h3 className="text-gray-300 text-sm font-medium mb-1">Token Wert</h3>
-              <p className="text-2xl font-bold text-white">{formatValue(stats.totalTokenValue)}</p>
-              <p className="text-gray-400 text-sm">{((stats.totalTokenValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
+            <div className="pulse-stat bg-gradient-to-br from-purple-500/10 to-purple-600/20 rounded-xl p-4 border border-purple-500/20">
+              <h3 className="pulse-stat-label">Token Wert</h3>
+              <p className="pulse-stat-value">{formatValue(stats.totalTokenValue)}</p>
+              <p className="text-purple-400 text-sm">{((stats.totalTokenValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
             </div>
             
-            <div className="bg-white/5 rounded-xl p-4">
-              <h3 className="text-gray-300 text-sm font-medium mb-1">Anzahl Token</h3>
-              <p className="text-2xl font-bold text-white">{stats.totalTokens}</p>
-              <p className="text-gray-400 text-sm">Verschiedene Assets</p>
+            <div className="pulse-stat bg-gradient-to-br from-pink-500/10 to-pink-600/20 rounded-xl p-4 border border-pink-500/20">
+              <h3 className="pulse-stat-label">Anzahl Token</h3>
+              <p className="pulse-stat-value">{stats.totalTokens}</p>
+              <p className="text-pink-400 text-sm">Verschiedene Assets</p>
             </div>
           </div>
         </div>
 
         {/* 🏆 Top Holdings */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Top Holdings</h2>
+        <div className="pulse-card">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold pulse-text-gradient">
+              {showAllTokens ? 'Alle Token' : 'Top Holdings'}
+            </h2>
+            <button
+              onClick={() => setShowAllTokens(!showAllTokens)}
+              className="pulse-btn-outline px-3 py-1 text-sm"
+            >
+              {showAllTokens ? 'Top 20' : 'Alle anzeigen'}
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/20">
-                  <th className="text-left text-gray-300 font-medium py-3">Token</th>
-                  <th className="text-right text-gray-300 font-medium py-3">Balance</th>
-                  <th className="text-right text-gray-300 font-medium py-3">Preis</th>
-                  <th className="text-right text-gray-300 font-medium py-3">Wert</th>
-                  <th className="text-right text-gray-300 font-medium py-3">Allokation</th>
-                  <th className="text-right text-gray-300 font-medium py-3">24h</th>
+                <tr className="border-b border-green-500/20">
+                  <th className="text-left text-green-400 font-medium py-3">Token</th>
+                  <th className="text-right text-green-400 font-medium py-3">Balance</th>
+                  <th className="text-right text-green-400 font-medium py-3">Preis</th>
+                  <th className="text-right text-green-400 font-medium py-3">Wert</th>
+                  <th className="text-right text-green-400 font-medium py-3">Allokation</th>
+                  <th className="text-right text-green-400 font-medium py-3">24h</th>
                 </tr>
               </thead>
               <tbody>
-                {stats.topHoldings.map((token, index) => (
-                  <tr key={`${token.token_symbol}-${index}`} className="border-b border-white/10 hover:bg-white/5">
+                {(showAllTokens ? stats.allHoldings : stats.topHoldings).map((token, index) => (
+                  <tr key={`${token.token_symbol}-${index}`} className="border-b border-green-500/10 hover:bg-green-500/5 transition-colors">
                     <td className="py-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center text-black font-bold text-sm">
                           {token.token_symbol?.charAt(0) || '?'}
                         </div>
                         <div>
@@ -306,13 +328,13 @@ const PortfolioView = () => {
                         maximumFractionDigits: 4 
                       })}
                     </td>
-                    <td className="text-right text-white py-4">
+                    <td className="text-right text-green-400 py-4">
                       ${token.currentPrice.toFixed(6)}
                     </td>
                     <td className="text-right text-white py-4 font-medium">
                       {formatValue(token.currentValue)}
                     </td>
-                    <td className="text-right text-gray-300 py-4">
+                    <td className="text-right text-blue-400 py-4">
                       {token.allocation.toFixed(1)}%
                     </td>
                     <td className="text-right py-4">
@@ -331,11 +353,11 @@ const PortfolioView = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Wallet-Übersicht */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Verbundene Wallets</h2>
+          <div className="pulse-card">
+            <h2 className="text-xl font-semibold pulse-text-gradient mb-4">Verbundene Wallets</h2>
             <div className="space-y-3">
               {wallets.map((wallet) => (
-                <div key={wallet.id} className="bg-white/5 rounded-lg p-4">
+                <div key={wallet.id} className="bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-lg p-4 border border-green-500/20">
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-white font-medium">{wallet.name}</p>
@@ -344,10 +366,10 @@ const PortfolioView = () => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-white font-medium">
+                      <p className="text-green-400 font-medium">
                         {wallet.chain_id === 369 ? 'PulseChain' : 'Ethereum'}
                       </p>
-                      <p className="text-gray-400 text-sm">Aktiv</p>
+                      <p className="text-blue-400 text-sm">Aktiv</p>
                     </div>
                   </div>
                 </div>
@@ -356,24 +378,32 @@ const PortfolioView = () => {
           </div>
 
           {/* Performance-Metriken */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Performance</h2>
+          <div className="pulse-card">
+            <h2 className="text-xl font-semibold pulse-text-gradient mb-4">Performance</h2>
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-300">24h Änderung</span>
-                <span className="text-green-400 font-medium">+$0.00 (0.00%)</span>
+                <span className="text-gray-500 font-medium">Wird berechnet...</span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-300">7d Änderung</span>
-                <span className="text-green-400 font-medium">+$0.00 (0.00%)</span>
+                <span className="text-gray-500 font-medium">Wird berechnet...</span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-300">30d Änderung</span>
-                <span className="text-green-400 font-medium">+$0.00 (0.00%)</span>
+                <span className="text-gray-500 font-medium">Wird berechnet...</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-t border-white/20 pt-4">
-                <span className="text-gray-300">All Time High</span>
-                <span className="text-white font-medium">{formatValue(stats.totalValue)}</span>
+              <div className="flex justify-between items-center py-2 border-t border-green-500/20 pt-4">
+                <span className="text-gray-300">Portfolio Wert</span>
+                <span className="text-green-400 font-medium">{formatValue(stats.totalValue)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-300">Token Anzahl</span>
+                <span className="text-blue-400 font-medium">{stats.totalTokens} Assets</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-300">Letzte Aktualisierung</span>
+                <span className="text-purple-400 font-medium">{lastUpdate?.toLocaleTimeString('de-DE')}</span>
               </div>
             </div>
           </div>
