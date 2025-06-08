@@ -23,16 +23,24 @@ const PortfolioView = () => {
       setLoading(true);
       console.log('📊 LOADING PORTFOLIO DATA...');
       
-      // Lade gespeicherte Wallets
-      const { data: walletsData } = await supabase
-        .from('user_wallets')
-        .select('*')
-        .eq('user_id', user.id);
-      
-      setWallets(walletsData || []);
-      
-      // Lade Token-Balances
+      // Lade Token-Balances und extrahiere Wallet-Informationen
       const tokenBalances = await WalletParser.getStoredTokenBalances(user.id);
+      
+      // Extrahiere eindeutige Wallets aus Token-Balances
+      const uniqueWallets = tokenBalances.reduce((acc, token) => {
+        const existing = acc.find(w => w.address === token.wallet_address);
+        if (!existing) {
+          acc.push({
+            id: `wallet_${token.wallet_address.slice(-8)}`,
+            address: token.wallet_address,
+            name: `Wallet ${token.wallet_address.slice(0, 6)}...${token.wallet_address.slice(-4)}`,
+            chain_id: token.chain_id || 369
+          });
+        }
+        return acc;
+      }, []);
+      
+      setWallets(uniqueWallets);
       
       if (tokenBalances.length === 0) {
         console.log('📊 Keine Token-Daten gefunden, Wallets werden aktualisiert...');
@@ -61,7 +69,7 @@ const PortfolioView = () => {
         tokens: tokenBalances,
         prices: currentPrices,
         stats: portfolioStats,
-        wallets: walletsData || []
+        wallets: uniqueWallets
       });
       
       setLastUpdate(new Date());
@@ -81,9 +89,13 @@ const PortfolioView = () => {
       setRefreshing(true);
       console.log('🔄 REFRESHING ALL WALLETS...');
       
-      for (const wallet of wallets) {
-        console.log(`🔄 Aktualisiere Wallet: ${wallet.name} (${wallet.address})`);
-        await WalletParser.refreshWalletData(user.id, wallet.address, wallet.chain_id);
+      // Lade aktuelle Token-Daten um Wallet-Adressen zu finden
+      const currentTokens = await WalletParser.getStoredTokenBalances(user.id);
+      const uniqueAddresses = [...new Set(currentTokens.map(token => token.wallet_address))];
+      
+      for (const address of uniqueAddresses) {
+        console.log(`🔄 Aktualisiere Wallet: ${address}`);
+        await WalletParser.refreshWalletData(user.id, address, 369); // PulseChain
       }
       
       // Lade aktualisierte Daten
