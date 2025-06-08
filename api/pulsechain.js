@@ -1,7 +1,7 @@
-// 🚀 PulseChain API Proxy - Vercel Serverless Function v0.0.6
+// 🚀 PulseChain API Proxy - Vercel Serverless Function v0.0.7
 // Eliminiert CORS-Probleme durch Server-seitigen Proxy
 // Route: /api/pulsechain?address=0x...&action=tokenlist
-// Deploy Time: 2025-01-08 RUNTIME FIX
+// Deploy Time: 2025-01-08 API-URL FIX - KRITISCH!
 
 export default async function handler(req, res) {
   // CORS Headers für alle Origins
@@ -30,8 +30,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // PulseChain API Base URL
-    const baseUrl = 'https://scan.pulsechain.com/api';
+    // PulseChain API Base URL (KORREKT nach API-Dokumentation!)
+    const baseUrl = 'https://api.scan.pulsechain.com/api';
     let apiUrl;
 
     // Verschiedene API-Endpoints basierend auf Action

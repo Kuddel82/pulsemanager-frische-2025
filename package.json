@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.0.6-runtime-fix",
+  "version": "0.0.7-api-url-fix",
   "private": true,
   "scripts": {
     "dev": "vite",
