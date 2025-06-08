@@ -1,43 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { TrendingUp, PlusCircle, BarChart3 } from 'lucide-react';
+import { TrendingUp, PlusCircle, BarChart3, Wallet, DollarSign, ExternalLink } from 'lucide-react';
 import { dbService } from '@/lib/dbService';
+import { supabase } from '@/lib/supabaseClient';
+import WalletBalanceService from '@/lib/walletBalanceService';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
   const [investments, setInvestments] = useState([]);
+  const [wallets, setWallets] = useState([]);
+  const [portfolioData, setPortfolioData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
 
-  // 📊 Fetch Investments with Debug Info
-  const fetchInvestments = async () => {
+  // 📊 Load Portfolio Data (Wallets + Investments)
+  const loadPortfolioData = async () => {
     if (!user?.id) {
       setInvestments([]);
+      setWallets([]);
+      setPortfolioData(null);
       return;
     }
     
     setIsLoading(true);
-    console.log('🔍 ROI TRACKER: Loading investments for user:', user.id);
+    console.log('🔍 ROI TRACKER: Loading portfolio for user:', user.id);
     
     try {
-      const { data, error } = await dbService.getRoiEntries(user.id);
+      // Load Wallets
+      const { data: walletsData, error: walletsError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (walletsError) throw walletsError;
       
-      console.log('🔍 ROI TRACKER: Database response:', { data, error });
-      
-      if (error) {
-        console.error('🔍 ROI TRACKER: Error from database:', error);
-        throw error;
+      console.log('🔍 ROI TRACKER: Wallets loaded:', walletsData);
+      setWallets(walletsData || []);
+
+      // Load Investments (optional - graceful fallback)
+      let investmentsData = [];
+      try {
+        const { data, error } = await dbService.getRoiEntries(user.id);
+        if (!error) {
+          investmentsData = data || [];
+        }
+      } catch (invError) {
+        console.log('🔍 ROI TRACKER: Investments table not available:', invError.message);
       }
       
-      setInvestments(data || []);
-      setStatusMessage(data && data.length > 0 
-        ? `✅ Loaded ${data.length} investments` 
-        : '📊 No investments found - Add some investments or check if your wallets are connected'
-      );
+      setInvestments(investmentsData);
       
-      console.log('🔍 ROI TRACKER: Final investments data:', data || []);
+      // Calculate Portfolio using the service
+      const portfolioCalc = WalletBalanceService.calculatePortfolioValue(walletsData || []);
+      setPortfolioData(portfolioCalc);
+      
+      console.log('🔍 ROI TRACKER: Portfolio calculation complete:', portfolioCalc);
+      
+      // Status message
+      const walletCount = (walletsData || []).length;
+      const investmentCount = investmentsData.length;
+      
+      if (walletCount > 0) {
+        setStatusMessage(`✅ Portfolio geladen: ${walletCount} Wallets, ${investmentCount} Investments, Gesamtwert: $${portfolioCalc.totalValue.toFixed(2)}`);
+      } else {
+        setStatusMessage('📊 Keine Wallets gefunden - Fügen Sie Ihre Wallets über "Manual Wallet Input" hinzu');
+      }
+      
     } catch (error) {
-      const errorMsg = `Error loading investments: ${error.message}`;
+      const errorMsg = `Error loading portfolio: ${error.message}`;
       setStatusMessage(errorMsg);
       console.error('🔍 ROI TRACKER: Final error:', error);
     } finally {
@@ -47,15 +79,32 @@ const ROITrackerView = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchInvestments();
+      loadPortfolioData();
     }
   }, [user?.id]);
 
-  // 💰 Calculate Totals
-  const totalInvested = investments.reduce((sum, inv) => sum + (inv.purchase_price * inv.quantity), 0);
-  const currentValue = investments.reduce((sum, inv) => sum + (inv.current_value || 0), 0);
-  const totalGain = currentValue - totalInvested;
-  const gainPercentage = totalInvested > 0 ? ((totalGain / totalInvested) * 100) : 0;
+  // 💰 Calculate Totals from Portfolio Data
+  const portfolioTotals = portfolioData ? {
+    walletValue: portfolioData.totalValue,
+    totalInvested: investments.reduce((sum, inv) => sum + (inv.purchase_price * inv.quantity), 0),
+    investmentValue: investments.reduce((sum, inv) => sum + (inv.current_value || 0), 0),
+    get totalValue() {
+      return this.walletValue + this.investmentValue;
+    },
+    get totalGain() {
+      return this.totalValue - this.totalInvested;
+    },
+    get gainPercentage() {
+      return this.totalInvested > 0 ? ((this.totalGain / this.totalInvested) * 100) : 0;
+    }
+  } : {
+    walletValue: 0,
+    totalInvested: 0,
+    investmentValue: 0,
+    totalValue: 0,
+    totalGain: 0,
+    gainPercentage: 0
+  };
 
   if (!user) {
     return (
@@ -86,39 +135,119 @@ const ROITrackerView = () => {
         </button>
       </div>
 
-      {/* 📊 Portfolio Overview */}
+      {/* 📊 Portfolio Overview - Updated with Wallet Data */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="pulse-card p-6 text-center">
-          <div className="text-2xl font-bold text-blue-400 mb-1">
-            ${totalInvested.toFixed(2)}
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <div className="flex items-center gap-2 justify-center mb-2">
+            <Wallet className="h-5 w-5 text-green-400" />
+            <span className="text-sm font-medium text-green-300">Wallet Value</span>
           </div>
-          <div className="text-sm pulse-text-secondary">Total Invested</div>
-        </div>
-        
-        <div className="pulse-card p-6 text-center">
           <div className="text-2xl font-bold text-green-400 mb-1">
-            ${currentValue.toFixed(2)}
+            ${portfolioTotals.walletValue.toFixed(2)}
           </div>
-          <div className="text-sm pulse-text-secondary">Current Value</div>
+          <div className="text-sm pulse-text-secondary">
+            {portfolioData ? `${portfolioData.breakdown.pls.total.toFixed(4)} PLS + ${portfolioData.breakdown.eth.total.toFixed(4)} ETH` : 'No wallets loaded'}
+          </div>
         </div>
         
-        <div className="pulse-card p-6 text-center">
-          <div className={`text-2xl font-bold mb-1 ${totalGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            ${totalGain.toFixed(2)}
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <div className="flex items-center gap-2 justify-center mb-2">
+            <DollarSign className="h-5 w-5 text-blue-400" />
+            <span className="text-sm font-medium text-blue-300">Investments</span>
           </div>
-          <div className="text-sm pulse-text-secondary">Total Gain/Loss</div>
+          <div className="text-2xl font-bold text-blue-400 mb-1">
+            ${portfolioTotals.investmentValue.toFixed(2)}
+          </div>
+          <div className="text-sm pulse-text-secondary">Cost: ${portfolioTotals.totalInvested.toFixed(2)}</div>
         </div>
         
-        <div className="pulse-card p-6 text-center">
-          <div className={`text-2xl font-bold mb-1 ${gainPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {gainPercentage.toFixed(1)}%
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <div className="flex items-center gap-2 justify-center mb-2">
+            <BarChart3 className="h-5 w-5 text-purple-400" />
+            <span className="text-sm font-medium text-purple-300">Total Portfolio</span>
           </div>
-          <div className="text-sm pulse-text-secondary">ROI %</div>
+          <div className="text-2xl font-bold text-purple-400 mb-1">
+            ${portfolioTotals.totalValue.toFixed(2)}
+          </div>
+          <div className="text-sm pulse-text-secondary">Wallets + Investments</div>
+        </div>
+        
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <div className="flex items-center gap-2 justify-center mb-2">
+            <TrendingUp className="h-5 w-5 text-yellow-400" />
+            <span className="text-sm font-medium text-yellow-300">ROI</span>
+          </div>
+          <div className={`text-2xl font-bold mb-1 ${portfolioTotals.gainPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {portfolioTotals.gainPercentage.toFixed(1)}%
+          </div>
+          <div className="text-sm pulse-text-secondary">
+            {portfolioTotals.totalGain >= 0 ? '+' : ''}${portfolioTotals.totalGain.toFixed(2)}
+          </div>
         </div>
       </div>
 
+      {/* 💳 Wallets Overview */}
+      {wallets.length > 0 && (
+        <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold pulse-text flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-green-400" />
+              Your Wallets
+            </h3>
+            <div className="text-sm pulse-text-secondary">
+              {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            {wallets.map((wallet) => {
+              const symbol = wallet.chain_id === 369 ? 'PLS' : 'ETH';
+              const balance = wallet.balance_eth || 0;
+              const price = portfolioData?.prices[wallet.chain_id] || 0;
+              const value = balance * price;
+              
+              return (
+                <div key={wallet.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${wallet.chain_id === 369 ? 'bg-purple-400' : 'bg-blue-400'}`}></div>
+                    <div>
+                      <div className="font-medium pulse-text">{wallet.nickname}</div>
+                      <div className="text-xs pulse-text-secondary">{wallet.chain_name}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="font-semibold text-green-400">
+                      {balance > 0 ? `${balance.toFixed(4)} ${symbol}` : 'No balance'}
+                    </div>
+                    <div className="text-sm pulse-text-secondary">
+                      ${value.toFixed(2)} USD
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const url = wallet.chain_id === 369 
+                          ? `https://scan.pulsechain.com/address/${wallet.address}`
+                          : `https://etherscan.io/address/${wallet.address}`;
+                        window.open(url, '_blank');
+                      }}
+                      className="text-blue-400 p-1"
+                      title="View in Explorer"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 📈 Investments List */}
-      <div className="pulse-card p-6">
+      <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold pulse-text">Your Investments</h3>
           <div className="text-sm pulse-text-secondary">
@@ -135,30 +264,66 @@ const ROITrackerView = () => {
           </div>
         ) : investments.length === 0 ? (
           <div className="text-center py-12">
-            <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-xl font-semibold pulse-text mb-2">No Investments Yet</h4>
-            <p className="pulse-text-secondary mb-4">Start tracking your PulseChain investments in the database</p>
-            
-            {/* Info Box */}
-            <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-left max-w-md mx-auto">
-              <div className="flex items-start gap-3">
-                <div className="text-blue-400 mt-0.5">💡</div>
-                <div>
-                  <h5 className="text-sm font-semibold text-blue-300 mb-1">
-                    Wallet-Daten vs. Investment-Tracking
-                  </h5>
-                  <p className="text-xs text-blue-200/80">
-                    <strong>Ihre Wallet-Balances</strong> werden im Dashboard/ROI Calculator angezeigt. 
-                    Dieser ROI Tracker ist für <strong>detaillierte Investment-Einträge</strong> 
-                    mit Kaufdatum, Kaufpreis, etc.
-                  </p>
+            {wallets.length > 0 ? (
+              <>
+                <BarChart3 className="h-16 w-16 text-green-400 mx-auto mb-4" />
+                <h4 className="text-xl font-semibold pulse-text mb-2">✅ Portfolio Data Loaded!</h4>
+                <p className="pulse-text-secondary mb-4">
+                  Ihre Wallet-Daten sind geladen und im ROI Tracker sichtbar. 
+                  Optional können Sie detaillierte Investments hinzufügen.
+                </p>
+                
+                {/* Success Info Box */}
+                <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-left max-w-md mx-auto">
+                  <div className="flex items-start gap-3">
+                    <div className="text-green-400 mt-0.5">💰</div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-green-300 mb-1">
+                        Ihre Tangem Wallet ist erfasst!
+                      </h5>
+                      <p className="text-xs text-green-200/80">
+                        <strong>Portfolio-Wert: ${portfolioTotals.totalValue.toFixed(2)}</strong> aus {wallets.length} Wallet{wallets.length !== 1 ? 's' : ''}. 
+                        Für detaillierteres Investment-Tracking können Sie einzelne Käufe mit Datum/Preis hinzufügen.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-xl font-semibold pulse-text mb-2">No Wallets Found</h4>
+                <p className="pulse-text-secondary mb-4">
+                  Fügen Sie Ihre Wallets über "Manual Wallet Input" hinzu, 
+                  um Ihr Portfolio zu tracken
+                </p>
+                
+                {/* Info Box */}
+                <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-left max-w-md mx-auto">
+                  <div className="flex items-start gap-3">
+                    <div className="text-blue-400 mt-0.5">💡</div>
+                    <div>
+                      <h5 className="text-sm font-semibold text-blue-300 mb-1">
+                        ROI Tracker Setup
+                      </h5>
+                      <p className="text-xs text-blue-200/80">
+                        1. <strong>Gehen Sie zu "Manual Wallet Input"</strong><br/>
+                        2. <strong>Fügen Sie Ihre Tangem-Adresse hinzu</strong><br/>
+                        3. <strong>Aktualisieren Sie die Balance</strong><br/>
+                        4. <strong>Portfolio wird hier angezeigt</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
             
-            <button className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2 mx-auto">
-              <PlusCircle className="h-4 w-4" />
-              Add Your First Investment
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2 mx-auto"
+            >
+              <Wallet className="h-4 w-4" />
+              {wallets.length > 0 ? 'View Full Dashboard' : 'Add Wallets Now'}
             </button>
           </div>
         ) : (
@@ -215,20 +380,38 @@ const ROITrackerView = () => {
       </div>
 
       {/* 🚀 Quick Actions */}
-      <div className="pulse-card p-6">
+      <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
         <h3 className="font-semibold pulse-text mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="p-4 text-left hover:bg-white/5 rounded-lg transition-colors">
+          <button 
+            onClick={() => {
+              // TODO: Implement CSV export
+              alert('CSV Export feature coming soon!');
+            }}
+            className="p-4 text-left rounded-lg transition-colors"
+            style={{outline: 'none', boxShadow: 'none'}}
+          >
             <div className="font-medium pulse-text">📊 Export Report</div>
-            <div className="text-sm pulse-text-secondary">Download investment data</div>
+            <div className="text-sm pulse-text-secondary">Download portfolio data</div>
           </button>
-          <button className="p-4 text-left hover:bg-white/5 rounded-lg transition-colors">
-            <div className="font-medium pulse-text">💼 Sync Wallet</div>
-            <div className="text-sm pulse-text-secondary">Import from connected wallet</div>
+          <button 
+            onClick={() => loadPortfolioData()}
+            className="p-4 text-left rounded-lg transition-colors"
+            style={{outline: 'none', boxShadow: 'none'}}
+          >
+            <div className="font-medium pulse-text">💼 Refresh Portfolio</div>
+            <div className="text-sm pulse-text-secondary">Reload wallet & investment data</div>
           </button>
-          <button className="p-4 text-left hover:bg-white/5 rounded-lg transition-colors">
-            <div className="font-medium pulse-text">📈 View Charts</div>
-            <div className="text-sm pulse-text-secondary">Performance visualization</div>
+          <button 
+            onClick={() => {
+              // Navigate to main dashboard
+              window.location.href = '/';
+            }}
+            className="p-4 text-left rounded-lg transition-colors"
+            style={{outline: 'none', boxShadow: 'none'}}
+          >
+            <div className="font-medium pulse-text">📈 View Dashboard</div>
+            <div className="text-sm pulse-text-secondary">Go to main portfolio view</div>
           </button>
         </div>
       </div>
