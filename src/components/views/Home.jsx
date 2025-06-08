@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
 import { TrendingUp, Activity, Users, ExternalLink } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import WalletReader from '@/components/WalletReader';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -86,6 +87,11 @@ const Home = () => {
           <div className="text-sm pulse-text-secondary mb-1">Tax Entries</div>
           <div className="text-xs pulse-text-secondary">Export ready</div>
         </div>
+      </div>
+
+      {/* 🔌 WalletReader - DOM-sichere Wallet-Verbindung */}
+      <div className="mb-8">
+        <WalletReader />
       </div>
 
       {/* 📈 Recent Activity */}
