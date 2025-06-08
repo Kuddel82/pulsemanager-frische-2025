@@ -21,23 +21,27 @@ import {
   TrendingUp,
   Eye,
   EyeOff,
-  Filter
+  Filter,
+  Database,
+  Clock
 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
+import { TaxService } from '@/services/TaxService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const TaxReportView = () => {
   const { user } = useAuth();
-  const [portfolioData, setPortfolioData] = useState(null);
+  const [taxData, setTaxData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
-  const [filterCategory, setFilterCategory] = useState('all'); // all, income, transfer, capital_gain
+  const [filterCategory, setFilterCategory] = useState('all'); // all, taxable, purchases, sales
   const [downloadingCSV, setDownloadingCSV] = useState(false);
+  const [cacheInfo, setCacheInfo] = useState(null);
 
-  // Lade Portfolio-Daten (mit Tax Data)
+  // 🚀 NEUER TAX SERVICE: Lade vollständige Transaktionshistorie
   const loadTaxData = async () => {
     if (!user?.id) return;
     
@@ -45,19 +49,40 @@ const TaxReportView = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 TAX REPORT: Loading data...');
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      console.log('🔄 TAX REPORT: Loading with new TaxService...');
       
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setPortfolioData(data);
-        setLastUpdate(new Date());
-        console.log('✅ TAX REPORT: Data loaded', {
-          taxTransactions: data.taxTransactions.length,
-          totalIncome: data.taxSummary?.totalIncome || 0
-        });
+      // 1. Lade User-Wallets
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
+      
+      if (portfolioData.error) {
+        setError(portfolioData.error);
+        return;
       }
+      
+      const wallets = portfolioData.wallets || [];
+      
+      if (wallets.length === 0) {
+        setError('Keine Wallets gefunden. Fügen Sie zuerst Ihre Wallet-Adressen hinzu.');
+        return;
+      }
+      
+      // 2. NEUER TAX SERVICE: Unbegrenzte Transaktionen mit Caching
+      const fullTaxData = await TaxService.fetchFullTransactionHistory(user.id, wallets);
+      
+      setTaxData(fullTaxData);
+      setLastUpdate(new Date());
+      setCacheInfo({
+        totalLoaded: fullTaxData.allTransactions.length,
+        taxable: fullTaxData.taxableTransactions.length,
+        cacheHit: fullTaxData.fromCache || false
+      });
+      
+      console.log('✅ TAX REPORT: Full data loaded via TaxService', {
+        total: fullTaxData.allTransactions.length,
+        taxable: fullTaxData.taxableTransactions.length,
+        taxableIncomeUSD: fullTaxData.taxSummary.taxableIncomeUSD
+      });
+      
     } catch (err) {
       console.error('💥 TAX REPORT ERROR:', err);
       setError(err.message);
@@ -66,14 +91,14 @@ const TaxReportView = () => {
     }
   };
 
-  // CSV Download
+  // 📄 CSV Download mit neuem TaxService
   const downloadCSV = async () => {
-    if (!portfolioData?.taxTransactions) return;
+    if (!taxData?.taxableTransactions) return;
     
     try {
       setDownloadingCSV(true);
       
-      const csv = CentralDataService.generateTaxCSV(portfolioData.taxTransactions);
+      const csv = TaxService.generateTaxCSV(taxData);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       
@@ -86,7 +111,7 @@ const TaxReportView = () => {
       link.click();
       document.body.removeChild(link);
       
-      console.log('✅ CSV downloaded successfully');
+      console.log('✅ TAX CSV downloaded successfully');
     } catch (error) {
       console.error('💥 CSV download error:', error);
     } finally {
@@ -132,7 +157,7 @@ const TaxReportView = () => {
     );
   }
 
-  if (!portfolioData) {
+  if (!taxData) {
     return (
       <div className="min-h-screen bg-black p-6">
         <div className="pulse-card max-w-lg mx-auto p-6 text-center">
@@ -150,50 +175,47 @@ const TaxReportView = () => {
     );
   }
 
-  // Filter transactions by category
+  // 🎯 Filter transactions by category (NEUES FORMAT)
   const getFilteredTransactions = () => {
-    if (!portfolioData.taxTransactions) return [];
+    if (!taxData) return [];
     
-    if (filterCategory === 'all') {
-      return portfolioData.taxTransactions;
+    switch (filterCategory) {
+      case 'all':
+        return taxData.allTransactions || [];
+      case 'taxable':
+        return taxData.taxableTransactions || [];
+      case 'purchases':
+        return taxData.purchases || [];
+      case 'sales':
+        return taxData.sales || [];
+      default:
+        return taxData.allTransactions || [];
     }
-    
-    return portfolioData.taxTransactions.filter(tx => tx.taxCategory === filterCategory);
   };
 
-  // Calculate tax statistics
+  // 📊 Get tax statistics from TaxService summary
   const getTaxStats = () => {
-    const transactions = portfolioData.taxTransactions || [];
+    if (!taxData?.taxSummary) {
+      return {
+        totalTransactions: 0,
+        taxableTransactions: 0,
+        taxableIncome: 0,
+        purchases: 0,
+        sales: 0
+      };
+    }
     
-    const stats = {
-      totalTransactions: transactions.length,
-      taxableTransactions: transactions.filter(tx => tx.isTaxable).length,
-      totalIncome: 0,
-      totalROI: 0,
-      totalTransfers: 0,
-      totalCapitalGains: 0
+    const summary = taxData.taxSummary;
+    
+    return {
+      totalTransactions: parseInt(summary.totalTransactions) || 0,
+      taxableTransactions: parseInt(summary.taxableTransactionsCount) || 0,
+      taxableIncome: parseFloat(summary.taxableIncomeUSD) || 0,
+      purchases: parseFloat(summary.purchasesUSD) || 0,
+      sales: parseFloat(summary.salesUSD) || 0,
+      purchasesCount: parseInt(summary.purchasesCount) || 0,
+      salesCount: parseInt(summary.salesCount) || 0
     };
-    
-    transactions.forEach(tx => {
-      if (tx.isTaxable) {
-        switch (tx.taxCategory) {
-          case 'income':
-            stats.totalIncome += tx.valueUSD;
-            if (tx.isROITransaction) {
-              stats.totalROI += tx.valueUSD;
-            }
-            break;
-          case 'capital_gain':
-            stats.totalCapitalGains += tx.valueUSD;
-            break;
-          case 'transfer':
-            stats.totalTransfers += tx.valueUSD;
-            break;
-        }
-      }
-    });
-    
-    return stats;
   };
 
   const filteredTransactions = getFilteredTransactions();
@@ -203,26 +225,30 @@ const TaxReportView = () => {
     {
       title: 'Gesamte Transaktionen',
       value: taxStats.totalTransactions.toString(),
+      subtitle: cacheInfo ? `${cacheInfo.totalLoaded} geladen` : '',
       icon: FileText,
       color: 'bg-blue-500'
     },
     {
       title: 'Steuerpflichtige',
       value: taxStats.taxableTransactions.toString(),
+      subtitle: 'ROI/Minting',
       icon: AlertCircle,
       color: 'bg-orange-500'
     },
     {
-      title: 'Einkommen',
-      value: formatCurrency(taxStats.totalIncome),
+      title: 'Steuerpflichtiges Einkommen',
+      value: formatCurrency(taxStats.taxableIncome),
+      subtitle: '§ 22 EStG',
       icon: DollarSign,
       color: 'bg-green-500'
     },
     {
-      title: 'ROI Erträge',
-      value: formatCurrency(taxStats.totalROI),
-      icon: TrendingUp,
-      color: 'bg-purple-500'
+      title: 'Cache Status',
+      value: cacheInfo?.cacheHit ? 'Cache Hit' : 'Fresh Load',
+      subtitle: cacheInfo ? `${cacheInfo.totalLoaded} Transaktionen` : '',
+      icon: cacheInfo?.cacheHit ? Database : Clock,
+      color: cacheInfo?.cacheHit ? 'bg-purple-500' : 'bg-yellow-500'
     }
   ];
 
@@ -249,7 +275,7 @@ const TaxReportView = () => {
             </Button>
             <Button
               onClick={downloadCSV}
-              disabled={downloadingCSV || !portfolioData.taxTransactions?.length}
+              disabled={downloadingCSV || !taxData?.taxableTransactions?.length}
             >
               <Download className={`h-4 w-4 mr-2 ${downloadingCSV ? 'animate-spin' : ''}`} />
               CSV Export
@@ -272,6 +298,9 @@ const TaxReportView = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium pulse-text-secondary">{stat.title}</p>
                   <p className="text-2xl font-bold pulse-text">{stat.value}</p>
+                  {stat.subtitle && (
+                    <p className="text-xs pulse-text-secondary mt-1">{stat.subtitle}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -279,28 +308,44 @@ const TaxReportView = () => {
         </div>
 
         {/* Debug Information */}
-        {showDebug && portfolioData.debug && (
+        {showDebug && taxData && (
           <div className="pulse-card p-6 mb-6">
             <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
               <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
-              Tax Debug Information
+              TAX SERVICE Debug Information
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className="font-medium pulse-text-secondary">Tax Transaktionen:</span>
-                <p className="pulse-text">{portfolioData.taxTransactions?.length || 0}</p>
+                <span className="font-medium pulse-text-secondary">Alle Transaktionen:</span>
+                <p className="pulse-text">{taxData.allTransactions?.length || 0}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Steuerpflichtig (ROI):</span>
+                <p className="pulse-text">{taxData.taxableTransactions?.length || 0}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Käufe:</span>
+                <p className="pulse-text">{taxData.purchases?.length || 0}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Verkäufe:</span>
+                <p className="pulse-text">{taxData.sales?.length || 0}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Cache Hit:</span>
+                <p className="pulse-text">{cacheInfo?.cacheHit ? '✅ Ja' : '❌ Nein'}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Geladen:</span>
+                <p className="pulse-text">{cacheInfo?.totalLoaded || 0}</p>
               </div>
               <div>
                 <span className="font-medium pulse-text-secondary">Gefiltert ({filterCategory}):</span>
                 <p className="pulse-text">{filteredTransactions.length}</p>
               </div>
               <div>
-                <span className="font-medium pulse-text-secondary">Steuerpflichtig:</span>
-                <p className="pulse-text">{taxStats.taxableTransactions}</p>
-              </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Gesamteinkommen:</span>
-                <p className="pulse-text">{formatCurrency(taxStats.totalIncome)}</p>
+                <span className="font-medium pulse-text-secondary">Steuerpflichtiges Einkommen:</span>
+                <p className="pulse-text">{formatCurrency(taxStats.taxableIncome)}</p>
               </div>
             </div>
           </div>
@@ -331,10 +376,10 @@ const TaxReportView = () => {
             </h3>
             <div className="space-y-2">
               {[
-                { key: 'all', label: 'Alle Transaktionen', count: portfolioData.taxTransactions?.length || 0 },
-                { key: 'income', label: 'Einkommen', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'income').length || 0 },
-                { key: 'capital_gain', label: 'Kapitalerträge', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'capital_gain').length || 0 },
-                { key: 'transfer', label: 'Transfers', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'transfer').length || 0 }
+                { key: 'all', label: 'Alle Transaktionen', count: taxData.allTransactions?.length || 0 },
+                { key: 'taxable', label: 'Steuerpflichtig (ROI)', count: taxData.taxableTransactions?.length || 0 },
+                { key: 'purchases', label: 'Käufe', count: taxData.purchases?.length || 0 },
+                { key: 'sales', label: 'Verkäufe', count: taxData.sales?.length || 0 }
               ].map(filter => (
                 <Button
                   key={filter.key}
@@ -349,27 +394,51 @@ const TaxReportView = () => {
             </div>
           </div>
 
-          {/* Tax Summary */}
+          {/* Tax Summary - NEUE STEUERLOGIK */}
           <div className="pulse-card p-6 lg:col-span-2">
             <h3 className="text-lg font-bold pulse-title mb-4">Steuer Übersicht ({new Date().getFullYear()})</h3>
             <div className="space-y-4">
+              
+              {/* STEUERPFLICHTIG: Nur ROI/Minting nach § 22 EStG */}
               <div className="flex justify-between items-center p-3 bg-green-500/10 border border-green-400/20 rounded-lg">
-                <span className="font-medium pulse-text">ROI Einkommen (steuerpflichtig)</span>
-                <span className="font-bold text-green-400">{formatCurrency(taxStats.totalROI)}</span>
+                <div>
+                  <span className="font-medium pulse-text">ROI/Minting Einkommen</span>
+                  <p className="text-xs pulse-text-secondary">§ 22 EStG - Sonstige Einkünfte</p>
+                </div>
+                <span className="font-bold text-green-400">{formatCurrency(taxStats.taxableIncome)}</span>
               </div>
+              
+              {/* NICHT STEUERPFLICHTIG: Käufe */}
               <div className="flex justify-between items-center p-3 bg-blue-500/10 border border-blue-400/20 rounded-lg">
-                <span className="font-medium pulse-text">Sonstiges Einkommen</span>
-                <span className="font-bold text-blue-400">{formatCurrency(taxStats.totalIncome - taxStats.totalROI)}</span>
+                <div>
+                  <span className="font-medium pulse-text">Käufe/Transfers</span>
+                  <p className="text-xs pulse-text-secondary">Nicht steuerpflichtig ({taxStats.purchasesCount} Transaktionen)</p>
+                </div>
+                <span className="font-bold text-blue-400">{formatCurrency(taxStats.purchases)}</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-purple-500/10 border border-purple-400/20 rounded-lg">
-                <span className="font-medium pulse-text">Kapitalerträge</span>
-                <span className="font-bold text-purple-400">{formatCurrency(taxStats.totalCapitalGains)}</span>
+              
+              {/* VERKÄUFE: Separate Besteuerung */}
+              <div className="flex justify-between items-center p-3 bg-orange-500/10 border border-orange-400/20 rounded-lg">
+                <div>
+                  <span className="font-medium pulse-text">Verkäufe</span>
+                  <p className="text-xs pulse-text-secondary">Separate Besteuerung ({taxStats.salesCount} Transaktionen)</p>
+                </div>
+                <span className="font-bold text-orange-400">{formatCurrency(taxStats.sales)}</span>
               </div>
+              
               <div className="border-t border-white/10 pt-3">
                 <div className="flex justify-between items-center text-lg">
-                  <span className="font-bold pulse-text">Gesamt steuerpflichtiges Einkommen</span>
-                  <span className="font-bold text-red-400">{formatCurrency(taxStats.totalIncome + taxStats.totalCapitalGains)}</span>
+                  <div>
+                    <span className="font-bold pulse-text">Steuerpflichtiges Einkommen</span>
+                    <p className="text-xs pulse-text-secondary">{taxData?.taxSummary?.taxNote}</p>
+                  </div>
+                  <span className="font-bold text-red-400">{formatCurrency(taxStats.taxableIncome)}</span>
                 </div>
+              </div>
+              
+              {/* Steuerhinweis */}
+              <div className="text-xs pulse-text-secondary p-2 bg-yellow-500/10 border border-yellow-400/20 rounded">
+                ⚖️ {taxData?.taxSummary?.disclaimerNote}
               </div>
             </div>
           </div>
@@ -378,16 +447,16 @@ const TaxReportView = () => {
 
         {/* Transactions Table */}
         <div className="pulse-card p-6">
-          <h3 className="text-lg font-bold pulse-title mb-4">
-            Transaktionen ({filteredTransactions.length})
-            {filterCategory !== 'all' && (
-              <Badge className="ml-2" variant="secondary">
-                {filterCategory === 'income' ? 'Einkommen' : 
-                 filterCategory === 'capital_gain' ? 'Kapitalerträge' : 
-                 filterCategory === 'transfer' ? 'Transfers' : filterCategory}
-              </Badge>
-            )}
-          </h3>
+                      <h3 className="text-lg font-bold pulse-title mb-4">
+              Transaktionen ({filteredTransactions.length})
+              {filterCategory !== 'all' && (
+                <Badge className="ml-2" variant="secondary">
+                  {filterCategory === 'taxable' ? 'Steuerpflichtig (ROI)' : 
+                   filterCategory === 'purchases' ? 'Käufe' : 
+                   filterCategory === 'sales' ? 'Verkäufe' : filterCategory}
+                </Badge>
+              )}
+            </h3>
             {filteredTransactions.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
