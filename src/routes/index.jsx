@@ -1,12 +1,12 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
 
 // ✅ NEW PULSECHAIN AUTH COMPONENTS
-import Login from '@/components/views/Auth/Login';
-import Register from '@/components/views/Auth/Register';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
 import UpdatePasswordPage from '@/components/auth/UpdatePasswordPage';
 
 import MainLayout from '@/components/layout/MainLayout'; 
