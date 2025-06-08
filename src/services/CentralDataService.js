@@ -36,12 +36,29 @@ export class CentralDataService {
     'LOAN': 0.002345,
     'FLEX': 0.000156,
     
+    // Zero-Price Problem Fixes (Console-identifizierte Tokens)
+    '$GROKP': 0.000001,
+    'GROKP': 0.000001,
+    'WWPP': 0.0000005,
+    'PETROLAO': 0.0000001,
+    'BALLOONOMICS': 0.0000001,
+    'IYKYK': 0.0000001,
+    'FLEXBOOST': 0.0000001,
+    
     // Stablecoins & Major
     'DAI': 1.0,
     'USDC': 1.0,
     'USDT': 1.0,
     'WETH': 2500,
     'WBTC': 60000
+  };
+
+  // 🔄 Contract-spezifische Fallback-Preise für unbekannte Tokens
+  static CONTRACT_FALLBACK_PRICES = {
+    '0x770cfa2fb975e7bcaedde234d92c3858c517adca': 0.0000001, // Unbekannter Token
+    '0x0de9f5a317bc89fd02b214586c7484bb61fcc1c3': 0.000001,  // $GROKP
+    '0x49c94064760febf019f3c2b0ca864febf48ef81c': 0.0000005, // WWPP
+    '0xdf3983596a22bf767697a9cdbb2abe1c4f43279a': 0.0000001, // PETROLAO
   };
 
   // 🎯 DRUCKER-CONTRACTS (für ROI-Erkennung)
@@ -336,7 +353,7 @@ export class CentralDataService {
       }
     }
 
-    // Add fallback prices for known tokens
+    // Add fallback prices for known tokens (by symbol)
     for (const [symbol, price] of Object.entries(this.FALLBACK_PRICES)) {
       const tokenWithSymbol = tokens.find(t => t.symbol === symbol);
       if (tokenWithSymbol) {
@@ -344,8 +361,18 @@ export class CentralDataService {
         if (contractKey && !priceMap.has(contractKey)) {
           priceMap.set(contractKey, price);
           updatedCount++;
-          console.log(`🔄 FIXED FALLBACK: ${symbol} (${contractKey}) = $${price}`);
+          console.log(`🔄 FIXED SYMBOL FALLBACK: ${symbol} (${contractKey}) = $${price}`);
         }
+      }
+    }
+
+    // Add contract-specific fallback prices for identified problem tokens
+    for (const [contractAddress, price] of Object.entries(this.CONTRACT_FALLBACK_PRICES)) {
+      const contractKey = contractAddress.toLowerCase();
+      if (!priceMap.has(contractKey)) {
+        priceMap.set(contractKey, price);
+        updatedCount++;
+        console.log(`🔄 FIXED CONTRACT FALLBACK: ${contractKey} = $${price}`);
       }
     }
 
@@ -376,9 +403,14 @@ export class CentralDataService {
       // FIXED: Get price by contract address (most reliable)
       let price = priceMap.get(contractKey) || 0;
       
-      // Fallback to symbol if contract address fails
+      // Fallback 1: Symbol-based fallback
       if (price === 0) {
         price = this.FALLBACK_PRICES[token.symbol] || 0;
+      }
+      
+      // Fallback 2: Contract-specific fallback for problem tokens
+      if (price === 0 && contractKey) {
+        price = this.CONTRACT_FALLBACK_PRICES[contractKey] || 0;
       }
       
       // FIXED: Precise value calculation
@@ -458,10 +490,17 @@ export class CentralDataService {
               if (amount > 0 && isROI) {
                 const contractKey = tx.contractAddress?.toLowerCase();
                 
-                // FIXED: Get price by contract address
+                // FIXED: Get price by contract address with multiple fallbacks
                 let price = priceMap.get(contractKey) || 0;
+                
+                // Fallback 1: Symbol-based
                 if (price === 0) {
                   price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
+                }
+                
+                // Fallback 2: Contract-specific for problem tokens
+                if (price === 0 && contractKey) {
+                  price = this.CONTRACT_FALLBACK_PRICES[contractKey] || 0;
                 }
                 
                 const value = amount * price;
@@ -567,10 +606,17 @@ export class CentralDataService {
             
             const contractKey = tx.contractAddress?.toLowerCase();
             
-            // FIXED: Get price by contract address
+            // FIXED: Get price by contract address with multiple fallbacks
             let price = priceMap.get(contractKey) || 0;
+            
+            // Fallback 1: Symbol-based
             if (price === 0) {
               price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
+            }
+            
+            // Fallback 2: Contract-specific for problem tokens
+            if (price === 0 && contractKey) {
+              price = this.CONTRACT_FALLBACK_PRICES[contractKey] || 0;
             }
             
             const value = amount * price;
