@@ -279,201 +279,181 @@ const ROITrackerView = () => {
 
         {/* Debug Information */}
         {showDebug && portfolioData.debug && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                ROI Debug Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">ROI Transaktionen:</span>
-                  <p>{portfolioData.roiTransactions?.length || 0}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Gefiltert ({timeFrame}):</span>
-                  <p>{filteredTransactions.length}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Einzigartige Token:</span>
-                  <p>{roiByToken.length}</p>
-                </div>
-                <div>
-                  <span className="font-medium">ROI Percentage:</span>
-                  <p>{formatPercentage(getROIPercentage())}</p>
-                </div>
+          <div className="pulse-card p-6 mb-6">
+            <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
+              <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
+              ROI Debug Information
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="font-medium pulse-text-secondary">ROI Transaktionen:</span>
+                <p className="pulse-text">{portfolioData.roiTransactions?.length || 0}</p>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <span className="font-medium pulse-text-secondary">Gefiltert ({timeFrame}):</span>
+                <p className="pulse-text">{filteredTransactions.length}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Einzigartige Token:</span>
+                <p className="pulse-text">{roiByToken.length}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">ROI Percentage:</span>
+                <p className="pulse-text">{formatPercentage(getROIPercentage())}</p>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Current ROI Summary */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <DollarSign className="h-5 w-5 mr-2" />
-              {timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI Überblick
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-green-600">{formatCurrency(getCurrentROI())}</p>
-                <p className="text-sm text-gray-600">Gesamt ROI</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl font-bold text-blue-600">{formatPercentage(getROIPercentage())}</p>
-                <p className="text-sm text-gray-600">ROI %</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl font-bold text-purple-600">{filteredTransactions.length}</p>
-                <p className="text-sm text-gray-600">Transaktionen</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl font-bold text-orange-600">{roiByToken.length}</p>
-                <p className="text-sm text-gray-600">Token</p>
-              </div>
+        <div className="pulse-card p-6 mb-6">
+          <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
+            <DollarSign className="h-5 w-5 mr-2 text-green-400" />
+            {timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI Überblick
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-green-400">{formatCurrency(getCurrentROI())}</p>
+              <p className="text-sm pulse-text-secondary">Gesamt ROI</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-blue-400">{formatPercentage(getROIPercentage())}</p>
+              <p className="text-sm pulse-text-secondary">ROI %</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-purple-400">{filteredTransactions.length}</p>
+              <p className="text-sm pulse-text-secondary">Transaktionen</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-orange-400">{roiByToken.length}</p>
+              <p className="text-sm pulse-text-secondary">Token</p>
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* ROI by Token */}
-          <Card>
-            <CardHeader>
-              <CardTitle>ROI nach Token ({timeFrame})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {roiByToken.length > 0 ? (
-                <div className="space-y-3">
-                  {roiByToken.map((token, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <Badge variant="outline" className="text-xs">
-                          #{index + 1}
-                        </Badge>
-                        <div>
-                          <div className="font-medium">{token.symbol}</div>
-                          <div className="text-sm text-gray-500">
-                            {token.transactionCount} Transaktionen
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-green-600">
-                          {formatCurrency(token.totalValue)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {formatNumber(token.totalAmount, 4)} {token.symbol}
+          <div className="pulse-card p-6">
+            <h3 className="text-lg font-bold pulse-title mb-4">ROI nach Token ({timeFrame})</h3>
+            {roiByToken.length > 0 ? (
+              <div className="space-y-3">
+                {roiByToken.map((token, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Badge variant="outline" className="text-xs border-green-400 text-green-400">
+                        #{index + 1}
+                      </Badge>
+                      <div>
+                        <div className="font-medium pulse-text">{token.symbol}</div>
+                        <div className="text-sm pulse-text-secondary">
+                          {token.transactionCount} Transaktionen
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Coins className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <div className="text-right">
+                      <div className="font-bold text-green-400">
+                        {formatCurrency(token.totalValue)}
+                      </div>
+                      <div className="text-sm pulse-text-secondary">
+                        {formatNumber(token.totalAmount, 4)} {token.symbol}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 pulse-text-secondary">
+                <Coins className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
+              </div>
+            )}
+          </div>
 
           {/* Recent ROI Transactions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Letzte ROI-Transaktionen ({timeFrame})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {filteredTransactions.length > 0 ? (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {filteredTransactions.slice(0, 20).map((tx, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div>
-                          <div className="font-medium">{tx.tokenSymbol}</div>
-                          <div className="text-sm text-gray-500">
-                            {new Date(tx.timestamp).toLocaleDateString('de-DE')} {new Date(tx.timestamp).toLocaleTimeString('de-DE')}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {tx.roiReason}
-                          </div>
+          <div className="pulse-card p-6">
+            <h3 className="text-lg font-bold pulse-title mb-4">Letzte ROI-Transaktionen ({timeFrame})</h3>
+            {filteredTransactions.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {filteredTransactions.slice(0, 20).map((tx, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border border-white/10 rounded-lg bg-slate-800/30">
+                    <div className="flex items-center space-x-3">
+                      <div>
+                        <div className="font-medium pulse-text">{tx.tokenSymbol}</div>
+                        <div className="text-sm pulse-text-secondary">
+                          {new Date(tx.timestamp).toLocaleDateString('de-DE')} {new Date(tx.timestamp).toLocaleTimeString('de-DE')}
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-green-600">
-                          {formatCurrency(tx.value)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {formatNumber(tx.amount, 4)} {tx.tokenSymbol}
-                        </div>
-                        <div className="flex items-center space-x-1 mt-1">
-                          <a
-                            href={tx.explorerUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-700"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                          {tx.dexScreenerUrl && (
-                            <a
-                              href={tx.dexScreenerUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-green-500 hover:text-green-700"
-                            >
-                              <TrendingUp className="h-3 w-3" />
-                            </a>
-                          )}
+                        <div className="text-xs pulse-text-secondary opacity-75">
+                          {tx.roiReason}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
-                  <p className="text-sm mt-2">Versuchen Sie einen größeren Zeitrahmen oder fügen Sie Wallet-Adressen hinzu.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <div className="text-right">
+                      <div className="font-bold text-green-400">
+                        {formatCurrency(tx.value)}
+                      </div>
+                      <div className="text-sm pulse-text-secondary">
+                        {formatNumber(tx.amount, 4)} {tx.tokenSymbol}
+                      </div>
+                      <div className="flex items-center space-x-1 mt-1">
+                        <a
+                          href={tx.explorerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                        {tx.dexScreenerUrl && (
+                          <a
+                            href={tx.dexScreenerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-green-400 hover:text-green-300"
+                          >
+                            <TrendingUp className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 pulse-text-secondary">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
+                <p className="text-sm mt-2">Versuchen Sie einen größeren Zeitrahmen oder fügen Sie Wallet-Adressen hinzu.</p>
+              </div>
+            )}
+          </div>
 
         </div>
 
         {/* Total ROI Performance */}
         {portfolioData.totalValue > 0 && getCurrentROI() > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>ROI Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-green-50 p-6 rounded-lg">
-                <div className="text-center">
-                  <h3 className="text-xl font-semibold mb-2">Portfolio ROI Analyse</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600">Portfolio Wert</p>
-                      <p className="text-2xl font-bold">{formatCurrency(portfolioData.totalValue)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">{timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI</p>
-                      <p className="text-2xl font-bold text-green-600">{formatCurrency(getCurrentROI())}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">ROI Rendite</p>
-                      <p className="text-2xl font-bold text-blue-600">{formatPercentage(getROIPercentage())}</p>
-                    </div>
+          <div className="pulse-card p-6 mt-6">
+            <h3 className="text-lg font-bold pulse-title mb-4">ROI Performance</h3>
+            <div className="bg-green-500/10 border border-green-400/20 p-6 rounded-lg">
+              <div className="text-center">
+                <h4 className="text-xl font-semibold mb-2 pulse-title">Portfolio ROI Analyse</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-sm pulse-text-secondary">Portfolio Wert</p>
+                    <p className="text-2xl font-bold pulse-text">{formatCurrency(portfolioData.totalValue)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm pulse-text-secondary">{timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI</p>
+                    <p className="text-2xl font-bold text-green-400">{formatCurrency(getCurrentROI())}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm pulse-text-secondary">ROI Rendite</p>
+                    <p className="text-2xl font-bold text-blue-400">{formatPercentage(getROIPercentage())}</p>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
       </div>

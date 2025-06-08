@@ -264,194 +264,175 @@ const TaxReportView = () => {
         {/* Tax Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           {statsCards.map((stat, index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className={`${stat.color} p-3 rounded-lg`}>
-                    <stat.icon className="h-6 w-6 text-white" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                  </div>
+            <div key={index} className="pulse-card p-6">
+              <div className="flex items-center">
+                <div className={`${stat.color} p-3 rounded-lg`}>
+                  <stat.icon className="h-6 w-6 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="ml-4">
+                  <p className="text-sm font-medium pulse-text-secondary">{stat.title}</p>
+                  <p className="text-2xl font-bold pulse-text">{stat.value}</p>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
 
         {/* Debug Information */}
         {showDebug && portfolioData.debug && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                Tax Debug Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">Tax Transaktionen:</span>
-                  <p>{portfolioData.taxTransactions?.length || 0}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Gefiltert ({filterCategory}):</span>
-                  <p>{filteredTransactions.length}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Steuerpflichtig:</span>
-                  <p>{taxStats.taxableTransactions}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Gesamteinkommen:</span>
-                  <p>{formatCurrency(taxStats.totalIncome)}</p>
-                </div>
+          <div className="pulse-card p-6 mb-6">
+            <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
+              <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
+              Tax Debug Information
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="font-medium pulse-text-secondary">Tax Transaktionen:</span>
+                <p className="pulse-text">{portfolioData.taxTransactions?.length || 0}</p>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <span className="font-medium pulse-text-secondary">Gefiltert ({filterCategory}):</span>
+                <p className="pulse-text">{filteredTransactions.length}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Steuerpflichtig:</span>
+                <p className="pulse-text">{taxStats.taxableTransactions}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Gesamteinkommen:</span>
+                <p className="pulse-text">{formatCurrency(taxStats.totalIncome)}</p>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* DSGVO Notice */}
-        <Card className="mb-6 bg-blue-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-blue-800">DSGVO-Hinweis</p>
-                <p className="text-blue-700">
-                  Diese Steuerdaten werden nur lokal verarbeitet und nicht an Dritte weitergegeben. 
-                  Der CSV-Export erfolgt direkt in Ihrem Browser ohne Server-Upload.
-                </p>
-              </div>
+        <div className="pulse-card p-4 mb-6 border-l-4 border-blue-400">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium pulse-text">DSGVO-Hinweis</p>
+              <p className="pulse-text-secondary">
+                Diese Steuerdaten werden nur lokal verarbeitet und nicht an Dritte weitergegeben. 
+                Der CSV-Export erfolgt direkt in Ihrem Browser ohne Server-Upload.
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Filter & Tax Summary */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           
           {/* Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Filter className="h-5 w-5 mr-2" />
-                Filter
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {[
-                  { key: 'all', label: 'Alle Transaktionen', count: portfolioData.taxTransactions?.length || 0 },
-                  { key: 'income', label: 'Einkommen', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'income').length || 0 },
-                  { key: 'capital_gain', label: 'Kapitalerträge', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'capital_gain').length || 0 },
-                  { key: 'transfer', label: 'Transfers', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'transfer').length || 0 }
-                ].map(filter => (
-                  <Button
-                    key={filter.key}
-                    variant={filterCategory === filter.key ? 'default' : 'outline'}
-                    className="w-full justify-between"
-                    onClick={() => setFilterCategory(filter.key)}
-                  >
-                    <span>{filter.label}</span>
-                    <Badge variant="secondary">{filter.count}</Badge>
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="pulse-card p-6">
+            <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
+              <Filter className="h-5 w-5 mr-2 text-green-400" />
+              Filter
+            </h3>
+            <div className="space-y-2">
+              {[
+                { key: 'all', label: 'Alle Transaktionen', count: portfolioData.taxTransactions?.length || 0 },
+                { key: 'income', label: 'Einkommen', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'income').length || 0 },
+                { key: 'capital_gain', label: 'Kapitalerträge', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'capital_gain').length || 0 },
+                { key: 'transfer', label: 'Transfers', count: portfolioData.taxTransactions?.filter(tx => tx.taxCategory === 'transfer').length || 0 }
+              ].map(filter => (
+                <Button
+                  key={filter.key}
+                  variant={filterCategory === filter.key ? 'default' : 'outline'}
+                  className="w-full justify-between"
+                  onClick={() => setFilterCategory(filter.key)}
+                >
+                  <span>{filter.label}</span>
+                  <Badge variant="secondary">{filter.count}</Badge>
+                </Button>
+              ))}
+            </div>
+          </div>
 
           {/* Tax Summary */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Steuer Übersicht ({new Date().getFullYear()})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                  <span className="font-medium">ROI Einkommen (steuerpflichtig)</span>
-                  <span className="font-bold text-green-600">{formatCurrency(taxStats.totalROI)}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                  <span className="font-medium">Sonstiges Einkommen</span>
-                  <span className="font-bold text-blue-600">{formatCurrency(taxStats.totalIncome - taxStats.totalROI)}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                  <span className="font-medium">Kapitalerträge</span>
-                  <span className="font-bold text-purple-600">{formatCurrency(taxStats.totalCapitalGains)}</span>
-                </div>
-                <div className="border-t pt-3">
-                  <div className="flex justify-between items-center text-lg">
-                    <span className="font-bold">Gesamt steuerpflichtiges Einkommen</span>
-                    <span className="font-bold text-red-600">{formatCurrency(taxStats.totalIncome + taxStats.totalCapitalGains)}</span>
-                  </div>
+          <div className="pulse-card p-6 lg:col-span-2">
+            <h3 className="text-lg font-bold pulse-title mb-4">Steuer Übersicht ({new Date().getFullYear()})</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-green-500/10 border border-green-400/20 rounded-lg">
+                <span className="font-medium pulse-text">ROI Einkommen (steuerpflichtig)</span>
+                <span className="font-bold text-green-400">{formatCurrency(taxStats.totalROI)}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-blue-500/10 border border-blue-400/20 rounded-lg">
+                <span className="font-medium pulse-text">Sonstiges Einkommen</span>
+                <span className="font-bold text-blue-400">{formatCurrency(taxStats.totalIncome - taxStats.totalROI)}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-purple-500/10 border border-purple-400/20 rounded-lg">
+                <span className="font-medium pulse-text">Kapitalerträge</span>
+                <span className="font-bold text-purple-400">{formatCurrency(taxStats.totalCapitalGains)}</span>
+              </div>
+              <div className="border-t border-white/10 pt-3">
+                <div className="flex justify-between items-center text-lg">
+                  <span className="font-bold pulse-text">Gesamt steuerpflichtiges Einkommen</span>
+                  <span className="font-bold text-red-400">{formatCurrency(taxStats.totalIncome + taxStats.totalCapitalGains)}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
         </div>
 
         {/* Transactions Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Transaktionen ({filteredTransactions.length})
-              {filterCategory !== 'all' && (
-                <Badge className="ml-2" variant="secondary">
-                  {filterCategory === 'income' ? 'Einkommen' : 
-                   filterCategory === 'capital_gain' ? 'Kapitalerträge' : 
-                   filterCategory === 'transfer' ? 'Transfers' : filterCategory}
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="pulse-card p-6">
+          <h3 className="text-lg font-bold pulse-title mb-4">
+            Transaktionen ({filteredTransactions.length})
+            {filterCategory !== 'all' && (
+              <Badge className="ml-2" variant="secondary">
+                {filterCategory === 'income' ? 'Einkommen' : 
+                 filterCategory === 'capital_gain' ? 'Kapitalerträge' : 
+                 filterCategory === 'transfer' ? 'Transfers' : filterCategory}
+              </Badge>
+            )}
+          </h3>
             {filteredTransactions.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-2">Datum</th>
-                      <th className="text-left py-3 px-2">Token</th>
-                      <th className="text-right py-3 px-2">Menge</th>
-                      <th className="text-right py-3 px-2">Preis</th>
-                      <th className="text-right py-3 px-2">Wert (USD)</th>
-                      <th className="text-center py-3 px-2">Richtung</th>
-                      <th className="text-center py-3 px-2">Kategorie</th>
-                      <th className="text-center py-3 px-2">ROI</th>
-                      <th className="text-center py-3 px-2">Links</th>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-3 px-2 pulse-text-secondary">Datum</th>
+                      <th className="text-left py-3 px-2 pulse-text-secondary">Token</th>
+                      <th className="text-right py-3 px-2 pulse-text-secondary">Menge</th>
+                      <th className="text-right py-3 px-2 pulse-text-secondary">Preis</th>
+                      <th className="text-right py-3 px-2 pulse-text-secondary">Wert (USD)</th>
+                      <th className="text-center py-3 px-2 pulse-text-secondary">Richtung</th>
+                      <th className="text-center py-3 px-2 pulse-text-secondary">Kategorie</th>
+                      <th className="text-center py-3 px-2 pulse-text-secondary">ROI</th>
+                      <th className="text-center py-3 px-2 pulse-text-secondary">Links</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredTransactions.slice(0, 100).map((tx, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
+                      <tr key={index} className="border-b border-white/5 hover:bg-white/5">
                         <td className="py-3 px-2">
-                          <div className="text-sm">
+                          <div className="text-sm pulse-text">
                             {new Date(tx.blockTimestamp).toLocaleDateString('de-DE')}
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs pulse-text-secondary">
                             {new Date(tx.blockTimestamp).toLocaleTimeString('de-DE')}
                           </div>
                         </td>
                         <td className="py-3 px-2">
                           <div>
-                            <div className="font-medium">{tx.tokenSymbol}</div>
-                            <div className="text-sm text-gray-500">{tx.tokenName}</div>
+                            <div className="font-medium pulse-text">{tx.tokenSymbol}</div>
+                            <div className="text-sm pulse-text-secondary">{tx.tokenName}</div>
                           </div>
                         </td>
                         <td className="py-3 px-2 text-right">
-                          <div className="font-mono text-sm">
+                          <div className="font-mono text-sm pulse-text">
                             {formatNumber(tx.amount, 6)}
                           </div>
                         </td>
                         <td className="py-3 px-2 text-right">
-                          <div className="font-mono text-sm">
+                          <div className="font-mono text-sm pulse-text">
                             {tx.price > 0 ? formatCurrency(tx.price, 8) : 'N/A'}
                           </div>
                         </td>
                         <td className="py-3 px-2 text-right">
-                          <div className="font-bold">
+                          <div className="font-bold pulse-text">
                             {formatCurrency(tx.valueUSD)}
                           </div>
                         </td>
@@ -504,43 +485,40 @@ const TaxReportView = () => {
                 </table>
                 
                 {filteredTransactions.length > 100 && (
-                  <div className="text-center py-4 text-gray-500">
+                  <div className="text-center py-4 pulse-text-secondary">
                     <p>Zeige 100 von {filteredTransactions.length} Transaktionen</p>
                     <p className="text-sm">Exportieren Sie alle Daten mit dem CSV-Download</p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 pulse-text-secondary">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Keine Transaktionen in der ausgewählten Kategorie</p>
                 <p className="text-sm mt-2">Ändern Sie den Filter oder fügen Sie Wallet-Adressen hinzu.</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </div>
 
         {/* CSV Export Info */}
         {portfolioData.taxTransactions?.length > 0 && (
-          <Card className="mt-6 bg-green-50 border-green-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Download className="h-5 w-5 text-green-600" />
-                  <div className="text-sm">
-                    <p className="font-medium text-green-800">CSV-Export verfügbar</p>
-                    <p className="text-green-700">
-                      Alle {portfolioData.taxTransactions.length} Transaktionen können als CSV für die Steuererklärung exportiert werden.
-                    </p>
-                  </div>
+          <div className="pulse-card p-4 mt-6 border-l-4 border-green-400">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Download className="h-5 w-5 text-green-400" />
+                <div className="text-sm">
+                  <p className="font-medium pulse-text">CSV-Export verfügbar</p>
+                  <p className="pulse-text-secondary">
+                    Alle {portfolioData.taxTransactions.length} Transaktionen können als CSV für die Steuererklärung exportiert werden.
+                  </p>
                 </div>
-                <Button onClick={downloadCSV} disabled={downloadingCSV}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Jetzt exportieren
-                </Button>
               </div>
-            </CardContent>
-          </Card>
+              <Button onClick={downloadCSV} disabled={downloadingCSV} className="bg-green-500 hover:bg-green-600">
+                <Download className="h-4 w-4 mr-2" />
+                Jetzt exportieren
+              </Button>
+            </div>
+          </div>
         )}
 
       </div>
