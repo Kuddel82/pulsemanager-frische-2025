@@ -152,11 +152,11 @@ export class TaxExportService {
     
     filteredTx.forEach(tx => {
       const row = [
-        this.formatDate(tx.timestamp),
+        this.formatDate(tx.block_timestamp),
         tx.tx_hash || '',
         tx.token_symbol || '',
         tx.token_name || '',
-        this.formatNumber(tx.amount_formatted),
+        this.formatNumber(tx.amount),
         this.formatNumber(tx.token_price_usd),
         this.formatNumber(tx.value_usd),
         this.translateTransactionType(tx.transaction_type),
@@ -188,18 +188,18 @@ export class TaxExportService {
     let csvContent = this.CSV_HEADERS.DETAILED.join(';') + '\n';
     
     transactions.forEach(tx => {
-      const txDate = new Date(tx.timestamp);
+      const txDate = new Date(tx.block_timestamp);
       const row = [
-        this.formatDate(tx.timestamp, 'date'),
-        this.formatDate(tx.timestamp, 'time'),
+        this.formatDate(tx.block_timestamp, 'date'),
+        this.formatDate(tx.block_timestamp, 'time'),
         tx.tx_hash || '',
         tx.block_number || '',
-        tx.token_address || '',
+                  tx.contract_address || '',
         tx.token_symbol || '',
         tx.token_name || '',
-        tx.token_decimals || '',
+        tx.decimals || '',
         tx.amount_raw || '',
-        this.formatNumber(tx.amount_formatted),
+        this.formatNumber(tx.amount),
         this.formatNumber(tx.token_price_usd),
         this.formatNumber(tx.value_usd),
         this.translateTransactionType(tx.transaction_type),
@@ -409,10 +409,10 @@ export class TaxExportService {
       dexScreener: [],
       summary: {
         totalTransactions: transactions.length,
-        uniqueTokens: [...new Set(transactions.map(tx => tx.token_address))].length,
+                  uniqueTokens: [...new Set(transactions.map(tx => tx.contract_address))].length,
         dateRange: {
-          from: transactions[transactions.length - 1]?.timestamp,
-          to: transactions[0]?.timestamp
+                  from: transactions[transactions.length - 1]?.block_timestamp,
+        to: transactions[0]?.block_timestamp
         }
       }
     };
@@ -422,7 +422,7 @@ export class TaxExportService {
         links.pulseScan.push({
           hash: tx.tx_hash,
           url: tx.explorer_url,
-          date: tx.timestamp
+          date: tx.block_timestamp
         });
       }
       
@@ -430,7 +430,7 @@ export class TaxExportService {
         links.dexScreener.push({
           token: tx.token_symbol,
           url: tx.dex_screener_url,
-          address: tx.token_address
+          address: tx.contract_address
         });
       }
     });
@@ -448,7 +448,7 @@ export class TaxExportService {
    */
   static generateTaxYearSummary(transactions, year) {
     const yearTransactions = transactions.filter(tx => {
-      const txYear = new Date(tx.timestamp).getFullYear();
+      const txYear = new Date(tx.block_timestamp).getFullYear();
       return txYear === year;
     });
     
@@ -481,7 +481,7 @@ export class TaxExportService {
     const monthMap = {};
     
     transactions.forEach(tx => {
-      const month = new Date(tx.timestamp).toISOString().slice(0, 7); // YYYY-MM
+      const month = new Date(tx.block_timestamp).toISOString().slice(0, 7); // YYYY-MM
       if (!monthMap[month]) {
         monthMap[month] = { count: 0, value: 0, roi: 0 };
       }
@@ -501,11 +501,11 @@ export class TaxExportService {
     const tokenMap = {};
     
     transactions.forEach(tx => {
-      const key = tx.token_symbol || tx.token_address;
+      const key = tx.token_symbol || tx.contract_address;
       if (!tokenMap[key]) {
         tokenMap[key] = {
           symbol: tx.token_symbol,
-          address: tx.token_address,
+          address: tx.contract_address,
           count: 0,
           totalValue: 0
         };
