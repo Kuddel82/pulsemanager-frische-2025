@@ -40,6 +40,7 @@ export class CentralDataService {
     'PLS': 0.000088,      // Native PulseChain
     'PLSX': 0.00002622,   // PulseX
     'HEX': 0.005943,      // HEX
+    'DOMINANCE': 91.10,   // DOMINANCE (echter Token) - User-provided
     
     // 🔗 Ethereum Native Tokens 
     'ETH': 2400,          // Ethereum (minimal fallback)
@@ -69,6 +70,27 @@ export class CentralDataService {
     // Weitere Drucker-Contracts hier hinzufügen
   ];
 
+  // 🛡️ VERTRAUENSWÜRDIGE TOKEN-CONTRACTS (Scam-Schutz Whitelist)
+  static TRUSTED_TOKENS = {
+    // 🔗 PulseChain Ecosystem
+    '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea': 'DOMINANCE', // Echter DOMINANCE Token
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': 'HEX',       // HEX
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': 'INC',       // Incentive Token
+    '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1': 'PLSX',      // PulseX
+    '0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d': 'PHIAT',     // PHIAT
+    '0x6b3595068778dd592e39a122f4f5a5cf09c90fe2': 'WGEP',      // WGEP (falls bridged)
+    
+    // 🔗 Ethereum Ecosystem (für Multi-Chain Support)
+    '0xa0b86a33e6c5e8aac52c8fd9bc99f87eff44b2e9': 'DOMINANCE_ETH', // Falls auf Ethereum
+    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': 'WETH',      // Wrapped Ethereum
+    '0xa0b73e1ff0b80914ab6fe0444e65848c4c34450b': 'CRO',       // Cronos
+    
+    // 🔗 Major Stablecoins
+    '0x6b175474e89094c44da98b954eedeac495271d0f': 'DAI',       // DAI
+    '0xa0b86a33e6c5e8aac52c8fd9bc99f87eff44b2e9': 'USDC',      // USDC
+    '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT'       // USDT
+  };
+
   /**
    * 🌐 HELPER: Chain-Konfiguration anhand Chain-ID abrufen
    */
@@ -92,6 +114,38 @@ export class CentralDataService {
     };
     const chainName = chainNames[chainId] || 'pulsechain';
     return `https://dexscreener.com/${chainName}/${contractAddress}`;
+  }
+
+  /**
+   * 🛡️ HELPER: Prüfe ob Token vertrauenswürdig ist (Scam-Schutz Whitelist)
+   */
+  static isTrustedToken(contractAddress, symbol) {
+    const contractKey = contractAddress?.toLowerCase();
+    
+    // Prüfe Contract-Adresse in Whitelist
+    if (contractKey && this.TRUSTED_TOKENS[contractKey]) {
+      return {
+        isTrusted: true,
+        reason: 'whitelisted_contract',
+        whitelistName: this.TRUSTED_TOKENS[contractKey]
+      };
+    }
+    
+    // Prüfe bekannte Symbols
+    const knownSymbols = ['WETH', 'WBTC', 'BTC', 'ETH', 'PLS', 'HEX', 'PLSX', 'INC', 'DOMINANCE'];
+    if (knownSymbols.includes(symbol)) {
+      return {
+        isTrusted: true,
+        reason: 'known_symbol',
+        whitelistName: symbol
+      };
+    }
+    
+    return {
+      isTrusted: false,
+      reason: 'unknown_token',
+      whitelistName: null
+    };
   }
 
   /**
@@ -493,21 +547,29 @@ export class CentralDataService {
         priceSource = 'live_api';
       }
       
-      // ⚠️ STRIKTE VALIDIERUNG: Preis-Plausibilität prüfen
+      // ⚠️ STRIKTE VALIDIERUNG: Preis-Plausibilität prüfen (mit Whitelist)
       if (price > 0) {
-        // Sanity Check: Extrem hohe Preise blockieren (verhindert $1M+ Portfolio)
-        if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(token.symbol)) {
-          console.warn(`🚨 SUSPICIOUS HIGH PRICE BLOCKED: ${token.symbol} = $${price} (blocked for safety)`);
-          price = 0;
-          priceSource = 'blocked_suspicious';
-        }
+        // 🛡️ Check ob Token vertrauenswürdig ist
+        const trustCheck = this.isTrustedToken(token.contractAddress, token.symbol);
         
-        // Balance-Sanity-Check: Verhindere unrealistische Portfolio-Werte
-        const calculatedValue = token.balance * price;
-        if (calculatedValue > 100000) { // $100k+ pro Token ist verdächtig
-          console.warn(`🚨 SUSPICIOUS VALUE BLOCKED: ${token.symbol} ${token.balance.toFixed(2)} × $${price} = $${calculatedValue.toFixed(0)} (blocked)`);
-          price = 0;
-          priceSource = 'blocked_unrealistic';
+        if (!trustCheck.isTrusted) {
+          // Sanity Check: Extrem hohe Preise blockieren (nur für unbekannte Tokens)
+          if (price > 1000) {
+            console.warn(`🚨 SUSPICIOUS HIGH PRICE BLOCKED: ${token.symbol} = $${price} (blocked - ${trustCheck.reason})`);
+            price = 0;
+            priceSource = 'blocked_suspicious';
+          }
+          
+          // Balance-Sanity-Check: Verhindere unrealistische Portfolio-Werte (nur für unbekannte Tokens)
+          const calculatedValue = token.balance * price;
+          if (calculatedValue > 100000) { // $100k+ pro Token ist verdächtig
+            console.warn(`🚨 SUSPICIOUS VALUE BLOCKED: ${token.symbol} ${token.balance.toFixed(2)} × $${price} = $${calculatedValue.toFixed(0)} (blocked - ${trustCheck.reason})`);
+            price = 0;
+            priceSource = 'blocked_unrealistic';
+          }
+        } else {
+          // ✅ Vertrauenswürdiger Token - erlaube höhere Werte
+          console.log(`✅ TRUSTED TOKEN: ${token.symbol} (${trustCheck.whitelistName}) = $${price} - Scam-Schutz umgangen (${trustCheck.reason})`);
         }
       }
       
