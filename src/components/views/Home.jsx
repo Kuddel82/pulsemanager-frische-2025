@@ -72,22 +72,22 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 📊 Portfolio Overview */}
+      {/* 📊 Portfolio Overview - Schnellübersicht */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="pulse-card p-6 text-center">
-          <div className="text-3xl font-bold text-green-400 mb-2">$0.00</div>
+          <div className="text-3xl font-bold text-green-400 mb-2">---</div>
           <div className="text-sm pulse-text-secondary mb-1">Portfolio Value</div>
-          <div className="text-xs text-green-400">+0.00% (24h)</div>
+          <div className="text-xs pulse-text-secondary">Siehe ROI Calculator unten</div>
         </div>
         <div className="pulse-card p-6 text-center">
-          <div className="text-3xl font-bold text-blue-400 mb-2">0</div>
-          <div className="text-sm pulse-text-secondary mb-1">Connected Wallets</div>
-          <div className="text-xs pulse-text-secondary">Ready to connect</div>
+          <div className="text-3xl font-bold text-blue-400 mb-2">---</div>
+          <div className="text-sm pulse-text-secondary mb-1">Wallets & Investments</div>
+          <div className="text-xs pulse-text-secondary">Manuelle Eingabe verfügbar</div>
         </div>
         <div className="pulse-card p-6 text-center">
-          <div className="text-3xl font-bold text-purple-400 mb-2">0</div>
-          <div className="text-sm pulse-text-secondary mb-1">Tax Entries</div>
-          <div className="text-xs pulse-text-secondary">Export ready</div>
+          <div className="text-3xl font-bold text-purple-400 mb-2">✅</div>
+          <div className="text-sm pulse-text-secondary mb-1">CSV Export</div>
+          <div className="text-xs pulse-text-secondary">DSGVO-konform</div>
         </div>
       </div>
 

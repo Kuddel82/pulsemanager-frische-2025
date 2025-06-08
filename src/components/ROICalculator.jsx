@@ -27,19 +27,35 @@ export default function ROICalculator() {
       setIsLoading(true);
 
       // Load user wallets with balances
-      const { data: walletsData, error } = await supabase
+      const { data: walletsData, error: walletsError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (walletsError) throw walletsError;
 
       setWallets(walletsData || []);
 
-      // Calculate totals
-      const totals = walletsData.reduce((acc, wallet) => {
+      // Try to load investments (graceful fallback if table doesn't exist)
+      let investmentsData = [];
+      try {
+        const { data: invData, error: invError } = await supabase
+          .from('investments')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+        
+        if (!invError) {
+          investmentsData = invData || [];
+        }
+      } catch (invErr) {
+        console.log('Investments table not available yet:', invErr.message);
+      }
+
+      // Calculate wallet totals
+      const walletTotals = (walletsData || []).reduce((acc, wallet) => {
         const balance = parseFloat(wallet.balance_eth || 0);
         
         if (wallet.chain_id === 369) { // PulseChain
@@ -54,15 +70,39 @@ export default function ROICalculator() {
         totalETH: 0
       });
 
-      // Simplified USD calculation (would need real price API)
-      const plsUsdPrice = 0.0001; // Placeholder
-      const ethUsdPrice = 2400;   // Placeholder
+      // Calculate investment totals
+      const investmentTotals = investmentsData.reduce((acc, inv) => {
+        acc.totalInvestmentValue += parseFloat(inv.current_value_usd || 0);
+        acc.totalInvestmentCost += parseFloat(inv.purchase_total_usd || 0);
+        return acc;
+      }, {
+        totalInvestmentValue: 0,
+        totalInvestmentCost: 0
+      });
+
+      // Price calculations (placeholder values - would need real API)
+      const plsUsdPrice = 0.000095; // Realistic PLS price
+      const ethUsdPrice = 2350;     // Realistic ETH price
+
+      const walletValueUSD = (walletTotals.totalPLS * plsUsdPrice) + (walletTotals.totalETH * ethUsdPrice);
+      const totalPortfolioValue = walletValueUSD + investmentTotals.totalInvestmentValue;
+      const totalCostBasis = investmentTotals.totalInvestmentCost;
+      
+      // Calculate overall ROI
+      const overallROI = totalCostBasis > 0 
+        ? ((totalPortfolioValue - totalCostBasis) / totalCostBasis) * 100 
+        : 0;
 
       setPortfolioData({
-        ...totals,
-        totalValue: (totals.totalPLS * plsUsdPrice) + (totals.totalETH * ethUsdPrice),
-        roi24h: 0, // Would need historical data
-        change24h: 0 // Would need price tracking
+        ...walletTotals,
+        totalValue: totalPortfolioValue,
+        walletValue: walletValueUSD,
+        investmentValue: investmentTotals.totalInvestmentValue,
+        totalCostBasis: totalCostBasis,
+        roi24h: overallROI,
+        change24h: 0, // Would need historical price data
+        investmentCount: investmentsData.length,
+        walletCount: (walletsData || []).length
       });
 
     } catch (err) {
@@ -146,46 +186,62 @@ export default function ROICalculator() {
       </div>
 
       {/* Portfolio Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Total Value */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Total Portfolio Value */}
         <div className="p-4 bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <PieChart className="h-4 w-4 text-green-400" />
-            <span className="text-sm font-medium text-green-300">Portfolio Wert</span>
+            <span className="text-sm font-medium text-green-300">Gesamt Portfolio</span>
           </div>
           <div className="text-2xl font-bold text-green-400 mb-1">
             {formatCurrency(portfolioData.totalValue)}
           </div>
           <div className="text-xs pulse-text-secondary">
-            {portfolioData.change24h >= 0 ? '📈' : '📉'} {portfolioData.change24h.toFixed(2)}% (24h)
+            {portfolioData.walletCount || 0} Wallets • {portfolioData.investmentCount || 0} Investments
           </div>
         </div>
 
-        {/* PLS Holdings */}
-        <div className="p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <Calculator className="h-4 w-4 text-purple-400" />
-            <span className="text-sm font-medium text-purple-300">PLS Holdings</span>
-          </div>
-          <div className="text-xl font-bold text-purple-400 mb-1">
-            {formatCrypto(portfolioData.totalPLS, 'PLS')}
-          </div>
-          <div className="text-xs pulse-text-secondary">
-            {wallets.filter(w => w.chain_id === 369).length} PulseChain Wallets
-          </div>
-        </div>
-
-        {/* ETH Holdings */}
+        {/* Wallet Holdings */}
         <div className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <Calculator className="h-4 w-4 text-blue-400" />
-            <span className="text-sm font-medium text-blue-300">ETH Holdings</span>
+            <span className="text-sm font-medium text-blue-300">Wallet Value</span>
           </div>
           <div className="text-xl font-bold text-blue-400 mb-1">
-            {formatCrypto(portfolioData.totalETH, 'ETH')}
+            {formatCurrency(portfolioData.walletValue || 0)}
           </div>
           <div className="text-xs pulse-text-secondary">
-            {wallets.filter(w => w.chain_id === 1).length} Ethereum Wallets
+            {formatCrypto(portfolioData.totalPLS, 'PLS')} • {formatCrypto(portfolioData.totalETH, 'ETH')}
+          </div>
+        </div>
+
+        {/* Investment Value */}
+        <div className="p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-4 w-4 text-purple-400" />
+            <span className="text-sm font-medium text-purple-300">Investments</span>
+          </div>
+          <div className="text-xl font-bold text-purple-400 mb-1">
+            {formatCurrency(portfolioData.investmentValue || 0)}
+          </div>
+          <div className="text-xs pulse-text-secondary">
+            Basis: {formatCurrency(portfolioData.totalCostBasis || 0)}
+          </div>
+        </div>
+
+        {/* Overall ROI */}
+        <div className="p-4 bg-gradient-to-br from-yellow-500/10 to-orange-600/5 border border-yellow-500/20 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-4 w-4 text-yellow-400" />
+            <span className="text-sm font-medium text-yellow-300">ROI</span>
+          </div>
+          <div className={`text-xl font-bold mb-1 ${
+            portfolioData.roi24h >= 0 ? 'text-green-400' : 'text-red-400'
+          }`}>
+            {portfolioData.roi24h >= 0 ? '+' : ''}{portfolioData.roi24h.toFixed(2)}%
+          </div>
+          <div className="text-xs pulse-text-secondary">
+            {portfolioData.roi24h >= 0 ? '📈' : '📉'} Gesamtperformance
           </div>
         </div>
       </div>
@@ -234,6 +290,46 @@ export default function ROICalculator() {
           </div>
         )}
       </div>
+
+      {/* Setup Instructions */}
+      {wallets.length === 0 && (
+        <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <div className="text-blue-400 mt-0.5">💡</div>
+            <div>
+              <h5 className="text-sm font-semibold text-blue-300 mb-2">
+                Portfolio Setup
+              </h5>
+              <p className="text-xs text-blue-200/80 mb-3">
+                Fügen Sie Ihre Wallet-Adressen hinzu, um Ihr Portfolio zu tracken:
+              </p>
+              <ul className="text-xs text-blue-200/80 space-y-1">
+                <li>• <strong>Schritt 1:</strong> Wallet-Adressen über "Manual Wallet Input" hinzufügen</li>
+                <li>• <strong>Schritt 2:</strong> Balances werden hier automatisch angezeigt</li>
+                <li>• <strong>Schritt 3:</strong> CSV-Export für Steuersoftware verfügbar</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Database Setup Notice */}
+      {portfolioData.investmentCount === 0 && wallets.length > 0 && (
+        <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <div className="text-orange-400 mt-0.5">🔧</div>
+            <div>
+              <h5 className="text-sm font-semibold text-orange-300 mb-1">
+                Investments-Feature
+              </h5>
+              <p className="text-xs text-orange-200/80">
+                <strong>Optional:</strong> Führen Sie die investments-Tabelle Migration in Supabase aus, 
+                um detailliertes Investment-Tracking und ROI-Berechnung zu aktivieren.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tax & Disclaimer */}
       <div className="mt-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">

@@ -27,6 +27,11 @@ export const dbService = {
                 .order('purchase_date', { ascending: false });
 
             if (error) {
+                // Graceful handling wenn investments-Tabelle nicht existiert
+                if (error.code === '42P01') {
+                    logger.info('dbService.getRoiEntries: Investments table not found, returning empty array');
+                    return { data: [], error: null };
+                }
                 logger.error('dbService.getRoiEntries: Error fetching entries:', error);
                 return { data: [], error };
             }
@@ -34,8 +39,13 @@ export const dbService = {
             logger.info(`dbService.getRoiEntries: Fetched ${data?.length || 0} entries`);
             return { data: data || [], error: null };
         } catch (error) {
+            // Graceful handling für andere Fehler
+            if (error.message && error.message.includes('relation') && error.message.includes('does not exist')) {
+                logger.info('dbService.getRoiEntries: Investments table does not exist yet');
+                return { data: [], error: null };
+            }
             logger.error('dbService.getRoiEntries: Unexpected error:', error);
-            return { data: [], error };
+            return { data: [], error: null }; // Return empty array instead of error
         }
     },
 
@@ -65,6 +75,11 @@ export const dbService = {
                 .single();
             
             if (error) {
+                // Graceful handling wenn investments-Tabelle nicht existiert
+                if (error.code === '42P01') {
+                    logger.warn('dbService.addRoiEntry: Investments table not found - please run migration first');
+                    return { data: null, error: { message: "Investments table not found. Please run the migration in Supabase first." } };
+                }
                 logger.error('dbService.addRoiEntry: Error inserting entry:', error);
                 return { data: null, error };
             }
@@ -72,6 +87,11 @@ export const dbService = {
             logger.info('dbService.addRoiEntry: Successfully added entry');
             return { data, error: null };
         } catch (error) {
+            // Graceful handling für andere Fehler
+            if (error.message && error.message.includes('relation') && error.message.includes('does not exist')) {
+                logger.warn('dbService.addRoiEntry: Investments table does not exist yet');
+                return { data: null, error: { message: "Investments table not found. Please run the migration in Supabase first." } };
+            }
             logger.error('dbService.addRoiEntry: Unexpected error:', error);
             return { data: null, error };
         }
@@ -195,6 +215,11 @@ export const dbService = {
             const { data, error } = await query.order('transaction_date', { ascending: false });
 
             if (error) {
+                // Graceful handling wenn tax_entries-Tabelle nicht existiert
+                if (error.code === '42P01') {
+                    logger.info('dbService.getTaxEntries: Tax entries table not found, returning empty array');
+                    return { data: [], error: null };
+                }
                 logger.error('dbService.getTaxEntries: Error fetching entries:', error);
                 return { data: [], error };
             }
@@ -202,8 +227,13 @@ export const dbService = {
             logger.info(`dbService.getTaxEntries: Fetched ${data?.length || 0} tax entries`);
             return { data: data || [], error: null };
         } catch (error) {
+            // Graceful handling für andere Fehler
+            if (error.message && error.message.includes('relation') && error.message.includes('does not exist')) {
+                logger.info('dbService.getTaxEntries: Tax entries table does not exist yet');
+                return { data: [], error: null };
+            }
             logger.error('dbService.getTaxEntries: Unexpected error:', error);
-            return { data: [], error };
+            return { data: [], error: null }; // Return empty array instead of error
         }
     },
 
