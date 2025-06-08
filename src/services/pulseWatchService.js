@@ -55,8 +55,8 @@ export class PulseWatchService {
   // 🔗 PulseChain Scan API für eingehende Token-Transfers
   static async fetchFromPulseChainScan(walletAddress, limit) {
     try {
-      // Verwende unseren Proxy für CORS-freien Zugriff
-      const response = await fetch(`/api/pulsechain?address=${walletAddress}&action=tokentx&offset=${limit}&sort=desc`);
+      // Verwende unseren PulseChain Proxy für CORS-freien Zugriff
+      const response = await fetch(`/api/pulsechain?address=${walletAddress}&action=tokentx&module=account&offset=${limit}&sort=desc`);
       
       if (!response.ok) {
         throw new Error(`PulseChain Scan API: ${response.status}`);

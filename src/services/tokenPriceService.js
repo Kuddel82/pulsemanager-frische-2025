@@ -64,17 +64,16 @@ export class TokenPriceService {
     'WETH': 2500
   };
 
-  // 📊 VERBESSERTER DexScreener API mit PulseChain-spezifischer Logik
+  // 📊 VERBESSERTER DexScreener API mit PulseChain-spezifischer Logik (via Proxy)
   static async fetchDexScreenerPrice(tokenAddress) {
     try {
-      // Direkte PulseChain-Integration
-      const pulseChainUrl = `https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`;
-      console.log(`🔍 DexScreener URL: ${pulseChainUrl}`);
+      // PulseChain-Integration via Proxy (CORS-safe)
+      const proxyUrl = `/api/dexscreener-proxy?endpoint=tokens&addresses=${tokenAddress}`;
+      console.log(`🔍 DexScreener Proxy URL: ${proxyUrl}`);
       
-      const response = await fetch(pulseChainUrl, {
+      const response = await fetch(proxyUrl, {
         headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'PulseManager/2.0'
+          'Accept': 'application/json'
         }
       });
       

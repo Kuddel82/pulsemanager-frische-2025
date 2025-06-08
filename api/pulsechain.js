@@ -30,8 +30,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // PulseChain API Base URL (KORREKT nach API-Dokumentation!)
-    const baseUrl = 'https://api.scan.pulsechain.com/api';
+    // PulseChain API Base URL (Verwende Hauptendpoint für bessere Kompatibilität)
+    const baseUrl = 'https://scan.pulsechain.com/api';
     let apiUrl;
 
     // Verschiedene API-Endpoints basierend auf Action

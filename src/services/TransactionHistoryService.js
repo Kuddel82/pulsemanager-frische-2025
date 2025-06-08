@@ -6,8 +6,8 @@ import { TokenPriceService } from './tokenPriceService';
 
 export class TransactionHistoryService {
   
-  // 🌐 PulseChain Scan API Configuration
-  static PULSECHAIN_API = 'https://scan.pulsechain.com/api';
+  // 🌐 PulseChain Scan API Configuration (via Proxy)
+  static PULSECHAIN_PROXY = '/api/pulsechain';
   static MAX_TRANSACTIONS_PER_CALL = 10000; // API Limit
   static RETRY_ATTEMPTS = 3;
   static RETRY_DELAY = 2000; // 2 seconds
@@ -93,10 +93,10 @@ export class TransactionHistoryService {
       try {
         console.log(`📦 Fetching page ${page}, offset ${offset}...`);
         
-        const url = `${this.PULSECHAIN_API}` +
-          `?module=account` +
+        const url = `${this.PULSECHAIN_PROXY}` +
+          `?address=${walletAddress}` +
           `&action=tokentx` +
-          `&address=${walletAddress}` +
+          `&module=account` +
           `&startblock=${startBlock}` +
           `&endblock=${endBlock}` +
           `&page=${page}` +

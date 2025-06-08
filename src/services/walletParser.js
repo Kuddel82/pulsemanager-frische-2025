@@ -71,26 +71,26 @@ export class WalletParser {
     try {
       console.log(`🚀 FETCHING TOKENS via IMPROVED API v1.0 for: ${walletAddress} [${timestamp}]`);
       
-      // ⚡ DIREKTE PULSECHAIN SCAN API CALLS (ohne Proxy, bessere Performance)
-      const baseUrl = 'https://scan.pulsechain.com/api';
+      // ⚡ PULSECHAIN SCAN API CALLS VIA PROXY (CORS-sicher)
+      const proxyUrl = '/api/pulsechain';
       
       // 1. Native PLS Balance
-      const nativeUrl = `${baseUrl}?module=account&action=balance&address=${walletAddress}&tag=latest`;
-      console.log(`🔗 Native API URL: ${nativeUrl}`);
+      const nativeUrl = `${proxyUrl}?address=${walletAddress}&action=balance&module=account&tag=latest`;
+      console.log(`🔗 Native Proxy URL: ${nativeUrl}`);
       
       // 2. ERC20 Token List
-      const tokenUrl = `${baseUrl}?module=account&action=tokenlist&address=${walletAddress}`;
-      console.log(`🔗 Token API URL: ${tokenUrl}`);
+      const tokenUrl = `${proxyUrl}?address=${walletAddress}&action=tokenlist&module=account`;
+      console.log(`🔗 Token Proxy URL: ${tokenUrl}`);
       
       // 3. Recent Transactions für ROI-Analyse
-      const txUrl = `${baseUrl}?module=account&action=txlist&address=${walletAddress}&startblock=0&endblock=99999999&sort=desc&offset=100`;
-      console.log(`🔗 Transaction API URL: ${txUrl}`);
+      const txUrl = `${proxyUrl}?address=${walletAddress}&action=txlist&module=account&startblock=0&endblock=99999999&sort=desc&offset=100`;
+      console.log(`🔗 Transaction Proxy URL: ${txUrl}`);
       
       // 4. Token Transfers für ROI-Tracking
-      const tokenTxUrl = `${baseUrl}?module=account&action=tokentx&address=${walletAddress}&startblock=0&endblock=99999999&sort=desc&offset=100`;
-      console.log(`🔗 Token Transfer API URL: ${tokenTxUrl}`);
+      const tokenTxUrl = `${proxyUrl}?address=${walletAddress}&action=tokentx&module=account&startblock=0&endblock=99999999&sort=desc&offset=100`;
+      console.log(`🔗 Token Transfer Proxy URL: ${tokenTxUrl}`);
       
-      // 🔄 PARALLEL API CALLS für bessere Performance
+      // 🔄 PARALLEL API CALLS VIA PROXY für bessere Performance
       const [nativeResponse, tokenResponse, txResponse, tokenTxResponse] = await Promise.all([
         fetch(nativeUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
         fetch(tokenUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
