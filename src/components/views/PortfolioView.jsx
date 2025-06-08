@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, ExternalLink, TrendingUp, TrendingDown, DollarSign, Coins, BarChart3, Activity } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { WalletParser } from '@/services/WalletParser';
+import { WalletParser } from '@/services/walletParser';
 
 const PortfolioView = () => {
   const { user } = useAuth();
