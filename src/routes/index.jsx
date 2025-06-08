@@ -15,11 +15,12 @@ import MinimalLayout from '@/components/layout/MinimalLayout';
 
 // ✅ ONLY THE 4 CORE FEATURES THE USER WANTS
 import Home from '@/components/views/Home';
-import PortfolioView from '@/components/views/PortfolioView';
-import ROITrackerView from '@/components/views/ROITrackerView';
-import TaxReportView from '@/components/views/TaxReportView';
+import PortfolioView from '@/views/PortfolioView';
+import ROITrackerView from '@/views/ROITrackerView';
+import TaxReportView from '@/views/TaxReportView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
+import DebugView from '@/views/DebugView'; // Debug Monitor für PHASE 3
 import NotFound from '@/components/NotFound';
 
 // Legal pages
@@ -89,6 +90,9 @@ const AppRoutes = () => {
         <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/roi-tracker" element={<ROITrackerView />} />
         <Route path="/tax-report" element={<TaxReportView />} />
+        
+        {/* 🐛 DEBUG MONITOR - PHASE 3 */}
+        <Route path="/debug" element={<DebugView />} />
         
         {/* Redirects for legacy routes */}
         <Route path="/wallet" element={<Navigate to="/portfolio" replace />} />

@@ -1,6 +1,6 @@
-// 🎯 CENTRAL DATA SERVICE - Koordiniert ALLE Daten für PulseManager
+// 🎯 CENTRAL DATA SERVICE - DATENKONSISTENZ-FIX
 // Ersetzt das Chaos von verschiedenen Services durch eine einheitliche API
-// Datum: 2025-01-08 - KOMPLETTE SYSTEM-REPARATUR
+// Datum: 2025-01-08 - CRITICAL FIX: Echte Daten Precision
 
 import { supabase } from '@/lib/supabaseClient';
 
@@ -14,8 +14,8 @@ export class CentralDataService {
     dexscreener: '/api/dexscreener-proxy'
   };
 
-  // 💰 ECHTE PULSECHAIN TOKEN-PREISE (aktualisiert 2025-01-08)
-  static VERIFIED_PRICES = {
+  // 💰 FALLBACK TOKEN-PREISE (wenn DexScreener nicht verfügbar)
+  static FALLBACK_PRICES = {
     // Native
     'PLS': 0.000088,
     'PLSX': 0.00002622,
@@ -33,6 +33,8 @@ export class CentralDataService {
     'FINFIRE': 5.09,
     'SAV': 0.334,
     'INC': 1.44,
+    'LOAN': 0.002345,
+    'FLEX': 0.000156,
     
     // Stablecoins & Major
     'DAI': 1.0,
@@ -42,33 +44,54 @@ export class CentralDataService {
     'WBTC': 60000
   };
 
+  // 🎯 DRUCKER-CONTRACTS (für ROI-Erkennung)
+  static KNOWN_MINTERS = [
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX Drucker
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC Drucker
+    '0x83D0cF6A8bc7d9aF84B7fc1a6A8ad51f1e1E6fE1', // PLSX Drucker
+    // Weitere Drucker-Contracts hier hinzufügen
+  ];
+
   /**
-   * 🎯 HAUPTFUNKTION: Lade komplette Portfolio-Daten
+   * 🎯 HAUPTFUNKTION: Lade komplette Portfolio-Daten mit echten Preisen (FIXED)
    */
   static async loadCompletePortfolio(userId) {
-    console.log(`🎯 CENTRAL SERVICE: Loading complete portfolio for user ${userId}`);
+    console.log(`🎯 CENTRAL SERVICE (FIXED): Loading complete portfolio for user ${userId}`);
     
     try {
       // 1. Lade User Wallets
       const wallets = await this.loadUserWallets(userId);
       console.log(`📱 Loaded ${wallets.length} wallets`);
 
-      // 2. Lade echte Token-Balances von PulseChain API 
-      const tokenData = await this.loadRealTokenBalances(wallets);
-      console.log(`🪙 Loaded ${tokenData.tokens.length} tokens`);
+      if (wallets.length === 0) {
+        console.log('⚠️ No wallets found for user');
+        return this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Fügen Sie Ihre Wallet-Adressen hinzu.');
+      }
 
-      // 3. Lade ROI-Transaktionen (echte Daten)
-      const roiData = await this.loadRealROITransactions(wallets);
-      console.log(`📊 Loaded ${roiData.transactions.length} ROI transactions`);
+      // 2. Lade echte Token-Balances von PulseChain API (FIXED PRECISION)
+      const tokenData = await this.loadRealTokenBalancesFixed(wallets);
+      console.log(`🪙 FIXED: Loaded ${tokenData.tokens.length} tokens with total raw value $${tokenData.totalValue.toFixed(2)}`);
 
-      // 4. Lade historische Transaktionen für Tax Export
-      const taxData = await this.loadTaxTransactions(wallets);
-      console.log(`📄 Loaded ${taxData.transactions.length} tax transactions`);
+      // 3. Lade echte Token-Preise von DexScreener (FIXED CONTRACT MATCHING)
+      const pricesData = await this.loadRealTokenPricesFixed(tokenData.tokens);
+      console.log(`💰 FIXED: Updated prices for ${pricesData.updatedCount} tokens`);
 
-      // 5. Berechne Portfolio-Statistiken
-      const portfolioStats = this.calculatePortfolioStats(tokenData, roiData);
+      // 4. Aktualisiere Token-Werte mit echten Preisen (FIXED PRECISION)
+      const updatedTokenData = this.updateTokenValuesWithRealPricesFixed(tokenData, pricesData);
+      console.log(`🔄 FIXED: Updated token values: $${updatedTokenData.totalValue.toFixed(2)}`);
+
+      // 5. Lade ROI-Transaktionen (FIXED LOADING - mehr Transaktionen)
+      const roiData = await this.loadRealROITransactionsFixed(wallets, pricesData.priceMap);
+      console.log(`📊 FIXED: Loaded ${roiData.transactions.length} ROI transactions, Monthly ROI: $${roiData.monthlyROI.toFixed(2)}`);
+
+      // 6. Lade historische Transaktionen für Tax Export (FIXED LOADING)
+      const taxData = await this.loadTaxTransactionsFixed(wallets, pricesData.priceMap);
+      console.log(`📄 FIXED: Loaded ${taxData.transactions.length} tax transactions`);
+
+      // 7. Berechne Portfolio-Statistiken
+      const portfolioStats = this.calculatePortfolioStats(updatedTokenData, roiData);
       
-      // 6. Erstelle einheitliche Datenstruktur
+      // 8. Erstelle einheitliche Datenstruktur
       const completePortfolio = {
         userId,
         timestamp: new Date().toISOString(),
@@ -77,19 +100,19 @@ export class CentralDataService {
         wallets: wallets,
         walletCount: wallets.length,
         
-        // Token Holdings
-        tokens: tokenData.tokens,
-        tokenCount: tokenData.tokens.length,
-        totalTokenValue: tokenData.totalValue,
+        // Token Holdings (mit echten Preisen - FIXED)
+        tokens: updatedTokenData.tokens,
+        tokenCount: updatedTokenData.tokens.length,
+        totalTokenValue: updatedTokenData.totalValue,
         
-        // ROI Data
+        // ROI Data (FIXED)
         roiTransactions: roiData.transactions,
         roiStats: roiData.stats,
         dailyROI: roiData.dailyROI,
         weeklyROI: roiData.weeklyROI,
         monthlyROI: roiData.monthlyROI,
         
-        // Tax Data
+        // Tax Data (FIXED)
         taxTransactions: taxData.transactions,
         taxSummary: taxData.summary,
         
@@ -98,12 +121,26 @@ export class CentralDataService {
         totalROI: portfolioStats.totalROI,
         portfolioChange24h: portfolioStats.change24h,
         
+        // Debug Info (EXTENDED)
+        debug: {
+          pricesUpdated: pricesData.updatedCount,
+          priceSource: pricesData.source,
+          apiCalls: pricesData.apiCalls,
+          lastPriceUpdate: pricesData.timestamp,
+          tokensWithZeroPrice: updatedTokenData.tokens.filter(t => t.price === 0).length,
+          tokensWithZeroValue: updatedTokenData.tokens.filter(t => t.value === 0).length,
+          roiTransactionsWithZeroValue: roiData.transactions.filter(t => t.value === 0).length,
+          totalTransactionsLoaded: taxData.transactions.length
+        },
+        
         // Status
         isLoaded: true,
         loadTime: Date.now()
       };
 
-      console.log(`✅ COMPLETE PORTFOLIO LOADED: $${completePortfolio.totalValue.toFixed(2)}`);
+      console.log(`✅ FIXED PORTFOLIO LOADED: $${completePortfolio.totalValue.toFixed(2)} (${completePortfolio.tokenCount} tokens, ${completePortfolio.roiTransactions.length} ROI)`);
+      console.log(`🐛 DEBUG INFO:`, completePortfolio.debug);
+      
       return completePortfolio;
 
     } catch (error) {
@@ -128,14 +165,14 @@ export class CentralDataService {
   }
 
   /**
-   * 🪙 Lade echte Token-Balances von PulseChain API
+   * 🪙 Lade echte Token-Balances von PulseChain API (PRECISION FIXED)
    */
-  static async loadRealTokenBalances(wallets) {
+  static async loadRealTokenBalancesFixed(wallets) {
     const allTokens = [];
     let totalValue = 0;
 
     for (const wallet of wallets) {
-      console.log(`🔍 Loading tokens for wallet: ${wallet.address}`);
+      console.log(`🔍 FIXED: Loading tokens for wallet: ${wallet.address}`);
       
       try {
         // Verwende PulseChain Proxy für Token-Liste
@@ -143,74 +180,263 @@ export class CentralDataService {
           `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokenlist&module=account`
         );
         
-        if (!response.ok) continue;
+        if (!response.ok) {
+          console.warn(`⚠️ API Error for ${wallet.address}: ${response.status}`);
+          continue;
+        }
         
         const data = await response.json();
         
         if (data.status === '1' && Array.isArray(data.result)) {
+          console.log(`📊 FIXED: Found ${data.result.length} token entries for wallet ${wallet.address}`);
+          
           for (const tokenData of data.result) {
-            const balance = parseFloat(tokenData.balance) / Math.pow(10, parseInt(tokenData.decimals) || 18);
-            const price = this.getTokenPrice(tokenData.symbol, tokenData.contractAddress);
-            const value = balance * price;
-            
-            // Nur Token mit Mindest-Wert
-            if (value >= 0.01) {
-              const token = {
-                walletId: wallet.id,
-                walletAddress: wallet.address,
-                chainId: wallet.chain_id || 369,
-                
-                symbol: tokenData.symbol,
-                name: tokenData.name,
-                contractAddress: tokenData.contractAddress,
-                decimals: parseInt(tokenData.decimals) || 18,
-                
-                balance: balance,
-                price: price,
-                value: value,
-                
-                // Zusätzliche Infos
-                holdingRank: 0, // Wird später gesetzt
-                percentageOfPortfolio: 0, // Wird später berechnet
-                lastUpdated: new Date().toISOString()
-              };
+            try {
+              // FIXED: Proper BigNumber calculation with precision
+              const rawBalance = tokenData.balance;
+              const decimals = parseInt(tokenData.decimals) || 18;
               
-              allTokens.push(token);
-              totalValue += value;
+              // Calculate balance with proper precision
+              let balance = 0;
+              if (rawBalance && rawBalance !== '0') {
+                // Use BigInt for precise calculation to avoid JavaScript precision issues
+                const balanceBigInt = BigInt(rawBalance);
+                const divisorBigInt = BigInt(10 ** decimals);
+                const wholePart = balanceBigInt / divisorBigInt;
+                const fractionalPart = balanceBigInt % divisorBigInt;
+                
+                balance = Number(wholePart) + (Number(fractionalPart) / Number(divisorBigInt));
+              }
+              
+              // Log every token for debugging
+              console.log(`🔍 TOKEN DEBUG:`, {
+                symbol: tokenData.symbol,
+                rawBalance: rawBalance,
+                decimals: decimals,
+                calculatedBalance: balance,
+                contractAddress: tokenData.contractAddress
+              });
+              
+              // Include ALL tokens with any balance (no filtering)
+              if (balance > 0) {
+                const token = {
+                  walletId: wallet.id,
+                  walletAddress: wallet.address,
+                  chainId: wallet.chain_id || 369,
+                  
+                  symbol: tokenData.symbol || 'UNKNOWN',
+                  name: tokenData.name || 'Unknown Token',
+                  contractAddress: tokenData.contractAddress,
+                  decimals: decimals,
+                  
+                  balance: balance,
+                  price: 0, // Will be updated with real prices
+                  value: 0, // Will be calculated with real prices
+                  
+                  // Debug info
+                  holdingRank: 0,
+                  percentageOfPortfolio: 0,
+                  lastUpdated: new Date().toISOString(),
+                  
+                  // Raw data for debugging
+                  rawBalance: rawBalance,
+                  source: 'pulsechain_api',
+                  calculationMethod: 'bigint_precision'
+                };
+                
+                allTokens.push(token);
+              }
+            } catch (tokenError) {
+              console.error(`💥 Error calculating balance for token ${tokenData.symbol}:`, tokenError);
             }
           }
+        } else {
+          console.warn(`⚠️ No token data for wallet ${wallet.address}: ${data.message || 'Unknown error'}`);
         }
       } catch (error) {
-        console.warn(`⚠️ Error loading tokens for wallet ${wallet.address}:`, error.message);
+        console.error(`💥 Error loading tokens for wallet ${wallet.address}:`, error.message);
       }
     }
 
-    // Sortiere nach Wert und setze Rankings
-    allTokens.sort((a, b) => b.value - a.value);
-    allTokens.forEach((token, index) => {
-      token.holdingRank = index + 1;
-      token.percentageOfPortfolio = totalValue > 0 ? (token.value / totalValue) * 100 : 0;
-    });
+    console.log(`🔍 FIXED: Total tokens found before pricing: ${allTokens.length}`);
 
     return {
       tokens: allTokens,
-      totalValue: totalValue,
+      totalValue: totalValue, // Will be calculated after pricing
       uniqueTokens: new Set(allTokens.map(t => t.symbol)).size
     };
   }
 
   /**
-   * 📊 Lade echte ROI-Transaktionen 
+   * 💰 Lade echte Token-Preise von DexScreener (FIXED CONTRACT MATCHING)
    */
-  static async loadRealROITransactions(wallets) {
+  static async loadRealTokenPricesFixed(tokens) {
+    console.log(`💰 FIXED: Loading real prices for ${tokens.length} tokens`);
+    
+    const priceMap = new Map();
+    let updatedCount = 0;
+    let apiCalls = 0;
+    
+    // Get unique contract addresses (nicht-native Tokens)
+    const contractAddresses = [...new Set(
+      tokens
+        .filter(token => token.contractAddress && token.contractAddress !== 'native' && token.contractAddress !== '0x')
+        .map(token => token.contractAddress.toLowerCase())
+    )];
+    
+    console.log(`🔗 FIXED: Fetching prices for ${contractAddresses.length} contract addresses`);
+
+    if (contractAddresses.length > 0) {
+      try {
+        // DexScreener API Call (batch processing)
+        const batchSize = 30; // DexScreener limit
+        
+        for (let i = 0; i < contractAddresses.length; i += batchSize) {
+          const batch = contractAddresses.slice(i, i + batchSize);
+          const addressParam = batch.join(',');
+          
+          try {
+            const response = await fetch(
+              `${this.PROXY_ENDPOINTS.dexscreener}?endpoint=tokens&addresses=${addressParam}`
+            );
+            
+            apiCalls++;
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (data.pairs && Array.isArray(data.pairs)) {
+                for (const pair of data.pairs) {
+                  if (pair.baseToken && pair.priceUsd) {
+                    const price = parseFloat(pair.priceUsd);
+                    const contractAddress = pair.baseToken.address.toLowerCase();
+                    
+                    // FIXED: Map by contract address for precise matching
+                    priceMap.set(contractAddress, price);
+                    updatedCount++;
+                    
+                    console.log(`💰 FIXED PRICE: ${pair.baseToken.symbol} (${contractAddress}) = $${price}`);
+                  }
+                }
+              }
+            } else {
+              console.warn(`⚠️ DexScreener API error for batch starting at ${i}: ${response.status}`);
+            }
+          } catch (batchError) {
+            console.warn(`⚠️ Error fetching price batch starting at ${i}:`, batchError.message);
+          }
+          
+          // Rate limiting - wait between batches
+          if (i + batchSize < contractAddresses.length) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      } catch (error) {
+        console.error('💥 DexScreener API error:', error);
+      }
+    }
+
+    // Add fallback prices for known tokens
+    for (const [symbol, price] of Object.entries(this.FALLBACK_PRICES)) {
+      const tokenWithSymbol = tokens.find(t => t.symbol === symbol);
+      if (tokenWithSymbol) {
+        const contractKey = tokenWithSymbol.contractAddress?.toLowerCase();
+        if (contractKey && !priceMap.has(contractKey)) {
+          priceMap.set(contractKey, price);
+          updatedCount++;
+          console.log(`🔄 FIXED FALLBACK: ${symbol} (${contractKey}) = $${price}`);
+        }
+      }
+    }
+
+    console.log(`✅ FIXED: Price loading complete - ${updatedCount} prices updated with ${apiCalls} API calls`);
+
+    return {
+      priceMap,
+      updatedCount,
+      source: 'dexscreener_api_fixed',
+      apiCalls,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * 🔄 Aktualisiere Token-Werte mit echten Preisen (FIXED PRECISION)
+   */
+  static updateTokenValuesWithRealPricesFixed(tokenData, pricesData) {
+    const { tokens } = tokenData;
+    const { priceMap } = pricesData;
+    
+    let totalValue = 0;
+    const updatedTokens = [];
+
+    for (const token of tokens) {
+      const contractKey = token.contractAddress?.toLowerCase();
+      
+      // FIXED: Get price by contract address (most reliable)
+      let price = priceMap.get(contractKey) || 0;
+      
+      // Fallback to symbol if contract address fails
+      if (price === 0) {
+        price = this.FALLBACK_PRICES[token.symbol] || 0;
+      }
+      
+      // FIXED: Precise value calculation
+      const value = token.balance * price;
+      
+      // Log missing prices for debugging
+      if (price === 0 && token.balance > 0) {
+        console.warn("🚨 MISSING PRICE:", token.symbol, contractKey, "Balance:", token.balance);
+      }
+      
+      // Include all tokens (don't filter by value)
+      const updatedToken = {
+        ...token,
+        price: price,
+        value: value,
+        priceSource: priceMap.get(contractKey) ? 'dexscreener' : 
+                     this.FALLBACK_PRICES[token.symbol] ? 'fallback' : 'unknown'
+      };
+      
+      updatedTokens.push(updatedToken);
+      totalValue += value;
+      
+      // Log significant tokens
+      if (value > 0.001) {
+        console.log(`💎 FIXED TOKEN: ${token.symbol} = ${token.balance.toFixed(4)} × $${price.toFixed(6)} = $${value.toFixed(2)} [${updatedToken.priceSource}]`);
+      }
+    }
+
+    // Sortiere nach Wert und setze Rankings
+    updatedTokens.sort((a, b) => b.value - a.value);
+    updatedTokens.forEach((token, index) => {
+      token.holdingRank = index + 1;
+      token.percentageOfPortfolio = totalValue > 0 ? (token.value / totalValue) * 100 : 0;
+    });
+
+    console.log(`🎯 FIXED FINAL CALCULATION: ${updatedTokens.length} tokens, Total: $${totalValue.toFixed(2)}`);
+
+    return {
+      tokens: updatedTokens,
+      totalValue: totalValue,
+      uniqueTokens: new Set(updatedTokens.map(t => t.symbol)).size
+    };
+  }
+
+  /**
+   * 📊 Lade echte ROI-Transaktionen (FIXED LOADING - mehr Transaktionen)
+   */
+  static async loadRealROITransactionsFixed(wallets, priceMap) {
     const allTransactions = [];
     const roiStats = { daily: 0, weekly: 0, monthly: 0 };
 
     for (const wallet of wallets) {
       try {
-        // Lade Token-Transfers (ROI-relevante Transaktionen)
+        console.log(`📊 FIXED: Loading ROI transactions for wallet: ${wallet.address}`);
+        
+        // FIXED: Load more transactions (2000 instead of 200)
         const response = await fetch(
-          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=100`
+          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=2000`
         );
         
         if (!response.ok) continue;
@@ -218,15 +444,33 @@ export class CentralDataService {
         const data = await response.json();
         
         if (data.status === '1' && Array.isArray(data.result)) {
+          console.log(`📋 FIXED: Found ${data.result.length} transactions for wallet ${wallet.address}`);
+          
           for (const tx of data.result) {
             // Nur eingehende Transaktionen (ROI)
             if (tx.to && tx.to.toLowerCase() === wallet.address.toLowerCase()) {
               const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal) || 18);
-              const price = this.getTokenPrice(tx.tokenSymbol, tx.contractAddress);
-              const value = amount * price;
               const timestamp = new Date(parseInt(tx.timeStamp) * 1000);
               
-              if (amount > 0) {
+              // Verbesserte ROI-Erkennung
+              const isROI = this.isROITransaction(tx, amount);
+              
+              if (amount > 0 && isROI) {
+                const contractKey = tx.contractAddress?.toLowerCase();
+                
+                // FIXED: Get price by contract address
+                let price = priceMap.get(contractKey) || 0;
+                if (price === 0) {
+                  price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
+                }
+                
+                const value = amount * price;
+                
+                // Log zero-value ROI transactions for debugging
+                if (value === 0 && amount > 0) {
+                  console.warn("🚨 ROI WITH ZERO VALUE:", tx.tokenSymbol, "Amount:", amount, "Price:", price, "Contract:", contractKey);
+                }
+                
                 const roiTx = {
                   walletId: wallet.id,
                   walletAddress: wallet.address,
@@ -245,6 +489,7 @@ export class CentralDataService {
                   
                   isROI: true,
                   roiType: this.determineROIType(tx, amount, timestamp),
+                  roiReason: this.getROIReason(tx),
                   
                   fromAddress: tx.from,
                   toAddress: tx.to,
@@ -260,6 +505,10 @@ export class CentralDataService {
                 if (timeDiff <= 24 * 60 * 60 * 1000) roiStats.daily += value;
                 if (timeDiff <= 7 * 24 * 60 * 60 * 1000) roiStats.weekly += value;
                 if (timeDiff <= 30 * 24 * 60 * 60 * 1000) roiStats.monthly += value;
+                
+                if (value > 0.01) {
+                  console.log(`🎯 FIXED ROI: ${tx.tokenSymbol} ${amount.toFixed(4)} = $${value.toFixed(2)} from ${tx.from.slice(0,8)}...`);
+                }
               }
             }
           }
@@ -272,6 +521,8 @@ export class CentralDataService {
     // Sortiere nach Timestamp (neueste zuerst)
     allTransactions.sort((a, b) => b.timestamp - a.timestamp);
 
+    console.log(`✅ FIXED: ROI loading complete - ${allTransactions.length} ROI transactions, Monthly: $${roiStats.monthly.toFixed(2)}`);
+
     return {
       transactions: allTransactions,
       stats: roiStats,
@@ -282,9 +533,9 @@ export class CentralDataService {
   }
 
   /**
-   * 📄 Lade Transaktionen für Tax Export
+   * 📄 Lade Transaktionen für Tax Export (FIXED LOADING - mehr Transaktionen)
    */
-  static async loadTaxTransactions(wallets) {
+  static async loadTaxTransactionsFixed(wallets, priceMap) {
     const allTransactions = [];
     const taxSummary = {
       totalIncome: 0,
@@ -295,9 +546,11 @@ export class CentralDataService {
 
     for (const wallet of wallets) {
       try {
-        // Lade alle Token-Transaktionen für Steuer
+        console.log(`📄 FIXED: Loading tax transactions for wallet: ${wallet.address}`);
+        
+        // FIXED: Load many more transactions (5000 instead of 500)
         const response = await fetch(
-          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=1000`
+          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=5000`
         );
         
         if (!response.ok) continue;
@@ -305,12 +558,22 @@ export class CentralDataService {
         const data = await response.json();
         
         if (data.status === '1' && Array.isArray(data.result)) {
+          console.log(`📋 FIXED TAX: Found ${data.result.length} transactions for wallet ${wallet.address}`);
+          
           for (const tx of data.result) {
             const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal) || 18);
-            const price = this.getTokenPrice(tx.tokenSymbol, tx.contractAddress);
-            const value = amount * price;
             const timestamp = new Date(parseInt(tx.timeStamp) * 1000);
             const isIncoming = tx.to && tx.to.toLowerCase() === wallet.address.toLowerCase();
+            
+            const contractKey = tx.contractAddress?.toLowerCase();
+            
+            // FIXED: Get price by contract address
+            let price = priceMap.get(contractKey) || 0;
+            if (price === 0) {
+              price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
+            }
+            
+            const value = amount * price;
             
             const taxTx = {
               walletId: wallet.id,
@@ -338,12 +601,12 @@ export class CentralDataService {
               
               gasUsed: parseInt(tx.gasUsed || 0),
               gasPrice: parseInt(tx.gasPrice || 0),
-              gasFeeUSD: 0, // Berechne falls nötig
+              gasFeeUSD: 0,
               
-              // Steuer-Klassifikation
-              isTaxable: isIncoming && amount > 0,
-              taxCategory: isIncoming ? 'income' : 'transfer',
-              isROITransaction: isIncoming && amount > 0,
+              // Verbesserte Steuer-Klassifikation
+              isTaxable: this.isTaxableTransaction(tx, amount, isIncoming),
+              taxCategory: this.getTaxCategory(tx, amount, isIncoming),
+              isROITransaction: isIncoming && this.isROITransaction(tx, amount),
               
               explorerUrl: `https://scan.pulsechain.com/tx/${tx.hash}`,
               dexScreenerUrl: `https://dexscreener.com/pulsechain/${tx.contractAddress}`,
@@ -365,6 +628,8 @@ export class CentralDataService {
       }
     }
 
+    console.log(`✅ FIXED: Tax data loading complete - ${allTransactions.length} transactions, Income: $${taxSummary.totalIncome.toFixed(2)}`);
+
     return {
       transactions: allTransactions,
       summary: taxSummary
@@ -372,12 +637,86 @@ export class CentralDataService {
   }
 
   /**
+   * 🎯 Verbesserte ROI-Transaction Erkennung
+   */
+  static isROITransaction(tx, amount) {
+    // 1. Bekannte Drucker-Contracts
+    if (this.KNOWN_MINTERS.includes(tx.from.toLowerCase())) {
+      return true;
+    }
+    
+    // 2. Null-Address (Mint-Transaktionen)
+    if (tx.from === '0x0000000000000000000000000000000000000000') {
+      return true;
+    }
+    
+    // 3. Regelmäßige kleine Beträge (typisch für ROI)
+    if (amount > 0 && amount < 1000) {
+      return true;
+    }
+    
+    // 4. Bekannte ROI-Token
+    const roiTokens = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX'];
+    if (roiTokens.includes(tx.tokenSymbol)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * 📋 Grund für ROI-Klassifikation
+   */
+  static getROIReason(tx) {
+    if (this.KNOWN_MINTERS.includes(tx.from.toLowerCase())) return 'Known minter contract';
+    if (tx.from === '0x0000000000000000000000000000000000000000') return 'Mint transaction';
+    return 'ROI pattern detected';
+  }
+
+  /**
+   * 💼 Bestimme ob Transaktion steuerpflichtig ist
+   */
+  static isTaxableTransaction(tx, amount, isIncoming) {
+    // Eingehende Transaktionen mit Wert sind meist steuerpflichtig
+    if (isIncoming && amount > 0) {
+      return true;
+    }
+    
+    // Ausgehende große Transaktionen könnten Verkäufe sein
+    if (!isIncoming && amount > 100) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🏷️ Bestimme Steuer-Kategorie
+   */
+  static getTaxCategory(tx, amount, isIncoming) {
+    if (isIncoming) {
+      // ROI-Transaktionen sind Einkommen
+      if (this.isROITransaction(tx, amount)) {
+        return 'income';
+      }
+      // Große eingehende Beträge könnten Kapitalerträge sein
+      if (amount > 1000) {
+        return 'capital_gain';
+      }
+      return 'income';
+    } else {
+      // Ausgehende Transaktionen sind meist Transfers oder Verkäufe
+      return 'transfer';
+    }
+  }
+
+  /**
    * 💰 Hole Token-Preis (verifizierte Preise zuerst)
    */
   static getTokenPrice(symbol, contractAddress) {
     // 1. Verifizierte Preise verwenden
-    if (this.VERIFIED_PRICES[symbol]) {
-      return this.VERIFIED_PRICES[symbol];
+    if (this.FALLBACK_PRICES[symbol]) {
+      return this.FALLBACK_PRICES[symbol];
     }
     
     // 2. Fallback für unbekannte Token

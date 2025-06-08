@@ -1,0 +1,475 @@
+// 📊 ROI TRACKER VIEW - Zeigt echte ROI-Daten von PulseChain
+// Datum: 2025-01-08 - PHASE 3: ECHTE ROI DATEN INTEGRATION
+
+import React, { useState, useEffect } from 'react';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  RefreshCw, 
+  TrendingUp, 
+  Calendar,
+  Coins,
+  AlertCircle,
+  ExternalLink,
+  DollarSign,
+  Clock,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
+import CentralDataService from '@/services/CentralDataService';
+import { useAuth } from '@/contexts/AuthContext';
+
+const ROITrackerView = () => {
+  const { user } = useAuth();
+  const [portfolioData, setPortfolioData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [timeFrame, setTimeFrame] = useState('monthly'); // daily, weekly, monthly
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Lade Portfolio-Daten (mit ROI)
+  const loadROIData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔄 ROI TRACKER: Loading data...');
+      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setPortfolioData(data);
+        setLastUpdate(new Date());
+        console.log('✅ ROI TRACKER: Data loaded', {
+          roiTransactions: data.roiTransactions.length,
+          dailyROI: data.dailyROI,
+          weeklyROI: data.weeklyROI,
+          monthlyROI: data.monthlyROI
+        });
+      }
+    } catch (err) {
+      console.error('💥 ROI TRACKER ERROR:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    loadROIData();
+  }, [user?.id]);
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(loadROIData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <RefreshCw className="h-6 w-6 animate-spin" />
+          <span className="text-lg">ROI-Daten werden geladen...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <Card className="max-w-lg mx-auto">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <h2 className="text-xl font-semibold mb-2">Fehler beim Laden der ROI-Daten</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={loadROIData}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Erneut versuchen
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!portfolioData) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <Card className="max-w-lg mx-auto">
+          <CardContent className="p-6 text-center">
+            <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-xl font-semibold mb-2">Keine ROI-Daten verfügbar</h2>
+            <p className="text-gray-600 mb-4">
+              Fügen Sie zuerst Ihre Wallet-Adressen hinzu oder warten Sie auf neue ROI-Transaktionen.
+            </p>
+            <Button onClick={loadROIData}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Erneut laden
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const getCurrentROI = () => {
+    switch (timeFrame) {
+      case 'daily': return portfolioData.dailyROI || 0;
+      case 'weekly': return portfolioData.weeklyROI || 0;
+      case 'monthly': return portfolioData.monthlyROI || 0;
+      default: return portfolioData.monthlyROI || 0;
+    }
+  };
+
+  const getROIPercentage = () => {
+    const totalValue = portfolioData.totalValue || 0;
+    const currentROI = getCurrentROI();
+    return totalValue > 0 ? (currentROI / totalValue) * 100 : 0;
+  };
+
+  // Filter ROI-Transaktionen nach Zeitrahmen
+  const getFilteredROITransactions = () => {
+    if (!portfolioData.roiTransactions) return [];
+    
+    const now = Date.now();
+    const timeFrameMs = {
+      daily: 24 * 60 * 60 * 1000,
+      weekly: 7 * 24 * 60 * 60 * 1000,
+      monthly: 30 * 24 * 60 * 60 * 1000
+    };
+    
+    const cutoff = now - timeFrameMs[timeFrame];
+    
+    return portfolioData.roiTransactions.filter(tx => 
+      new Date(tx.timestamp).getTime() > cutoff
+    );
+  };
+
+  // Gruppiere ROI-Transaktionen nach Token
+  const getROIByToken = () => {
+    const filteredTransactions = getFilteredROITransactions();
+    const tokenMap = new Map();
+    
+    filteredTransactions.forEach(tx => {
+      const existing = tokenMap.get(tx.tokenSymbol) || {
+        symbol: tx.tokenSymbol,
+        name: tx.tokenName,
+        contractAddress: tx.contractAddress,
+        totalAmount: 0,
+        totalValue: 0,
+        transactionCount: 0,
+        latestPrice: tx.price
+      };
+      
+      existing.totalAmount += tx.amount;
+      existing.totalValue += tx.value;
+      existing.transactionCount += 1;
+      
+      tokenMap.set(tx.tokenSymbol, existing);
+    });
+    
+    return Array.from(tokenMap.values()).sort((a, b) => b.totalValue - a.totalValue);
+  };
+
+  const roiStats = [
+    {
+      title: 'Täglicher ROI',
+      value: formatCurrency(portfolioData.dailyROI || 0),
+      icon: Clock,
+      active: timeFrame === 'daily',
+      onClick: () => setTimeFrame('daily')
+    },
+    {
+      title: 'Wöchentlicher ROI',
+      value: formatCurrency(portfolioData.weeklyROI || 0),
+      icon: Calendar,
+      active: timeFrame === 'weekly',
+      onClick: () => setTimeFrame('weekly')
+    },
+    {
+      title: 'Monatlicher ROI',
+      value: formatCurrency(portfolioData.monthlyROI || 0),
+      icon: TrendingUp,
+      active: timeFrame === 'monthly',
+      onClick: () => setTimeFrame('monthly')
+    }
+  ];
+
+  const filteredTransactions = getFilteredROITransactions();
+  const roiByToken = getROIByToken();
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">ROI Tracker</h1>
+            <p className="text-gray-600">
+              Echte PulseChain ROI-Daten • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
+            </p>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDebug(!showDebug)}
+            >
+              {showDebug ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              Debug
+            </Button>
+            <Button onClick={loadROIData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Aktualisieren
+            </Button>
+          </div>
+        </div>
+
+        {/* ROI Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {roiStats.map((stat, index) => (
+            <Card 
+              key={index} 
+              className={`cursor-pointer transition-all ${stat.active ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
+              onClick={stat.onClick}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <div className={`${stat.active ? 'bg-blue-500' : 'bg-gray-500'} p-3 rounded-lg`}>
+                    <stat.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                    <p className="text-2xl font-bold">{stat.value}</p>
+                    {stat.active && (
+                      <p className="text-sm text-blue-600">
+                        {formatPercentage(getROIPercentage())} des Portfolios
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Debug Information */}
+        {showDebug && portfolioData.debug && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2" />
+                ROI Debug Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">ROI Transaktionen:</span>
+                  <p>{portfolioData.roiTransactions?.length || 0}</p>
+                </div>
+                <div>
+                  <span className="font-medium">Gefiltert ({timeFrame}):</span>
+                  <p>{filteredTransactions.length}</p>
+                </div>
+                <div>
+                  <span className="font-medium">Einzigartige Token:</span>
+                  <p>{roiByToken.length}</p>
+                </div>
+                <div>
+                  <span className="font-medium">ROI Percentage:</span>
+                  <p>{formatPercentage(getROIPercentage())}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Current ROI Summary */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <DollarSign className="h-5 w-5 mr-2" />
+              {timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI Überblick
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-green-600">{formatCurrency(getCurrentROI())}</p>
+                <p className="text-sm text-gray-600">Gesamt ROI</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-blue-600">{formatPercentage(getROIPercentage())}</p>
+                <p className="text-sm text-gray-600">ROI %</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-purple-600">{filteredTransactions.length}</p>
+                <p className="text-sm text-gray-600">Transaktionen</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-orange-600">{roiByToken.length}</p>
+                <p className="text-sm text-gray-600">Token</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* ROI by Token */}
+          <Card>
+            <CardHeader>
+              <CardTitle>ROI nach Token ({timeFrame})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {roiByToken.length > 0 ? (
+                <div className="space-y-3">
+                  {roiByToken.map((token, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Badge variant="outline" className="text-xs">
+                          #{index + 1}
+                        </Badge>
+                        <div>
+                          <div className="font-medium">{token.symbol}</div>
+                          <div className="text-sm text-gray-500">
+                            {token.transactionCount} Transaktionen
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600">
+                          {formatCurrency(token.totalValue)}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {formatNumber(token.totalAmount, 4)} {token.symbol}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Coins className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent ROI Transactions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Letzte ROI-Transaktionen ({timeFrame})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredTransactions.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {filteredTransactions.slice(0, 20).map((tx, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div>
+                          <div className="font-medium">{tx.tokenSymbol}</div>
+                          <div className="text-sm text-gray-500">
+                            {new Date(tx.timestamp).toLocaleDateString('de-DE')} {new Date(tx.timestamp).toLocaleTimeString('de-DE')}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {tx.roiReason}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600">
+                          {formatCurrency(tx.value)}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {formatNumber(tx.amount, 4)} {tx.tokenSymbol}
+                        </div>
+                        <div className="flex items-center space-x-1 mt-1">
+                          <a
+                            href={tx.explorerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-700"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                          {tx.dexScreenerUrl && (
+                            <a
+                              href={tx.dexScreenerUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-500 hover:text-green-700"
+                            >
+                              <TrendingUp className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
+                  <p className="text-sm mt-2">Versuchen Sie einen größeren Zeitrahmen oder fügen Sie Wallet-Adressen hinzu.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Total ROI Performance */}
+        {portfolioData.totalValue > 0 && getCurrentROI() > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>ROI Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-green-50 p-6 rounded-lg">
+                <div className="text-center">
+                  <h3 className="text-xl font-semibold mb-2">Portfolio ROI Analyse</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <p className="text-sm text-gray-600">Portfolio Wert</p>
+                      <p className="text-2xl font-bold">{formatCurrency(portfolioData.totalValue)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">{timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI</p>
+                      <p className="text-2xl font-bold text-green-600">{formatCurrency(getCurrentROI())}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">ROI Rendite</p>
+                      <p className="text-2xl font-bold text-blue-600">{formatPercentage(getROIPercentage())}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+      </div>
+    </div>
+  );
+};
+
+export default ROITrackerView; 

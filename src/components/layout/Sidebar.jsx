@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Lock } from 'lucide-react';
+import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { logger } from '@/lib/logger';
 
@@ -83,6 +83,33 @@ const Sidebar = () => {
     ...sidebarViewConfigs,
   ].filter(Boolean); 
 
+  const menuItems = [
+    {
+      icon: LayoutDashboard,
+      label: 'Portfolio',
+      path: '/dashboard'
+    },
+    {
+      icon: TrendingUp,
+      label: 'ROI Tracker',
+      path: '/roi-tracker'
+    },
+    {
+      icon: FileText,
+      label: 'Steuer Report',
+      path: '/tax-report'
+    },
+    {
+      icon: Bug,
+      label: 'Debug Monitor',
+      path: '/debug'
+    },
+    {
+      icon: Settings,
+      label: 'Einstellungen',
+      path: '/settings'
+    }
+  ];
 
   return (
     <AnimatePresence>
