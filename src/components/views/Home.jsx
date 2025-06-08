@@ -5,6 +5,8 @@ import { useAppContext } from '@/contexts/AppContext';
 import { TrendingUp, Activity, Users, ExternalLink } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
+import WalletManualInput from '@/components/WalletManualInput';
+import ROICalculator from '@/components/ROICalculator';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -92,6 +94,16 @@ const Home = () => {
       {/* 🔌 WalletReader - DOM-sichere Wallet-Verbindung */}
       <div className="mb-8">
         <WalletReader />
+      </div>
+
+      {/* 📝 Manual Wallet Input - Tangem/Mobile Support */}
+      <div className="mb-8">
+        <WalletManualInput />
+      </div>
+
+      {/* 💰 ROI Calculator & Portfolio Tracking */}
+      <div className="mb-8">
+        <ROICalculator />
       </div>
 
       {/* 📈 Recent Activity */}
