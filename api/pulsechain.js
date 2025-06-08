@@ -4,112 +4,70 @@
 // Deploy Time: 2025-01-08 API-URL FIX - KRITISCH!
 
 export default async function handler(req, res) {
-  // CORS Headers für alle Origins
+  // Add CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // Nur GET-Requests erlauben
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(200).end();
+    return;
   }
 
   try {
-    const { address, action = 'tokenlist', module = 'account', tag = 'latest' } = req.query;
+    const { address, action, module, ...otherParams } = req.query;
 
-    // Validierung der Wallet-Adresse
-    if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-      return res.status(400).json({ 
-        error: 'Invalid wallet address',
-        provided: address 
+    if (!address || !action || !module) {
+      return res.status(400).json({
+        error: 'Missing required parameters',
+        required: ['address', 'action', 'module']
       });
     }
 
-    // PulseChain API Base URL (Verwende Hauptendpoint für bessere Kompatibilität)
-    const baseUrl = 'https://scan.pulsechain.com/api';
-    let apiUrl;
+    // ✅ KORREKTE API BASE URL - OFFICIAL PULSECHAIN API
+    const PULSECHAIN_API = 'https://api.scan.pulsechain.com/api';
 
-    // Verschiedene API-Endpoints basierend auf Action
-    switch (action) {
-      case 'balance':
-        // Native PLS Balance
-        apiUrl = `${baseUrl}?module=${module}&action=balance&address=${address}&tag=${tag}`;
-        break;
-        
-      case 'tokenlist':
-        // ERC20 Token Balances
-        apiUrl = `${baseUrl}?module=${module}&action=tokenlist&address=${address}&page=1&offset=100`;
-        break;
-        
-      case 'txlist':
-        // Normal Transactions
-        const { startblock = '0', endblock = 'latest', page = '1', offset = '50', sort = 'desc' } = req.query;
-        apiUrl = `${baseUrl}?module=${module}&action=txlist&address=${address}&startblock=${startblock}&endblock=${endblock}&page=${page}&offset=${offset}&sort=${sort}`;
-        break;
-        
-      case 'tokentx':
-        // Token Transfers
-        const { 
-          startblock: tsb = '0', 
-          endblock: teb = 'latest', 
-          page: tpage = '1', 
-          offset: toffset = '50', 
-          sort: tsort = 'desc' 
-        } = req.query;
-        apiUrl = `${baseUrl}?module=${module}&action=tokentx&address=${address}&startblock=${tsb}&endblock=${teb}&page=${tpage}&offset=${toffset}&sort=${tsort}`;
-        break;
-        
-      default:
-        return res.status(400).json({ 
-          error: 'Unsupported action',
-          supportedActions: ['balance', 'tokenlist', 'txlist', 'tokentx']
-        });
-    }
-
-    console.log(`🔗 PROXY: Fetching ${action} for ${address}`);
-    console.log(`🔗 API URL: ${apiUrl}`);
-
-    // Fetch von PulseChain API
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'PulseManager-v1.0',
-        'Accept': 'application/json'
-      }
+    // Build query parameters
+    const params = new URLSearchParams({
+      module,
+      action,
+      address,
+      ...otherParams
     });
 
-    console.log(`📡 API Response Status: ${response.status}`);
+    const proxyUrl = `${PULSECHAIN_API}?${params.toString()}`;
+    
+    console.log('🔗 PulseChain Proxy URL:', proxyUrl);
+
+    const response = await fetch(proxyUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'PulseManager/1.0'
+      },
+      timeout: 30000
+    });
 
     if (!response.ok) {
       throw new Error(`PulseChain API returned ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log(`📊 API Data Status: ${data.status}, Results: ${Array.isArray(data.result) ? data.result.length : 'N/A'}`);
-
-    // Debug-Informationen hinzufügen
-    const responseData = {
+    
+    // Add success metadata
+    const result = {
       ...data,
-      _proxy: {
+      _metadata: {
+        source: 'api.scan.pulsechain.com',
         timestamp: new Date().toISOString(),
-        address: address,
-        action: action,
-        apiUrl: apiUrl,
-        status: response.status,
-        resultCount: Array.isArray(data.result) ? data.result.length : null
+        proxy: 'vercel-function'
       }
     };
 
-    // Erfolgreiche Antwort
-    res.status(200).json(responseData);
+    res.status(200).json(result);
 
   } catch (error) {
-    console.error('💥 PROXY ERROR:', error.message);
+    console.error('❌ PulseChain Proxy Error:', error);
     
     res.status(500).json({
       error: 'Proxy request failed',
