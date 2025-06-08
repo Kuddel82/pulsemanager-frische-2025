@@ -9,9 +9,9 @@
   --pulse-red-end: #f03;
   
   /* 🌈 PulseChain Gradients */
-  --pulse-gradient-green: linear-gradient(30deg, #0f5 0%, #0f9 100%);
+  --pulse-gradient-green: linear-gradient(135deg, #22c55e 0%, #8b5cf6 100%);
   --pulse-gradient-red: linear-gradient(-30deg, #f00 0%, #f03 100%);
-  --pulse-gradient-primary: linear-gradient(135deg, #0f5 0%, #0f9 50%, #f0f 100%);
+  --pulse-gradient-primary: linear-gradient(135deg, #22c55e 0%, #8b5cf6 100%);
   
   /* 🌙 Dark Theme (PulseChain Style) */
   --bg-primary: #0a0b0f;
@@ -63,7 +63,7 @@ body {
 .pulse-title {
   font-size: 2.5rem;
   font-weight: 800;
-  background: var(--pulse-gradient-green);
+  background: var(--pulse-gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -124,7 +124,7 @@ body {
 
 /* 🔘 Buttons */
 .pulse-btn {
-  background: var(--pulse-gradient-green);
+  background: var(--pulse-gradient-primary);
   color: #000;
   font-weight: 600;
   padding: 0.75rem 1.5rem;
@@ -170,7 +170,7 @@ body {
 .pulse-stat-value {
   font-size: 2rem;
   font-weight: 800;
-  background: var(--pulse-gradient-green);
+  background: var(--pulse-gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
