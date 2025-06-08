@@ -1,13 +1,12 @@
-// 📊 Portfolio View - ECHTE ROI-DATEN von PulseWatch API
-// Zeigt Wallet-Wert, echte tägliche/wöchentliche ROI-Einkünfte von gehaltenen Token
+// 📊 Portfolio View - VEREINFACHT: Nur Portfolio-Wert und Token Holdings
+// ROI Coin Liste wurde in ROI Tracker verschoben
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { WalletParser } from '@/services/walletParser';
 import { TokenPriceService } from '@/services/tokenPriceService';
-import { PulseWatchService } from '@/services/pulseWatchService';
 import { supabase } from '@/lib/supabaseClient';
-import { TrendingUp, DollarSign, RefreshCw, Coins, Activity, ArrowDownUp, ExternalLink } from 'lucide-react';
+import { TrendingUp, DollarSign, RefreshCw, Coins, Activity } from 'lucide-react';
 import '@/styles/pulsechain-design.css';
 
 const PortfolioView = () => {
@@ -18,8 +17,6 @@ const PortfolioView = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [wallets, setWallets] = useState([]);
   const [showAllTokens, setShowAllTokens] = useState(false);
-  const [roiTransactions, setRoiTransactions] = useState([]);
-  const [roiLoading, setRoiLoading] = useState(false);
 
   // 📊 Portfolio-Daten laden
   const loadPortfolioData = async () => {
@@ -70,9 +67,6 @@ const PortfolioView = () => {
       
       // Portfolio-Statistiken berechnen
       const portfolioStats = calculatePortfolioStats(tokenBalances, currentPrices);
-      
-      // ECHTE ROI-Transaktionen laden
-      await loadRealROITransactions(uniqueWallets, currentPrices);
       
       setPortfolioData({
         tokens: tokenBalances,
@@ -136,74 +130,13 @@ const PortfolioView = () => {
     };
   };
 
-  // 📊 ECHTE ROI-Transaktionen laden von PulseWatch/PulseChain API
-  const loadRealROITransactions = async (wallets, tokenPrices) => {
-    if (!wallets || wallets.length === 0) return;
-    
-    try {
-      setRoiLoading(true);
-      console.log('📊 LOADING REAL ROI TRANSACTIONS...');
-      
-      let allROITransactions = [];
-      
-      // Für jede Wallet ROI-Transaktionen abrufen
-      for (const wallet of wallets) {
-        try {
-          console.log(`🔍 Fetching ROI for wallet: ${wallet.address}`);
-          
-          // Echte ROI-Daten von PulseWatch/PulseChain API
-          const walletROI = await PulseWatchService.getROITransactions(wallet.address, 20);
-          
-          if (walletROI && walletROI.length > 0) {
-            // ROI-Werte mit echten Token-Preisen berechnen
-            const roiWithPrices = await PulseWatchService.calculateROIValues(walletROI, tokenPrices);
-            allROITransactions = [...allROITransactions, ...roiWithPrices];
-            
-            console.log(`✅ Found ${walletROI.length} ROI transactions for ${wallet.address}`);
-          }
-          
-        } catch (walletError) {
-          console.error(`💥 Error loading ROI for wallet ${wallet.address}:`, walletError);
-        }
-      }
-      
-      // Nach Timestamp sortieren (neueste zuerst)
-      allROITransactions.sort((a, b) => b.timestamp - a.timestamp);
-      
-      // Nur die letzten 20 ROI-Transaktionen behalten
-      const recentROI = allROITransactions.slice(0, 20);
-      
-      setRoiTransactions(recentROI);
-      
-      // Debug-Ausgabe
-      PulseWatchService.logROITransactions(recentROI);
-      
-      console.log(`✅ LOADED ${recentROI.length} REAL ROI TRANSACTIONS`);
-      
-    } catch (error) {
-      console.error('💥 Fehler beim Laden der ECHTEN ROI-Transaktionen:', error);
-      
-      // Fallback zu simulierten Daten wenn API nicht verfügbar
-      const fallbackROI = PulseWatchService.getFallbackROIData();
-      setRoiTransactions(fallbackROI);
-      
-    } finally {
-      setRoiLoading(false);
-    }
-  };
-
-  // 📊 ROI-Statistiken berechnen
-  const calculateROIStats = () => {
-    return PulseWatchService.calculateROIStats(roiTransactions);
-  };
-
   // 🔄 Alle Wallets aktualisieren
   const refreshAllWallets = async () => {
     if (!user) return;
     
     try {
       setRefreshing(true);
-      console.log('🔄 REFRESHING ALL WALLETS + ROI DATA...');
+      console.log('🔄 REFRESHING ALL WALLETS...');
       
       const currentTokens = await WalletParser.getStoredTokenBalances(user.id);
       const uniqueAddresses = [...new Set(currentTokens.map(token => token.wallet_address))];
@@ -219,18 +152,6 @@ const PortfolioView = () => {
       console.error('💥 Fehler beim Aktualisieren der Wallets:', error);
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  // 🔄 Nur ROI-Daten aktualisieren (häufiger als Portfolio)
-  const refreshROIData = async () => {
-    if (!wallets || wallets.length === 0 || !portfolioData) return;
-    
-    try {
-      console.log('🔄 REFRESHING ROI DATA ONLY...');
-      await loadRealROITransactions(wallets, portfolioData.prices);
-    } catch (error) {
-      console.error('💥 Fehler beim Aktualisieren der ROI-Daten:', error);
     }
   };
 
@@ -256,17 +177,8 @@ const PortfolioView = () => {
       }
     }, 300000); // 5 Minuten
     
-    // Auto-refresh ROI-Daten alle 2 Minuten (häufiger)
-    const roiInterval = setInterval(() => {
-      if (!refreshing && !roiLoading) {
-        console.log('🔄 AUTO-REFRESH: ROI-Daten werden aktualisiert');
-        refreshROIData();
-      }
-    }, 120000); // 2 Minuten
-    
     return () => {
       clearInterval(portfolioInterval);
-      clearInterval(roiInterval);
     };
   }, [user]);
 
@@ -277,7 +189,7 @@ const PortfolioView = () => {
           <div className="pulse-card text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-400 mx-auto mb-4"></div>
             <h2 className="text-xl font-semibold pulse-text-gradient mb-2">Portfolio wird geladen...</h2>
-            <p className="text-gray-300">Echte Token-Preise und ROI-Daten werden abgerufen...</p>
+            <p className="text-gray-300">Token-Preise werden abgerufen...</p>
           </div>
         </div>
       </div>
@@ -305,7 +217,6 @@ const PortfolioView = () => {
   }
 
   const { stats } = portfolioData;
-  const roiStats = calculateROIStats();
 
   return (
     <div className="min-h-screen pulse-bg p-6" translate="no">
@@ -316,7 +227,7 @@ const PortfolioView = () => {
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold pulse-text-gradient mb-2">Portfolio</h1>
-              <p className="pulse-subtitle">Wallet-Wert und ROI-Tracking</p>
+              <p className="pulse-subtitle">Wallet-Wert und Token Holdings</p>
             </div>
             <button
               onClick={refreshAllWallets}
@@ -337,25 +248,25 @@ const PortfolioView = () => {
               <p className="text-sm text-green-300 mt-1">Gesamtwert Wallet</p>
             </div>
             
-            <div className="text-center p-6 bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 rounded-xl border border-yellow-500/30">
-              <TrendingUp className="h-8 w-8 text-yellow-400 mx-auto mb-2" />
-              <h3 className="text-lg font-semibold text-yellow-300 mb-1">Täglicher ROI</h3>
-              <p className="text-3xl font-bold text-yellow-400" translate="no">+{formatValue(roiStats.dailyROI)}</p>
-              <p className="text-sm text-yellow-300 mt-1">Aus gehaltenen Tokens</p>
-            </div>
-            
             <div className="text-center p-6 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-xl border border-blue-500/30">
               <Activity className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-              <h3 className="text-lg font-semibold text-blue-300 mb-1">Wöchentlicher ROI</h3>
-              <p className="text-3xl font-bold text-blue-400" translate="no">+{formatValue(roiStats.weeklyROI)}</p>
-              <p className="text-sm text-blue-300 mt-1">7-Tage Einkünfte</p>
+              <h3 className="text-lg font-semibold text-blue-300 mb-1">PLS Value</h3>
+              <p className="text-3xl font-bold text-blue-400" translate="no">{formatValue(stats.totalPLSValue)}</p>
+              <p className="text-sm text-blue-300 mt-1">{((stats.totalPLSValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
             </div>
             
             <div className="text-center p-6 bg-gradient-to-br from-purple-500/20 to-purple-600/10 rounded-xl border border-purple-500/30">
-              <Coins className="h-8 w-8 text-purple-400 mx-auto mb-2" />
-              <h3 className="text-lg font-semibold text-purple-300 mb-1">Coins</h3>
-              <p className="text-3xl font-bold text-purple-400" translate="no">{stats.totalTokens}</p>
-              <p className="text-sm text-purple-300 mt-1">Verschiedene Token</p>
+              <TrendingUp className="h-8 w-8 text-purple-400 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold text-purple-300 mb-1">Token Value</h3>
+              <p className="text-3xl font-bold text-purple-400" translate="no">{formatValue(stats.totalTokenValue)}</p>
+              <p className="text-sm text-purple-300 mt-1">{((stats.totalTokenValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
+            </div>
+            
+            <div className="text-center p-6 bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 rounded-xl border border-yellow-500/30">
+              <Coins className="h-8 w-8 text-yellow-400 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold text-yellow-300 mb-1">Coins</h3>
+              <p className="text-3xl font-bold text-yellow-400" translate="no">{stats.totalTokens}</p>
+              <p className="text-sm text-yellow-300 mt-1">Verschiedene Token</p>
             </div>
           </div>
 
@@ -363,106 +274,10 @@ const PortfolioView = () => {
           <div className="text-center text-sm text-gray-400 border-t border-green-500/20 pt-4">
             <span>Portfolio: {lastUpdate?.toLocaleTimeString('de-DE')}</span>
             <span className="mx-2">•</span>
-            <span>ROI: {roiStats.lastUpdate?.toLocaleTimeString('de-DE')}</span>
+            <span>Echtzeitpreise • Auto-Refresh 5 Min</span>
             <span className="mx-2">•</span>
-            <span>Echtzeitpreise • ROI alle 2 Min</span>
+            <span>ROI-Daten im ROI Tracker</span>
           </div>
-        </div>
-
-        {/* 💰 ECHTE ROI COIN LISTE */}
-        <div className="pulse-card">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-xl font-semibold pulse-text-gradient flex items-center gap-2">
-                <ArrowDownUp className="h-5 w-5" />
-                ROI Coin Liste {roiLoading && <RefreshCw className="h-4 w-4 animate-spin" />}
-              </h2>
-              <p className="text-gray-400 text-sm mt-1">
-                Echte eingehende ROI-Transaktionen von PulseWatch/PulseChain API
-              </p>
-            </div>
-            {wallets.length > 0 && (
-              <a
-                href={`https://www.pulsewatch.app/address/${wallets[0].address}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pulse-btn-outline px-3 py-1 text-sm flex items-center gap-2"
-              >
-                <ExternalLink className="h-4 w-4" />
-                PulseWatch
-              </a>
-            )}
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-green-500/20">
-                  <th className="text-left text-green-400 font-medium py-3">Token</th>
-                  <th className="text-right text-green-400 font-medium py-3">ROI Amount</th>
-                  <th className="text-right text-green-400 font-medium py-3">USD Value</th>
-                  <th className="text-right text-green-400 font-medium py-3">Type</th>
-                  <th className="text-right text-green-400 font-medium py-3">Zeit</th>
-                  <th className="text-right text-green-400 font-medium py-3">Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roiTransactions.length > 0 ? roiTransactions.map((tx, index) => (
-                  <tr key={index} className="border-b border-green-500/10">
-                    <td className="py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center text-black font-bold text-sm">
-                          {tx.token.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-white font-medium" translate="no">{tx.token}</p>
-                          <p className="text-gray-400 text-sm">ROI Reward</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="text-right text-white py-4" translate="no">
-                      +{tx.amount.toFixed(4)}
-                    </td>
-                    <td className="text-right text-green-400 py-4" translate="no">
-                      +${tx.value.toFixed(2)}
-                    </td>
-                    <td className="text-right py-4">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        tx.type === 'daily_roi' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
-                      }`}>
-                        {tx.type === 'daily_roi' ? 'Daily' : 'Weekly'}
-                      </span>
-                    </td>
-                    <td className="text-right text-gray-400 py-4 text-sm" translate="no">
-                      {tx.timestamp.toLocaleTimeString('de-DE')}
-                    </td>
-                    <td className="text-right py-4">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        tx.source === 'pulsewatch' ? 'bg-green-500/20 text-green-400' : 
-                        tx.source === 'pulsechain_scan' ? 'bg-blue-500/20 text-blue-400' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {tx.source === 'pulsewatch' ? 'PulseWatch' :
-                         tx.source === 'pulsechain_scan' ? 'PulseChain' : 'Fallback'}
-                      </span>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-400">
-                      {roiLoading ? 'ROI-Daten werden geladen...' : 'Keine ROI-Transaktionen gefunden'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          
-          {roiTransactions.length > 0 && (
-            <div className="mt-4 text-center text-sm text-gray-400">
-              {roiStats.totalTransactions} ROI Transaktionen • {roiStats.uniqueTokens} verschiedene Token
-            </div>
-          )}
         </div>
 
         {/* 🏆 Token Holdings */}
