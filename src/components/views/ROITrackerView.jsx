@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { TrendingUp, PlusCircle, BarChart3, Wallet, DollarSign, ExternalLink, RefreshCw, Activity, ArrowDownUp, Download, FileText, History, Database, Filter } from 'lucide-react';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  RefreshCw, 
+  ExternalLink, 
+  DollarSign,
+  Calendar,
+  Coins,
+  BarChart3,
+  AlertCircle
+} from 'lucide-react';
 import { dbService } from '@/lib/dbService';
 import { supabase } from '@/lib/supabaseClient';
 import WalletBalanceService from '@/lib/walletBalanceService';
