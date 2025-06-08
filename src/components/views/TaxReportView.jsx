@@ -1,588 +1,484 @@
-// 📄 Tax Report View - DSGVO-konforme Steuerberichte für PulseChain
-// Zeigt Transaktionen, berechnet Steuer-relevante Daten und bietet CSV-Export
+// 📄 TAX REPORT VIEW - Vereinfacht mit CentralDataService
+// DSGVO-konforme Steuerberichte für PulseChain - Datum: 2025-01-08 REPARATUR
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabaseClient';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   FileText, 
   Download, 
-  Filter, 
   Calendar, 
   DollarSign, 
-  TrendingUp, 
-  TrendingDown,
-  Eye,
-  RefreshCw,
   ExternalLink,
-  Calculator
+  AlertCircle,
+  RefreshCw,
+  Filter
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import CentralDataService from '@/services/CentralDataService';
 
 const TaxReportView = () => {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState([]);
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
-  const [taxSummary, setTaxSummary] = useState({
-    totalIncomeUsd: 0,
-    totalCapitalGainsUsd: 0,
-    totalCapitalLossesUsd: 0,
-    totalFeesUsd: 0,
-    totalTransactions: 0
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [portfolioData, setPortfolioData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
 
   // Filter States
   const [filters, setFilters] = useState({
     startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0], // Start of current year
     endDate: new Date().toISOString().split('T')[0], // Today
-    walletAddress: '',
-    txType: '',
-    taxCategory: '',
-    minAmount: '',
-    maxAmount: ''
+    showOnlyROI: true
   });
 
-  // Load transactions
-  useEffect(() => {
-    if (user?.id) {
-      loadTransactions();
+  // Portfolio laden
+  const loadTaxData = async () => {
+    if (!user?.id) return;
+    
+    setLoading(true);
+    setError(null);
+    setStatusMessage('📄 Lade Steuerdaten...');
+    
+    try {
+      console.log('📄 TAX REPORT: Loading tax data with CentralDataService');
+      
+      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      
+      if (data.isLoaded) {
+        setPortfolioData(data);
+        setStatusMessage(`✅ Steuerdaten geladen: ${data.taxTransactions.length} Transaktionen, $${data.taxSummary.totalIncome.toFixed(2)} Einkommen`);
+        console.log('✅ TAX REPORT: Data loaded successfully');
+      } else {
+        setError(data.error);
+        setStatusMessage(`❌ Fehler: ${data.error}`);
+      }
+      
+    } catch (error) {
+      console.error('💥 TAX REPORT: Error loading data:', error);
+      setError(error.message);
+      setStatusMessage(`💥 Fehler beim Laden: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // CSV Export generieren
+  const exportTaxCSV = async () => {
+    if (!portfolioData?.taxTransactions) return;
+    
+    setExporting(true);
+    try {
+      // Filtere Transaktionen basierend auf Einstellungen
+      const filteredTransactions = portfolioData.taxTransactions.filter(tx => {
+        const txDate = new Date(tx.blockTimestamp);
+        const startDate = new Date(filters.startDate);
+        const endDate = new Date(filters.endDate);
+        
+        if (txDate < startDate || txDate > endDate) return false;
+        if (filters.showOnlyROI && !tx.isROITransaction) return false;
+        
+        return true;
+      });
+      
+      const csv = CentralDataService.generateTaxCSV(filteredTransactions);
+      
+      // Download CSV
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `PulseManager_Steuerreport_${new Date().getFullYear()}.csv`;
+      link.click();
+      
+      setStatusMessage(`✅ CSV Export erfolgreich: ${filteredTransactions.length} Transaktionen`);
+      setTimeout(() => setStatusMessage(''), 3000);
+      
+    } catch (error) {
+      console.error('❌ CSV Export failed:', error);
+      setStatusMessage(`❌ Export Fehler: ${error.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Initiales Laden
+  useEffect(() => {
+    loadTaxData();
   }, [user?.id]);
 
-  // Filter transactions when filters change
-  useEffect(() => {
-    applyFilters();
-  }, [transactions, filters]);
-
-  const loadTransactions = async () => {
-    setIsLoading(true);
-    try {
-      console.log('📄 TAX REPORT: Loading transactions for user:', user.id);
-
-      // Load transactions from database
-      const { data: transactionData, error: transactionError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('block_timestamp', { ascending: false });
-
-      if (transactionError) {
-        console.warn('Transactions table might not exist yet:', transactionError.message);
-        setTransactions([]);
-        setStatusMessage('📊 Keine Transaktionen gefunden - Transactions-Tabelle muss noch erstellt werden');
-        return;
-      }
-
-      setTransactions(transactionData || []);
-      console.log(`📄 TAX REPORT: Loaded ${(transactionData || []).length} transactions`);
-
-      // Load tax summary
-      await loadTaxSummary();
-
-      setStatusMessage(`✅ ${(transactionData || []).length} Transaktionen geladen`);
-
-    } catch (error) {
-      console.error('Error loading transactions:', error);
-      setStatusMessage(`❌ Fehler beim Laden: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadTaxSummary = async () => {
-    try {
-      // Call the PostgreSQL function for tax summary
-      const { data, error } = await supabase
-        .rpc('get_tax_summary', {
-          user_uuid: user.id,
-          start_date: filters.startDate,
-          end_date: filters.endDate
-        });
-
-      if (error) {
-        console.warn('Tax summary function not available:', error.message);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        setTaxSummary({
-          totalIncomeUsd: parseFloat(data[0].total_income_usd) || 0,
-          totalCapitalGainsUsd: parseFloat(data[0].total_capital_gains_usd) || 0,
-          totalCapitalLossesUsd: parseFloat(data[0].total_capital_losses_usd) || 0,
-          totalFeesUsd: parseFloat(data[0].total_fees_usd) || 0,
-          totalTransactions: parseInt(data[0].total_transactions) || 0
-        });
-      }
-
-    } catch (error) {
-      console.warn('Error loading tax summary:', error);
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...transactions];
-
-    // Date filter
-    if (filters.startDate) {
-      filtered = filtered.filter(tx => 
-        !tx.block_timestamp || new Date(tx.block_timestamp) >= new Date(filters.startDate)
-      );
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(tx => 
-        !tx.block_timestamp || new Date(tx.block_timestamp) <= new Date(filters.endDate + 'T23:59:59')
-      );
-    }
-
-    // Wallet filter
-    if (filters.walletAddress) {
-      filtered = filtered.filter(tx => 
-        tx.wallet_address?.toLowerCase().includes(filters.walletAddress.toLowerCase()) ||
-        tx.from_address?.toLowerCase().includes(filters.walletAddress.toLowerCase()) ||
-        tx.to_address?.toLowerCase().includes(filters.walletAddress.toLowerCase())
-      );
-    }
-
-    // Transaction type filter
-    if (filters.txType) {
-      filtered = filtered.filter(tx => tx.tx_type === filters.txType);
-    }
-
-    // Tax category filter
-    if (filters.taxCategory) {
-      filtered = filtered.filter(tx => tx.tax_category === filters.taxCategory);
-    }
-
-    // Amount filters
-    if (filters.minAmount) {
-      filtered = filtered.filter(tx => parseFloat(tx.value_usd) >= parseFloat(filters.minAmount));
-    }
-
-    if (filters.maxAmount) {
-      filtered = filtered.filter(tx => parseFloat(tx.value_usd) <= parseFloat(filters.maxAmount));
-    }
-
-    setFilteredTransactions(filtered);
-  };
-
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
-      walletAddress: '',
-      txType: '',
-      taxCategory: '',
-      minAmount: '',
-      maxAmount: ''
-    });
-  };
-
-  const exportToCSV = async () => {
-    setIsExporting(true);
-    try {
-      // Use PostgreSQL function for export data
-      const { data, error } = await supabase
-        .rpc('get_transactions_for_export', {
-          user_uuid: user.id,
-          start_date: filters.startDate,
-          end_date: filters.endDate,
-          wallet_filter: filters.walletAddress || null
-        });
-
-      if (error) {
-        // Fallback to client-side CSV generation
-        generateClientSideCSV();
-        return;
-      }
-
-      // Generate CSV from database function result
-      const csvHeader = 'Date,Hash,Token,Amount,Value USD,Type,Direction,From,To,Gas Fee USD,Tax Category\n';
-      const csvData = (data || []).map(tx => [
-        tx.date_time ? new Date(tx.date_time).toLocaleString('de-DE') : '',
-        tx.tx_hash || '',
-        tx.token_symbol || '',
-        tx.amount || '',
-        tx.value_usd || '',
-        tx.tx_type || '',
-        tx.direction || '',
-        tx.from_address || '',
-        tx.to_address || '',
-        tx.gas_fee_usd || '',
-        tx.tax_category || ''
-      ].map(field => `"${field}"`).join(',')).join('\n');
-
-      downloadCSV(csvHeader + csvData, 'tax-report');
-
-    } catch (error) {
-      console.error('Error exporting CSV:', error);
-      generateClientSideCSV(); // Fallback
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const generateClientSideCSV = () => {
-    const csvHeader = 'Date,Hash,Token,Amount,Value USD,Type,Direction,From,To,Gas Fee USD,Tax Category\n';
-    const csvData = filteredTransactions.map(tx => [
-      tx.block_timestamp ? new Date(tx.block_timestamp).toLocaleString('de-DE') : '',
-      tx.tx_hash || '',
-      tx.token_symbol || '',
-      tx.amount || '',
-      tx.value_usd || '',
-      tx.tx_type || '',
-      tx.direction || '',
-      tx.from_address || '',
-      tx.to_address || '',
-      tx.gas_fee_usd || '',
-      tx.tax_category || ''
-    ].map(field => `"${field}"`).join(',')).join('\n');
-
-    downloadCSV(csvHeader + csvData, 'tax-report-filtered');
-  };
-
-  const downloadCSV = (csvContent, filename) => {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${filename}-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setStatusMessage('📄 CSV-Export erfolgreich heruntergeladen');
-      setTimeout(() => setStatusMessage(''), 3000);
-    }
-  };
-
-  const openInExplorer = (txHash, chainId = 369) => {
-    const explorerUrl = chainId === 369 
-      ? `https://scan.pulsechain.com/tx/${txHash}`
-      : `https://etherscan.io/tx/${txHash}`;
-    window.open(explorerUrl, '_blank');
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('de-DE', { 
-      style: 'currency', 
-      currency: 'USD' 
-    }).format(amount || 0);
+  // Format Funktionen
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value || 0);
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown';
+    return new Date(dateString).toLocaleDateString('de-DE');
+  };
+
+  const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleString('de-DE');
   };
 
-  const getTypeColor = (txType) => {
-    const colors = {
-      transfer: 'text-blue-400',
-      swap: 'text-green-400',
-      stake: 'text-purple-400',
-      unstake: 'text-orange-400',
-      airdrop: 'text-pink-400',
-      mining: 'text-yellow-400'
-    };
-    return colors[txType] || 'text-gray-400';
+  // Gefilterte Transaktionen berechnen
+  const getFilteredTransactions = () => {
+    if (!portfolioData?.taxTransactions) return [];
+    
+    return portfolioData.taxTransactions.filter(tx => {
+      const txDate = new Date(tx.blockTimestamp);
+      const startDate = new Date(filters.startDate);
+      const endDate = new Date(filters.endDate);
+      
+      if (txDate < startDate || txDate > endDate) return false;
+      if (filters.showOnlyROI && !tx.isROITransaction) return false;
+      
+      return true;
+    });
   };
 
-  const getCategoryColor = (category) => {
-    const colors = {
-      income: 'text-green-400',
-      capital_gain: 'text-green-400',
-      capital_loss: 'text-red-400',
-      fee: 'text-orange-400',
-      gift: 'text-purple-400'
+  const filteredTransactions = getFilteredTransactions();
+
+  // Steuer-Zusammenfassung berechnen
+  const getTaxSummary = () => {
+    if (!filteredTransactions.length) return { totalIncome: 0, totalTransactions: 0, uniqueTokens: 0 };
+    
+    const totalIncome = filteredTransactions
+      .filter(tx => tx.isROITransaction)
+      .reduce((sum, tx) => sum + (tx.valueUSD || 0), 0);
+    
+    const uniqueTokens = new Set(filteredTransactions.map(tx => tx.tokenSymbol)).size;
+    
+    return {
+      totalIncome,
+      totalTransactions: filteredTransactions.length,
+      uniqueTokens
     };
-    return colors[category] || 'text-gray-400';
   };
 
-  if (!user) {
+  const taxSummary = getTaxSummary();
+
+  // Fallback für leere Daten
+  if (!user?.id) {
     return (
-      <div className="pulse-card p-8 text-center" style={{outline: 'none', boxShadow: 'none'}}>
-        <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-        <h2 className="pulse-title mb-2">Tax Reports</h2>
-        <p className="pulse-text-secondary">Please log in to view your tax reports</p>
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Anmeldung erforderlich</h3>
+            <p className="text-gray-600">Bitte melden Sie sich an, um Ihre Steuerberichte zu erstellen.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      {/* Header mit Controls */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="pulse-title mb-2">Tax Reports</h1>
-          <p className="pulse-subtitle">DSGVO-konforme Steuerberichte für PulseChain & Ethereum</p>
-          {statusMessage && (
-            <div className={`mt-2 text-sm ${statusMessage.includes('❌') ? 'text-red-400' : 'text-green-400'}`}>
-              {statusMessage}
+          <h1 className="text-2xl font-bold">Steuerreport</h1>
+          <p className="text-gray-600">DSGVO-konforme Steuerberichte für deutsche Steuererklärung</p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={loadTaxData}
+            disabled={loading}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Lade...' : 'Aktualisieren'}
+          </Button>
+          
+          <Button 
+            onClick={exportTaxCSV}
+            disabled={exporting || !filteredTransactions.length}
+            className="flex items-center gap-2"
+          >
+            <Download className={`h-4 w-4 ${exporting ? 'animate-spin' : ''}`} />
+            {exporting ? 'Exportiere...' : 'CSV Export'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Status Message */}
+      {statusMessage && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm font-mono">{statusMessage}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              <p className="font-medium">Fehler beim Laden der Steuerdaten</p>
+            </div>
+            <p className="text-red-600 text-sm mt-1">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filter Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filter & Einstellungen
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Startdatum</label>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+                className="w-full p-2 border rounded-md"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Enddatum</label>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+                className="w-full p-2 border rounded-md"
+              />
+            </div>
+            
+            <div className="flex items-center">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.showOnlyROI}
+                  onChange={(e) => setFilters({...filters, showOnlyROI: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium">Nur ROI-Transaktionen</span>
+              </label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tax Summary Cards */}
+      {portfolioData && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Total Taxable Income */}
+          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm font-medium">Steuerpflichtiges Einkommen</p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(taxSummary.totalIncome)}
+                  </p>
+                  <p className="text-green-200 text-sm">
+                    {filters.startDate} - {filters.endDate}
+                  </p>
+                </div>
+                <DollarSign className="h-8 w-8 text-green-200" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total Transactions */}
+          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm font-medium">Transaktionen</p>
+                  <p className="text-2xl font-bold">
+                    {taxSummary.totalTransactions}
+                  </p>
+                  <p className="text-blue-200 text-sm">
+                    Im ausgewählten Zeitraum
+                  </p>
+                </div>
+                <FileText className="h-8 w-8 text-blue-200" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Unique Tokens */}
+          <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm font-medium">Verschiedene Token</p>
+                  <p className="text-2xl font-bold">
+                    {taxSummary.uniqueTokens}
+                  </p>
+                  <p className="text-purple-200 text-sm">
+                    Token-Arten
+                  </p>
+                </div>
+                <Calendar className="h-8 w-8 text-purple-200" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Transaction Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Steuerrelevante Transaktionen
+            <Badge variant="outline" className="ml-2">
+              {filteredTransactions.length} Transaktionen
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filteredTransactions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2 font-medium">Datum</th>
+                    <th className="text-left p-2 font-medium">Token</th>
+                    <th className="text-right p-2 font-medium">Menge</th>
+                    <th className="text-right p-2 font-medium">Wert (USD)</th>
+                    <th className="text-center p-2 font-medium">Kategorie</th>
+                    <th className="text-center p-2 font-medium">ROI</th>
+                    <th className="text-center p-2 font-medium">Links</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTransactions.slice(0, 100).map((tx, index) => (
+                    <tr key={`${tx.txHash}-${index}`} className="border-b hover:bg-gray-50">
+                      <td className="p-2 text-sm">
+                        {formatDate(tx.blockTimestamp)}
+                        <div className="text-xs text-gray-500">
+                          {new Date(tx.blockTimestamp).toLocaleTimeString('de-DE')}
+                        </div>
+                      </td>
+                      
+                      <td className="p-2">
+                        <div className="font-medium">{tx.tokenSymbol}</div>
+                        <div className="text-sm text-gray-600">
+                          {tx.tokenName || 'Unknown Token'}
+                        </div>
+                      </td>
+                      
+                      <td className="p-2 text-right">
+                        <div className="font-mono">
+                          +{tx.amount.toFixed(6)}
+                        </div>
+                      </td>
+                      
+                      <td className="p-2 text-right">
+                        <div className="font-semibold text-green-600">
+                          {formatCurrency(tx.valueUSD)}
+                        </div>
+                      </td>
+                      
+                      <td className="p-2 text-center">
+                        <Badge variant={tx.taxCategory === 'income' ? 'default' : 'secondary'}>
+                          {tx.taxCategory === 'income' ? 'Einkommen' : 'Transfer'}
+                        </Badge>
+                      </td>
+                      
+                      <td className="p-2 text-center">
+                        {tx.isROITransaction ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800">
+                            ROI
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            Normal
+                          </Badge>
+                        )}
+                      </td>
+                      
+                      <td className="p-2 text-center">
+                        <div className="flex justify-center gap-1">
+                          <a 
+                            href={tx.explorerUrl}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-700"
+                            title="Auf PulseChain Scan anzeigen"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                          {tx.dexScreenerUrl && (
+                            <a 
+                              href={tx.dexScreenerUrl}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-green-500 hover:text-green-700"
+                              title="Auf DexScreener anzeigen"
+                            >
+                              <DollarSign className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {filteredTransactions.length > 100 && (
+                <div className="mt-4 text-center text-sm text-gray-500">
+                  Zeige die ersten 100 von {filteredTransactions.length} Transaktionen. 
+                  Exportieren Sie alle Daten als CSV für die vollständige Liste.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                Keine Transaktionen gefunden
+              </h3>
+              <p className="text-gray-500 mb-4">
+                {portfolioData ? 
+                  'Keine Transaktionen im ausgewählten Zeitraum oder mit den aktuellen Filtern.' :
+                  'Laden Sie zuerst Ihre Portfolio-Daten, um Steuerberichte zu erstellen.'
+                }
+              </p>
+              {!portfolioData && (
+                <Button onClick={loadTaxData}>
+                  Daten laden
+                </Button>
+              )}
             </div>
           )}
-        </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={loadTransactions}
-            disabled={isLoading}
-            className="py-3 px-4 bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
-            style={{outline: 'none', boxShadow: 'none'}}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button 
-            onClick={exportToCSV}
-            disabled={isExporting || filteredTransactions.length === 0}
-            className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-          >
-            <Download className="h-4 w-4" />
-            {isExporting ? 'Exporting...' : 'Export CSV'}
-          </button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Tax Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="pulse-card p-4 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="flex items-center gap-2 justify-center mb-2">
-            <TrendingUp className="h-4 w-4 text-green-400" />
-            <span className="text-xs font-medium text-green-300">Income</span>
+      {/* German Tax Information */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="text-blue-800">💡 Deutsche Steuerhinweise</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-blue-700 space-y-2 text-sm">
+            <p><strong>§ 22 EStG (Sonstige Einkünfte):</strong> ROI-Transaktionen und Staking-Belohnungen sind als sonstige Einkünfte zu versteuern.</p>
+            <p><strong>Dokumentation:</strong> Alle Transaktionen werden mit Datum, Uhrzeit, Betrag und Blockchain-Nachweis dokumentiert.</p>
+            <p><strong>DSGVO-Konformität:</strong> Alle Daten werden lokal verarbeitet und können jederzeit exportiert oder gelöscht werden.</p>
+            <p><strong>Disclaimer:</strong> Diese Software ersetzt keine professionelle Steuerberatung. Konsultieren Sie einen Steuerberater für individuelle Fragen.</p>
           </div>
-          <div className="text-lg font-bold text-green-400">
-            {formatCurrency(taxSummary.totalIncomeUsd)}
-          </div>
-        </div>
-
-        <div className="pulse-card p-4 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="flex items-center gap-2 justify-center mb-2">
-            <TrendingUp className="h-4 w-4 text-green-400" />
-            <span className="text-xs font-medium text-green-300">Capital Gains</span>
-          </div>
-          <div className="text-lg font-bold text-green-400">
-            {formatCurrency(taxSummary.totalCapitalGainsUsd)}
-          </div>
-        </div>
-
-        <div className="pulse-card p-4 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="flex items-center gap-2 justify-center mb-2">
-            <TrendingDown className="h-4 w-4 text-red-400" />
-            <span className="text-xs font-medium text-red-300">Capital Losses</span>
-          </div>
-          <div className="text-lg font-bold text-red-400">
-            {formatCurrency(taxSummary.totalCapitalLossesUsd)}
-          </div>
-        </div>
-
-        <div className="pulse-card p-4 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="flex items-center gap-2 justify-center mb-2">
-            <DollarSign className="h-4 w-4 text-orange-400" />
-            <span className="text-xs font-medium text-orange-300">Fees</span>
-          </div>
-          <div className="text-lg font-bold text-orange-400">
-            {formatCurrency(taxSummary.totalFeesUsd)}
-          </div>
-        </div>
-
-        <div className="pulse-card p-4 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="flex items-center gap-2 justify-center mb-2">
-            <Calculator className="h-4 w-4 text-blue-400" />
-            <span className="text-xs font-medium text-blue-300">Transactions</span>
-          </div>
-          <div className="text-lg font-bold text-blue-400">
-            {filteredTransactions.length}
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-        <div className="flex items-center gap-3 mb-4">
-          <Filter className="h-5 w-5 text-blue-400" />
-          <h3 className="text-lg font-semibold pulse-text">Filter Transactions</h3>
-          <button 
-            onClick={resetFilters}
-            className="text-xs text-blue-400 underline"
-            style={{outline: 'none', boxShadow: 'none'}}
-          >
-            Reset
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium pulse-text mb-1">Start Date</label>
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg pulse-text text-sm focus:outline-none focus:border-blue-400"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium pulse-text mb-1">End Date</label>
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg pulse-text text-sm focus:outline-none focus:border-blue-400"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium pulse-text mb-1">Transaction Type</label>
-            <select
-              value={filters.txType}
-              onChange={(e) => handleFilterChange('txType', e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg pulse-text text-sm focus:outline-none focus:border-blue-400"
-            >
-              <option value="">All Types</option>
-              <option value="transfer">Transfer</option>
-              <option value="swap">Swap</option>
-              <option value="stake">Stake</option>
-              <option value="unstake">Unstake</option>
-              <option value="airdrop">Airdrop</option>
-              <option value="mining">Mining</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium pulse-text mb-1">Tax Category</label>
-            <select
-              value={filters.taxCategory}
-              onChange={(e) => handleFilterChange('taxCategory', e.target.value)}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg pulse-text text-sm focus:outline-none focus:border-blue-400"
-            >
-              <option value="">All Categories</option>
-              <option value="income">Income</option>
-              <option value="capital_gain">Capital Gain</option>
-              <option value="capital_loss">Capital Loss</option>
-              <option value="fee">Fee</option>
-              <option value="gift">Gift</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Transactions Table */}
-      <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold pulse-text">Transaction History</h3>
-          <div className="text-sm pulse-text-secondary">
-            Showing {filteredTransactions.length} of {transactions.length} transactions
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-pulse">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="pulse-text-secondary">Loading transactions...</p>
-            </div>
-          </div>
-        ) : filteredTransactions.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-xl font-semibold pulse-text mb-2">No Transactions Found</h4>
-            <p className="pulse-text-secondary mb-4">
-              {transactions.length === 0 
-                ? 'No transactions in database yet. Import your transaction history or wait for automatic parsing.'
-                : 'No transactions match your current filters. Try adjusting the filter criteria.'
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-3 pulse-text-secondary text-sm">Date</th>
-                  <th className="text-left py-3 pulse-text-secondary text-sm">Hash</th>
-                  <th className="text-left py-3 pulse-text-secondary text-sm">Token</th>
-                  <th className="text-right py-3 pulse-text-secondary text-sm">Amount</th>
-                  <th className="text-right py-3 pulse-text-secondary text-sm">Value USD</th>
-                  <th className="text-left py-3 pulse-text-secondary text-sm">Type</th>
-                  <th className="text-left py-3 pulse-text-secondary text-sm">Tax Category</th>
-                  <th className="text-center py-3 pulse-text-secondary text-sm">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((tx, index) => (
-                  <tr key={tx.id || index} className="border-b border-white/5">
-                    <td className="py-4 text-sm pulse-text">
-                      {formatDate(tx.block_timestamp)}
-                    </td>
-                    <td className="py-4 text-sm">
-                      <span className="font-mono text-blue-400">
-                        {tx.tx_hash ? `${tx.tx_hash.slice(0, 8)}...${tx.tx_hash.slice(-6)}` : 'N/A'}
-                      </span>
-                    </td>
-                    <td className="py-4 text-sm pulse-text">
-                      <div className="font-semibold">{tx.token_symbol}</div>
-                      <div className="text-xs pulse-text-secondary">{tx.token_name}</div>
-                    </td>
-                    <td className="py-4 text-sm text-right pulse-text">
-                      {parseFloat(tx.amount || 0).toFixed(4)}
-                    </td>
-                    <td className="py-4 text-sm text-right font-semibold">
-                      {formatCurrency(tx.value_usd)}
-                    </td>
-                    <td className="py-4 text-sm">
-                      <span className={`capitalize ${getTypeColor(tx.tx_type)}`}>
-                        {tx.tx_type || 'transfer'}
-                      </span>
-                    </td>
-                    <td className="py-4 text-sm">
-                      <span className={`capitalize ${getCategoryColor(tx.tax_category)}`}>
-                        {tx.tax_category || 'uncategorized'}
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      {tx.tx_hash && (
-                        <button
-                          onClick={() => openInExplorer(tx.tx_hash, tx.chain_id)}
-                          className="text-blue-400 transition-colors p-1"
-                          title="View in Explorer"
-                          style={{outline: 'none', boxShadow: 'none'}}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Tax Notice */}
-      <div className="pulse-card p-4 bg-yellow-500/10 border border-yellow-500/20" style={{outline: 'none', boxShadow: 'none'}}>
-        <div className="flex items-start gap-3">
-          <div className="text-yellow-400 mt-0.5">⚠️</div>
-          <div>
-            <h5 className="text-sm font-semibold text-yellow-300 mb-1">
-              Steuerlicher Hinweis
-            </h5>
-            <p className="text-xs text-yellow-200/80">
-              <strong>Rechtlicher Hinweis:</strong> Diese Berichte dienen nur der Übersicht und sind nicht für die direkte Steuererklärung bestimmt. 
-              Konsultieren Sie einen Steuerberater für spezifische Steuerberatung. 
-              DSGVO-konform: Ihre Daten bleiben privat und werden nicht an Dritte weitergegeben.
-            </p>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
