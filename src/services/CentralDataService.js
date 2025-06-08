@@ -14,46 +14,26 @@ export class CentralDataService {
     dexscreener: '/api/dexscreener-proxy'
   };
 
-  // 💰 FALLBACK TOKEN-PREISE (wenn DexScreener nicht verfügbar)
+  // 💰 LIVE-PREISE ONLY: Entferne alle übertriebenen Fallback-Preise
   static FALLBACK_PRICES = {
-    // Native
-    'PLS': 0.000088,
-    'PLSX': 0.00002622,
-    'HEX': 0.005943,
+    // ⚠️ NUR ABSOLUTE MINIMAL-FALLBACKS (nur wenn kein Live-Preis verfügbar)
+    // Native PulseChain Tokens (oft nicht in DexScreener)
+    'PLS': 0.000088,      // Native PulseChain
+    'PLSX': 0.00002622,   // PulseX
+    'HEX': 0.005943,      // HEX
     
-    // Major Tokens (User-verified)
-    'DOMINANCE': 11.08,
-    'REMEMBER': 7.23e-7,
-    'FINVESTA': 33.76,
-    'FLEXMAS': 0.40,
-    'GAS': 2.74e-4,
-    'MISSOR': 0.011,
-    'SOIL': 0.122,
-    'BEAST': 0.64,
-    'FINFIRE': 5.09,
-    'SAV': 0.334,
-    'INC': 1.44,
-    'LOAN': 0.002345,
-    'FLEX': 0.000156,
-    
-    // Zero-Price Problem Fixes (Console-identifizierte Tokens)
-    '$GROKP': 0.000001,
-    'GROKP': 0.000001,
-    'WWPP': 0.0000005,
-    'PETROLAO': 0.0000001,
-    'BALLOONOMICS': 0.0000001,
-    'IYKYK': 0.0000001,
-    'FLEXBOOST': 0.0000001,
-    
-    // Stablecoins & Major
+    // ❌ ALLE ANDEREN FALLBACKS ENTFERNT - VERWENDE NUR LIVE-PREISE!
+    // Stablecoins (nur als letzte Reserve)
     'DAI': 1.0,
     'USDC': 1.0,
-    'USDT': 1.0,
-    'WETH': 2500,
-    'WBTC': 60000
+    'USDT': 1.0
   };
 
-  // 🔄 REMOVED: Contract-specific fallbacks (user requirement: no silent fallbacks)
+  // 🌐 ZUSÄTZLICHE API-ENDPUNKTE
+  static ADDITIONAL_PRICE_APIS = {
+    geckoterminal: 'https://api.geckoterminal.com/api/v2/networks/pulsechain/tokens',
+    dexscreener: '/api/dexscreener-proxy'
+  };
 
   // 🎯 DRUCKER-CONTRACTS (für ROI-Erkennung)
   static KNOWN_MINTERS = [
@@ -279,10 +259,10 @@ export class CentralDataService {
   }
 
   /**
-   * 💰 Lade echte Token-Preise von DexScreener (FIXED CONTRACT MATCHING)
+   * 💰 LIVE-PREISE LADEN: DexScreener + GeckoTerminal (NEUE LOGIK)
    */
   static async loadRealTokenPricesFixed(tokens) {
-    console.log(`💰 FIXED: Loading real prices for ${tokens.length} tokens`);
+    console.log(`💰 LIVE PRICES: Loading prices for ${tokens.length} tokens (DexScreener + GeckoTerminal)`);
     
     const priceMap = new Map();
     let updatedCount = 0;
@@ -295,11 +275,11 @@ export class CentralDataService {
         .map(token => token.contractAddress.toLowerCase())
     )];
     
-    console.log(`🔗 FIXED: Fetching prices for ${contractAddresses.length} contract addresses`);
+    console.log(`🔗 LIVE: Fetching prices for ${contractAddresses.length} contracts`);
 
+    // 🌟 PRIORITY 1: DexScreener API (Primary Source)
     if (contractAddresses.length > 0) {
       try {
-        // DexScreener API Call (batch processing)
         const batchSize = 30; // DexScreener limit
         
         for (let i = 0; i < contractAddresses.length; i += batchSize) {
@@ -322,22 +302,19 @@ export class CentralDataService {
                     const price = parseFloat(pair.priceUsd);
                     const contractAddress = pair.baseToken.address.toLowerCase();
                     
-                    // FIXED: Map by contract address for precise matching
                     priceMap.set(contractAddress, price);
                     updatedCount++;
                     
-                    console.log(`💰 FIXED PRICE: ${pair.baseToken.symbol} (${contractAddress}) = $${price}`);
+                    console.log(`🟢 DEXSCREENER: ${pair.baseToken.symbol} = $${price}`);
                   }
                 }
               }
-            } else {
-              console.warn(`⚠️ DexScreener API error for batch starting at ${i}: ${response.status}`);
             }
           } catch (batchError) {
-            console.warn(`⚠️ Error fetching price batch starting at ${i}:`, batchError.message);
+            console.warn(`⚠️ DexScreener batch error:`, batchError.message);
           }
           
-          // Rate limiting - wait between batches (reduced delay for performance)
+          // Rate limiting
           if (i + batchSize < contractAddresses.length) {
             await new Promise(resolve => setTimeout(resolve, 200));
           }
@@ -347,7 +324,41 @@ export class CentralDataService {
       }
     }
 
-    // Add fallback prices for known tokens (by symbol)
+    // 🔵 PRIORITY 2: GeckoTerminal API (für Tokens ohne DexScreener Preis)
+    const missingTokens = contractAddresses.filter(addr => !priceMap.has(addr));
+    if (missingTokens.length > 0) {
+      console.log(`🔵 GECKOTERMINAL: Fetching ${missingTokens.length} missing prices`);
+      
+      for (const contractAddress of missingTokens.slice(0, 50)) { // Limit für Performance
+        try {
+          const response = await fetch(
+            `${this.ADDITIONAL_PRICE_APIS.geckoterminal}/${contractAddress}`
+          );
+          
+          apiCalls++;
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            if (data.data && data.data.attributes && data.data.attributes.price_usd) {
+              const price = parseFloat(data.data.attributes.price_usd);
+              
+              priceMap.set(contractAddress, price);
+              updatedCount++;
+              
+              console.log(`🔵 GECKOTERMINAL: ${data.data.attributes.symbol} = $${price}`);
+            }
+          }
+        } catch (geckoError) {
+          // Silent fail für GeckoTerminal
+        }
+        
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // 🔴 PRIORITY 3: Minimal Fallbacks (NUR für native Tokens)
     for (const [symbol, price] of Object.entries(this.FALLBACK_PRICES)) {
       const tokenWithSymbol = tokens.find(t => t.symbol === symbol);
       if (tokenWithSymbol) {
@@ -355,26 +366,24 @@ export class CentralDataService {
         if (contractKey && !priceMap.has(contractKey)) {
           priceMap.set(contractKey, price);
           updatedCount++;
-          console.log(`🔄 FIXED SYMBOL FALLBACK: ${symbol} (${contractKey}) = $${price}`);
+          console.log(`🔴 FALLBACK: ${symbol} = $${price} (native/stablecoin only)`);
         }
       }
     }
 
-    // CONTRACT FALLBACKS REMOVED: User requirement - no silent fallbacks
-
-    console.log(`✅ FIXED: Price loading complete - ${updatedCount} prices updated with ${apiCalls} API calls`);
+    console.log(`✅ LIVE PRICES COMPLETE: ${updatedCount} prices from ${apiCalls} API calls`);
 
     return {
       priceMap,
       updatedCount,
-      source: 'dexscreener_api_fixed',
+      source: 'live_prices_multi_api',
       apiCalls,
       timestamp: new Date().toISOString()
     };
   }
 
   /**
-   * 🔄 Aktualisiere Token-Werte mit echten Preisen (STRICT VALIDATION)
+   * 🔄 STRIKTE TOKEN-WERT-BERECHNUNG (nur echte Live-Preise)
    */
   static updateTokenValuesWithRealPricesFixed(tokenData, pricesData) {
     const { tokens } = tokenData;
@@ -382,39 +391,44 @@ export class CentralDataService {
     
     let totalValue = 0;
     const updatedTokens = [];
-    const invalidPriceSources = ['JUNO', 'unknown', 'fallback'];
 
     for (const token of tokens) {
       const contractKey = token.contractAddress?.toLowerCase();
       
-      // STRICT VALIDATION: Only use verified price sources
+      // NEUE LOGIK: Nur echte Preise verwenden
       let price = 0;
-      let priceSource = 'unknown';
+      let priceSource = 'no_price';
       
-      // Priority 1: DexScreener (only reliable source)
-      if (priceMap.get(contractKey)) {
+      // Priority 1: Live-Preise aus Price Map (DexScreener/GeckoTerminal)
+      if (priceMap.has(contractKey)) {
         price = priceMap.get(contractKey);
-        priceSource = 'dexscreener';
+        priceSource = 'live_api';
       }
       
-      // Priority 2: Manually verified prices
-      else if (this.FALLBACK_PRICES[token.symbol]) {
-        price = this.FALLBACK_PRICES[token.symbol];
-        priceSource = 'verified';
+      // ⚠️ STRIKTE VALIDIERUNG: Preis-Plausibilität prüfen
+      if (price > 0) {
+        // Sanity Check: Extrem hohe Preise blockieren (verhindert $1M+ Portfolio)
+        if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(token.symbol)) {
+          console.warn(`🚨 SUSPICIOUS HIGH PRICE BLOCKED: ${token.symbol} = $${price} (blocked for safety)`);
+          price = 0;
+          priceSource = 'blocked_suspicious';
+        }
+        
+        // Balance-Sanity-Check: Verhindere unrealistische Portfolio-Werte
+        const calculatedValue = token.balance * price;
+        if (calculatedValue > 100000) { // $100k+ pro Token ist verdächtig
+          console.warn(`🚨 SUSPICIOUS VALUE BLOCKED: ${token.symbol} ${token.balance.toFixed(2)} × $${price} = $${calculatedValue.toFixed(0)} (blocked)`);
+          price = 0;
+          priceSource = 'blocked_unrealistic';
+        }
       }
       
-      // BLOCK invalid price sources
-      if (invalidPriceSources.includes(priceSource)) {
-        price = 0;
-        priceSource = 'blocked';
-      }
-      
-      // Calculate value (only if price is reliable)
+      // Calculate final value
       const value = (price > 0) ? token.balance * price : 0;
       
-      // Log tokens without reliable prices
-      if (price === 0 && token.balance > 0.001) {
-        console.warn("🚫 TOKEN WITHOUT RELIABLE PRICE:", token.symbol, contractKey, "Balance:", token.balance.toFixed(4));
+      // Debug: Tokens ohne Preis loggen
+      if (price === 0 && token.balance > 0.01) {
+        console.log(`🔍 NO PRICE: ${token.symbol} (${token.balance.toFixed(4)} tokens) - ${contractKey}`);
       }
       
       const updatedToken = {
@@ -422,36 +436,52 @@ export class CentralDataService {
         price: price,
         value: value,
         priceSource: priceSource,
-        hasReliablePrice: price > 0,
-        isIncludedInPortfolio: price > 0 && value >= 0.01 // Only include tokens with $0.01+ value
+        hasReliablePrice: price > 0 && priceSource === 'live_api',
+        isIncludedInPortfolio: price > 0 && value >= 0.01, // Min $0.01 Wert
+        
+        // Zusätzliche Debug-Info
+        isBlocked: priceSource.includes('blocked'),
+        calculationDebug: {
+          rawBalance: token.balance,
+          appliedPrice: price,
+          finalValue: value,
+          source: priceSource
+        }
       };
       
       updatedTokens.push(updatedToken);
       
-      // STRICT: Only add to portfolio value if price is reliable
-      if (updatedToken.isIncludedInPortfolio) {
+      // STRIKTE Portfolio-Wert-Berechnung
+      if (updatedToken.isIncludedInPortfolio && !updatedToken.isBlocked) {
         totalValue += value;
-      }
-      
-      // Log tokens included in portfolio value
-      if (updatedToken.isIncludedInPortfolio) {
-        console.log(`💎 PORTFOLIO TOKEN: ${token.symbol} = ${token.balance.toFixed(4)} × $${price.toFixed(6)} = $${value.toFixed(2)} [${priceSource}]`);
+        console.log(`💎 INCLUDED: ${token.symbol} = ${token.balance.toFixed(4)} × $${price.toFixed(6)} = $${value.toFixed(2)}`);
       }
     }
 
-    // Sortiere nach Wert und setze Rankings
+    // Sortiere nach Wert
     updatedTokens.sort((a, b) => b.value - a.value);
     updatedTokens.forEach((token, index) => {
       token.holdingRank = index + 1;
       token.percentageOfPortfolio = totalValue > 0 ? (token.value / totalValue) * 100 : 0;
     });
 
-    console.log(`🎯 FIXED FINAL CALCULATION: ${updatedTokens.length} tokens, Total: $${totalValue.toFixed(2)}`);
+    // Debug-Statistiken
+    const stats = {
+      totalTokens: updatedTokens.length,
+      tokensWithPrice: updatedTokens.filter(t => t.price > 0).length,
+      tokensIncluded: updatedTokens.filter(t => t.isIncludedInPortfolio).length,
+      tokensBlocked: updatedTokens.filter(t => t.isBlocked).length,
+      calculatedTotal: totalValue
+    };
+
+    console.log(`🎯 PORTFOLIO CALCULATION:`, stats);
+    console.log(`💰 FINAL TOTAL: $${totalValue.toFixed(2)}`);
 
     return {
       tokens: updatedTokens,
       totalValue: totalValue,
-      uniqueTokens: new Set(updatedTokens.map(t => t.symbol)).size
+      uniqueTokens: new Set(updatedTokens.map(t => t.symbol)).size,
+      stats: stats
     };
   }
 
@@ -490,19 +520,36 @@ export class CentralDataService {
               if (amount > 0 && isROI) {
                 const contractKey = tx.contractAddress?.toLowerCase();
                 
-                // STRICT: Get price by contract address (verified sources only)
-                let price = priceMap.get(contractKey) || 0;
+                // 🎯 NEUE ROI-PREISLOGIK: Verwende dieselbe Logik wie Portfolio-Tokens
+                let price = 0;
+                let priceSource = 'no_price';
                 
-                // Only verified symbol-based fallbacks allowed
-                if (price === 0) {
-                  price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
+                // Priority 1: Live-Preise aus Price Map (DexScreener/GeckoTerminal)
+                if (priceMap.has(contractKey)) {
+                  price = priceMap.get(contractKey);
+                  priceSource = 'live_api';
+                  
+                  // Plausibilitätsprüfung für ROI-Preise
+                  if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(tx.tokenSymbol)) {
+                    console.warn(`🚨 ROI HIGH PRICE BLOCKED: ${tx.tokenSymbol} = $${price} (blocked for safety)`);
+                    price = 0;
+                    priceSource = 'blocked_suspicious';
+                  }
+                }
+                
+                // Priority 2: Nur minimale Fallbacks (native Tokens)
+                if (price === 0 && this.FALLBACK_PRICES[tx.tokenSymbol]) {
+                  price = this.FALLBACK_PRICES[tx.tokenSymbol];
+                  priceSource = 'fallback_minimal';
                 }
                 
                 const value = amount * price;
                 
-                // Log zero-value ROI transactions for debugging (reduced frequency)
-                if (value === 0 && amount > 0.01) {
-                  console.warn("🚨 ROI WITH ZERO VALUE:", tx.tokenSymbol, "Amount:", amount, "Price:", price, "Contract:", contractKey);
+                // Debug: ROI-Transaktionen ohne Preis
+                if (value === 0 && amount > 0.001) {
+                  console.log(`🔍 ROI NO PRICE: ${tx.tokenSymbol} ${amount.toFixed(4)} tokens - ${contractKey} - ${priceSource}`);
+                } else if (value > 0) {
+                  console.log(`💰 ROI VALUE: ${tx.tokenSymbol} ${amount.toFixed(4)} × $${price.toFixed(6)} = $${value.toFixed(4)} [${priceSource}]`);
                 }
                 
                 const roiTx = {
@@ -601,12 +648,26 @@ export class CentralDataService {
             
             const contractKey = tx.contractAddress?.toLowerCase();
             
-            // STRICT: Get price by contract address (verified sources only)
-            let price = priceMap.get(contractKey) || 0;
+            // 🎯 NEUE TAX-PREISLOGIK: Konsistent mit Portfolio & ROI
+            let price = 0;
+            let priceSource = 'no_price';
             
-            // Only verified symbol-based fallbacks allowed
-            if (price === 0) {
-              price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
+            // Priority 1: Live-Preise aus Price Map
+            if (priceMap.has(contractKey)) {
+              price = priceMap.get(contractKey);
+              priceSource = 'live_api';
+              
+              // Plausibilitätsprüfung
+              if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(tx.tokenSymbol)) {
+                price = 0;
+                priceSource = 'blocked_suspicious';
+              }
+            }
+            
+            // Priority 2: Minimale Fallbacks
+            if (price === 0 && this.FALLBACK_PRICES[tx.tokenSymbol]) {
+              price = this.FALLBACK_PRICES[tx.tokenSymbol];
+              priceSource = 'fallback_minimal';
             }
             
             const value = amount * price;
