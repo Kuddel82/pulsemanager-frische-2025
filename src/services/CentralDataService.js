@@ -53,13 +53,7 @@ export class CentralDataService {
     'WBTC': 60000
   };
 
-  // 🔄 Contract-spezifische Fallback-Preise für unbekannte Tokens
-  static CONTRACT_FALLBACK_PRICES = {
-    '0x770cfa2fb975e7bcaedde234d92c3858c517adca': 0.0000001, // Unbekannter Token
-    '0x0de9f5a317bc89fd02b214586c7484bb61fcc1c3': 0.000001,  // $GROKP
-    '0x49c94064760febf019f3c2b0ca864febf48ef81c': 0.0000005, // WWPP
-    '0xdf3983596a22bf767697a9cdbb2abe1c4f43279a': 0.0000001, // PETROLAO
-  };
+  // 🔄 REMOVED: Contract-specific fallbacks (user requirement: no silent fallbacks)
 
   // 🎯 DRUCKER-CONTRACTS (für ROI-Erkennung)
   static KNOWN_MINTERS = [
@@ -366,15 +360,7 @@ export class CentralDataService {
       }
     }
 
-    // Add contract-specific fallback prices for identified problem tokens
-    for (const [contractAddress, price] of Object.entries(this.CONTRACT_FALLBACK_PRICES)) {
-      const contractKey = contractAddress.toLowerCase();
-      if (!priceMap.has(contractKey)) {
-        priceMap.set(contractKey, price);
-        updatedCount++;
-        console.log(`🔄 FIXED CONTRACT FALLBACK: ${contractKey} = $${price}`);
-      }
-    }
+    // CONTRACT FALLBACKS REMOVED: User requirement - no silent fallbacks
 
     console.log(`✅ FIXED: Price loading complete - ${updatedCount} prices updated with ${apiCalls} API calls`);
 
@@ -388,7 +374,7 @@ export class CentralDataService {
   }
 
   /**
-   * 🔄 Aktualisiere Token-Werte mit echten Preisen (FIXED PRECISION)
+   * 🔄 Aktualisiere Token-Werte mit echten Preisen (STRICT VALIDATION)
    */
   static updateTokenValuesWithRealPricesFixed(tokenData, pricesData) {
     const { tokens } = tokenData;
@@ -396,46 +382,60 @@ export class CentralDataService {
     
     let totalValue = 0;
     const updatedTokens = [];
+    const invalidPriceSources = ['JUNO', 'unknown', 'fallback'];
 
     for (const token of tokens) {
       const contractKey = token.contractAddress?.toLowerCase();
       
-      // FIXED: Get price by contract address (most reliable)
-      let price = priceMap.get(contractKey) || 0;
+      // STRICT VALIDATION: Only use verified price sources
+      let price = 0;
+      let priceSource = 'unknown';
       
-      // Fallback 1: Symbol-based fallback
-      if (price === 0) {
-        price = this.FALLBACK_PRICES[token.symbol] || 0;
+      // Priority 1: DexScreener (only reliable source)
+      if (priceMap.get(contractKey)) {
+        price = priceMap.get(contractKey);
+        priceSource = 'dexscreener';
       }
       
-      // Fallback 2: Contract-specific fallback for problem tokens
-      if (price === 0 && contractKey) {
-        price = this.CONTRACT_FALLBACK_PRICES[contractKey] || 0;
+      // Priority 2: Manually verified prices
+      else if (this.FALLBACK_PRICES[token.symbol]) {
+        price = this.FALLBACK_PRICES[token.symbol];
+        priceSource = 'verified';
       }
       
-      // FIXED: Precise value calculation
-      const value = token.balance * price;
-      
-      // Log missing prices for debugging
-      if (price === 0 && token.balance > 0) {
-        console.warn("🚨 MISSING PRICE:", token.symbol, contractKey, "Balance:", token.balance);
+      // BLOCK invalid price sources
+      if (invalidPriceSources.includes(priceSource)) {
+        price = 0;
+        priceSource = 'blocked';
       }
       
-      // Include all tokens (don't filter by value)
+      // Calculate value (only if price is reliable)
+      const value = (price > 0) ? token.balance * price : 0;
+      
+      // Log tokens without reliable prices
+      if (price === 0 && token.balance > 0.001) {
+        console.warn("🚫 TOKEN WITHOUT RELIABLE PRICE:", token.symbol, contractKey, "Balance:", token.balance.toFixed(4));
+      }
+      
       const updatedToken = {
         ...token,
         price: price,
         value: value,
-        priceSource: priceMap.get(contractKey) ? 'dexscreener' : 
-                     this.FALLBACK_PRICES[token.symbol] ? 'fallback' : 'unknown'
+        priceSource: priceSource,
+        hasReliablePrice: price > 0,
+        isIncludedInPortfolio: price > 0 && value >= 0.01 // Only include tokens with $0.01+ value
       };
       
       updatedTokens.push(updatedToken);
-      totalValue += value;
       
-      // Log significant tokens
-      if (value > 0.001) {
-        console.log(`💎 FIXED TOKEN: ${token.symbol} = ${token.balance.toFixed(4)} × $${price.toFixed(6)} = $${value.toFixed(2)} [${updatedToken.priceSource}]`);
+      // STRICT: Only add to portfolio value if price is reliable
+      if (updatedToken.isIncludedInPortfolio) {
+        totalValue += value;
+      }
+      
+      // Log tokens included in portfolio value
+      if (updatedToken.isIncludedInPortfolio) {
+        console.log(`💎 PORTFOLIO TOKEN: ${token.symbol} = ${token.balance.toFixed(4)} × $${price.toFixed(6)} = $${value.toFixed(2)} [${priceSource}]`);
       }
     }
 
@@ -490,17 +490,12 @@ export class CentralDataService {
               if (amount > 0 && isROI) {
                 const contractKey = tx.contractAddress?.toLowerCase();
                 
-                // FIXED: Get price by contract address with multiple fallbacks
+                // STRICT: Get price by contract address (verified sources only)
                 let price = priceMap.get(contractKey) || 0;
                 
-                // Fallback 1: Symbol-based
+                // Only verified symbol-based fallbacks allowed
                 if (price === 0) {
                   price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
-                }
-                
-                // Fallback 2: Contract-specific for problem tokens
-                if (price === 0 && contractKey) {
-                  price = this.CONTRACT_FALLBACK_PRICES[contractKey] || 0;
                 }
                 
                 const value = amount * price;
@@ -606,17 +601,12 @@ export class CentralDataService {
             
             const contractKey = tx.contractAddress?.toLowerCase();
             
-            // FIXED: Get price by contract address with multiple fallbacks
+            // STRICT: Get price by contract address (verified sources only)
             let price = priceMap.get(contractKey) || 0;
             
-            // Fallback 1: Symbol-based
+            // Only verified symbol-based fallbacks allowed
             if (price === 0) {
               price = this.FALLBACK_PRICES[tx.tokenSymbol] || 0;
-            }
-            
-            // Fallback 2: Contract-specific for problem tokens
-            if (price === 0 && contractKey) {
-              price = this.CONTRACT_FALLBACK_PRICES[contractKey] || 0;
             }
             
             const value = amount * price;
