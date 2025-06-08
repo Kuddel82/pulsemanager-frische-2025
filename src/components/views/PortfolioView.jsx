@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import CentralDataService from '@/services/CentralDataService';
-import { getHiddenTokens, hideToken as hideTokenService, showToken as showTokenService } from '@/services/HiddenTokenService';
+import { getHiddenTokens, hideToken as hideTokenService, showToken as showTokenService, testHiddenTokenService } from '@/services/HiddenTokenService';
 
 const PortfolioView = () => {
   const { user } = useAuth();
@@ -198,14 +198,27 @@ const PortfolioView = () => {
           <p className="text-gray-600">Ihre Token-Holdings auf PulseChain</p>
         </div>
         
-        <Button 
-          onClick={loadPortfolioData}
-          disabled={loading}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Lade...' : 'Aktualisieren'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={loadPortfolioData}
+            disabled={loading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Lade...' : 'Aktualisieren'}
+          </Button>
+          
+          {/* 🧪 DEBUG: Test Token-Hiding */}
+          <Button 
+            onClick={() => testHiddenTokenService(user?.id)}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <EyeOff className="h-4 w-4" />
+            Test Hiding
+          </Button>
+        </div>
       </div>
 
       {/* Status Message */}
@@ -340,8 +353,14 @@ const PortfolioView = () => {
                     <span className="text-gray-600">Versteckte Tokens anzeigen</span>
                   </label>
                 )}
-                <div className="text-xs text-gray-500">
-                  👁️ Auge-Icon zum Ausblenden • 🔒 Scam-Schutz
+                <div className="flex items-center gap-3">
+                  <div className="text-xs text-gray-500">
+                    👁️ Auge-Icon zum Ausblenden • 🔒 Scam-Schutz
+                  </div>
+                  {/* 🧪 DEBUG INFO */}
+                  <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    Debug: {hiddenTokens.length} versteckt • Storage: {typeof window !== 'undefined' && localStorage.getItem(`pulsemanager_hidden_tokens_${user?.id}`) ? 'localStorage' : 'none'}
+                  </div>
                 </div>
               </div>
             )}
