@@ -2,7 +2,6 @@ import { useState } from 'react';
 
 // STUB: Simplified toast system to replace Radix-UI Toast for DOM stability
 export const useToast = () => {
-  console.log('🔧 Using STUB useToast - Radix-UI disabled for DOM stability');
   
   const [toasts, setToasts] = useState([]);
   

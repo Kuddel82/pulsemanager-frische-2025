@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-// STUB: console.log statt react-hot-toast für DOM-Stabilität
-const toast = {
-  success: (msg) => console.log('✅ SUCCESS TOAST:', msg),
-  error: (msg) => console.log('❌ ERROR TOAST:', msg)
-};
+import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +32,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn } = useAuth();
+  const { toast } = useToast();
 
   const from = location.state?.from?.pathname || '/';
 
@@ -79,7 +76,11 @@ const Login: React.FC = () => {
       loginSchema.parse(formData);
 
       await signIn(formData.email, formData.password);
-      toast.success('Erfolgreich angemeldet');
+      toast({
+        title: "Erfolgreich angemeldet",
+        description: "Sie werden zum Dashboard weitergeleitet",
+        variant: "default"
+      });
       navigate(from, { replace: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -91,7 +92,11 @@ const Login: React.FC = () => {
         });
         setErrors(newErrors);
       } else {
-        toast.error(error instanceof Error ? error.message : 'Fehler beim Login');
+        toast({
+          title: "Fehler beim Login",
+          description: error instanceof Error ? error.message : 'Fehler beim Login',
+          variant: "destructive"
+        });
       }
     } finally {
       setLoading(false);

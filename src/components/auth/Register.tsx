@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-// STUB: console.log statt react-hot-toast für DOM-Stabilität
-const toast = {
-  success: (msg) => console.log('✅ SUCCESS TOAST:', msg),
-  error: (msg) => console.log('❌ ERROR TOAST:', msg)
-};
+import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +69,7 @@ const Register: React.FC = () => {
   const [touched, setTouched] = useState<Partial<Record<keyof RegisterFormData, boolean>>>({});
   const navigate = useNavigate();
   const { signUp } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Validierung bei Änderungen
@@ -114,7 +111,11 @@ const Register: React.FC = () => {
       registerSchema.parse(formData);
 
       await signUp(formData.email, formData.password);
-      toast.success('Registrierung erfolgreich');
+      toast({
+        title: "Registrierung erfolgreich",
+        description: "Sie werden zur Anmeldung weitergeleitet",
+        variant: "default"
+      });
       navigate('/');
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -126,7 +127,11 @@ const Register: React.FC = () => {
         });
         setErrors(newErrors);
       } else {
-        toast.error(error instanceof Error ? error.message : 'Fehler bei der Registrierung');
+        toast({
+          title: "Fehler bei der Registrierung",
+          description: error instanceof Error ? error.message : 'Fehler bei der Registrierung',
+          variant: "destructive"
+        });
       }
     } finally {
       setLoading(false);
