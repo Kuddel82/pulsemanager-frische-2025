@@ -272,6 +272,7 @@ export default function WalletManualInput() {
           type="submit"
           disabled={isAdding || !formData.address || !formData.nickname}
           className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+          key="submit-button"
         >
           {isAdding ? (
             <>
