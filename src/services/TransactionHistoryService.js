@@ -174,36 +174,34 @@ export class TransactionHistoryService {
         const processedTx = {
           tx_hash: tx.hash,
           block_number: parseInt(tx.blockNumber),
-          timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+          block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
           
-          // Token details
-          token_address: tx.contractAddress,
+          // Token details  
+          contract_address: tx.contractAddress,
           token_symbol: tx.tokenSymbol,
           token_name: tx.tokenName,
-          token_decimals: parseInt(tx.tokenDecimal || 18),
+          decimals: parseInt(tx.tokenDecimal || 18),
           
           // Transfer details
           amount_raw: tx.value,
-          amount_formatted: amountFormatted,
+          amount: amountFormatted,
           direction: 'in', // We filtered for incoming only
           
           // Price & value
-          token_price_usd: tokenPrice,
           value_usd: valueUSD,
           
           // Classification
-          transaction_type: 'transfer',
+          tx_type: 'transfer',
           is_roi_transaction: isROI,
-          source_type: sourceType,
+          roi_source_type: sourceType,
           
           // Addresses
           from_address: tx.from,
           to_address: tx.to,
           wallet_address: walletAddress,
           
-          // URLs
-          explorer_url: `https://scan.pulsechain.com/tx/${tx.hash}`,
-          dex_screener_url: tx.contractAddress ? `https://dexscreener.com/pulsechain/${tx.contractAddress}` : null,
+          // Chain info
+          chain_id: 369, // PulseChain mainnet
           
           // Gas (if available)
           gas_used: tx.gasUsed ? parseInt(tx.gasUsed) : null,
@@ -336,18 +334,18 @@ export class TransactionHistoryService {
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
-      .order('timestamp', { ascending: false });
+      .order('block_timestamp', { ascending: false });
     
     if (walletAddress) {
       query = query.eq('wallet_address', walletAddress);
     }
     
     if (startDate) {
-      query = query.gte('timestamp', startDate);
+      query = query.gte('block_timestamp', startDate);
     }
     
     if (endDate) {
-      query = query.lte('timestamp', endDate);
+      query = query.lte('block_timestamp', endDate);
     }
     
     if (roiOnly) {
@@ -391,14 +389,14 @@ export class TransactionHistoryService {
   static async getLatestTransactionTimestamp(userId, walletAddress) {
     const { data, error } = await supabase
       .from('transactions')
-      .select('timestamp')
+      .select('block_timestamp')
       .eq('user_id', userId)
       .eq('wallet_address', walletAddress)
-      .order('timestamp', { ascending: false })
+      .order('block_timestamp', { ascending: false })
       .limit(1);
     
     if (error || !data || !data.length) return null;
-    return data[0];
+    return { timestamp: data[0].block_timestamp };
   }
   
   static isRecentEnough(timestamp, hoursAgo = 4) {
@@ -449,23 +447,23 @@ export class TransactionHistoryService {
     const tokenMap = {};
     
     transactions.forEach(tx => {
-      const key = tx.token_symbol || tx.token_address;
+      const key = tx.token_symbol || tx.contract_address;
       if (!tokenMap[key]) {
         tokenMap[key] = {
           symbol: tx.token_symbol,
           name: tx.token_name,
-          address: tx.token_address,
+          address: tx.contract_address,
           totalAmount: 0,
           totalValueUSD: 0,
           transactionCount: 0,
           roiTransactionCount: 0,
-          firstSeen: tx.timestamp,
-          lastSeen: tx.timestamp
+          firstSeen: tx.block_timestamp,
+          lastSeen: tx.block_timestamp
         };
       }
       
       const token = tokenMap[key];
-      token.totalAmount += tx.amount_formatted || 0;
+      token.totalAmount += tx.amount || 0;
       token.totalValueUSD += tx.value_usd || 0;
       token.transactionCount++;
       
@@ -473,11 +471,11 @@ export class TransactionHistoryService {
         token.roiTransactionCount++;
       }
       
-      if (new Date(tx.timestamp) < new Date(token.firstSeen)) {
-        token.firstSeen = tx.timestamp;
+      if (new Date(tx.block_timestamp) < new Date(token.firstSeen)) {
+        token.firstSeen = tx.block_timestamp;
       }
-      if (new Date(tx.timestamp) > new Date(token.lastSeen)) {
-        token.lastSeen = tx.timestamp;
+      if (new Date(tx.block_timestamp) > new Date(token.lastSeen)) {
+        token.lastSeen = tx.block_timestamp;
       }
     });
     
@@ -488,7 +486,7 @@ export class TransactionHistoryService {
     const periodMap = {};
     
     transactions.forEach(tx => {
-      const date = new Date(tx.timestamp);
+      const date = new Date(tx.block_timestamp);
       let key;
       
       switch (period) {
