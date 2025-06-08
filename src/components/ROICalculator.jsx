@@ -26,12 +26,13 @@ export default function ROICalculator() {
     try {
       setIsLoading(true);
 
-      // Load user wallets with balances
+      // Load user wallets with balances (nur ab 1.1.2025)
       const { data: walletsData, error: walletsError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
+        .gte('created_at', '2025-01-01T00:00:00.000Z') // Nur ab 1.1.2025
         .order('created_at', { ascending: false });
 
       if (walletsError) throw walletsError;
@@ -39,13 +40,15 @@ export default function ROICalculator() {
       setWallets(walletsData || []);
 
       // Try to load investments (graceful fallback if table doesn't exist)
+      // Nur Daten ab 1.1.2025 berücksichtigen
       let investmentsData = [];
       try {
         const { data: invData, error: invError } = await supabase
           .from('investments')
           .select('*')
           .eq('user_id', user.id)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .gte('purchase_date', '2025-01-01T00:00:00.000Z'); // Nur ab 1.1.2025
         
         if (!invError) {
           investmentsData = invData || [];
@@ -54,9 +57,15 @@ export default function ROICalculator() {
         console.log('Investments table not available yet:', invErr.message);
       }
 
-      // Calculate wallet totals
+      // Calculate wallet totals (verbesserte Berechnung)
       const walletTotals = (walletsData || []).reduce((acc, wallet) => {
-        const balance = parseFloat(wallet.balance_eth || 0);
+        // Sicherstellen dass balance_eth ein valider Wert ist
+        let balance = 0;
+        if (wallet.balance_eth && !isNaN(wallet.balance_eth)) {
+          balance = parseFloat(wallet.balance_eth);
+        }
+        
+        console.log(`Wallet ${wallet.nickname}: ${balance} (Chain: ${wallet.chain_id})`);
         
         if (wallet.chain_id === 369) { // PulseChain
           acc.totalPLS += balance;
@@ -80,9 +89,9 @@ export default function ROICalculator() {
         totalInvestmentCost: 0
       });
 
-      // Price calculations (placeholder values - would need real API)
-      const plsUsdPrice = 0.000095; // Realistic PLS price
-      const ethUsdPrice = 2350;     // Realistic ETH price
+      // Price calculations (aktualisierte Preise - Stand Januar 2025)
+      const plsUsdPrice = 0.000088; // Aktueller PLS Preis (ca. $0.000088)
+      const ethUsdPrice = 3200;     // Aktueller ETH Preis (ca. $3200)
 
       const walletValueUSD = (walletTotals.totalPLS * plsUsdPrice) + (walletTotals.totalETH * ethUsdPrice);
       const totalPortfolioValue = walletValueUSD + investmentTotals.totalInvestmentValue;
@@ -178,7 +187,7 @@ export default function ROICalculator() {
         
         <button
           onClick={exportTaxData}
-          className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          className="bg-blue-500/20 border border-blue-500/30 px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
         >
           <Download className="h-4 w-4" />
           <span className="text-blue-300 text-sm font-medium">CSV Export</span>
@@ -289,6 +298,23 @@ export default function ROICalculator() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Datumsfilter Info */}
+      <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+        <div className="flex items-start gap-3">
+          <div className="text-purple-400 mt-0.5">📅</div>
+          <div>
+            <h5 className="text-sm font-semibold text-purple-300 mb-1">
+              Datenbereich
+            </h5>
+            <p className="text-xs text-purple-200/80">
+              <strong>Portfolio-Berechnung ab 1. Januar 2025:</strong> Nur Wallets und Investments 
+              die ab dem 1.1.2025 erstellt wurden, werden berücksichtigt. 
+              Aktualisierte Preise: PLS ~$0.000088 | ETH ~$3200
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Setup Instructions */}

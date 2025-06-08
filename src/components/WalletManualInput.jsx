@@ -42,6 +42,7 @@ const WalletManualInput = memo(function WalletManualInput() {
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
+        .gte('created_at', '2025-01-01T00:00:00.000Z') // Nur ab 1.1.2025
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -265,7 +266,7 @@ const WalletManualInput = memo(function WalletManualInput() {
         <button
           type="submit"
           disabled={isAdding || !formData.address || !formData.nickname}
-          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold transition-opacity duration-200 flex items-center justify-center gap-2"
           key="submit-button"
         >
           {isAdding ? (
@@ -302,7 +303,7 @@ const WalletManualInput = memo(function WalletManualInput() {
         ) : (
           <div className="space-y-3">
             {wallets.map((wallet, index) => (
-              <div key={`wallet-${wallet.id}-${index}`} className="p-4 bg-white/5 rounded-lg border border-white/10">
+              <div key={`wallet-${wallet.id}-${index}`} className="p-4 bg-white/5 rounded-lg border border-white/10 focus:outline-none">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -317,7 +318,7 @@ const WalletManualInput = memo(function WalletManualInput() {
                       </span>
                       <button
                         onClick={() => copyToClipboard(wallet.address)}
-                        className="text-blue-400 hover:text-blue-300 transition-colors"
+                        className="text-blue-400 transition-colors"
                       >
                         <Copy className="h-3 w-3" />
                       </button>
@@ -339,7 +340,7 @@ const WalletManualInput = memo(function WalletManualInput() {
                       </div>
                       <button
                         onClick={() => refreshWalletBalance(wallet)}
-                        className="text-green-400 hover:text-green-300 transition-colors"
+                        className="text-green-400 transition-colors"
                         title="Balance aktualisieren"
                       >
                         <RefreshCw className="h-3 w-3" />
@@ -350,7 +351,7 @@ const WalletManualInput = memo(function WalletManualInput() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleDeleteWallet(wallet.id)}
-                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                      className="p-2 text-red-400 rounded-lg transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -373,6 +374,22 @@ const WalletManualInput = memo(function WalletManualInput() {
             <p className="text-xs text-blue-200/80">
               <strong>Tangem, Ledger, Mobile MetaMask:</strong> Geben Sie einfach Ihre Wallet-Adresse manuell ein. 
               Kein QR-Code nötig - nur die Adresse für Read-Only Portfolio-Tracking.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Datumsfilter Info */}
+      <div className="mt-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+        <div className="flex items-start gap-3">
+          <div className="text-purple-400 mt-0.5">📅</div>
+          <div>
+            <h5 className="text-sm font-semibold text-purple-300 mb-1">
+              Datenbereich ab 1.1.2025
+            </h5>
+            <p className="text-xs text-purple-200/80">
+              <strong>Wichtig:</strong> Nur Wallets die ab dem 1. Januar 2025 hinzugefügt wurden, 
+              werden im Portfolio berücksichtigt. Ältere Wallets werden nicht angezeigt.
             </p>
           </div>
         </div>

@@ -130,52 +130,52 @@ const Home = () => {
             href="https://pulsechain.com" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
           >
             <div>
-              <div className="font-medium pulse-text group-hover:text-green-400">🔗 PulseChain.com</div>
+              <div className="font-medium pulse-text">🔗 PulseChain.com</div>
               <div className="text-sm pulse-text-secondary">Official PulseChain website</div>
             </div>
-            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+            <ExternalLink className="h-4 w-4 pulse-text-secondary" />
           </a>
           
           <a 
             href="https://scan.pulsechain.com" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
           >
             <div>
-              <div className="font-medium pulse-text group-hover:text-green-400">🔍 PulseScan</div>
+              <div className="font-medium pulse-text">🔍 PulseScan</div>
               <div className="text-sm pulse-text-secondary">Blockchain explorer</div>
             </div>
-            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+            <ExternalLink className="h-4 w-4 pulse-text-secondary" />
           </a>
           
           <a 
             href="https://app.pulsex.com" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
           >
             <div>
-              <div className="font-medium pulse-text group-hover:text-green-400">💱 PulseX DEX</div>
+              <div className="font-medium pulse-text">💱 PulseX DEX</div>
               <div className="text-sm pulse-text-secondary">Decentralized exchange</div>
             </div>
-            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+            <ExternalLink className="h-4 w-4 pulse-text-secondary" />
           </a>
           
           <a 
             href="https://www.pulsewatch.app" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 hover:bg-white/5 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
           >
             <div>
-              <div className="font-medium pulse-text group-hover:text-green-400">📊 PulseWatch</div>
+              <div className="font-medium pulse-text">📊 PulseWatch</div>
               <div className="text-sm pulse-text-secondary">Portfolio tracker</div>
             </div>
-            <ExternalLink className="h-4 w-4 pulse-text-secondary group-hover:text-green-400" />
+            <ExternalLink className="h-4 w-4 pulse-text-secondary" />
           </a>
         </div>
       </div>
