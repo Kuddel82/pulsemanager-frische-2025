@@ -225,14 +225,14 @@ export class CentralDataService {
                 balance = Number(wholePart) + (Number(fractionalPart) / Number(divisorBigInt));
               }
               
-              // Log every token for debugging
-              console.log(`🔍 TOKEN DEBUG:`, {
-                symbol: tokenData.symbol,
-                rawBalance: rawBalance,
-                decimals: decimals,
-                calculatedBalance: balance,
-                contractAddress: tokenData.contractAddress
-              });
+              // Log tokens for debugging (reduced frequency)
+              if (balance > 0.001 || tokenData.symbol === 'PLS' || tokenData.symbol === 'HEX') {
+                console.log(`🔍 TOKEN DEBUG:`, {
+                  symbol: tokenData.symbol,
+                  calculatedBalance: balance,
+                  contractAddress: tokenData.contractAddress
+                });
+              }
               
               // Include ALL tokens with any balance (no filtering)
               if (balance > 0) {
@@ -343,9 +343,9 @@ export class CentralDataService {
             console.warn(`⚠️ Error fetching price batch starting at ${i}:`, batchError.message);
           }
           
-          // Rate limiting - wait between batches
+          // Rate limiting - wait between batches (reduced delay for performance)
           if (i + batchSize < contractAddresses.length) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
         }
       } catch (error) {
@@ -466,9 +466,9 @@ export class CentralDataService {
       try {
         console.log(`📊 FIXED: Loading ROI transactions for wallet: ${wallet.address}`);
         
-        // FIXED: Load more transactions (2000 instead of 200)
+        // PERFORMANCE FIX: Balanced transaction loading (500 instead of 2000)
         const response = await fetch(
-          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=2000`
+          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=500`
         );
         
         if (!response.ok) continue;
@@ -505,8 +505,8 @@ export class CentralDataService {
                 
                 const value = amount * price;
                 
-                // Log zero-value ROI transactions for debugging
-                if (value === 0 && amount > 0) {
+                // Log zero-value ROI transactions for debugging (reduced frequency)
+                if (value === 0 && amount > 0.01) {
                   console.warn("🚨 ROI WITH ZERO VALUE:", tx.tokenSymbol, "Amount:", amount, "Price:", price, "Contract:", contractKey);
                 }
                 
@@ -587,9 +587,9 @@ export class CentralDataService {
       try {
         console.log(`📄 FIXED: Loading tax transactions for wallet: ${wallet.address}`);
         
-        // FIXED: Load many more transactions (5000 instead of 500)
+        // PERFORMANCE FIX: Balanced transaction loading (1000 instead of 5000)
         const response = await fetch(
-          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=5000`
+          `${this.PROXY_ENDPOINTS.pulsechain}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=1000`
         );
         
         if (!response.ok) continue;
