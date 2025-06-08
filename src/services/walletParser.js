@@ -69,7 +69,7 @@ export class WalletParser {
     const timestamp = Date.now();
     
     try {
-      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.8 for: ${walletAddress} [${timestamp}]`);
+      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.9 for: ${walletAddress} [${timestamp}]`);
       
       // Get native PLS balance via proxy
       const nativeUrl = `${proxyBaseUrl}?address=${walletAddress}&action=balance`;
@@ -125,7 +125,7 @@ export class WalletParser {
           // Skip tokens with null/invalid symbols or names (DB constraint protection)
           if (!token.symbol || token.symbol.trim() === '' || token.symbol === 'null' || 
               !token.name || token.name.trim() === '' || token.name === 'null') {
-            console.log(`⚠️ SKIPPING TOKEN: "${token.name || 'null'}" (${token.symbol || 'null'}) - Invalid symbol/name`);
+            console.log(`⚠️ NULL-FILTER: SKIPPING TOKEN "${token.name || 'null'}" (${token.symbol || 'null'}) - Invalid symbol/name`);
             continue;
           }
           

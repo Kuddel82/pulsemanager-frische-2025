@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.0.8-null-token-fix",
+  "version": "0.0.9-force-null-fix",
   "private": true,
   "scripts": {
     "dev": "vite",
