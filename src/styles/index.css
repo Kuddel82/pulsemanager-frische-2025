@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PulseChain Global Styles */
+body {
+  font-family: 'Inter', sans-serif;
+  background: #0a0a0a;
+  color: #ffffff;
+}
+
+/* DISABLE ALL FOCUS OUTLINES AND HOVER EFFECTS */
+* {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
+
+*:hover {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Disable focus-visible for all elements */
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove any default browser focus/hover styles */
+button:focus,
+button:hover,
+a:focus,
+a:hover,
+input:focus,
+input:hover,
+div:focus,
+div:hover {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
+
+/* PulseChain Brand Colors */
+.pulse-gradient {
+  background: linear-gradient(135deg, #ff6b9d, #c44c4c, #ff6b9d);
+}
+
+.pulse-text {
+  color: #ffffff;
+}
+
+.pulse-text-secondary {
+  color: #a1a1aa;
+}
+
+.pulse-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.pulse-border-gradient {
+  border-image: linear-gradient(135deg, #ff6b9d, #c44c4c) 1;
+}
+
+.pulse-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ff6b9d, #ffffff, #c44c4c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pulse-subtitle {
+  font-size: 1.125rem;
+  color: #a1a1aa;
+  font-weight: 400;
+}
+
+.pulse-community-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 107, 157, 0.1);
+  border: 1px solid rgba(255, 107, 157, 0.3);
+  border-radius: 0.5rem;
+  color: #ff6b9d;
+  font-size: 0.875rem;
+  font-weight: 600;
+} 

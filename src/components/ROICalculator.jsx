@@ -26,13 +26,12 @@ export default function ROICalculator() {
     try {
       setIsLoading(true);
 
-      // Load user wallets with balances (nur ab 1.1.2025)
+      // Load user wallets with balances (ALLE DATEN)
       const { data: walletsData, error: walletsError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .gte('created_at', '2025-01-01T00:00:00.000Z') // Nur ab 1.1.2025
         .order('created_at', { ascending: false });
 
       if (walletsError) throw walletsError;
@@ -40,15 +39,14 @@ export default function ROICalculator() {
       setWallets(walletsData || []);
 
       // Try to load investments (graceful fallback if table doesn't exist)
-      // Nur Daten ab 1.1.2025 berücksichtigen
+      // ALLE DATEN abrufen
       let investmentsData = [];
       try {
         const { data: invData, error: invError } = await supabase
           .from('investments')
           .select('*')
           .eq('user_id', user.id)
-          .eq('is_active', true)
-          .gte('purchase_date', '2025-01-01T00:00:00.000Z'); // Nur ab 1.1.2025
+          .eq('is_active', true);
         
         if (!invError) {
           investmentsData = invData || [];
@@ -57,7 +55,9 @@ export default function ROICalculator() {
         console.log('Investments table not available yet:', invErr.message);
       }
 
-      // Calculate wallet totals (verbesserte Berechnung)
+      // Calculate wallet totals (vollständige Berechnung aller Wallets)
+      console.log('📊 WALLET DATA LOADED:', walletsData);
+      
       const walletTotals = (walletsData || []).reduce((acc, wallet) => {
         // Sicherstellen dass balance_eth ein valider Wert ist
         let balance = 0;
@@ -65,29 +65,61 @@ export default function ROICalculator() {
           balance = parseFloat(wallet.balance_eth);
         }
         
-        console.log(`Wallet ${wallet.nickname}: ${balance} (Chain: ${wallet.chain_id})`);
+        console.log(`💳 Wallet "${wallet.nickname}": ${balance} ${wallet.chain_id === 369 ? 'PLS' : 'ETH'} (Chain: ${wallet.chain_id})`);
         
         if (wallet.chain_id === 369) { // PulseChain
           acc.totalPLS += balance;
+          acc.plsWallets.push({
+            nickname: wallet.nickname,
+            balance: balance,
+            address: wallet.address
+          });
         } else if (wallet.chain_id === 1) { // Ethereum
           acc.totalETH += balance;
+          acc.ethWallets.push({
+            nickname: wallet.nickname,
+            balance: balance,
+            address: wallet.address
+          });
         }
         
         return acc;
       }, {
         totalPLS: 0,
-        totalETH: 0
+        totalETH: 0,
+        plsWallets: [],
+        ethWallets: []
       });
+      
+      console.log('💰 TOTAL PLS:', walletTotals.totalPLS);
+      console.log('💰 TOTAL ETH:', walletTotals.totalETH);
 
       // Calculate investment totals
+      console.log('📈 INVESTMENT DATA LOADED:', investmentsData);
+      
       const investmentTotals = investmentsData.reduce((acc, inv) => {
-        acc.totalInvestmentValue += parseFloat(inv.current_value_usd || 0);
-        acc.totalInvestmentCost += parseFloat(inv.purchase_total_usd || 0);
+        const currentValue = parseFloat(inv.current_value_usd || 0);
+        const costBasis = parseFloat(inv.purchase_total_usd || 0);
+        
+        console.log(`📊 Investment "${inv.symbol}": $${currentValue} (Cost: $${costBasis})`);
+        
+        acc.totalInvestmentValue += currentValue;
+        acc.totalInvestmentCost += costBasis;
+        acc.investments.push({
+          symbol: inv.symbol,
+          currentValue: currentValue,
+          costBasis: costBasis,
+          roi: costBasis > 0 ? ((currentValue - costBasis) / costBasis) * 100 : 0
+        });
         return acc;
       }, {
         totalInvestmentValue: 0,
-        totalInvestmentCost: 0
+        totalInvestmentCost: 0,
+        investments: []
       });
+      
+      console.log('📈 TOTAL INVESTMENT VALUE:', investmentTotals.totalInvestmentValue);
+      console.log('📈 TOTAL INVESTMENT COST:', investmentTotals.totalInvestmentCost);
 
       // Price calculations (aktualisierte Preise - Stand Januar 2025)
       const plsUsdPrice = 0.000088; // Aktueller PLS Preis (ca. $0.000088)
@@ -102,7 +134,13 @@ export default function ROICalculator() {
         ? ((totalPortfolioValue - totalCostBasis) / totalCostBasis) * 100 
         : 0;
 
-      setPortfolioData({
+      console.log('🔥 FINAL PORTFOLIO CALCULATION:');
+      console.log(`💰 Wallet Value: $${walletValueUSD.toFixed(2)}`);
+      console.log(`📈 Investment Value: $${investmentTotals.totalInvestmentValue.toFixed(2)}`);
+      console.log(`🎯 TOTAL PORTFOLIO: $${totalPortfolioValue.toFixed(2)}`);
+      console.log(`📊 Overall ROI: ${overallROI.toFixed(2)}%`);
+
+      const finalPortfolioData = {
         ...walletTotals,
         totalValue: totalPortfolioValue,
         walletValue: walletValueUSD,
@@ -111,8 +149,19 @@ export default function ROICalculator() {
         roi24h: overallROI,
         change24h: 0, // Would need historical price data
         investmentCount: investmentsData.length,
-        walletCount: (walletsData || []).length
-      });
+        walletCount: (walletsData || []).length,
+        // Detaillierte Aufschlüsselung für Debug
+        walletBreakdown: {
+          plsWallets: walletTotals.plsWallets,
+          ethWallets: walletTotals.ethWallets,
+          plsUsdValue: walletTotals.totalPLS * plsUsdPrice,
+          ethUsdValue: walletTotals.totalETH * ethUsdPrice
+        },
+        investmentBreakdown: investmentTotals.investments
+      };
+
+      console.log('📋 COMPLETE PORTFOLIO DATA:', finalPortfolioData);
+      setPortfolioData(finalPortfolioData);
 
     } catch (err) {
       console.error('Error loading portfolio data:', err);
@@ -300,18 +349,18 @@ export default function ROICalculator() {
         )}
       </div>
 
-      {/* Datumsfilter Info */}
-      <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+      {/* Portfolio Info */}
+      <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
         <div className="flex items-start gap-3">
-          <div className="text-purple-400 mt-0.5">📅</div>
+          <div className="text-green-400 mt-0.5">💰</div>
           <div>
-            <h5 className="text-sm font-semibold text-purple-300 mb-1">
-              Datenbereich
+            <h5 className="text-sm font-semibold text-green-300 mb-1">
+              Komplettes Portfolio
             </h5>
-            <p className="text-xs text-purple-200/80">
-              <strong>Portfolio-Berechnung ab 1. Januar 2025:</strong> Nur Wallets und Investments 
-              die ab dem 1.1.2025 erstellt wurden, werden berücksichtigt. 
-              Aktualisierte Preise: PLS ~$0.000088 | ETH ~$3200
+            <p className="text-xs text-green-200/80">
+              <strong>Alle Ihre Wallets & Investments:</strong> Vollständige Portfolio-Berechnung 
+              mit aktuellen Preisen: PLS ~$0.000088 | ETH ~$3200. 
+              Tangem und alle anderen Wallets werden erfasst.
             </p>
           </div>
         </div>

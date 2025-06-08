@@ -9,7 +9,7 @@ const ROITrackerView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
 
-  // 📊 Fetch Investments
+  // 📊 Fetch Investments with Debug Info
   const fetchInvestments = async () => {
     if (!user?.id) {
       setInvestments([]);
@@ -17,14 +17,29 @@ const ROITrackerView = () => {
     }
     
     setIsLoading(true);
+    console.log('🔍 ROI TRACKER: Loading investments for user:', user.id);
+    
     try {
       const { data, error } = await dbService.getRoiEntries(user.id);
-      if (error) throw error;
+      
+      console.log('🔍 ROI TRACKER: Database response:', { data, error });
+      
+      if (error) {
+        console.error('🔍 ROI TRACKER: Error from database:', error);
+        throw error;
+      }
+      
       setInvestments(data || []);
-      setStatusMessage('');
+      setStatusMessage(data && data.length > 0 
+        ? `✅ Loaded ${data.length} investments` 
+        : '📊 No investments found - Add some investments or check if your wallets are connected'
+      );
+      
+      console.log('🔍 ROI TRACKER: Final investments data:', data || []);
     } catch (error) {
-      setStatusMessage(`Error loading investments: ${error.message}`);
-      console.error('ROI Tracker Error:', error);
+      const errorMsg = `Error loading investments: ${error.message}`;
+      setStatusMessage(errorMsg);
+      console.error('🔍 ROI TRACKER: Final error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -122,8 +137,26 @@ const ROITrackerView = () => {
           <div className="text-center py-12">
             <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h4 className="text-xl font-semibold pulse-text mb-2">No Investments Yet</h4>
-            <p className="pulse-text-secondary mb-6">Start tracking your PulseChain investments</p>
-            <button className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2">
+            <p className="pulse-text-secondary mb-4">Start tracking your PulseChain investments in the database</p>
+            
+            {/* Info Box */}
+            <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-left max-w-md mx-auto">
+              <div className="flex items-start gap-3">
+                <div className="text-blue-400 mt-0.5">💡</div>
+                <div>
+                  <h5 className="text-sm font-semibold text-blue-300 mb-1">
+                    Wallet-Daten vs. Investment-Tracking
+                  </h5>
+                  <p className="text-xs text-blue-200/80">
+                    <strong>Ihre Wallet-Balances</strong> werden im Dashboard/ROI Calculator angezeigt. 
+                    Dieser ROI Tracker ist für <strong>detaillierte Investment-Einträge</strong> 
+                    mit Kaufdatum, Kaufpreis, etc.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <button className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2 mx-auto">
               <PlusCircle className="h-4 w-4" />
               Add Your First Investment
             </button>

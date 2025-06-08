@@ -42,7 +42,6 @@ const WalletManualInput = memo(function WalletManualInput() {
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
-        .gte('created_at', '2025-01-01T00:00:00.000Z') // Nur ab 1.1.2025
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -379,17 +378,18 @@ const WalletManualInput = memo(function WalletManualInput() {
         </div>
       </div>
 
-      {/* Datumsfilter Info */}
-      <div className="mt-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+      {/* Tangem Integration Info */}
+      <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
         <div className="flex items-start gap-3">
-          <div className="text-purple-400 mt-0.5">📅</div>
+          <div className="text-green-400 mt-0.5">💳</div>
           <div>
-            <h5 className="text-sm font-semibold text-purple-300 mb-1">
-              Datenbereich ab 1.1.2025
+            <h5 className="text-sm font-semibold text-green-300 mb-1">
+              Vollständige Wallet-Integration
             </h5>
-            <p className="text-xs text-purple-200/80">
-              <strong>Wichtig:</strong> Nur Wallets die ab dem 1. Januar 2025 hinzugefügt wurden, 
-              werden im Portfolio berücksichtigt. Ältere Wallets werden nicht angezeigt.
+            <p className="text-xs text-green-200/80">
+              <strong>Alle Wallets erfasst:</strong> Tangem, MetaMask, Ledger, Trust Wallet - 
+              einfach Adresse eingeben für komplettes Portfolio-Tracking. 
+              Ihre Daten werden sicher und DSGVO-konform gespeichert.
             </p>
           </div>
         </div>
