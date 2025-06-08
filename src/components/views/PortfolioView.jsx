@@ -183,15 +183,17 @@ const PortfolioView = () => {
     return 'text-gray-500';
   };
 
-  useEffect(() => {
+      useEffect(() => {
+    // Sofortiges Laden beim Seitenaufruf
     loadPortfolioData();
     
-    // Auto-refresh alle 30 Sekunden
+    // Auto-refresh alle 5 Minuten (300 Sekunden)
     const interval = setInterval(() => {
       if (!refreshing) {
+        console.log('🔄 AUTO-REFRESH: Portfolio wird automatisch aktualisiert (alle 5 Min)');
         loadPortfolioData();
       }
-    }, 30000);
+    }, 300000); // 5 Minuten = 300,000ms
     
     return () => clearInterval(interval);
   }, [user]);
@@ -310,7 +312,7 @@ const PortfolioView = () => {
               </thead>
               <tbody>
                 {(showAllTokens ? stats.allHoldings : stats.topHoldings).map((token, index) => (
-                  <tr key={`${token.token_symbol}-${index}`} className="border-b border-green-500/10 hover:bg-green-500/5 transition-colors">
+                  <tr key={`${token.token_symbol}-${index}`} className="border-b border-green-500/10">
                     <td className="py-4">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center text-black font-bold text-sm">

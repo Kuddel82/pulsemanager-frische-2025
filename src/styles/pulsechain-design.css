@@ -45,6 +45,20 @@ body {
   overflow-x: hidden;
 }
 
+/* 🌌 Background Classes */
+.pulse-bg {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.pulse-text {
+  color: var(--text-primary);
+}
+
+.pulse-text-secondary {
+  color: var(--text-secondary);
+}
+
 /* 🏷️ Typography */
 .pulse-title {
   font-size: 2.5rem;
