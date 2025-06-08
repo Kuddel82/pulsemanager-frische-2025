@@ -77,7 +77,7 @@ const Register = () => {
         } else {
           setSuccess('✅ Registrierung erfolgreich! Bitte überprüfe deine E-Mails zur Bestätigung.');
           setTimeout(() => {
-            navigate('/login');
+            navigate('/auth/login');
           }, 3000);
         }
       }
@@ -299,7 +299,7 @@ const Register = () => {
                 <p className="text-sm text-gray-600">
                   Bereits ein Konto?{' '}
                   <Link 
-                    to="/login" 
+                    to="/auth/login" 
                     className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                   >
                     Hier anmelden

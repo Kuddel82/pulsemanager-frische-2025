@@ -65,6 +65,10 @@ const AppRoutes = () => {
       <Route path="/auth/register" element={<Register />} />
       <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
       
+      {/* Legacy redirects for old login URLs */}
+      <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+      <Route path="/register" element={<Navigate to="/auth/register" replace />} />
+      
       {/* Other minimal layout routes */}
       <Route element={<MinimalLayout />}>
         <Route path="/update-password" element={<UpdatePasswordPage />} />

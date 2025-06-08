@@ -12,7 +12,7 @@ const ProtectedRoute = ({ children }) => {
     if (!loading) {
       if (!isAuthenticated || !user) {
         // Save the attempted location for redirect after login
-        navigate('/login', { 
+        navigate('/auth/login', { 
           state: { from: location },
           replace: true 
         });
