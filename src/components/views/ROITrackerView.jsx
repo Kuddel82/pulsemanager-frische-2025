@@ -1,29 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { TrendingUp, PlusCircle, BarChart3, Wallet, DollarSign, ExternalLink } from 'lucide-react';
+import { TrendingUp, PlusCircle, BarChart3, Wallet, DollarSign, ExternalLink, RefreshCw, Activity } from 'lucide-react';
 import { dbService } from '@/lib/dbService';
 import { supabase } from '@/lib/supabaseClient';
 import WalletBalanceService from '@/lib/walletBalanceService';
+import WalletParser from '@/services/walletParser';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
   const [investments, setInvestments] = useState([]);
   const [wallets, setWallets] = useState([]);
   const [portfolioData, setPortfolioData] = useState(null);
+  const [tokenBalances, setTokenBalances] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [realTimeData, setRealTimeData] = useState({
+    totalInflows: 0,
+    totalOutflows: 0,
+    netInvestment: 0,
+    currentValue: 0,
+    realizedGains: 0,
+    unrealizedGains: 0,
+    overallROI: 0
+  });
 
-  // 📊 Load Portfolio Data (Wallets + Investments)
+  // 📊 Load Portfolio Data (Wallets + Investments + Tokens)
   const loadPortfolioData = async () => {
     if (!user?.id) {
       setInvestments([]);
       setWallets([]);
       setPortfolioData(null);
+      setTokenBalances([]);
       return;
     }
     
     setIsLoading(true);
-    console.log('🔍 ROI TRACKER: Loading portfolio for user:', user.id);
+    console.log('🔍 ROI TRACKER: Loading complete portfolio for user:', user.id);
     
     try {
       // Load Wallets
@@ -38,6 +51,11 @@ const ROITrackerView = () => {
       
       console.log('🔍 ROI TRACKER: Wallets loaded:', walletsData);
       setWallets(walletsData || []);
+
+      // Load Token Balances (NEUE FEATURE)
+      const tokenBalancesData = await WalletParser.getStoredTokenBalances(user.id);
+      setTokenBalances(tokenBalancesData);
+      console.log('🔍 ROI TRACKER: Token balances loaded:', tokenBalancesData);
 
       // Load Investments (optional - graceful fallback)
       let investmentsData = [];
@@ -56,14 +74,20 @@ const ROITrackerView = () => {
       const portfolioCalc = WalletBalanceService.calculatePortfolioValue(walletsData || []);
       setPortfolioData(portfolioCalc);
       
+      // 🔥 NEW: Calculate Real-Time ROI Data
+      const roiData = calculateRealTimeROI(walletsData, tokenBalancesData, investmentsData);
+      setRealTimeData(roiData);
+      
       console.log('🔍 ROI TRACKER: Portfolio calculation complete:', portfolioCalc);
+      console.log('🔍 ROI TRACKER: ROI data calculated:', roiData);
       
       // Status message
       const walletCount = (walletsData || []).length;
+      const tokenCount = tokenBalancesData.length;
       const investmentCount = investmentsData.length;
       
-      if (walletCount > 0) {
-        setStatusMessage(`✅ Portfolio geladen: ${walletCount} Wallets, ${investmentCount} Investments, Gesamtwert: $${portfolioCalc.totalValue.toFixed(2)}`);
+      if (walletCount > 0 || tokenCount > 0) {
+        setStatusMessage(`✅ Portfolio geladen: ${walletCount} Wallets, ${tokenCount} Tokens, ${investmentCount} Investments, ROI: ${roiData.overallROI.toFixed(2)}%`);
       } else {
         setStatusMessage('📊 Keine Wallets gefunden - Fügen Sie Ihre Wallets über "Manual Wallet Input" hinzu');
       }
@@ -74,6 +98,84 @@ const ROITrackerView = () => {
       console.error('🔍 ROI TRACKER: Final error:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 🧮 Calculate Real-Time ROI (NEUE FUNKTION)
+  const calculateRealTimeROI = (wallets, tokens, investments) => {
+    let totalInflows = 0;
+    let totalOutflows = 0;
+    let currentValue = 0;
+    
+    // Current portfolio value from tokens
+    const tokenValue = tokens.reduce((sum, token) => sum + (token.value_usd || 0), 0);
+    
+    // Current portfolio value from wallet balances
+    const walletValue = portfolioData?.totalValue || 0;
+    
+    // Investment costs and values
+    const investmentCost = investments.reduce((sum, inv) => sum + (inv.purchase_price * inv.quantity || 0), 0);
+    const investmentValue = investments.reduce((sum, inv) => sum + (inv.current_value || 0), 0);
+    
+    // Total current value
+    currentValue = Math.max(tokenValue, walletValue) + investmentValue;
+    
+    // For ROI calculation, assume investments as inflows
+    totalInflows = investmentCost;
+    
+    // Net investment and ROI calculation
+    const netInvestment = totalInflows - totalOutflows;
+    const unrealizedGains = currentValue - netInvestment;
+    const overallROI = netInvestment > 0 ? (unrealizedGains / netInvestment) * 100 : 0;
+    
+    return {
+      totalInflows,
+      totalOutflows,
+      netInvestment,
+      currentValue,
+      realizedGains: 0, // Would need transaction history
+      unrealizedGains,
+      overallROI
+    };
+  };
+
+  // 🔄 Refresh All Data (NEUE FUNKTION)
+  const refreshAllData = async () => {
+    setIsRefreshing(true);
+    
+    try {
+      // Refresh token data for all wallets
+      if (wallets.length > 0) {
+        for (const wallet of wallets) {
+          try {
+            const refreshResult = await WalletParser.refreshWalletData(
+              user.id, 
+              wallet.address, 
+              wallet.chain_id
+            );
+            
+            if (refreshResult.success) {
+              console.log(`✅ REFRESHED: ${wallet.nickname} - ${refreshResult.tokensFound} tokens found`);
+            } else {
+              console.log(`⚠️ MANUAL REQUIRED: ${wallet.nickname} - ${refreshResult.method}`);
+            }
+          } catch (err) {
+            console.warn(`Failed to refresh ${wallet.nickname}:`, err.message);
+          }
+        }
+      }
+      
+      // Reload all data
+      await loadPortfolioData();
+      
+      setStatusMessage('🔄 Alle Daten erfolgreich aktualisiert!');
+      setTimeout(() => setStatusMessage(''), 3000);
+      
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setStatusMessage(`❌ Fehler beim Aktualisieren: ${error.message}`);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -122,66 +224,81 @@ const ROITrackerView = () => {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="pulse-title mb-2">PulseChain ROI Tracker</h1>
-          <p className="pulse-subtitle">Track your PulseChain investment performance</p>
+          <p className="pulse-subtitle">Real-time Portfolio Performance & Investment Tracking</p>
           {statusMessage && (
-            <div className={`mt-2 text-sm ${statusMessage.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+            <div className={`mt-2 text-sm ${statusMessage.includes('Error') || statusMessage.includes('❌') ? 'text-red-400' : 'text-green-400'}`}>
               {statusMessage}
             </div>
           )}
         </div>
-        <button className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg hover:from-green-500 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2">
-          <PlusCircle className="h-4 w-4" />
-          Add Investment
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={refreshAllData}
+            disabled={isRefreshing}
+            className="py-3 px-4 bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+            style={{outline: 'none', boxShadow: 'none'}}
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Updating...' : 'Refresh'}
+          </button>
+          <button className="py-3 px-6 bg-gradient-to-r from-green-400 to-blue-500 text-black font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400/50 transition-all duration-200 flex items-center gap-2">
+            <PlusCircle className="h-4 w-4" />
+            Add Investment
+          </button>
+        </div>
       </div>
 
-      {/* 📊 Portfolio Overview - Updated with Wallet Data */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* 📊 Real-Time Portfolio Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
           <div className="flex items-center gap-2 justify-center mb-2">
-            <Wallet className="h-5 w-5 text-green-400" />
-            <span className="text-sm font-medium text-green-300">Wallet Value</span>
+            <DollarSign className="h-5 w-5 text-green-400" />
+            <span className="text-sm font-medium text-green-300">Current Value</span>
           </div>
           <div className="text-2xl font-bold text-green-400 mb-1">
-            ${portfolioTotals.walletValue.toFixed(2)}
+            ${realTimeData.currentValue.toFixed(2)}
           </div>
           <div className="text-sm pulse-text-secondary">
-            {portfolioData ? `${portfolioData.breakdown.pls.total.toFixed(4)} PLS + ${portfolioData.breakdown.eth.total.toFixed(4)} ETH` : 'No wallets loaded'}
+            {tokenBalances.length} Tokens • {wallets.length} Wallets
           </div>
         </div>
         
         <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
           <div className="flex items-center gap-2 justify-center mb-2">
-            <DollarSign className="h-5 w-5 text-blue-400" />
-            <span className="text-sm font-medium text-blue-300">Investments</span>
+            <Activity className="h-5 w-5 text-blue-400" />
+            <span className="text-sm font-medium text-blue-300">Net Investment</span>
           </div>
           <div className="text-2xl font-bold text-blue-400 mb-1">
-            ${portfolioTotals.investmentValue.toFixed(2)}
+            ${realTimeData.netInvestment.toFixed(2)}
           </div>
-          <div className="text-sm pulse-text-secondary">Cost: ${portfolioTotals.totalInvested.toFixed(2)}</div>
+          <div className="text-sm pulse-text-secondary">
+            In: ${realTimeData.totalInflows.toFixed(2)} • Out: ${realTimeData.totalOutflows.toFixed(2)}
+          </div>
         </div>
         
         <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
           <div className="flex items-center gap-2 justify-center mb-2">
             <BarChart3 className="h-5 w-5 text-purple-400" />
-            <span className="text-sm font-medium text-purple-300">Total Portfolio</span>
+            <span className="text-sm font-medium text-purple-300">Unrealized P&L</span>
           </div>
-          <div className="text-2xl font-bold text-purple-400 mb-1">
-            ${portfolioTotals.totalValue.toFixed(2)}
+          <div className={`text-2xl font-bold mb-1 ${realTimeData.unrealizedGains >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {realTimeData.unrealizedGains >= 0 ? '+' : ''}${realTimeData.unrealizedGains.toFixed(2)}
           </div>
-          <div className="text-sm pulse-text-secondary">Wallets + Investments</div>
+          <div className="text-sm pulse-text-secondary">
+            Realized: ${realTimeData.realizedGains.toFixed(2)}
+          </div>
         </div>
         
         <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
           <div className="flex items-center gap-2 justify-center mb-2">
             <TrendingUp className="h-5 w-5 text-yellow-400" />
-            <span className="text-sm font-medium text-yellow-300">ROI</span>
+            <span className="text-sm font-medium text-yellow-300">Overall ROI</span>
           </div>
-          <div className={`text-2xl font-bold mb-1 ${portfolioTotals.gainPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {portfolioTotals.gainPercentage.toFixed(1)}%
+          <div className={`text-2xl font-bold mb-1 ${realTimeData.overallROI >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {realTimeData.overallROI >= 0 ? '+' : ''}{realTimeData.overallROI.toFixed(1)}%
           </div>
           <div className="text-sm pulse-text-secondary">
-            {portfolioTotals.totalGain >= 0 ? '+' : ''}${portfolioTotals.totalGain.toFixed(2)}
+            {realTimeData.overallROI >= 0 ? '📈' : '📉'} Performance
           </div>
         </div>
       </div>
