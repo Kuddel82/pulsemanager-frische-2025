@@ -79,7 +79,7 @@ const ROITrackerView = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="pulse-card p-8 text-center">
           <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
           <span className="text-lg pulse-text">ROI-Daten werden geladen...</span>
@@ -90,7 +90,7 @@ const ROITrackerView = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+      <div className="min-h-screen bg-black p-6">
         <div className="pulse-card max-w-lg mx-auto p-6 text-center">
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden der ROI-Daten</h2>
@@ -106,7 +106,7 @@ const ROITrackerView = () => {
 
   if (!portfolioData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+      <div className="min-h-screen bg-black p-6">
         <div className="pulse-card max-w-lg mx-auto p-6 text-center">
           <TrendingUp className="h-12 w-12 mx-auto mb-4 text-blue-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Keine ROI-Daten verfügbar</h2>
@@ -209,7 +209,7 @@ const ROITrackerView = () => {
   const roiByToken = getROIByToken();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+    <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}

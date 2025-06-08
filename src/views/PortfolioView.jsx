@@ -71,7 +71,7 @@ const PortfolioView = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="pulse-card p-8 text-center">
           <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
           <span className="text-lg pulse-text">Portfolio wird geladen...</span>
@@ -82,7 +82,7 @@ const PortfolioView = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+      <div className="min-h-screen bg-black p-6">
         <div className="pulse-card max-w-lg mx-auto p-6 text-center">
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden des Portfolios</h2>
@@ -98,7 +98,7 @@ const PortfolioView = () => {
 
   if (!portfolioData || portfolioData.tokens.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+      <div className="min-h-screen bg-black p-6">
         <div className="pulse-card max-w-lg mx-auto p-6 text-center">
           <Coins className="h-12 w-12 mx-auto mb-4 text-blue-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Keine Token gefunden</h2>
@@ -139,7 +139,7 @@ const PortfolioView = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+    <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
