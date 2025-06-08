@@ -253,12 +253,12 @@ export class CentralDataService {
                 balance = Number(wholePart) + (Number(fractionalPart) / Number(divisorBigInt));
               }
               
-              // Log tokens for debugging (reduced frequency)
-              if (balance > 0.001 || tokenData.symbol === 'PLS' || tokenData.symbol === 'HEX') {
+              // Log tokens for debugging (only significant ones)
+              if (balance > 1 || ['PLS', 'HEX', 'PLSX', 'INC', 'WGEP'].includes(tokenData.symbol)) {
                 console.log(`🔍 TOKEN DEBUG:`, {
                   symbol: tokenData.symbol,
-                  calculatedBalance: balance,
-                  contractAddress: tokenData.contractAddress
+                  calculatedBalance: balance.toFixed(4),
+                  contractAddress: tokenData.contractAddress.slice(0, 8) + '...'
                 });
               }
               
@@ -300,7 +300,9 @@ export class CentralDataService {
             }
           }
         } else {
-          console.warn(`⚠️ No token data for wallet ${wallet.address}: ${data.message || 'Unknown error'}`);
+          console.warn(`⚠️ No token data for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
+          // NICHT als Fehler behandeln - weiter mit nächster Wallet
+          continue;
         }
       } catch (error) {
         console.error(`💥 Error loading tokens for wallet ${wallet.address}:`, error.message);
@@ -375,7 +377,10 @@ export class CentralDataService {
                     priceMap.set(contractAddress, price);
                     updatedCount++;
                     
-                    console.log(`🟢 ${chainConfig.name.toUpperCase()}: ${pair.baseToken.symbol} = $${price}`);
+                    // Reduced logging frequency für weniger Console-Spam
+                    if (price > 0.01 || ['PLS', 'HEX', 'PLSX'].includes(pair.baseToken.symbol)) {
+                      console.log(`🟢 ${chainConfig.name.toUpperCase()}: ${pair.baseToken.symbol} = $${price.toFixed(6)}`);
+                    }
                   }
                 }
               }
@@ -509,9 +514,9 @@ export class CentralDataService {
       // Calculate final value
       const value = (price > 0) ? token.balance * price : 0;
       
-      // Debug: Tokens ohne Preis loggen
-      if (price === 0 && token.balance > 0.01) {
-        console.log(`🔍 NO PRICE: ${token.symbol} (${token.balance.toFixed(4)} tokens) - ${contractKey}`);
+      // Debug: Nur wichtige Tokens ohne Preis loggen
+      if (price === 0 && token.balance > 10 && !['UNKNOWN', 'NULL', 'TEST'].includes(token.symbol)) {
+        console.log(`🔍 NO PRICE: ${token.symbol} (${token.balance.toFixed(2)} tokens)`);
       }
       
       const updatedToken = {
