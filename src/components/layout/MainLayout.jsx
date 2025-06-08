@@ -30,11 +30,11 @@ const MainLayout = () => {
       description: 'Overview & Stats'
     },
     {
-      id: 'wallet',
-      label: 'Wallet',
+      id: 'portfolio',
+      label: 'Portfolio',
       icon: Wallet,
-      path: '/wallet',
-      description: 'Connect & Monitor'
+      path: '/portfolio',
+      description: 'Holdings & Values'
     },
     {
       id: 'roi',

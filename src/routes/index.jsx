@@ -15,7 +15,7 @@ import MinimalLayout from '@/components/layout/MinimalLayout';
 
 // ✅ ONLY THE 4 CORE FEATURES THE USER WANTS
 import Home from '@/components/views/Home';
-import WalletView from '@/components/views/WalletView';
+import PortfolioView from '@/components/views/PortfolioView';
 import ROITrackerView from '@/components/views/ROITrackerView';
 import TaxReportView from '@/components/views/TaxReportView';
 import AcademyView from '@/components/views/AcademyView';
@@ -86,11 +86,12 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<Home />} />
         
         {/* ✅ THE 4 CORE FEATURES */}
-        <Route path="/wallet" element={<WalletView />} />
+        <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/roi-tracker" element={<ROITrackerView />} />
         <Route path="/tax-report" element={<TaxReportView />} />
         
         {/* Redirects for legacy routes */}
+        <Route path="/wallet" element={<Navigate to="/portfolio" replace />} />
         <Route path="/pulsechain-roi" element={<Navigate to="/roi-tracker" replace />} />
         
         {/* Academy (Phase 4 - später) */}
