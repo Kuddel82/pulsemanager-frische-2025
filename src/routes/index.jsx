@@ -7,6 +7,7 @@ import { useAppContext } from '@/contexts/AppContext';
 // ✅ NEW PULSECHAIN AUTH COMPONENTS
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import AuthCallback from '@/pages/AuthCallback';
 import UpdatePasswordPage from '@/components/auth/UpdatePasswordPage';
 
 import MainLayout from '@/components/layout/MainLayout'; 
@@ -31,6 +32,7 @@ import SubscriptionModal from '@/components/SubscriptionModal';
 
 const AppRoutes = () => {
   const { loading: authLoading } = useAuth();
+  const { loading: appLoading } = useAppContext();
   const { t } = useAppContext();
 
   const safeT = (key, fallback) => {
@@ -40,19 +42,13 @@ const AppRoutes = () => {
     return fallback;
   };
 
-  if (authLoading) {
+  // Show loading while auth is initializing
+  if (authLoading || appLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen pulse-bg p-4">
-        <div className="animate-pulse text-center">
-          <div className="h-16 w-16 pulse-border-gradient flex items-center justify-center mx-auto mb-4">
-            <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center">
-              <span className="text-2xl font-bold text-black">PM</span>
-            </div>
-          </div>
-          <p className="text-2xl font-semibold pulse-text-gradient">
-             {safeT('loadingApp', 'PulseManager lädt...')}
-          </p>
-          <p className="pulse-text-secondary mt-2">Community Edition</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Lade Anwendung...</p>
         </div>
       </div>
     );
@@ -63,6 +59,7 @@ const AppRoutes = () => {
       {/* 🔐 AUTH ROUTES - NEW PULSECHAIN DESIGN */}
       <Route path="/auth/login" element={<Login />} />
       <Route path="/auth/register" element={<Register />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
       
       {/* Legacy redirects for old login URLs */}

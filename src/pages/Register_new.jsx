@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Loader2, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, Eye, EyeOff, Mail, CheckCircle2 } from 'lucide-react';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -48,14 +48,14 @@ const Register = () => {
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError('Die Passwörter stimmen nicht überein.');
+      setError('❌ Die Passwörter stimmen nicht überein. Bitte überprüfe deine Eingaben.');
       setIsSubmitting(false);
       return;
     }
 
     // Validate password strength
     if (formData.password.length < 6) {
-      setError('Das Passwort muss mindestens 6 Zeichen lang sein.');
+      setError('🔒 Das Passwort muss mindestens 6 Zeichen lang sein.');
       setIsSubmitting(false);
       return;
     }
@@ -75,10 +75,10 @@ const Register = () => {
             navigate('/dashboard');
           }, 2000);
         } else {
-          setSuccess('✅ Registrierung erfolgreich! Bitte überprüfe deine E-Mails zur Bestätigung.');
+          setSuccess('🎉 Konto erfolgreich erstellt! Bestätige jetzt deine E-Mail-Adresse.');
           setTimeout(() => {
             navigate('/auth/login');
-          }, 3000);
+          }, 4000);
         }
       }
     } catch (error) {
@@ -88,13 +88,13 @@ const Register = () => {
       let errorMessage = 'Ein unbekannter Fehler ist aufgetreten.';
       
       if (error.message.includes('User already registered')) {
-        errorMessage = 'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.';
+        errorMessage = '👤 Ein Benutzer mit dieser E-Mail-Adresse existiert bereits. Versuche dich anzumelden oder verwende eine andere E-Mail.';
       } else if (error.message.includes('Password should be at least')) {
-        errorMessage = 'Das Passwort ist zu schwach. Bitte wähle ein stärkeres Passwort.';
+        errorMessage = '🔒 Das Passwort ist zu schwach. Verwende mindestens 6 Zeichen mit Buchstaben und Zahlen.';
       } else if (error.message.includes('Invalid email')) {
-        errorMessage = 'Bitte gib eine gültige E-Mail-Adresse ein.';
+        errorMessage = '📧 Bitte gib eine gültige E-Mail-Adresse ein.';
       } else if (error.message.includes('signup is disabled')) {
-        errorMessage = 'Registrierung ist derzeit deaktiviert.';
+        errorMessage = '🚫 Registrierung ist derzeit deaktiviert. Versuche es später erneut.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -124,6 +124,12 @@ const Register = () => {
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
+  
+  const getStrengthText = (strength) => {
+    if (strength <= 2) return { text: 'Schwach', color: 'text-red-400' };
+    if (strength <= 3) return { text: 'Mittel', color: 'text-yellow-400' };
+    return { text: 'Stark', color: 'text-green-400' };
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -137,38 +143,64 @@ const Register = () => {
         </div>
 
         {/* Register Form */}
-        <Card className="mt-8 bg-gray-800/50 border-gray-700 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center text-white">Registrieren</CardTitle>
-            <CardDescription className="text-center text-gray-400">
+        <Card className="bg-gray-800/50 border-gray-700 backdrop-blur-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-white">Registrieren</CardTitle>
+            <CardDescription className="text-gray-400">
               Erstelle ein kostenloses Konto, um zu beginnen
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* Success Alert */}
               {success && (
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    {success}
+                <Alert className="border-green-600 bg-green-900/20 backdrop-blur-sm">
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                  <AlertDescription className="text-green-200">
+                    <div className="space-y-2">
+                      <strong>{success}</strong>
+                      {success.includes('Bestätige') && (
+                        <div className="text-sm bg-green-900/30 p-3 rounded mt-2">
+                          <p className="font-semibold text-green-300">📧 Nächste Schritte:</p>
+                          <ul className="list-disc list-inside mt-1 space-y-1">
+                            <li>Überprüfe dein E-Mail-Postfach</li>
+                            <li>Schaue auch im <strong>Spam-Ordner</strong></li>
+                            <li>Klicke auf den Bestätigungslink</li>
+                            <li>Dann kannst du dich anmelden</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </AlertDescription>
                 </Alert>
               )}
 
               {/* Error Alert */}
               {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {error}
+                <Alert className="border-red-600 bg-red-900/20 backdrop-blur-sm">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-200">
+                    <strong>{error}</strong>
+                    {error.includes('existiert bereits') && (
+                      <div className="mt-2 text-sm">
+                        💡 <strong>Lösungen:</strong>
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>
+                            <Link to="/auth/login" className="text-red-300 underline hover:text-red-200">
+                              Zur Anmeldung wechseln
+                            </Link>
+                          </li>
+                          <li>Eine andere E-Mail-Adresse verwenden</li>
+                        </ul>
+                      </div>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
 
               {/* Email Field */}
               <div className="space-y-2">
-                <Label htmlFor="email">E-Mail-Adresse</Label>
+                <Label htmlFor="email" className="text-gray-300">E-Mail-Adresse</Label>
                 <Input
                   id="email"
                   name="email"
@@ -177,14 +209,15 @@ const Register = () => {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="name@example.com"
+                  placeholder="deine@email.de"
+                  className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400 focus:border-green-400"
                   disabled={isSubmitting || loading}
                 />
               </div>
 
               {/* Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password">Passwort</Label>
+                <Label htmlFor="password" className="text-gray-300">Passwort</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -196,17 +229,18 @@ const Register = () => {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Mindestens 6 Zeichen"
+                    className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400 focus:border-green-400 pr-10"
                     disabled={isSubmitting || loading}
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4" />
                     )}
                   </button>
                 </div>
@@ -225,13 +259,13 @@ const Register = () => {
                                 : passwordStrength <= 3
                                 ? 'bg-yellow-500'
                                 : 'bg-green-500'
-                              : 'bg-gray-200'
+                              : 'bg-gray-600'
                           }`}
                         />
                       ))}
                     </div>
-                    <p className="text-xs text-gray-600">
-                      Passwortstärke: {passwordStrength <= 2 ? 'Schwach' : passwordStrength <= 3 ? 'Mittel' : 'Stark'}
+                    <p className={`text-xs ${getStrengthText(passwordStrength).color}`}>
+                      Passwortstärke: {getStrengthText(passwordStrength).text}
                     </p>
                   </div>
                 )}
@@ -239,7 +273,7 @@ const Register = () => {
 
               {/* Confirm Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Passwort bestätigen</Label>
+                <Label htmlFor="confirmPassword" className="text-gray-300">Passwort bestätigen</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
@@ -250,32 +284,40 @@ const Register = () => {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     placeholder="Passwort wiederholen"
+                    className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400 focus:border-green-400 pr-10"
                     disabled={isSubmitting || loading}
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4" />
                     )}
                   </button>
                 </div>
                 
                 {/* Password Match Indicator */}
                 {formData.confirmPassword && (
-                  <p className={`text-xs ${
+                  <p className={`text-xs flex items-center gap-1 ${
                     formData.password === formData.confirmPassword 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
+                      ? 'text-green-400' 
+                      : 'text-red-400'
                   }`}>
-                    {formData.password === formData.confirmPassword 
-                      ? '✓ Passwörter stimmen überein' 
-                      : '✗ Passwörter stimmen nicht überein'
-                    }
+                    {formData.password === formData.confirmPassword ? (
+                      <>
+                        <CheckCircle2 className="h-3 w-3" />
+                        Passwörter stimmen überein
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-3 w-3" />
+                        Passwörter stimmen nicht überein
+                      </>
+                    )}
                   </p>
                 )}
               </div>
@@ -283,7 +325,7 @@ const Register = () => {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 text-base font-semibold transition-all duration-200 disabled:opacity-50"
                 disabled={!isFormValid || isSubmitting || loading}
               >
                 {isSubmitting ? (
@@ -292,25 +334,37 @@ const Register = () => {
                     Registrierung läuft...
                   </>
                 ) : (
-                  'Konto erstellen'
+                  '🎯 Konto erstellen'
                 )}
               </Button>
 
               {/* Login Link */}
               <div className="text-center">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-400">
                   Bereits ein Konto?{' '}
                   <Link 
                     to="/auth/login" 
-                    className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                    className="font-medium text-green-400 hover:text-green-300 transition-colors"
                   >
-                    Hier anmelden
+                    Hier anmelden 🔑
                   </Link>
                 </p>
               </div>
             </form>
           </CardContent>
         </Card>
+
+        {/* Info Box */}
+        <div className="text-center">
+          <Alert className="border-green-600 bg-green-900/20 backdrop-blur-sm">
+            <Mail className="h-4 w-4 text-green-400" />
+            <AlertDescription className="text-green-200 text-sm">
+              <strong>📧 E-Mail-Bestätigung erforderlich</strong><br />
+              Nach der Registrierung senden wir dir eine Bestätigungs-E-Mail. 
+              Klicke auf den Link, um dein Konto zu aktivieren.
+            </AlertDescription>
+          </Alert>
+        </div>
       </div>
     </div>
   );
