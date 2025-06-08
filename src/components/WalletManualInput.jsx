@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { getWalletBalance, getWalletData } from '@/lib/blockscoutAPI';
 import { Plus, Wallet, Trash2, Edit3, Eye, EyeOff, Copy, CheckCircle, RefreshCw } from 'lucide-react';
 
-export default function WalletManualInput() {
+const WalletManualInput = memo(function WalletManualInput() {
   const { user } = useAuth();
   const [wallets, setWallets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +34,7 @@ export default function WalletManualInput() {
     }
   }, [user?.id]);
 
-  const loadWallets = async () => {
+  const loadWallets = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -52,7 +52,7 @@ export default function WalletManualInput() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.id]);
 
   const validateAddress = (address) => {
     // Ethereum/PulseChain address validation
@@ -101,22 +101,11 @@ export default function WalletManualInput() {
         throw error;
       }
 
-      setSuccess('✅ Wallet erfolgreich hinzugefügt!');
+      setSuccess('✅ Wallet erfolgreich hinzugefügt! Klicken Sie auf das Refresh-Symbol um die Balance zu laden.');
       setFormData({ address: '', nickname: '', chainId: 369, chainName: 'PulseChain' });
       
-      // Auto-load balance für neue Wallet
-      try {
-        const balanceData = await getWalletBalance(formData.address, formData.chainId);
-        await supabase
-          .from('wallets')
-          .update({
-            balance_eth: parseFloat(balanceData.balance.formatted),
-            last_sync: new Date().toISOString()
-          })
-          .eq('id', data.id);
-      } catch (balanceError) {
-        console.log('Balance auto-load failed:', balanceError.message);
-      }
+      // Auto-load balance deaktiviert wegen CORS-Problemen
+      // Benutzer kann manuell über Refresh-Button laden
       
       loadWallets(); // Reload list
       setTimeout(() => setSuccess(''), 3000);
@@ -149,11 +138,11 @@ export default function WalletManualInput() {
     }
   };
 
-  const copyToClipboard = (text) => {
+  const copyToClipboard = useCallback((text) => {
     navigator.clipboard.writeText(text);
     setSuccess('📋 Adresse kopiert!');
     setTimeout(() => setSuccess(''), 1500);
-  };
+  }, []);
 
   const shortenAddress = (address) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -180,7 +169,12 @@ export default function WalletManualInput() {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error refreshing balance:', err);
-      setError('Fehler beim Aktualisieren der Balance: ' + err.message);
+      
+      if (err.message.includes('CORS_ERROR')) {
+        setError('⚠️ API-Zugriff blockiert: Blockchain-APIs haben CORS-Beschränkungen. Balance muss manuell über andere Tools geprüft werden.');
+      } else {
+        setError('Fehler beim Aktualisieren der Balance: ' + err.message);
+      }
     }
   };
 
@@ -307,8 +301,8 @@ export default function WalletManualInput() {
           </div>
         ) : (
           <div className="space-y-3">
-            {wallets.map((wallet) => (
-              <div key={wallet.id} className="p-4 bg-white/5 rounded-lg border border-white/10">
+            {wallets.map((wallet, index) => (
+              <div key={`wallet-${wallet.id}-${index}`} className="p-4 bg-white/5 rounded-lg border border-white/10">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -383,6 +377,26 @@ export default function WalletManualInput() {
           </div>
         </div>
       </div>
-    </div>
-  );
-} 
+
+      {/* API/CORS Info */}
+      <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+        <div className="flex items-start gap-3">
+          <div className="text-orange-400 mt-0.5">⚡</div>
+          <div>
+            <h5 className="text-sm font-semibold text-orange-300 mb-1">
+              Balance-Loading
+            </h5>
+            <p className="text-xs text-orange-200/80">
+              <strong>Hinweis:</strong> Blockchain-APIs haben CORS-Beschränkungen für Web-Apps. 
+              Balance wird nicht automatisch geladen - verwenden Sie 
+              <strong> scan.pulsechain.com</strong> oder andere Block-Explorer 
+              um Ihre aktuellen Balances zu prüfen.
+            </p>
+          </div>
+        </div>
+      </div>
+          </div>
+    );
+});
+
+export default WalletManualInput; 

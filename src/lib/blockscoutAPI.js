@@ -4,12 +4,12 @@
  * Erstellt: PulseManager.vip Manual Wallet System
  */
 
-// API Endpoints für verschiedene Chains
+// API Endpoints für verschiedene Chains (CORS-freundlich)
 const BLOCKSCOUT_ENDPOINTS = {
-  369: 'https://scan.pulsechain.com/api/v2', // PulseChain Mainnet
-  1: 'https://eth.blockscout.com/api/v2',    // Ethereum Mainnet
-  943: 'https://scan.v4.testnet.pulsechain.com/api/v2', // PulseChain Testnet
-  11155111: 'https://eth-sepolia.blockscout.com/api/v2' // Ethereum Sepolia
+  369: 'https://api.scan.pulsechain.com/api/v2', // PulseChain Mainnet (CORS-friendly)
+  1: 'https://api.etherscan.io/api',              // Ethereum Mainnet (fallback)
+  943: 'https://api.scan.pulsechain.com/api/v2', // PulseChain Testnet
+  11155111: 'https://api.etherscan.io/api'       // Ethereum Sepolia
 };
 
 // Native Token Symbole
@@ -66,7 +66,7 @@ const buildApiUrl = (chainId, endpoint, params = {}) => {
 };
 
 /**
- * API Request mit Error Handling
+ * API Request mit CORS Error Handling
  * @param {string} url - API URL
  * @param {object} options - Fetch options
  * @returns {Promise<object>} API response
@@ -75,6 +75,7 @@ const apiRequest = async (url, options = {}) => {
   try {
     const response = await fetch(url, {
       method: 'GET',
+      mode: 'cors', // Explicit CORS mode
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -91,6 +92,12 @@ const apiRequest = async (url, options = {}) => {
     return data;
   } catch (error) {
     console.error('BlockScout API Error:', error);
+    
+    // Spezifisches CORS Error Handling
+    if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
+      throw new Error('CORS_ERROR: Blockchain API blockiert Cross-Origin Requests. Verwenden Sie den manuellen Refresh-Button.');
+    }
+    
     throw new Error(`API Request failed: ${error.message}`);
   }
 };
