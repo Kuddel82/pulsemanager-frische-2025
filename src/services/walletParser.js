@@ -64,47 +64,54 @@ export class WalletParser {
     throw new Error(`API not implemented for chain ${chainId}`);
   }
 
-  // 🟢 PulseChain Token Fetching via PROXY v0.0.5 (CORS-FREE)
+  // 🟢 PulseChain Token Fetching via IMPROVED API v1.0 (Real Contract Addresses)
   static async fetchPulseChainTokens(walletAddress) {
-    const proxyBaseUrl = '/api/pulsechain';
     const timestamp = Date.now();
     
     try {
-      console.log(`🚀 FETCHING TOKENS via PROXY v0.1.0-REAL-PRICES for: ${walletAddress} [${timestamp}]`);
+      console.log(`🚀 FETCHING TOKENS via IMPROVED API v1.0 for: ${walletAddress} [${timestamp}]`);
       
-      // Get native PLS balance via proxy
-      const nativeUrl = `${proxyBaseUrl}?address=${walletAddress}&action=balance`;
-      console.log(`🔗 Native Proxy URL: ${nativeUrl}`);
-      const nativeResponse = await fetch(nativeUrl);
-      const nativeData = await nativeResponse.json();
-      console.log(`🔗 Native Proxy Response:`, nativeData);
+      // ⚡ DIREKTE PULSECHAIN SCAN API CALLS (ohne Proxy, bessere Performance)
+      const baseUrl = 'https://scan.pulsechain.com/api';
       
-      // Get ERC20 token balances via proxy
-      const tokenUrl = `${proxyBaseUrl}?address=${walletAddress}&action=tokenlist`;
-      console.log(`🔗 Token Proxy URL: ${tokenUrl}`);
-      const tokenResponse = await fetch(tokenUrl);
-      const tokenData = await tokenResponse.json();
-      console.log(`🔗 Token Proxy Response:`, tokenData);
+      // 1. Native PLS Balance
+      const nativeUrl = `${baseUrl}?module=account&action=balance&address=${walletAddress}&tag=latest`;
+      console.log(`🔗 Native API URL: ${nativeUrl}`);
       
-      // Get Transaction History via proxy
-      const txUrl = `${proxyBaseUrl}?address=${walletAddress}&action=txlist&offset=50`;
-      console.log(`🔗 Transaction Proxy URL: ${txUrl}`);
-      const txResponse = await fetch(txUrl);
-      const txData = await txResponse.json();
-      console.log(`🔗 Transaction Proxy Response:`, txData);
+      // 2. ERC20 Token List
+      const tokenUrl = `${baseUrl}?module=account&action=tokenlist&address=${walletAddress}`;
+      console.log(`🔗 Token API URL: ${tokenUrl}`);
       
-      // Get ERC20 Token Transfers via proxy
-      const tokenTxUrl = `${proxyBaseUrl}?address=${walletAddress}&action=tokentx&offset=50`;
-      console.log(`🔗 Token TX Proxy URL: ${tokenTxUrl}`);
-      const tokenTxResponse = await fetch(tokenTxUrl);
-      const tokenTxData = await tokenTxResponse.json();
-      console.log(`🔗 Token TX Proxy Response:`, tokenTxData);
+      // 3. Recent Transactions für ROI-Analyse
+      const txUrl = `${baseUrl}?module=account&action=txlist&address=${walletAddress}&startblock=0&endblock=99999999&sort=desc&offset=100`;
+      console.log(`🔗 Transaction API URL: ${txUrl}`);
+      
+      // 4. Token Transfers für ROI-Tracking
+      const tokenTxUrl = `${baseUrl}?module=account&action=tokentx&address=${walletAddress}&startblock=0&endblock=99999999&sort=desc&offset=100`;
+      console.log(`🔗 Token Transfer API URL: ${tokenTxUrl}`);
+      
+      // 🔄 PARALLEL API CALLS für bessere Performance
+      const [nativeResponse, tokenResponse, txResponse, tokenTxResponse] = await Promise.all([
+        fetch(nativeUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
+        fetch(tokenUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
+        fetch(txUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
+        fetch(tokenTxUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message }))
+      ]);
+      
+      console.log(`📊 API RESPONSES:`, {
+        native: nativeResponse.status,
+        tokens: tokenResponse.status,
+        transactions: txResponse.status,
+        tokenTransfers: tokenTxResponse.status
+      });
       
       const tokens = [];
       
-      // Add native PLS
-      if (nativeData.status === '1') {
-        const plsBalance = parseFloat(nativeData.result) / Math.pow(10, 18);
+      // ⚡ Native PLS Processing
+      if (nativeResponse.status === '1') {
+        const plsBalance = parseFloat(nativeResponse.result) / Math.pow(10, 18);
+        const plsPrice = TokenPriceService.REAL_PULSECHAIN_PRICES['PLS'] || 3.09e-5;
+        
         tokens.push({
           name: 'PulseChain',
           symbol: 'PLS',
@@ -112,92 +119,115 @@ export class WalletParser {
           balance: plsBalance,
           decimals: 18,
           type: 'native',
-          valueUSD: plsBalance * 0.000088 // Current PLS price
+          estimatedPrice: plsPrice,
+          valueUSD: plsBalance * plsPrice,
+          dexScreenerUrl: 'https://dexscreener.com/pulsechain/0x0'
         });
+        
+        console.log(`⚡ PLS: ${plsBalance.toFixed(4)} × $${plsPrice} = $${(plsBalance * plsPrice).toFixed(2)}`);
       }
       
-      // Add ERC20 tokens - VERBESSERTE LOGIK
-      if (tokenData.status === '1' && Array.isArray(tokenData.result)) {
-        console.log(`🪙 PROCESSING ${tokenData.result.length} TOKENS`);
-        for (const token of tokenData.result) {
+      // 🪙 ERC20 Token Processing mit ECHTER PREIS-INTEGRATION
+      if (tokenResponse.status === '1' && Array.isArray(tokenResponse.result)) {
+        console.log(`🪙 PROCESSING ${tokenResponse.result.length} ERC20 TOKENS`);
+        
+        for (const token of tokenResponse.result) {
           const decimals = parseInt(token.decimals) || 18;
           const balance = parseFloat(token.balance) / Math.pow(10, decimals);
           
-          // Skip tokens with null/invalid symbols or names (DB constraint protection)
-          if (!token.symbol || token.symbol.trim() === '' || token.symbol === 'null' || 
-              !token.name || token.name.trim() === '' || token.name === 'null') {
-            console.log(`⚠️ NULL-FILTER: SKIPPING TOKEN "${token.name || 'null'}" (${token.symbol || 'null'}) - Invalid symbol/name`);
+          // Skip invalid tokens (stronger validation)
+          if (!token.symbol || !token.name || token.symbol.trim() === '' || 
+              token.name.trim() === '' || balance <= 0) {
             continue;
           }
           
-          if (balance > 0) {
-            // Sammle Token für Batch-Preis-Abfrage
+          // 💰 ECHTE PREISE aus TokenPriceService
+          const realPrice = await TokenPriceService.getTokenPrice(token.symbol, token.contractAddress);
+          const tokenValue = balance * realPrice;
+          
+          // Filtere nur Token mit Mindest-Wert ($0.001 statt $0.01 für mehr Tokens)
+          if (tokenValue >= 0.001) {
             tokens.push({
-              name: token.name || token.symbol || 'Unknown Token',
-              symbol: token.symbol || 'UNKNOWN',
-              contractAddress: token.contractAddress || 'unknown',
+              name: token.name,
+              symbol: token.symbol,
+              contractAddress: token.contractAddress,
               balance: balance,
               decimals: decimals,
               type: 'ERC20',
-              valueUSD: 0, // Wird später durch echte Preise ersetzt
-              estimatedPrice: 0, // Wird später durch echte Preise ersetzt
-              dexScreenerUrl: `https://dexscreener.com/pulsechain/${token.contractAddress}`
+              estimatedPrice: realPrice,
+              valueUSD: tokenValue,
+              dexScreenerUrl: `https://dexscreener.com/pulsechain/${token.contractAddress}`,
+              // 📊 Zusätzliche PulseWatch-kompatible Felder
+              holdingRank: 0, // Wird später gesetzt
+              percentageOfPortfolio: 0, // Wird später berechnet
+              priceChange24h: 0, // TODO: Implementieren
+              lastUpdated: new Date().toISOString()
             });
+            
+            console.log(`🪙 TOKEN: ${token.symbol} - ${balance.toFixed(4)} × $${realPrice} = $${tokenValue.toFixed(2)}`);
           }
         }
       }
       
-      // 💰 ECHTE PREIS-INTEGRATION - DexScreener + CoinMarketCap
-      console.log(`💰 FETCHING REAL PRICES for ${tokens.length} tokens...`);
+      // 📊 PORTFOLIO ANALYSIS (wie PulseWatch)
+      // Sortiere Token nach Wert (höchster zuerst)
+      tokens.sort((a, b) => b.valueUSD - a.valueUSD);
       
-      // Batch-Preis-Abfrage für alle Token
-      const prices = await TokenPriceService.getBatchPrices(tokens);
+      // Setze Rankings und Portfolio-Anteile
+      const totalValue = tokens.reduce((sum, token) => sum + token.valueUSD, 0);
+      tokens.forEach((token, index) => {
+        token.holdingRank = index + 1;
+        token.percentageOfPortfolio = totalValue > 0 ? (token.valueUSD / totalValue) * 100 : 0;
+      });
       
-      // Token mit echten Preisen aktualisieren
-      for (const token of tokens) {
-        const realPrice = prices[token.symbol] || 0;
-        token.estimatedPrice = realPrice;
-        token.valueUSD = token.balance * realPrice;
-        
-        if (token.valueUSD > 0.01) { // Nur Token mit Wert über 1 Cent loggen
-          console.log(`🪙 TOKEN: ${token.symbol} - ${token.balance.toFixed(4)} × $${realPrice} = $${token.valueUSD.toFixed(2)}`);
-        }
-      }
+      // 🎯 TOP HOLDINGS LOG (wie PulseWatch Dashboard)
+      console.log(`💎 TOP 5 HOLDINGS:`);
+      tokens.slice(0, 5).forEach(token => {
+        console.log(`${token.holdingRank}. ${token.symbol}: $${token.valueUSD.toFixed(2)} (${token.percentageOfPortfolio.toFixed(1)}%)`);
+      });
       
-             // Filter nur völlig wertlose Token (< $0.001) - zeige mehr Token an
-       const processedTokens = tokens.filter(token => token.valueUSD >= 0.001);
+      const totalTokenValue = tokens.reduce((sum, token) => sum + token.valueUSD, 0);
       
-             // Calculate total portfolio value mit echten Preisen
-       const totalTokenValue = processedTokens.reduce((sum, token) => sum + token.valueUSD, 0);
-       const totalPLSValue = processedTokens.find(t => t.symbol === 'PLS')?.valueUSD || 0;
-       
-       console.log(`💎 FOUND ${processedTokens.length} valuable tokens (${tokens.length} total, filtered < $0.01)`);
-       console.log(`💰 TOTAL TOKEN VALUE: $${totalTokenValue.toFixed(2)}`);
-       console.log(`💰 PLS VALUE: $${totalPLSValue.toFixed(2)}`);
-       
-       return {
-         success: true,
-         tokens: processedTokens, // Verwende gefilterte Token mit echten Preisen
-         totalTokens: processedTokens.length,
-         totalValue: totalTokenValue,
+      console.log(`💰 TOTAL PORTFOLIO VALUE: $${totalTokenValue.toFixed(2)}`);
+      console.log(`🪙 TOTAL TOKENS FOUND: ${tokens.length} (filtered for value >= $0.001)`);
+      
+      return {
+        success: true,
+        tokens: tokens,
+        totalTokens: tokens.length,
+        totalValue: totalTokenValue,
         address: walletAddress,
         chainId: 369,
-        transactions: {
-          normal: txData?.result || [],
-          tokenTransfers: tokenTxData?.result || []
+        // 📊 PulseWatch-style statistics
+        statistics: {
+          totalValue: totalTokenValue,
+          tokenCount: tokens.length,
+          topHolding: tokens[0] || null,
+          portfolioDistribution: {
+            top5Percentage: tokens.slice(0, 5).reduce((sum, t) => sum + t.percentageOfPortfolio, 0),
+            top10Percentage: tokens.slice(0, 10).reduce((sum, t) => sum + t.percentageOfPortfolio, 0)
+          }
         },
+        // 📈 Transaction data für ROI Analysis
+        transactions: {
+          normal: txResponse?.result || [],
+          tokenTransfers: tokenTxResponse?.result || []
+        },
+        // 🔍 Debug information
         debug: {
-          nativeResponse: nativeData,
-          tokenResponse: tokenData,
-          txResponse: txData,
-          tokenTxResponse: tokenTxData
+          apiCalls: {
+            native: nativeResponse.status === '1' ? 'SUCCESS' : `ERROR: ${nativeResponse.message}`,
+            tokens: tokenResponse.status === '1' ? 'SUCCESS' : `ERROR: ${tokenResponse.message}`,
+            transactions: txResponse.status === '1' ? 'SUCCESS' : `ERROR: ${txResponse.message}`,
+            tokenTransfers: tokenTxResponse.status === '1' ? 'SUCCESS' : `ERROR: ${tokenTxResponse.message}`
+          },
+          timestamp: new Date().toISOString()
         }
       };
       
     } catch (error) {
-      // Proxy error handling
-      console.error('💥 PROXY ERROR:', error.message);
-      throw new Error(`PROXY_ERROR: ${error.message}`);
+      console.error('💥 IMPROVED API ERROR:', error.message);
+      throw new Error(`PULSECHAIN_API_ERROR: ${error.message}`);
     }
   }
 
