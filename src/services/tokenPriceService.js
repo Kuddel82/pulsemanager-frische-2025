@@ -99,7 +99,10 @@ export class TokenPriceService {
       }
       return null;
     } catch (error) {
-      console.warn(`🔍 DexScreener API Error für ${tokenAddress}:`, error.message);
+      // Reduzierte Fehler-Logs für bessere Konsolen-Klarheit
+      if (Math.random() < 0.05) { // Nur 5% der Fehler loggen
+        console.log(`🔍 DexScreener: Preis für ${tokenAddress} nicht verfügbar`);
+      }
       return null;
     }
   }
@@ -155,8 +158,10 @@ export class TokenPriceService {
       }
     }
 
-    // 4. Unbekannter Token
-    console.warn(`⚠️ Kein Preis gefunden für ${symbol} (${contractAddress})`);
+    // 4. Unbekannter Token - Reduzierte Logging-Frequenz
+    if (Math.random() < 0.1) { // Nur 10% der Fälle loggen
+      console.log(`💭 Kein Preis verfügbar für ${symbol} - normale Situation bei neuen Token`);
+    }
     return 0;
   }
 
