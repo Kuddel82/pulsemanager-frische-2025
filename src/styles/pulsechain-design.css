@@ -79,11 +79,9 @@ body {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
+/* HOVER EFFECTS DISABLED FOR USER PREFERENCE */
 .pulse-card:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent-green);
-  box-shadow: 0 8px 32px var(--shadow-color);
-  transform: translateY(-2px);
+  /* All hover effects disabled */
 }
 
 .pulse-card-glow {
@@ -105,8 +103,9 @@ body {
   z-index: -1;
 }
 
+/* HOVER EFFECTS DISABLED FOR USER PREFERENCE */
 .pulse-card-glow:hover::before {
-  opacity: 0.1;
+  /* opacity: 0.1; - disabled */
 }
 
 /* 🔘 Buttons */
@@ -125,9 +124,10 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* HOVER EFFECTS DISABLED FOR USER PREFERENCE */
 .pulse-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 255, 85, 0.3);
+  /* transform: translateY(-2px); - disabled */
+  /* box-shadow: 0 8px 25px rgba(0, 255, 85, 0.3); - disabled */
 }
 
 .pulse-btn-outline {
@@ -136,9 +136,10 @@ body {
   border: 2px solid var(--accent-green);
 }
 
+/* HOVER EFFECTS DISABLED FOR USER PREFERENCE */
 .pulse-btn-outline:hover {
-  background: var(--accent-green);
-  color: #000;
+  /* background: var(--accent-green); - disabled */
+  /* color: #000; - disabled */
 }
 
 .pulse-btn-danger {
@@ -189,9 +190,10 @@ body {
   font-weight: 500;
 }
 
+/* HOVER EFFECTS DISABLED FOR USER PREFERENCE */
 .pulse-nav-item:hover {
-  background: var(--bg-hover);
-  color: var(--accent-green);
+  /* background: var(--bg-hover); - disabled */
+  /* color: var(--accent-green); - disabled */
 }
 
 .pulse-nav-item.active {

@@ -48,7 +48,7 @@ const Home = () => {
   return (
     <div className="min-h-screen pulse-text">
       {/* 🎯 PulseChain Welcome Header */}
-      <div className="pulse-card p-8 mb-8 pulse-border-gradient">
+      <div className="pulse-card p-8 mb-8" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <h1 className="pulse-title mb-2">
@@ -74,17 +74,17 @@ const Home = () => {
 
       {/* 📊 Portfolio Overview - Schnellübersicht */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="pulse-card p-6 text-center">
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
           <div className="text-3xl font-bold text-green-400 mb-2">---</div>
           <div className="text-sm pulse-text-secondary mb-1">Portfolio Value</div>
           <div className="text-xs pulse-text-secondary">Siehe ROI Calculator unten</div>
         </div>
-        <div className="pulse-card p-6 text-center">
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
           <div className="text-3xl font-bold text-blue-400 mb-2">---</div>
           <div className="text-sm pulse-text-secondary mb-1">Wallets & Investments</div>
           <div className="text-xs pulse-text-secondary">Manuelle Eingabe verfügbar</div>
         </div>
-        <div className="pulse-card p-6 text-center">
+        <div className="pulse-card p-6 text-center" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
           <div className="text-3xl font-bold text-purple-400 mb-2">✅</div>
           <div className="text-sm pulse-text-secondary mb-1">CSV Export</div>
           <div className="text-xs pulse-text-secondary">DSGVO-konform</div>
@@ -107,7 +107,7 @@ const Home = () => {
       </div>
 
       {/* 📈 Recent Activity */}
-      <div className="pulse-card p-6 mb-8">
+      <div className="pulse-card p-6 mb-8" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
         <div className="flex items-center gap-3 mb-4">
           <Activity className="h-6 w-6 text-green-400" />
           <h2 className="text-xl font-bold pulse-text">Recent Activity</h2>
@@ -120,7 +120,7 @@ const Home = () => {
       </div>
 
       {/* 🌐 PulseChain Community */}
-      <div className="pulse-card p-6">
+      <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
         <div className="flex items-center gap-3 mb-6">
           <Users className="h-6 w-6 text-green-400" />
           <h2 className="text-xl font-bold pulse-text">PulseChain Community</h2>
@@ -130,7 +130,8 @@ const Home = () => {
             href="https://pulsechain.com" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg flex items-center justify-between"
+            style={{outline: 'none', boxShadow: 'none', textDecoration: 'none'}}
           >
             <div>
               <div className="font-medium pulse-text">🔗 PulseChain.com</div>
@@ -143,7 +144,8 @@ const Home = () => {
             href="https://scan.pulsechain.com" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg flex items-center justify-between"
+            style={{outline: 'none', boxShadow: 'none', textDecoration: 'none'}}
           >
             <div>
               <div className="font-medium pulse-text">🔍 PulseScan</div>
@@ -156,7 +158,8 @@ const Home = () => {
             href="https://app.pulsex.com" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg flex items-center justify-between"
+            style={{outline: 'none', boxShadow: 'none', textDecoration: 'none'}}
           >
             <div>
               <div className="font-medium pulse-text">💱 PulseX DEX</div>
@@ -169,7 +172,8 @@ const Home = () => {
             href="https://www.pulsewatch.app" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="p-4 rounded-lg transition-colors group flex items-center justify-between"
+            className="p-4 rounded-lg flex items-center justify-between"
+            style={{outline: 'none', boxShadow: 'none', textDecoration: 'none'}}
           >
             <div>
               <div className="font-medium pulse-text">📊 PulseWatch</div>
