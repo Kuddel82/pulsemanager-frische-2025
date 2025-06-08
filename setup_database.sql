@@ -3,6 +3,37 @@
 -- Execute in Supabase SQL Editor
 
 -- ================================
+-- 0. EMAIL UNIQUENESS ENFORCEMENT
+-- ================================
+
+-- Create function to prevent duplicate emails (case-insensitive)
+CREATE OR REPLACE FUNCTION prevent_duplicate_emails()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Check if email already exists (case-insensitive)
+    IF EXISTS (
+        SELECT 1 FROM auth.users 
+        WHERE LOWER(email) = LOWER(NEW.email) 
+        AND id != NEW.id
+    ) THEN
+        RAISE EXCEPTION 'Email address already exists: %', NEW.email;
+    END IF;
+    
+    -- Normalize email to lowercase
+    NEW.email = LOWER(TRIM(NEW.email));
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to enforce email uniqueness
+DROP TRIGGER IF EXISTS enforce_unique_email ON auth.users;
+CREATE TRIGGER enforce_unique_email
+    BEFORE INSERT OR UPDATE ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_duplicate_emails();
+
+-- ================================
 -- 1. CREATE USER_PROFILES TABLE
 -- ================================
 

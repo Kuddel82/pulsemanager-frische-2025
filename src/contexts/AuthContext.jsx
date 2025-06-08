@@ -77,8 +77,13 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       
+      // 🔐 ENHANCED DUPLICATE EMAIL PROTECTION
+      console.log('🔍 Registering user with email:', email);
+      
+      const normalizedEmail = email.toLowerCase().trim();
+      
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail, // Always use normalized email
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -86,11 +91,26 @@ export const AuthProvider = ({ children }) => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        // 🚨 COMPREHENSIVE ERROR HANDLING FOR DUPLICATES
+        console.error('Registration error details:', error);
+        
+        if (error.message.includes('User already registered') ||
+            error.message.includes('already exists') ||
+            error.message.includes('Email already taken') ||
+            error.message.includes('duplicate key value') ||
+            error.message.includes('already been taken') ||
+            error.message.includes('email address is already') ||
+            error.code === 'user_already_exists') {
+          throw new Error('🚫 Ein Benutzer mit dieser E-Mail-Adresse existiert bereits. Bitte verwende eine andere E-Mail oder melde dich an.');
+        }
+        throw error;
+      }
 
+      console.log('✅ User registration successful:', data.user?.email);
       return { data, error: null };
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('❌ Sign up error:', error);
       return { data: null, error };
     } finally {
       setLoading(false);

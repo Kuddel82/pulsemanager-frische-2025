@@ -1,13 +1,10 @@
-import { createConfig, http } from 'wagmi'
-import { pulsechain } from 'wagmi/chains'
-import { injected, walletConnect } from 'wagmi/connectors'
+// STUB: WalletConnect deaktiviert für DOM-Stabilität
+// REMOVED: Wagmi imports to prevent DOM conflicts
 
-// WalletConnect Projekt-ID (32 Zeichen)
-const projectId = 'c1b926ad641917ed9cfa52d3dfbd1a68'
+console.log('🔧 WalletConnect STUB - Wagmi deaktiviert für DOM-Stabilität');
 
-// PulseChain Konfiguration
+// STUB: PulseChain Konfiguration ohne Wagmi
 const pulsechainConfig = {
-  ...pulsechain,
   id: 369,
   name: 'PulseChain',
   nativeCurrency: {
@@ -24,35 +21,14 @@ const pulsechainConfig = {
   },
 }
 
-// Sichere Wagmi Konfiguration - OHNE Web3Modal
-const wagmiConfig = createConfig({
+// STUB: Wagmi Config ersetzt durch sicheres Objekt
+const wagmiConfig = {
   chains: [pulsechainConfig],
-  connectors: [
-    injected({
-      target: {
-        id: 'metaMask',
-        name: 'MetaMask',
-        provider: window?.ethereum,
-      },
-    }),
-    walletConnect({
-      projectId,
-      metadata: {
-        name: 'PulseManager',
-        description: 'PulseChain Wallet Manager',
-        url: 'https://www.pulsemanager.vip',
-        icons: ['https://www.pulsemanager.vip/icon.png']
-      },
-      showQrModal: false, // Verhindert API-Calls
-    }),
-  ],
-  transports: {
-    [pulsechainConfig.id]: http('https://rpc.pulsechain.com'),
-  },
-})
+  // Alle Wagmi-spezifischen Eigenschaften entfernt
+  _isStub: true
+}
 
-// KEINE Web3Modal - verhindert alle problematischen API-Calls
-// Eigene sichere Wallet-UI kommt später
+console.log('🔧 WalletConnect Config ist jetzt ein STUB für DOM-Stabilität');
 
 export { wagmiConfig, pulsechainConfig }
 export default wagmiConfig 

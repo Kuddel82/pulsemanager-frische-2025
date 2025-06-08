@@ -39,7 +39,6 @@
     "tailwindcss-animate": "^1.0.7",
     "viem": "^2.30.6",
     "vite": "^4.4.5",
-    "wagmi": "^2.15.5",
     "ws": "^8.16.0",
     "zustand": "^5.0.5"
   },
