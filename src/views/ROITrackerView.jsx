@@ -79,10 +79,10 @@ const ROITrackerView = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex items-center space-x-2">
-          <RefreshCw className="h-6 w-6 animate-spin" />
-          <span className="text-lg">ROI-Daten werden geladen...</span>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+        <div className="pulse-card p-8 text-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
+          <span className="text-lg pulse-text">ROI-Daten werden geladen...</span>
         </div>
       </div>
     );
@@ -90,38 +90,34 @@ const ROITrackerView = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <Card className="max-w-lg mx-auto">
-          <CardContent className="p-6 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
-            <h2 className="text-xl font-semibold mb-2">Fehler beim Laden der ROI-Daten</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={loadROIData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Erneut versuchen
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+          <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden der ROI-Daten</h2>
+          <p className="pulse-text-secondary mb-4">{error}</p>
+          <Button onClick={loadROIData} className="bg-green-500 hover:bg-green-600">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Erneut versuchen
+          </Button>
+        </div>
       </div>
     );
   }
 
   if (!portfolioData) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <Card className="max-w-lg mx-auto">
-          <CardContent className="p-6 text-center">
-            <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h2 className="text-xl font-semibold mb-2">Keine ROI-Daten verfügbar</h2>
-            <p className="text-gray-600 mb-4">
-              Fügen Sie zuerst Ihre Wallet-Adressen hinzu oder warten Sie auf neue ROI-Transaktionen.
-            </p>
-            <Button onClick={loadROIData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Erneut laden
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
+          <TrendingUp className="h-12 w-12 mx-auto mb-4 text-blue-400" />
+          <h2 className="text-xl font-semibold mb-2 pulse-text">Keine ROI-Daten verfügbar</h2>
+          <p className="pulse-text-secondary mb-4">
+            Fügen Sie zuerst Ihre Wallet-Adressen hinzu oder warten Sie auf neue ROI-Transaktionen.
+          </p>
+          <Button onClick={loadROIData} className="bg-green-500 hover:bg-green-600">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Erneut laden
+          </Button>
+        </div>
       </div>
     );
   }
@@ -213,14 +209,14 @@ const ROITrackerView = () => {
   const roiByToken = getROIByToken();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold">ROI Tracker</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold pulse-title">ROI Tracker</h1>
+            <p className="pulse-text-secondary">
               Echte PulseChain ROI-Daten • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
             </p>
           </div>
@@ -240,31 +236,44 @@ const ROITrackerView = () => {
           </div>
         </div>
 
+        {/* ROI PRICE VALIDATION WARNING */}
+        {portfolioData.roiTransactions?.filter(tx => tx.value === 0 && tx.amount > 0.001).length > 0 && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-yellow-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-yellow-400" />
+              <span className="pulse-text font-medium">
+                ⚠ {portfolioData.roiTransactions.filter(tx => tx.value === 0 && tx.amount > 0.001).length} ROI-Transaktionen ohne verlässliche Preise
+              </span>
+            </div>
+            <p className="pulse-text-secondary text-sm mt-1">
+              Diese ROI-Transaktionen zeigen $0.00 bis verlässliche Preise verfügbar sind.
+            </p>
+          </div>
+        )}
+
         {/* ROI Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {roiStats.map((stat, index) => (
-            <Card 
+            <div 
               key={index} 
-              className={`cursor-pointer transition-all ${stat.active ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
+              className={`pulse-card p-6 cursor-pointer transition-all ${stat.active ? 'ring-2 ring-green-400 bg-green-400/10' : 'hover:bg-white/5'}`}
               onClick={stat.onClick}
             >
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className={`${stat.active ? 'bg-blue-500' : 'bg-gray-500'} p-3 rounded-lg`}>
-                    <stat.icon className="h-6 w-6 text-white" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                    <p className="text-2xl font-bold">{stat.value}</p>
-                    {stat.active && (
-                      <p className="text-sm text-blue-600">
-                        {formatPercentage(getROIPercentage())} des Portfolios
-                      </p>
-                    )}
-                  </div>
+              <div className="flex items-center">
+                <div className={`${stat.active ? 'bg-green-500' : 'bg-gray-600'} p-3 rounded-lg`}>
+                  <stat.icon className="h-6 w-6 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="ml-4">
+                  <p className="text-sm font-medium pulse-text-secondary">{stat.title}</p>
+                  <p className="text-2xl font-bold pulse-text">{stat.value}</p>
+                  {stat.active && (
+                    <p className="text-sm text-green-400">
+                      {formatPercentage(getROIPercentage())} des Portfolios
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
 

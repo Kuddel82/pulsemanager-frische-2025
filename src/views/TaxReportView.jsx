@@ -107,10 +107,10 @@ const TaxReportView = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex items-center space-x-2">
-          <RefreshCw className="h-6 w-6 animate-spin" />
-          <span className="text-lg">Steuerdaten werden geladen...</span>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+        <div className="pulse-card p-8 text-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
+          <span className="text-lg pulse-text">Steuerdaten werden geladen...</span>
         </div>
       </div>
     );
@@ -118,38 +118,34 @@ const TaxReportView = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <Card className="max-w-lg mx-auto">
-          <CardContent className="p-6 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
-            <h2 className="text-xl font-semibold mb-2">Fehler beim Laden der Steuerdaten</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={loadTaxData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Erneut versuchen
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+          <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden der Steuerdaten</h2>
+          <p className="pulse-text-secondary mb-4">{error}</p>
+          <Button onClick={loadTaxData} className="bg-green-500 hover:bg-green-600">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Erneut versuchen
+          </Button>
+        </div>
       </div>
     );
   }
 
   if (!portfolioData) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <Card className="max-w-lg mx-auto">
-          <CardContent className="p-6 text-center">
-            <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h2 className="text-xl font-semibold mb-2">Keine Steuerdaten verfügbar</h2>
-            <p className="text-gray-600 mb-4">
-              Fügen Sie zuerst Ihre Wallet-Adressen hinzu um Transaktionsdaten zu laden.
-            </p>
-            <Button onClick={loadTaxData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Erneut laden
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
+        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-blue-400" />
+          <h2 className="text-xl font-semibold mb-2 pulse-text">Keine Steuerdaten verfügbar</h2>
+          <p className="pulse-text-secondary mb-4">
+            Fügen Sie zuerst Ihre Wallet-Adressen hinzu um Transaktionsdaten zu laden.
+          </p>
+          <Button onClick={loadTaxData} className="bg-green-500 hover:bg-green-600">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Erneut laden
+          </Button>
+        </div>
       </div>
     );
   }
@@ -231,14 +227,14 @@ const TaxReportView = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Steuer Report</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold pulse-title">Steuer Report</h1>
+            <p className="pulse-text-secondary">
               DSGVO-konforme Steuerdaten • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
             </p>
           </div>
