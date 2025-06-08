@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.0.2-cache-bust",
+  "version": "0.0.3-token-fix",
   "private": true,
   "scripts": {
     "dev": "vite",
