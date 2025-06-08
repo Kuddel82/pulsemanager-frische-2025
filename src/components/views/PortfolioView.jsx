@@ -55,7 +55,9 @@ const PortfolioView = () => {
           setHiddenTokens(hidden);
           console.log('✅ HIDDEN_TOKENS: Loaded hidden tokens for portfolio');
         } catch (hiddenError) {
-          console.warn('⚠️ HIDDEN_TOKENS: Could not load hidden tokens:', hiddenError);
+          console.warn('⚠️ HIDDEN_TOKENS: Could not load hidden tokens (Tabelle eventuell nicht erstellt):', hiddenError);
+          // Setze leeres Array damit das Feature trotzdem funktioniert
+          setHiddenTokens([]);
         }
       } else {
         setError(data.error);
@@ -324,18 +326,23 @@ const PortfolioView = () => {
               )}
             </CardTitle>
             
-            {/* 🙈 Token-Hiding Controls */}
-            {portfolioData?.tokens && hiddenTokens.length > 0 && (
+            {/* 🙈 Token-Hiding Controls - IMMER anzeigen */}
+            {portfolioData?.tokens && (
               <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showHidden}
-                    onChange={(e) => setShowHidden(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-gray-600">Versteckte Tokens anzeigen</span>
-                </label>
+                {hiddenTokens.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showHidden}
+                      onChange={(e) => setShowHidden(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-gray-600">Versteckte Tokens anzeigen</span>
+                  </label>
+                )}
+                <div className="text-xs text-gray-500">
+                  👁️ Auge-Icon zum Ausblenden • 🔒 Scam-Schutz
+                </div>
               </div>
             )}
           </div>
