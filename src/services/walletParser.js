@@ -3,6 +3,7 @@
 // DOM-sicher mit CORS-Fallback und manueller Eingabe
 
 import { supabase } from '@/lib/supabaseClient';
+import { TokenPriceService } from './tokenPriceService';
 
 export class WalletParser {
   
@@ -69,7 +70,7 @@ export class WalletParser {
     const timestamp = Date.now();
     
     try {
-      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.9 for: ${walletAddress} [${timestamp}]`);
+      console.log(`🚀 FETCHING TOKENS via PROXY v0.1.0-REAL-PRICES for: ${walletAddress} [${timestamp}]`);
       
       // Get native PLS balance via proxy
       const nativeUrl = `${proxyBaseUrl}?address=${walletAddress}&action=balance`;
@@ -130,62 +131,55 @@ export class WalletParser {
           }
           
           if (balance > 0) {
-            // Verbesserte Preis-Schätzung basierend auf bekannten Tokens
-            let estimatedPrice = 0;
-            const symbol = token.symbol?.toUpperCase();
-            
-            // Bekannte PulseChain Token-Preise (grobe Schätzungen)
-            const knownPrices = {
-              'PLSX': 0.000015,
-              'INC': 0.000004,
-              'HEX': 0.003,
-              'USDL': 1.0,
-              'LOAN': 0.000001,
-              'MAXI': 0.000002,
-              'LUCKY': 0.000001,
-              'PRAT': 0.000001,
-              'TEXAN': 0.000001,
-              'SPARK': 0.000001,
-              'REX': 0.000001,
-              'BTC': 50000, // Wrapped BTC
-              'ETH': 3200, // Wrapped ETH
-              'USDC': 1.0,
-              'USDT': 1.0
-            };
-            
-            estimatedPrice = knownPrices[symbol] || 0;
-            
-            const tokenObj = {
+            // Sammle Token für Batch-Preis-Abfrage
+            tokens.push({
               name: token.name || token.symbol || 'Unknown Token',
               symbol: token.symbol || 'UNKNOWN',
               contractAddress: token.contractAddress || 'unknown',
               balance: balance,
               decimals: decimals,
               type: 'ERC20',
-              valueUSD: balance * estimatedPrice,
-              estimatedPrice: estimatedPrice,
+              valueUSD: 0, // Wird später durch echte Preise ersetzt
+              estimatedPrice: 0, // Wird später durch echte Preise ersetzt
               dexScreenerUrl: `https://dexscreener.com/pulsechain/${token.contractAddress}`
-            };
-            
-            tokens.push(tokenObj);
-            console.log(`🪙 TOKEN: ${token.symbol} - ${balance.toFixed(4)} - $${tokenObj.valueUSD.toFixed(2)}`);
+            });
           }
         }
       }
       
-      // Calculate total portfolio value
-      const totalTokenValue = tokens.reduce((sum, token) => sum + token.valueUSD, 0);
-      const totalPLSValue = tokens.find(t => t.symbol === 'PLS')?.valueUSD || 0;
+      // 💰 ECHTE PREIS-INTEGRATION - DexScreener + CoinMarketCap
+      console.log(`💰 FETCHING REAL PRICES for ${tokens.length} tokens...`);
       
-      console.log(`💎 FOUND ${tokens.length} tokens for PulseChain wallet`);
-      console.log(`💰 TOTAL TOKEN VALUE: $${totalTokenValue.toFixed(2)}`);
-      console.log(`💰 PLS VALUE: $${totalPLSValue.toFixed(2)}`);
+      // Batch-Preis-Abfrage für alle Token
+      const prices = await TokenPriceService.getBatchPrices(tokens);
       
-      return {
-        success: true,
-        tokens: tokens,
-        totalTokens: tokens.length,
-        totalValue: totalTokenValue,
+      // Token mit echten Preisen aktualisieren
+      for (const token of tokens) {
+        const realPrice = prices[token.symbol] || 0;
+        token.estimatedPrice = realPrice;
+        token.valueUSD = token.balance * realPrice;
+        
+        if (token.valueUSD > 0.01) { // Nur Token mit Wert über 1 Cent loggen
+          console.log(`🪙 TOKEN: ${token.symbol} - ${token.balance.toFixed(4)} × $${realPrice} = $${token.valueUSD.toFixed(2)}`);
+        }
+      }
+      
+             // Filter Token mit Wert über 1 Cent (reduziert Noise)
+       const processedTokens = tokens.filter(token => token.valueUSD >= 0.01);
+      
+             // Calculate total portfolio value mit echten Preisen
+       const totalTokenValue = processedTokens.reduce((sum, token) => sum + token.valueUSD, 0);
+       const totalPLSValue = processedTokens.find(t => t.symbol === 'PLS')?.valueUSD || 0;
+       
+       console.log(`💎 FOUND ${processedTokens.length} valuable tokens (${tokens.length} total, filtered < $0.01)`);
+       console.log(`💰 TOTAL TOKEN VALUE: $${totalTokenValue.toFixed(2)}`);
+       console.log(`💰 PLS VALUE: $${totalPLSValue.toFixed(2)}`);
+       
+       return {
+         success: true,
+         tokens: processedTokens, // Verwende gefilterte Token mit echten Preisen
+         totalTokens: processedTokens.length,
+         totalValue: totalTokenValue,
         address: walletAddress,
         chainId: 369,
         transactions: {
