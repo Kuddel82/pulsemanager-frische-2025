@@ -30,55 +30,20 @@ export class WalletParser {
     console.log(`🔍 PARSING TOKENS for ${walletAddress} on ${endpoint.name}`);
 
     try {
-      // Try API first (can be blocked by CORS)
+      // Fetch via Proxy (CORS-FREE)
       const apiTokens = await this.fetchTokensFromAPI(walletAddress, chainId);
       return apiTokens;
     } catch (apiError) {
-      console.warn('⚠️ API blocked by CORS, using fallback method:', apiError.message);
+      console.error('💥 PROXY API ERROR:', apiError.message);
       
-      // CORS-Fallback: Enhanced instructions with direct links
+      // Return error for handling in UI
       return {
         success: false,
-        corsBlocked: true,
-        manualInputRequired: true,
-        explorerUrl: chainId === 369 
-          ? `https://scan.pulsechain.com/address/${walletAddress}#tokens`
-          : `https://etherscan.io/address/${walletAddress}#tokentxns`,
-        directLinks: {
-          explorer: `https://scan.pulsechain.com/address/${walletAddress}`,
-          tokens: `https://scan.pulsechain.com/address/${walletAddress}#tokens`,
-          transactions: `https://scan.pulsechain.com/address/${walletAddress}#transactions`,
-          tokenTransfers: `https://scan.pulsechain.com/address/${walletAddress}#token_transfers`
-        },
-        instructions: `
-🚨 API-Zugriff blockiert (CORS-Policy)
-
-LÖSUNGSOPTIONEN:
-
-🔗 OPTION 1: Browser-Extension verwenden
-- Installieren Sie "CORS Unblock" Extension
-- Aktivieren Sie für scan.pulsechain.com
-- Aktualisieren Sie die Seite
-
-🔗 OPTION 2: Manuelle Eingabe
-1. Öffnen Sie: https://scan.pulsechain.com/address/${walletAddress}#tokens
-2. Kopieren Sie Token-Daten (Name, Symbol, Balance)
-3. Verwenden Sie "Manual Token Input" Button
-4. Geben Sie Daten ein: Symbol, Balance, Preis (optional)
-
-🔗 OPTION 3: CSV-Import (geplant)
-- Export von PulseChain Explorer möglich
-- Import-Feature wird hinzugefügt
-
-⚠️ HINWEIS: CORS ist Browser-Sicherheit. 
-Ihre Wallet-Adresse ist öffentlich sichtbar: ${walletAddress}
-        `.trim(),
+        error: true,
+        errorMessage: apiError.message,
         address: walletAddress,
         chainId: chainId,
-        estimatedTokens: [
-          'PLS (PulseChain)', 'PLSX (PulseX)', 'INC (Incentive)', 
-          'HEX', 'LOAN', 'MAXI', 'LUCKY', 'PRAT', 'TEXAN'
-        ]
+        timestamp: new Date().toISOString()
       };
     }
   }
@@ -98,41 +63,40 @@ Ihre Wallet-Adresse ist öffentlich sichtbar: ${walletAddress}
     throw new Error(`API not implemented for chain ${chainId}`);
   }
 
-  // 🟢 PulseChain Token Fetching
+  // 🟢 PulseChain Token Fetching via PROXY (CORS-FREE)
   static async fetchPulseChainTokens(walletAddress) {
-    const baseUrl = 'https://scan.pulsechain.com/api';
+    const proxyBaseUrl = '/api/pulsechain';
     
     try {
-      console.log(`🔗 FETCHING TOKENS from: ${baseUrl}`);
-      console.log(`🔗 Wallet: ${walletAddress}`);
+      console.log(`🚀 FETCHING TOKENS via PROXY for: ${walletAddress}`);
       
-      // Get native PLS balance
-      const nativeUrl = `${baseUrl}?module=account&action=balance&address=${walletAddress}&tag=latest`;
-      console.log(`🔗 Native URL: ${nativeUrl}`);
+      // Get native PLS balance via proxy
+      const nativeUrl = `${proxyBaseUrl}?address=${walletAddress}&action=balance`;
+      console.log(`🔗 Native Proxy URL: ${nativeUrl}`);
       const nativeResponse = await fetch(nativeUrl);
       const nativeData = await nativeResponse.json();
-      console.log(`🔗 Native Response:`, nativeData);
+      console.log(`🔗 Native Proxy Response:`, nativeData);
       
-      // Get ERC20 token balances - KORRIGIERTE URL
-      const tokenUrl = `${baseUrl}?module=account&action=tokenlist&address=${walletAddress}&page=1&offset=100`;
-      console.log(`🔗 Token URL: ${tokenUrl}`);
+      // Get ERC20 token balances via proxy
+      const tokenUrl = `${proxyBaseUrl}?address=${walletAddress}&action=tokenlist`;
+      console.log(`🔗 Token Proxy URL: ${tokenUrl}`);
       const tokenResponse = await fetch(tokenUrl);
       const tokenData = await tokenResponse.json();
-      console.log(`🔗 Token Response:`, tokenData);
+      console.log(`🔗 Token Proxy Response:`, tokenData);
       
-      // Get Transaction History - NEUE FEATURE
-      const txUrl = `${baseUrl}?module=account&action=txlist&address=${walletAddress}&startblock=0&endblock=latest&page=1&offset=50&sort=desc`;
-      console.log(`🔗 Transaction URL: ${txUrl}`);
+      // Get Transaction History via proxy
+      const txUrl = `${proxyBaseUrl}?address=${walletAddress}&action=txlist&offset=50`;
+      console.log(`🔗 Transaction Proxy URL: ${txUrl}`);
       const txResponse = await fetch(txUrl);
       const txData = await txResponse.json();
-      console.log(`🔗 Transaction Response:`, txData);
+      console.log(`🔗 Transaction Proxy Response:`, txData);
       
-      // Get ERC20 Token Transfers - NEUE FEATURE
-      const tokenTxUrl = `${baseUrl}?module=account&action=tokentx&address=${walletAddress}&startblock=0&endblock=latest&page=1&offset=50&sort=desc`;
-      console.log(`🔗 Token TX URL: ${tokenTxUrl}`);
+      // Get ERC20 Token Transfers via proxy
+      const tokenTxUrl = `${proxyBaseUrl}?address=${walletAddress}&action=tokentx&offset=50`;
+      console.log(`🔗 Token TX Proxy URL: ${tokenTxUrl}`);
       const tokenTxResponse = await fetch(tokenTxUrl);
       const tokenTxData = await tokenTxResponse.json();
-      console.log(`🔗 Token TX Response:`, tokenTxData);
+      console.log(`🔗 Token TX Proxy Response:`, tokenTxData);
       
       const tokens = [];
       
@@ -229,8 +193,9 @@ Ihre Wallet-Adresse ist öffentlich sichtbar: ${walletAddress}
       };
       
     } catch (error) {
-      // This will trigger CORS fallback
-      throw new Error(`CORS_ERROR: ${error.message}`);
+      // Proxy error handling
+      console.error('💥 PROXY ERROR:', error.message);
+      throw new Error(`PROXY_ERROR: ${error.message}`);
     }
   }
 
@@ -327,18 +292,19 @@ Ihre Wallet-Adresse ist öffentlich sichtbar: ${walletAddress}
         
         return {
           success: true,
-          method: 'api',
+          method: 'proxy',
           tokensFound: parseResult.tokens.length,
-          tokens: parseResult.tokens
+          tokens: parseResult.tokens,
+          totalValue: parseResult.totalValue
         };
       } else {
-        // API blocked, return manual input instructions
+        // Proxy error occurred
         return {
           success: false,
-          method: 'manual_required',
-          corsBlocked: true,
-          instructions: parseResult.instructions,
-          explorerUrl: parseResult.explorerUrl
+          method: 'proxy_error',
+          error: parseResult.errorMessage,
+          address: walletAddress,
+          chainId: chainId
         };
       }
       

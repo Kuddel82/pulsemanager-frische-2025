@@ -187,9 +187,9 @@ const ROITrackerView = () => {
             );
             
             if (refreshResult.success) {
-              console.log(`✅ REFRESHED: ${wallet.nickname} - ${refreshResult.tokensFound} tokens found`);
+              console.log(`✅ REFRESHED: ${wallet.nickname} - ${refreshResult.tokensFound} tokens found via proxy`);
             } else {
-              console.log(`⚠️ MANUAL REQUIRED: ${wallet.nickname} - ${refreshResult.method}`);
+              console.log(`❌ PROXY ERROR: ${wallet.nickname} - ${refreshResult.error}`);
             }
           } catch (err) {
             console.warn(`Failed to refresh ${wallet.nickname}:`, err.message);
@@ -292,11 +292,7 @@ const ROITrackerView = () => {
           </div>
           <div className="text-sm pulse-text-secondary">
             {tokenBalances.length} Tokens • {wallets.length} Wallets
-            {tokenBalances.length === 0 && wallets.length > 0 && (
-              <div className="mt-1 text-xs text-orange-400">
-                ⚠️ CORS blocked - Click "Refresh" for manual input options
-              </div>
-            )}
+
           </div>
         </div>
         
@@ -340,63 +336,7 @@ const ROITrackerView = () => {
         </div>
       </div>
 
-      {/* 🚨 Manual Token Input (CORS Fallback) */}
-      {tokenBalances.length === 0 && wallets.length > 0 && (
-        <div className="pulse-card p-6 bg-orange-500/10 border border-orange-500/20" style={{outline: 'none', boxShadow: 'none'}}>
-          <div className="flex items-start gap-3">
-            <div className="text-orange-400 mt-0.5">🚨</div>
-            <div className="flex-1">
-              <h5 className="text-lg font-semibold text-orange-300 mb-2">
-                Token-API blockiert - Echte Portfolio-Werte nicht sichtbar
-              </h5>
-              <p className="text-sm text-orange-200/80 mb-4">
-                <strong>Problem:</strong> Browser blockiert scan.pulsechain.com API (CORS-Policy). 
-                Daher sehen Sie nur ~$1,408 statt der echten ~$30,000+ Portfolio-Werte.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="space-y-3">
-                  <h6 className="font-semibold text-orange-300">🔗 Option 1: Explorer öffnen</h6>
-                  {wallets.map(wallet => (
-                    <button
-                      key={wallet.id}
-                      onClick={() => window.open(`https://scan.pulsechain.com/address/${wallet.address}#tokens`, '_blank')}
-                      className="w-full p-3 bg-orange-500/20 text-orange-200 rounded text-sm transition-colors flex items-center justify-between"
-                      style={{outline: 'none', boxShadow: 'none'}}
-                    >
-                      <span>📊 {wallet.nickname} Tokens</span>
-                      <ExternalLink className="h-4 w-4" />
-                    </button>
-                  ))}
-                </div>
-                
-                <div className="space-y-3">
-                  <h6 className="font-semibold text-orange-300">⚡ Option 2: CORS Extension</h6>
-                  <p className="text-xs text-orange-200/60 mb-2">
-                    Installieren Sie eine CORS-Extension um API-Zugriff zu ermöglichen:
-                  </p>
-                  <button
-                    onClick={() => window.open('https://chrome.google.com/webstore/search/cors%20unblock', '_blank')}
-                    className="w-full p-3 bg-blue-500/20 text-blue-200 rounded text-sm transition-colors flex items-center justify-between"
-                    style={{outline: 'none', boxShadow: 'none'}}
-                  >
-                    <span>🔌 CORS Extension suchen</span>
-                    <ExternalLink className="h-4 w-4" />
-                  </button>
-                  <div className="text-xs text-blue-200/60">
-                    Nach Installation: Seite neu laden & "Refresh" klicken
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-red-500/20 p-3 rounded text-xs text-red-200/80">
-                <strong>⚠️ Wichtig:</strong> Ohne Token-Daten zeigt das System nur die PLS-Balance. 
-                Ihre echten Portfolio-Werte (alle Tokens: PLSX, INC, HEX, etc.) sind deutlich höher!
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* 💳 Wallets Overview */}
       {wallets.length > 0 && (

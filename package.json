@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.0.3-token-fix",
+  "version": "0.0.4-proxy-cors-free",
   "private": true,
   "scripts": {
     "dev": "vite",
