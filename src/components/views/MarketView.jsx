@@ -146,7 +146,7 @@ const MarketView = () => {
       animate="visible"
     >
       <motion.div variants={itemVariants}>
-        <h1 className="text-3xl md:text-4xl font-bold gradient-text mb-2">{t?.marketViewTitle || "Market Overview"}</h1>
+        <h1 className="text-3xl md:text-4xl font-bold pulse-title mb-2">{t?.marketViewTitle || "Market Overview"}</h1>
         <p className="text-muted-foreground text-lg">{t?.marketViewSubtitle || "Explore PulseChain token prices, charts, and market data."}</p>
       </motion.div>
 

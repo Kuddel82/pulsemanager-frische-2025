@@ -52,7 +52,7 @@ const Home = () => {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <h1 className="pulse-title mb-2">
-              Welcome back, <span className="text-green-400">{user?.email?.split('@')[0] || 'PulseChainer'}</span>
+              Welcome back, {user?.email?.split('@')[0] || 'PulseChainer'}
             </h1>
             <p className="pulse-subtitle">
               Ready to track your PulseChain portfolio? 🚀

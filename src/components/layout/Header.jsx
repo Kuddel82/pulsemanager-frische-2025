@@ -84,7 +84,7 @@ const Header = () => {
         </Button>
         <div className="flex items-center">
           <img src={userLogoUrl} alt={t?.logoAlt || "PulseManager Logo"} className="h-8 w-auto mr-2 hidden sm:block filter dark:brightness-0 dark:invert-[0.8]" />
-          <h1 className="text-xl sm:text-2xl font-bold gradient-text hidden sm:block">{t?.appTitle || "PulseManager"}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold pulse-title hidden sm:block">{t?.appTitle || "PulseManager"}</h1>
         </div>
       </div>
 

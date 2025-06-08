@@ -23,7 +23,7 @@ const TermsOfServiceView = () => {
         </p>
       </div>
 
-      <h1 className="text-3xl font-bold gradient-text mb-6">{t.termsOfServiceTitle}</h1>
+              <h1 className="text-3xl font-bold pulse-title mb-6">{t.termsOfServiceTitle}</h1>
       <p className="text-sm text-muted-foreground mb-6">
         {t.lastUpdated.replace('{date}', currentDate)}
       </p>

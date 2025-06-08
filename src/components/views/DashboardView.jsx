@@ -46,7 +46,7 @@ const DashboardView = () => {
       transition={{ duration: 0.5 }}
     >
       <div className="mb-8 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold gradient-text mb-3">{t.welcome || "Welcome to PulseManager"}</h1>
+        <h1 className="text-4xl md:text-5xl font-bold pulse-title mb-3">{t.welcome || "Welcome to PulseManager"}</h1>
         <p className="text-lg md:text-xl text-foreground/80">{t.subtitle || "Your All-in-One Crypto Dashboard"}</p>
       </div>
 

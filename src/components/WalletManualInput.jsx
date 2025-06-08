@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import WalletBalanceService from '@/lib/walletBalanceService';
-import { Plus, Wallet, Trash2, Edit3, Eye, EyeOff, Copy, CheckCircle, RefreshCw, ExternalLink, DollarSign } from 'lucide-react';
+import { Plus, Wallet, Trash2, Copy, RefreshCw } from 'lucide-react';
 
 const WalletManualInput = memo(function WalletManualInput() {
   const { user } = useAuth();
@@ -12,9 +12,7 @@ const WalletManualInput = memo(function WalletManualInput() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  // Manual Balance Update State
-  const [editingBalance, setEditingBalance] = useState(null);
-  const [newBalance, setNewBalance] = useState('');
+  // Removed: Manual Balance Update (User wants only real wallet data)
   
   // Form State
   const [formData, setFormData] = useState({
@@ -153,50 +151,12 @@ const WalletManualInput = memo(function WalletManualInput() {
   };
 
   const refreshWalletBalance = async (wallet) => {
-    // 🔄 VEREINFACHT: Anstatt CORS-anfällige API-Calls zu machen,
-    // leiten wir Benutzer zum manuellen Balance-Editor um
-    setSuccess('💡 Tipp: Öffnen Sie den Explorer und verwenden Sie das Dollar-Symbol ($) um die Balance manuell einzugeben. Das Portfolio-System verwendet automatisch echte Preise für alle Token!');
-    openExplorer(wallet);
-    setTimeout(() => setSuccess(''), 8000);
+    // 🔄 ECHTE BALANCE-AKTUALISIERUNG: Triggere Portfolio-Reload
+    setSuccess(`🔄 Wallet-Daten werden über das Portfolio-System aktualisiert. Bitte wechseln Sie zur Portfolio-Ansicht um die neuesten Token-Balances zu sehen!`);
+    setTimeout(() => setSuccess(''), 5000);
   };
 
-  // 🎯 NEW: Manual Balance Update Functions
-  const startBalanceEdit = (wallet) => {
-    setEditingBalance(wallet.id);
-    setNewBalance(wallet.balance_eth?.toString() || '');
-    setError('');
-  };
-
-  const cancelBalanceEdit = () => {
-    setEditingBalance(null);
-    setNewBalance('');
-  };
-
-  const saveBalanceUpdate = async (wallet) => {
-    if (!newBalance || isNaN(newBalance)) {
-      setError('Bitte geben Sie eine gültige Zahl ein');
-      return;
-    }
-
-    try {
-      const symbol = wallet.chain_id === 369 ? 'PLS' : 'ETH';
-      await WalletBalanceService.updateBalanceManually(
-        wallet.id, 
-        user.id, 
-        newBalance, 
-        symbol
-      );
-      
-      setSuccess(`💰 Balance manuell aktualisiert: ${newBalance} ${symbol}`);
-      setEditingBalance(null);
-      setNewBalance('');
-      loadWallets();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Error updating balance manually:', err);
-      setError('Fehler beim manuellen Update: ' + err.message);
-    }
-  };
+  // Removed: Manual Balance Update Functions (User wants only real wallet data)
 
   const openExplorer = (wallet) => {
     const urls = {
@@ -356,79 +316,30 @@ const WalletManualInput = memo(function WalletManualInput() {
                         <Copy className="h-3 w-3" />
                       </button>
                     </div>
-                    {/* Balance Display & Manual Update */}
-                    <div className="space-y-2">
-                      {editingBalance === wallet.id ? (
-                        // Manual Balance Input
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={newBalance}
-                            onChange={(e) => setNewBalance(e.target.value)}
-                            placeholder="0.0000"
-                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-sm font-mono text-green-400"
-                            step="0.0001"
-                            min="0"
-                          />
-                          <span className="text-xs text-gray-400">
-                            {wallet.chain_id === 369 ? 'PLS' : 'ETH'}
+                    {/* Balance Display - Simplified */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-green-400">
+                          {wallet.balance_eth > 0 
+                            ? `${wallet.balance_eth.toFixed(4)} ${wallet.chain_id === 369 ? 'PLS' : 'ETH'}` 
+                            : 'Echte Daten über Portfolio laden'
+                          }
+                        </span>
+                        {wallet.last_sync && (
+                          <span className="text-xs pulse-text-secondary">
+                            {new Date(wallet.last_sync).toLocaleString('de-DE')}
                           </span>
-                          <button
-                            onClick={() => saveBalanceUpdate(wallet)}
-                            className="text-green-400 p-1"
-                            title="Speichern"
-                          >
-                            <CheckCircle className="h-3 w-3" />
-                          </button>
-                          <button
-                            onClick={cancelBalanceEdit}
-                            className="text-gray-400 p-1"
-                            title="Abbrechen"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        // Normal Balance Display
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-green-400">
-                              {wallet.balance_eth > 0 
-                                ? `${wallet.balance_eth.toFixed(4)} ${wallet.chain_id === 369 ? 'PLS' : 'ETH'}` 
-                                : 'Balance nicht geladen'
-                              }
-                            </span>
-                            {wallet.last_sync && (
-                              <span className="text-xs pulse-text-secondary">
-                                {new Date(wallet.last_sync).toLocaleString('de-DE')}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => openExplorer(wallet)}
-                              className="text-blue-400 transition-colors p-1"
-                              title="Im Explorer öffnen"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => startBalanceEdit(wallet)}
-                              className="text-yellow-400 transition-colors p-1"
-                              title="Balance manuell eingeben"
-                            >
-                              <DollarSign className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => refreshWalletBalance(wallet)}
-                              className="text-green-400 transition-colors p-1"
-                              title="Balance über API aktualisieren (kann durch CORS blockiert werden)"
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => refreshWalletBalance(wallet)}
+                          className="text-green-400 transition-colors p-1"
+                          title="Portfolio-Daten aktualisieren"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   

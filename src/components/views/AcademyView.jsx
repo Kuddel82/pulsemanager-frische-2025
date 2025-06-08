@@ -138,7 +138,7 @@ const AcademyView = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div className="flex items-center mb-4 sm:mb-0">
           <BookOpen className="h-8 w-8 text-primary mr-3" />
-          <h1 className="text-3xl font-bold gradient-text">{t.learningAcademyViewTitle || "Learning Academy"}</h1>
+          <h1 className="text-3xl font-bold pulse-title">{t.learningAcademyViewTitle || "Learning Academy"}</h1>
         </div>
         <div className="flex items-center w-full sm:w-auto max-w-sm">
           <Input type="search" placeholder={t.learningAcademySearchPlaceholder || "Search articles..."} className="mr-2" />

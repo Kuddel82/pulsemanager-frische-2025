@@ -114,7 +114,7 @@ const FixedDashboard = () => {
     <div className="container mx-auto px-4 py-8 space-y-8">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-4xl font-bold gradient-text mb-2">
+        <h1 className="text-4xl font-bold pulse-title mb-2">
           Welcome back, {user.email}!
         </h1>
         <p className="text-muted-foreground">
