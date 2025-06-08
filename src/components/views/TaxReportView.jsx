@@ -102,6 +102,126 @@ const TaxReportView = () => {
     }
   };
 
+  // 📄 PDF Export generieren  
+  const exportTaxPDF = async () => {
+    if (!portfolioData?.taxTransactions) return;
+    
+    setExporting(true);
+    try {
+      const filteredTransactions = getFilteredTransactions();
+      const summary = getTaxSummary();
+      
+      // HTML für PDF erstellen
+      const htmlContent = `
+        <html>
+        <head>
+          <title>PulseManager Steuerreport ${new Date().getFullYear()}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-size: 24px; font-weight: bold; color: #22c55e; }
+            .subtitle { color: #666; margin-top: 10px; }
+            .summary { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+            .summary-item { text-align: center; }
+            .summary-value { font-size: 20px; font-weight: bold; color: #22c55e; }
+            .summary-label { color: #666; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .amount { text-align: right; }
+            .footer { margin-top: 40px; padding: 20px; background: #f8fafc; border-radius: 8px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">🚀 PulseManager</div>
+            <div class="subtitle">Steuerreport für deutsche Steuererklärung</div>
+            <div class="subtitle">Zeitraum: ${formatDate(filters.startDate)} - ${formatDate(filters.endDate)}</div>
+            <div class="subtitle">Erstellt am: ${new Date().toLocaleString('de-DE')}</div>
+          </div>
+
+          <div class="summary">
+            <h2>📊 Zusammenfassung</h2>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-value">${formatCurrency(summary.totalIncome)}</div>
+                <div class="summary-label">Steuerpflichtiges Einkommen</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value">${summary.totalTransactions}</div>
+                <div class="summary-label">Transaktionen</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value">${summary.uniqueTokens}</div>
+                <div class="summary-label">Verschiedene Token</div>
+              </div>
+            </div>
+          </div>
+
+          <h2>📋 Transaktionsliste</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Datum</th>
+                <th>Token</th>
+                <th>Menge</th>
+                <th>Wert (USD)</th>
+                <th>Kategorie</th>
+                <th>ROI</th>
+                <th>TX Hash</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredTransactions.slice(0, 500).map(tx => `
+                <tr>
+                  <td>${formatDate(tx.blockTimestamp)}</td>
+                  <td>${tx.tokenSymbol}</td>
+                  <td class="amount">+${tx.amount?.toFixed(6) || '0'}</td>
+                  <td class="amount">${formatCurrency(tx.valueUSD)}</td>
+                  <td>${tx.taxCategory === 'income' ? 'Einkommen' : 'Transfer'}</td>
+                  <td>${tx.isROITransaction ? 'ROI' : 'Normal'}</td>
+                  <td style="font-family: monospace; font-size: 10px;">${tx.txHash?.slice(0, 10)}...</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <h3>💡 Rechtliche Hinweise</h3>
+            <p><strong>§ 22 EStG:</strong> ROI-Transaktionen und Staking-Belohnungen sind als sonstige Einkünfte zu versteuern.</p>
+            <p><strong>Dokumentation:</strong> Alle Transaktionen sind mit Blockchain-Nachweis dokumentiert.</p>
+            <p><strong>DSGVO:</strong> Alle Daten werden lokal verarbeitet und können jederzeit gelöscht werden.</p>
+            <p><strong>Disclaimer:</strong> Diese Software ersetzt keine professionelle Steuerberatung.</p>
+            <p><strong>Erstellt mit:</strong> PulseManager v2.0 - DSGVO-konforme Steuerreports für PulseChain</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // PDF erstellen mittels Browser Print
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      
+      // Automatisch Print-Dialog öffnen für PDF-Speicherung
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 1000);
+      
+      setStatusMessage(`✅ PDF Export vorbereitet: ${filteredTransactions.length} Transaktionen`);
+      setTimeout(() => setStatusMessage(''), 3000);
+      
+    } catch (error) {
+      console.error('❌ PDF Export failed:', error);
+      setStatusMessage(`❌ PDF Export Fehler: ${error.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Initiales Laden
   useEffect(() => {
     loadTaxData();
@@ -201,9 +321,19 @@ const TaxReportView = () => {
             onClick={exportTaxCSV}
             disabled={exporting || !filteredTransactions.length}
             className="flex items-center gap-2"
+            variant="outline"
           >
             <Download className={`h-4 w-4 ${exporting ? 'animate-spin' : ''}`} />
             {exporting ? 'Exportiere...' : 'CSV Export'}
+          </Button>
+          
+          <Button 
+            onClick={exportTaxPDF}
+            disabled={exporting || !filteredTransactions.length}
+            className="flex items-center gap-2"
+          >
+            <FileText className={`h-4 w-4 ${exporting ? 'animate-spin' : ''}`} />
+            {exporting ? 'Erstelle...' : 'PDF Export'}
           </Button>
         </div>
       </div>
@@ -474,6 +604,7 @@ const TaxReportView = () => {
           <div className="text-blue-700 space-y-2 text-sm">
             <p><strong>§ 22 EStG (Sonstige Einkünfte):</strong> ROI-Transaktionen und Staking-Belohnungen sind als sonstige Einkünfte zu versteuern.</p>
             <p><strong>Dokumentation:</strong> Alle Transaktionen werden mit Datum, Uhrzeit, Betrag und Blockchain-Nachweis dokumentiert.</p>
+            <p><strong>Export-Optionen:</strong> CSV für Steuerberater oder PDF für Steuererklärung - beide DSGVO-konform.</p>
             <p><strong>DSGVO-Konformität:</strong> Alle Daten werden lokal verarbeitet und können jederzeit exportiert oder gelöscht werden.</p>
             <p><strong>Disclaimer:</strong> Diese Software ersetzt keine professionelle Steuerberatung. Konsultieren Sie einen Steuerberater für individuelle Fragen.</p>
           </div>
