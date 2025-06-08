@@ -235,7 +235,7 @@ const PortfolioView = () => {
   const { stats } = portfolioData;
 
   return (
-    <div className="min-h-screen pulse-bg p-6">
+    <div className="min-h-screen pulse-bg p-6" translate="no">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* 📊 Portfolio-Header */}
@@ -261,25 +261,25 @@ const PortfolioView = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="pulse-stat bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-xl p-4 border border-green-500/20">
               <h3 className="pulse-stat-label">Gesamt-Portfolio</h3>
-              <p className="pulse-stat-value">{formatValue(stats.totalValue)}</p>
+              <p className="pulse-stat-value" translate="no">{formatValue(stats.totalValue)}</p>
               <p className="text-green-400 text-sm">+0.00% (24h)</p>
             </div>
             
             <div className="pulse-stat bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-xl p-4 border border-blue-500/20">
               <h3 className="pulse-stat-label">PLS Wert</h3>
-              <p className="pulse-stat-value">{formatValue(stats.totalPLSValue)}</p>
-              <p className="text-blue-400 text-sm">{((stats.totalPLSValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
+              <p className="pulse-stat-value" translate="no">{formatValue(stats.totalPLSValue)}</p>
+              <p className="text-blue-400 text-sm" translate="no">{((stats.totalPLSValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
             </div>
             
             <div className="pulse-stat bg-gradient-to-br from-purple-500/10 to-purple-600/20 rounded-xl p-4 border border-purple-500/20">
               <h3 className="pulse-stat-label">Token Wert</h3>
-              <p className="pulse-stat-value">{formatValue(stats.totalTokenValue)}</p>
-              <p className="text-purple-400 text-sm">{((stats.totalTokenValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
+              <p className="pulse-stat-value" translate="no">{formatValue(stats.totalTokenValue)}</p>
+              <p className="text-purple-400 text-sm" translate="no">{((stats.totalTokenValue / stats.totalValue) * 100).toFixed(1)}% des Portfolios</p>
             </div>
             
             <div className="pulse-stat bg-gradient-to-br from-pink-500/10 to-pink-600/20 rounded-xl p-4 border border-pink-500/20">
               <h3 className="pulse-stat-label">Anzahl Token</h3>
-              <p className="pulse-stat-value">{stats.totalTokens}</p>
+              <p className="pulse-stat-value" translate="no">{stats.totalTokens}</p>
               <p className="text-pink-400 text-sm">Verschiedene Assets</p>
             </div>
           </div>
@@ -319,24 +319,24 @@ const PortfolioView = () => {
                           {token.token_symbol?.charAt(0) || '?'}
                         </div>
                         <div>
-                          <p className="text-white font-medium">{token.token_symbol}</p>
-                          <p className="text-gray-400 text-sm">{token.token_name}</p>
+                          <p className="text-white font-medium" translate="no">{token.token_symbol}</p>
+                          <p className="text-gray-400 text-sm" translate="no">{token.token_name}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="text-right text-white py-4">
+                    <td className="text-right text-white py-4" translate="no">
                       {token.balance.toLocaleString('de-DE', { 
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 4 
                       })}
                     </td>
-                    <td className="text-right text-green-400 py-4">
+                    <td className="text-right text-green-400 py-4" translate="no">
                       ${token.currentPrice.toFixed(6)}
                     </td>
-                    <td className="text-right text-white py-4 font-medium">
+                    <td className="text-right text-white py-4 font-medium" translate="no">
                       {formatValue(token.currentValue)}
                     </td>
-                    <td className="text-right text-blue-400 py-4">
+                    <td className="text-right text-blue-400 py-4" translate="no">
                       {token.allocation.toFixed(1)}%
                     </td>
                     <td className="text-right py-4">
@@ -397,15 +397,15 @@ const PortfolioView = () => {
               </div>
               <div className="flex justify-between items-center py-2 border-t border-green-500/20 pt-4">
                 <span className="text-gray-300">Portfolio Wert</span>
-                <span className="text-green-400 font-medium">{formatValue(stats.totalValue)}</span>
+                <span className="text-green-400 font-medium" translate="no">{formatValue(stats.totalValue)}</span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-300">Token Anzahl</span>
-                <span className="text-blue-400 font-medium">{stats.totalTokens} Assets</span>
+                <span className="text-blue-400 font-medium" translate="no">{stats.totalTokens} Assets</span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-300">Letzte Aktualisierung</span>
-                <span className="text-purple-400 font-medium">{lastUpdate?.toLocaleTimeString('de-DE')}</span>
+                <span className="text-purple-400 font-medium" translate="no">{lastUpdate?.toLocaleTimeString('de-DE')}</span>
               </div>
             </div>
           </div>
