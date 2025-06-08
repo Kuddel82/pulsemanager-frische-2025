@@ -1,4 +1,37 @@
 {
+  "functions": {
+    "api/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/.*).*)",
@@ -6,7 +39,7 @@
     }
   ],
   "env": {
-    "BUILD_ID": "CRITICAL_SPA_FIX_2025-01-14-19-25",
+    "BUILD_ID": "PROXY_FORCE_DEPLOY_2025-01-08",
     "VITE_SUPABASE_URL": "https://haixlpufbsboumlzlqcf.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaXhscHVmYnNib3VtbHpscWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NjU2MjQsImV4cCI6MjA2NDQ0MTYyNH0.iY-MiQCWyCnnOh40GokRSQIK4HM_cd0kG6-02-ijZVE"
   }

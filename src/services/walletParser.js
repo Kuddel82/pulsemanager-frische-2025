@@ -63,12 +63,13 @@ export class WalletParser {
     throw new Error(`API not implemented for chain ${chainId}`);
   }
 
-  // 🟢 PulseChain Token Fetching via PROXY (CORS-FREE)
+  // 🟢 PulseChain Token Fetching via PROXY v0.0.5 (CORS-FREE)
   static async fetchPulseChainTokens(walletAddress) {
     const proxyBaseUrl = '/api/pulsechain';
+    const timestamp = Date.now();
     
     try {
-      console.log(`🚀 FETCHING TOKENS via PROXY for: ${walletAddress}`);
+      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.5 for: ${walletAddress} [${timestamp}]`);
       
       // Get native PLS balance via proxy
       const nativeUrl = `${proxyBaseUrl}?address=${walletAddress}&action=balance`;

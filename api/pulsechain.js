@@ -1,6 +1,7 @@
-// 🚀 PulseChain API Proxy - Vercel Serverless Function
+// 🚀 PulseChain API Proxy - Vercel Serverless Function v0.0.5
 // Eliminiert CORS-Probleme durch Server-seitigen Proxy
 // Route: /api/pulsechain?address=0x...&action=tokenlist
+// Deploy Time: 2025-01-08 FORCE CACHE CLEAR
 
 export default async function handler(req, res) {
   // CORS Headers für alle Origins
