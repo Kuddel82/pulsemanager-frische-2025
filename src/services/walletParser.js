@@ -69,7 +69,7 @@ export class WalletParser {
     const timestamp = Date.now();
     
     try {
-      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.7 for: ${walletAddress} [${timestamp}]`);
+      console.log(`🚀 FETCHING TOKENS via PROXY v0.0.8 for: ${walletAddress} [${timestamp}]`);
       
       // Get native PLS balance via proxy
       const nativeUrl = `${proxyBaseUrl}?address=${walletAddress}&action=balance`;
@@ -122,6 +122,13 @@ export class WalletParser {
           const decimals = parseInt(token.decimals) || 18;
           const balance = parseFloat(token.balance) / Math.pow(10, decimals);
           
+          // Skip tokens with null/invalid symbols or names (DB constraint protection)
+          if (!token.symbol || token.symbol.trim() === '' || token.symbol === 'null' || 
+              !token.name || token.name.trim() === '' || token.name === 'null') {
+            console.log(`⚠️ SKIPPING TOKEN: "${token.name || 'null'}" (${token.symbol || 'null'}) - Invalid symbol/name`);
+            continue;
+          }
+          
           if (balance > 0) {
             // Verbesserte Preis-Schätzung basierend auf bekannten Tokens
             let estimatedPrice = 0;
@@ -149,9 +156,9 @@ export class WalletParser {
             estimatedPrice = knownPrices[symbol] || 0;
             
             const tokenObj = {
-              name: token.name || token.symbol,
-              symbol: token.symbol,
-              contractAddress: token.contractAddress,
+              name: token.name || token.symbol || 'Unknown Token',
+              symbol: token.symbol || 'UNKNOWN',
+              contractAddress: token.contractAddress || 'unknown',
               balance: balance,
               decimals: decimals,
               type: 'ERC20',
@@ -220,20 +227,29 @@ export class WalletParser {
         .eq('wallet_address', walletAddress.toLowerCase())
         .eq('chain_id', chainId);
       
-      // Insert new token balances
-      const tokenRecords = tokens.map(token => ({
-        user_id: userId,
-        wallet_address: walletAddress.toLowerCase(),
-        chain_id: chainId,
-        token_name: token.name,
-        token_symbol: token.symbol,
-        contract_address: token.contractAddress || 'native',
-        balance: token.balance,
-        decimals: token.decimals,
-        value_usd: token.valueUSD || 0,
-        token_type: token.type || 'ERC20',
-        last_updated: new Date().toISOString()
-      }));
+      // Insert new token balances (with null-safety validation)
+      const tokenRecords = tokens
+        .filter(token => {
+          // Final safety check: ensure no null/undefined critical fields
+          if (!token.symbol || !token.name) {
+            console.warn(`⚠️ FINAL FILTER: Skipping token with missing symbol/name:`, token);
+            return false;
+          }
+          return true;
+        })
+        .map(token => ({
+          user_id: userId,
+          wallet_address: walletAddress.toLowerCase(),
+          chain_id: chainId,
+          token_name: token.name || 'Unknown Token',
+          token_symbol: token.symbol || 'UNKNOWN',
+          contract_address: token.contractAddress || 'native',
+          balance: token.balance || 0,
+          decimals: token.decimals || 18,
+          value_usd: token.valueUSD || 0,
+          token_type: token.type || 'ERC20',
+          last_updated: new Date().toISOString()
+        }));
       
       const { error } = await supabase
         .from('token_balances')
