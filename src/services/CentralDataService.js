@@ -354,7 +354,12 @@ export class CentralDataService {
             }
           }
         } else {
-          console.warn(`⚠️ No token data for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
+          // ✅ NOTOK ist NORMAL für Wallets ohne Token-Transaktionen (z.B. Best Wallet)
+          if (data.message === 'NOTOK' || data.status === '0' || data.status === 'NOTOK') {
+            console.log(`📱 Empty wallet (no tokens): ${wallet.address} - This is normal for new/unused wallets`);
+          } else {
+            console.warn(`⚠️ API error for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
+          }
           // NICHT als Fehler behandeln - weiter mit nächster Wallet
           continue;
         }
@@ -749,6 +754,13 @@ export class CentralDataService {
               }
             }
           }
+        } else {
+          // ✅ NOTOK ist NORMAL für Wallets ohne Transaktionen (z.B. Best Wallet)
+          if (data.message === 'NOTOK' || data.status === '0' || data.status === 'NOTOK') {
+            console.log(`📱 Empty wallet (no ROI transactions): ${wallet.address} - This is normal for new/unused wallets`);
+          } else {
+            console.warn(`⚠️ ROI API error for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
+          }
         }
       } catch (error) {
         console.warn(`⚠️ Error loading ROI for wallet ${wallet.address}:`, error.message);
@@ -881,6 +893,13 @@ export class CentralDataService {
               taxSummary.totalIncome += value;
               taxSummary.transactionCount++;
             }
+          }
+        } else {
+          // ✅ NOTOK ist NORMAL für Wallets ohne Transaktionen (z.B. Best Wallet)
+          if (data.message === 'NOTOK' || data.status === '0' || data.status === 'NOTOK') {
+            console.log(`📱 Empty wallet (no tax transactions): ${wallet.address} - This is normal for new/unused wallets`);
+          } else {
+            console.warn(`⚠️ Tax API error for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
           }
         }
       } catch (error) {
