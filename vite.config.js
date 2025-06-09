@@ -189,7 +189,9 @@ export default defineConfig({
 		minify: true,     // ✅ PRODUCTION: Minification enabled for smaller bundle
 		rollupOptions: {
 			output: {
-					vendor: ['react', 'react-dom'],
+				// manualChunks: {
+					// vendor: ['react', 'react-dom'],
+					// router: ['react-router-dom']
 					// ✅ FIXED: Removed Radix-UI to prevent DOM portal conflicts
 				}
 			}
