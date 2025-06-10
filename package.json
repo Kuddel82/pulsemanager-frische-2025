@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.1.3-moralis-sdk-integration-FORCE-CACHE-BREAK",
+  "version": "0.1.4-SECURITY-ENTERPRISE-DEPLOYED",
   "private": true,
   "scripts": {
     "dev": "vite",
