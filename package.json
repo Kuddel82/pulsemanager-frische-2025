@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.1.7-NUCLEAR-API-CONFIG-BLOCKING",
+  "version": "0.1.8-MORALIS-ENTERPRISE-100-PERCENT",
   "private": true,
   "scripts": {
     "dev": "vite",
