@@ -1,0 +1,1 @@
+﻿export const API_CONFIG = { PROXIES: { GECKOTERMINAL: "/api/geckoterminal-proxy", PULSECHAIN: "/api/pulsechain-proxy" } }; window.API_DEBUG_STATS = { geckoterminalCalls: 0, pulsechainCalls: 0, blockedCalls: 0 }; console.log("🔧 DEBUG: Enhanced apiConfig.js loaded"); export default API_CONFIG;
