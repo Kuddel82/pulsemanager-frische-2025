@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.1.4-SECURITY-ENTERPRISE-DEPLOYED",
+  "version": "0.1.5-MORALIS-DOCS-COMPLIANCE-COMPLETE",
   "private": true,
   "scripts": {
     "dev": "vite",
