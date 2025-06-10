@@ -58,7 +58,7 @@ export class CentralDataService {
 
   // 🌐 ZUSÄTZLICHE API-ENDPUNKTE
   static ADDITIONAL_PRICE_APIS = {
-    geckoterminal: 'https://api.geckoterminal.com/api/v2/networks/pulsechain/tokens',
+    moralis: '/api/moralis-prices',
     dexscreener: '/api/dexscreener-proxy'
   };
 
@@ -378,7 +378,7 @@ export class CentralDataService {
   }
 
   /**
-   * 💰 MULTI-CHAIN LIVE-PREISE: DexScreener + GeckoTerminal für alle Chains
+   * 💰 MULTI-CHAIN LIVE-PREISE: DexScreener + MORALIS_ENTERPRISE für alle Chains
    */
   static async loadRealTokenPricesFixed(tokens) {
     console.log(`💰 MULTI-CHAIN PRICES: Loading prices for ${tokens.length} tokens`);
@@ -458,7 +458,7 @@ export class CentralDataService {
       }
     }
 
-    // 🔵 PRIORITY 2: GeckoTerminal API für alle Chains (für fehlende Preise)
+    // 🔵 PRIORITY 2: MORALIS_ENTERPRISE API für alle Chains (für fehlende Preise)
     const allMissingTokens = [];
     tokens.forEach(token => {
       if (token.contractAddress && !priceMap.has(token.contractAddress.toLowerCase())) {
@@ -471,7 +471,7 @@ export class CentralDataService {
     });
 
     if (allMissingTokens.length > 0) {
-      console.log(`🔵 GECKOTERMINAL: Fetching ${allMissingTokens.length} missing prices from all chains`);
+      console.log(`🔵 MORALIS_ENTERPRISE: Fetching ${allMissingTokens.length} missing prices from all chains`);
       
       for (const tokenInfo of allMissingTokens.slice(0, 50)) { // Performance Limit
         try {
@@ -479,7 +479,7 @@ export class CentralDataService {
           const networkName = chainConfig.name.toLowerCase() === 'ethereum' ? 'eth' : 'pulsechain';
           
           const response = await fetch(
-            `https://api.geckoterminal.com/api/v2/networks/${networkName}/tokens/${tokenInfo.contractAddress}`
+            `/api/moralis-prices?address=${tokenInfo.contractAddress}&chain=${tokenInfo.chainId}`
           );
           
           apiCalls++;
@@ -493,11 +493,11 @@ export class CentralDataService {
               priceMap.set(tokenInfo.contractAddress, price);
               updatedCount++;
               
-              console.log(`🔵 GECKOTERMINAL ${chainConfig.name.toUpperCase()}: ${tokenInfo.symbol} = $${price}`);
+              console.log(`🔵 MORALIS_ENTERPRISE ${chainConfig.name.toUpperCase()}: ${tokenInfo.symbol} = $${price}`);
             }
           }
-        } catch (geckoError) {
-          // Silent fail für GeckoTerminal
+        } catch (moralisError) {
+          // Silent fail für MORALIS_ENTERPRISE
         }
         
         // Rate limiting
@@ -546,7 +546,7 @@ export class CentralDataService {
       let price = 0;
       let priceSource = 'no_price';
       
-      // Priority 1: Live-Preise aus Price Map (DexScreener/GeckoTerminal)
+      // Priority 1: Live-Preise aus Price Map (DexScreener/MORALIS_ENTERPRISE)
       if (priceMap.has(contractKey)) {
         price = priceMap.get(contractKey);
         priceSource = 'live_api';
@@ -682,7 +682,7 @@ export class CentralDataService {
                 let price = 0;
                 let priceSource = 'no_price';
                 
-                // Priority 1: Live-Preise aus Price Map (DexScreener/GeckoTerminal)
+                // Priority 1: Live-Preise aus Price Map (DexScreener/MORALIS_ENTERPRISE)
                 if (priceMap.has(contractKey)) {
                   price = priceMap.get(contractKey);
                   priceSource = 'live_api';
