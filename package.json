@@ -1,7 +1,7 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.1.6-NUCLEAR-EMERGENCY-ACTIVE",
+  "version": "0.1.7-NUCLEAR-API-CONFIG-BLOCKING",
   "private": true,
   "scripts": {
     "dev": "vite",
