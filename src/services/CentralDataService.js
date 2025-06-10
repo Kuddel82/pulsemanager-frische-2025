@@ -20,16 +20,16 @@ export class CentralDataService {
       id: 1,
       name: 'Ethereum',
       nativeSymbol: 'ETH',
-      apiProxy: '/api/ethereum-proxy',
+      apiProxy: '/api/moralis-tokens',
       explorerBase: 'https://etherscan.io'
     }
   };
 
   static PROXY_ENDPOINTS = {
     pulsechain: '/api/pulsechain',
-    ethereum: '/api/ethereum-proxy',
-    pulsewatch: '/api/pulsewatch', 
-    dexscreener: '/api/dexscreener-proxy'
+    ethereum: '/api/moralis-tokens',
+    pulsewatch: '/api/moralis-prices', 
+    dexscreener: '/api/moralis-prices'
   };
 
   // 💰 MINIMAL FALLBACKS: Nur für native & Stablecoins (Multi-Chain)
@@ -59,7 +59,7 @@ export class CentralDataService {
   // 🌐 ZUSÄTZLICHE API-ENDPUNKTE
   static ADDITIONAL_PRICE_APIS = {
     moralis: '/api/moralis-prices',
-    dexscreener: '/api/dexscreener-proxy'
+    dexscreener: '/api/moralis-prices'
   };
 
   // 🎯 DRUCKER-CONTRACTS (für ROI-Erkennung)
@@ -419,7 +419,7 @@ export class CentralDataService {
           
           try {
             const response = await fetch(
-              `${this.PROXY_ENDPOINTS.dexscreener}?endpoint=tokens&addresses=${addressParam}`
+              `"/api/moralis-prices"?endpoint=tokens&addresses=${addressParam}`
             );
             
             apiCalls++;
