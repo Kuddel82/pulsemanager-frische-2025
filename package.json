@@ -2,6 +2,7 @@
   "name": "pulsemanger-app",
   "type": "module",
   "version": "0.1.8-MORALIS-ENTERPRISE-100-PERCENT",
+  "description": "🚀 FORCE DEPLOY - API fixes must go live!",
   "private": true,
   "scripts": {
     "dev": "vite",
