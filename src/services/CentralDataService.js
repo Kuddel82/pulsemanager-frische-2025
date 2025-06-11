@@ -8,6 +8,7 @@ import { DatabaseCacheService } from './DatabaseCacheService';
 import { ApiInterceptorService } from './ApiInterceptorService';
 import { TokenParsingService } from './TokenParsingService';
 import { GlobalRateLimiter } from './GlobalRateLimiter';
+import { debugWalletLoad, debugCacheData, debugMoralisResponse, fetchAllTransactions } from './DebugPatches';
 
 export class CentralDataService {
   
@@ -165,7 +166,10 @@ export class CentralDataService {
     // 🧠 STEP 1: Check Cache First (Database-First Approach)
     const cachedPortfolio = await DatabaseCacheService.getCachedPortfolio(userId);
     
-    if (cachedPortfolio.success) {
+    // 🔧 CHATGPT DEBUG PATCH: Enhanced cache debugging
+    const cacheValid = debugCacheData(cachedPortfolio, 'loadCompletePortfolio');
+    
+    if (cachedPortfolio.success && cacheValid) {
       console.log(`✅ CACHE HIT: Portfolio loaded from database cache - 0 API calls used!`);
       
       // Register cache hit
@@ -393,7 +397,11 @@ export class CentralDataService {
         throw error;
       }
       
-      return data || [];
+      // 🔧 CHATGPT DEBUG PATCH: Enhanced wallet debugging
+      const validatedWallets = debugWalletLoad(data || [], userId);
+      console.log(`✅ DEBUG PATCH: Wallet validation complete - ${validatedWallets.length} valid wallets`);
+      
+      return validatedWallets;
       
     } catch (error) {
       console.error(`💥 WALLET LOADING FAILED for user ${userId}:`, error);
@@ -476,6 +484,14 @@ export class CentralDataService {
             return { error: 'Invalid JSON response', rawText: text.slice(0, 200) };
           }
         });
+
+        // 🔧 CHATGPT DEBUG PATCH: Enhanced Moralis API debugging
+        const moralisValid = debugMoralisResponse(response, 'wallet-tokens', wallet.address);
+        console.log(`🔧 DEBUG PATCH: Moralis response validation - ${moralisValid ? 'VALID' : 'INVALID'}`);
+        
+        if (!moralisValid) {
+          console.warn(`⚠️ DEBUG PATCH: Moralis response failed validation for wallet ${wallet.address}`);
+        }
         
         // 🎉 BREAKTHROUGH: Handle REAL Moralis SDK Response Structure
         if (response.jsonResponse && Array.isArray(response.jsonResponse)) {
