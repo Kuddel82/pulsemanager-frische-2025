@@ -1,5 +1,5 @@
-// 📊 ROI TRACKER VIEW - Zeigt echte ROI-Daten von PulseChain
-// Datum: 2025-01-08 - PHASE 3: ECHTE ROI DATEN INTEGRATION
+// 🚀 ROI TRACKER VIEW - MORALIS V2 DEFI INTEGRATION 
+// Echte DeFi ROI-Daten von Moralis Enterprise APIs
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -20,47 +20,274 @@ import {
   DollarSign,
   Clock,
   Eye,
-  EyeOff
+  EyeOff,
+  Activity,
+  Target,
+  Zap,
+  PieChart,
+  BarChart3
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
+import { MoralisV2Service } from '@/services/MoralisV2Service';
+import { ROIDetectionService } from '@/services/ROIDetectionService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
   const [portfolioData, setPortfolioData] = useState(null);
+  const [defiData, setDefiData] = useState(null);
+  const [roiDetectionData, setROIDetectionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [timeFrame, setTimeFrame] = useState('monthly'); // daily, weekly, monthly
+  const [timeFrame, setTimeFrame] = useState('monthly');
   const [showDebug, setShowDebug] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview'); // overview, defi, positions, detection
 
-  // Lade Portfolio-Daten (mit ROI)
-  const loadROIData = async () => {
+  // 🚀 LADE ALLE ROI-RELEVANTEN DATEN (V2: CACHE-OPTIMIERT)
+  const loadAllROIData = async () => {
     if (!user?.id) return;
     
     try {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 ROI TRACKER: Loading data...');
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      console.log('🔄 ROI TRACKER V2: Loading ROI data with smart caching...');
       
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setPortfolioData(data);
-        setLastUpdate(new Date());
-        console.log('✅ ROI TRACKER: Data loaded', {
-          roiTransactions: data.roiTransactions.length,
-          dailyROI: data.dailyROI,
-          weeklyROI: data.weeklyROI,
-          monthlyROI: data.monthlyROI
-        });
+      // 1. 📦 Portfolio-Daten aus Cache/API (Smart Cache Service)
+      const portfolioResponse = await CentralDataService.loadCompletePortfolio(user.id);
+      
+      console.log('📊 ROI TRACKER: Portfolio Response:', {
+        success: portfolioResponse.success,
+        isLoaded: portfolioResponse.isLoaded,
+        fromCache: portfolioResponse.fromCache,
+        totalValue: portfolioResponse.totalValue,
+        tokenCount: portfolioResponse.tokenCount,
+        apiCalls: portfolioResponse.apiCalls || 'Cache Hit',
+        cacheInfo: portfolioResponse.cacheOptimization
+      });
+      
+      // 2. 🔥 MULTI-CHAIN WALLET SELECTION für Moralis DeFi APIs
+      const wallets = portfolioResponse.wallets || [];
+      console.log('📱 Available wallets:', wallets.map(w => ({ address: w.address?.slice(0, 8) + '...', chain: w.chain })));
+      
+      // Suche Ethereum-Wallet ODER verwende PulseChain-Wallet für Ethereum DeFi Test
+      let primaryWallet = wallets.find(w => w.chain === 'ethereum');
+      
+      if (!primaryWallet && wallets.length > 0) {
+        // 🔄 FALLBACK: Verwende PulseChain-Wallet für Ethereum DeFi Test
+        primaryWallet = wallets.find(w => w.chain === 'pulsechain') || wallets[0];
+        console.log('🔄 FALLBACK: Using PulseChain wallet for Ethereum DeFi testing');
       }
+      
+      let defiResponse = null;
+      let roiDetectionResponse = null;
+      
+      if (primaryWallet?.address) {
+        console.log(`🚀 Loading DeFi data for wallet: ${primaryWallet.address} (Original chain: ${primaryWallet.chain})`);
+        
+        try {
+          // 3. Parallel: DeFi Summary und ROI Detection (IMMER mit Ethereum Chain ID)
+          const [defiSummary, defiPositions, roiDetection] = await Promise.all([
+            MoralisV2Service.getDefiSummary(primaryWallet.address, '1').catch(err => {
+              console.log('DeFi Summary Error:', err.message);
+              return { 
+                success: false, 
+                error: err.message, 
+                originalWalletChain: primaryWallet.chain,
+                // Mock data for testing
+                result: {
+                  active_protocols: '0',
+                  total_positions: '0',
+                  total_usd_value: '0',
+                  total_unclaimed_usd_value: '0'
+                }
+              };
+            }),
+            MoralisV2Service.getDefiPositions(primaryWallet.address, '1').catch(err => {
+              console.log('DeFi Positions Error:', err.message);
+              return { 
+                success: false, 
+                error: err.message,
+                originalWalletChain: primaryWallet.chain,
+                // Mock data for testing
+                result: [],
+                positions: []
+              };
+            }),
+            ROIDetectionService.detectROISources(primaryWallet.address, '1').catch(err => {
+              console.log('ROI Detection Error:', err.message);
+              return { 
+                success: false, 
+                error: err.message,
+                originalWalletChain: primaryWallet.chain,
+                // Mock data for testing
+                sources: []
+              };
+            })
+          ]);
+          
+          // Verbesserte DeFi Response mit besserer Fehlerbehandlung
+          defiResponse = {
+            summary: {
+              ...defiSummary,
+              roiAnalysis: {
+                activeProtocols: defiSummary?.result?.active_protocols || 0,
+                totalValue: parseFloat(defiSummary?.result?.total_usd_value || '0'),
+                unclaimedValue: parseFloat(defiSummary?.result?.total_unclaimed_usd_value || '0'),
+                roiPotential: parseFloat(defiSummary?.result?.total_unclaimed_usd_value || '0') > 100 ? 'high' : 'low'
+              }
+            },
+            positions: {
+              ...defiPositions,
+              positions: defiPositions?.result || defiPositions?.positions || [],
+              roiAnalysis: {
+                totalPositions: (defiPositions?.result || defiPositions?.positions || []).length,
+                totalDailyROI: 0,
+                estimatedMonthlyROI: 0
+              }
+            },
+            wallet: primaryWallet.address,
+            originalChain: primaryWallet.chain,
+            testedAsEthereum: true
+          };
+          
+          roiDetectionResponse = roiDetection;
+          
+          console.log('🔥 MORALIS RESULTS:', {
+            wallet: primaryWallet.address.slice(0, 8) + '...',
+            originalChain: primaryWallet.chain,
+            defiSummarySuccess: defiSummary.success,
+            defiPositionsSuccess: defiPositions.success,
+            roiDetectionSuccess: roiDetection.success,
+            portfolioData: {
+              totalValue: portfolioResponse.totalValue,
+              monthlyROI: portfolioResponse.monthlyROI,
+              dailyROI: portfolioResponse.dailyROI,
+              weeklyROI: portfolioResponse.weeklyROI
+            }
+          });
+        } catch (apiError) {
+          console.error('API Error:', apiError);
+          // Fallback mit Mock-Daten
+          defiResponse = {
+            summary: { 
+              success: false, 
+              error: apiError.message,
+              roiAnalysis: {
+                activeProtocols: 0,
+                totalValue: 0,
+                unclaimedValue: 0,
+                roiPotential: 'low'
+              }
+            },
+            positions: { 
+              success: false, 
+              positions: [],
+              roiAnalysis: {
+                totalPositions: 0,
+                totalDailyROI: 0,
+                estimatedMonthlyROI: 0
+              }
+            },
+            wallet: primaryWallet.address,
+            originalChain: primaryWallet.chain,
+            testedAsEthereum: true
+          };
+        }
+      } else {
+        console.log('⚠️ No wallet address found for DeFi analysis');
+        // Mock-Daten wenn keine Wallet
+        defiResponse = {
+          summary: { 
+            success: false, 
+            error: 'No wallet found',
+            roiAnalysis: {
+              activeProtocols: 0,
+              totalValue: 0,
+              unclaimedValue: 0,
+              roiPotential: 'low'
+            }
+          },
+          positions: { 
+            success: false, 
+            positions: [],
+            roiAnalysis: {
+              totalPositions: 0,
+              totalDailyROI: 0,
+              estimatedMonthlyROI: 0
+            }
+          },
+          wallet: null,
+          originalChain: null,
+          testedAsEthereum: false
+        };
+      }
+      
+      // 🎯 Portfolio-Daten validieren und setzen (Cache oder Fresh)
+      let validPortfolioData;
+      
+      if (portfolioResponse.success || portfolioResponse.isLoaded) {
+        // ✅ Gültige Daten (aus Cache oder frisch von APIs)
+        validPortfolioData = portfolioResponse;
+        console.log(`✅ ROI TRACKER: Valid portfolio data ${portfolioResponse.fromCache ? 'from CACHE' : 'from APIs'}`);
+      } else {
+        // ❌ Fallback für fehlerhafte Daten
+        console.warn('⚠️ ROI TRACKER: Using fallback portfolio data');
+        validPortfolioData = {
+          success: true,
+          isLoaded: true,
+          totalValue: 0,
+          monthlyROI: 0,
+          dailyROI: 0,
+          weeklyROI: 0,
+          tokens: [],
+          wallets: [],
+          roiTransactions: [],
+          tokenCount: 0,
+          walletCount: 0,
+          fromCache: false,
+          error: portfolioResponse.error || 'No valid portfolio data'
+        };
+      }
+      
+      setPortfolioData(validPortfolioData);
+      
+      setDefiData(defiResponse);
+      setROIDetectionData(roiDetectionResponse);
+      setLastUpdate(new Date());
+      
+      console.log('✅ ROI TRACKER V2: All data loaded', {
+        portfolioROI: portfolioResponse.monthlyROI || 0,
+        portfolioValue: portfolioResponse.totalValue || 0,
+        defiPositions: defiResponse?.positions?.positions?.length || 0,
+        roiSources: roiDetectionResponse?.sources?.length || 0,
+        walletUsed: primaryWallet?.address?.slice(0, 8) + '...' || 'None',
+        originalChain: primaryWallet?.chain || 'None',
+        dataLoaded: true
+      });
+      
     } catch (err) {
-      console.error('💥 ROI TRACKER ERROR:', err);
+      console.error('💥 ROI TRACKER V2 ERROR:', err);
       setError(err.message);
+      
+      // Auch bei Fehlern Mock-Daten setzen, damit UI funktioniert
+      setPortfolioData({
+        success: false,
+        totalValue: 0,
+        monthlyROI: 0,
+        dailyROI: 0,
+        weeklyROI: 0,
+        tokens: [],
+        wallets: [],
+        roiTransactions: [],
+        error: err.message
+      });
+      setDefiData({
+        summary: { success: false, error: err.message, roiAnalysis: { activeProtocols: 0, totalValue: 0, unclaimedValue: 0, roiPotential: 'low' } },
+        positions: { success: false, positions: [], roiAnalysis: { totalPositions: 0, totalDailyROI: 0, estimatedMonthlyROI: 0 } }
+      });
     } finally {
       setLoading(false);
     }
@@ -68,12 +295,12 @@ const ROITrackerView = () => {
 
   // Initial load
   useEffect(() => {
-    loadROIData();
+    loadAllROIData();
   }, [user?.id]);
 
-  // Auto-refresh every 5 minutes
+  // Auto-refresh every 10 minutes
   useEffect(() => {
-    const interval = setInterval(loadROIData, 5 * 60 * 1000);
+    const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user?.id]);
 
@@ -82,7 +309,13 @@ const ROITrackerView = () => {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="pulse-card p-8 text-center">
           <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
-          <span className="text-lg pulse-text">ROI-Daten werden geladen...</span>
+          <div className="space-y-2">
+            <span className="text-lg pulse-text">🚀 Smart Cache Loading...</span>
+            <p className="text-sm pulse-text-secondary">Checking Cache • Portfolio • ROI Analysis</p>
+            <p className="text-xs pulse-text-secondary text-orange-400">
+              Cache Hit = 0 API calls | Fresh Data = Normal API usage
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -95,7 +328,7 @@ const ROITrackerView = () => {
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden der ROI-Daten</h2>
           <p className="pulse-text-secondary mb-4">{error}</p>
-          <Button onClick={loadROIData} className="bg-green-500 hover:bg-green-600">
+          <Button onClick={loadAllROIData} className="bg-green-500 hover:bg-green-600">
             <RefreshCw className="h-4 w-4 mr-2" />
             Erneut versuchen
           </Button>
@@ -104,109 +337,59 @@ const ROITrackerView = () => {
     );
   }
 
-  if (!portfolioData) {
-    return (
-      <div className="min-h-screen bg-black p-6">
-        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
-          <TrendingUp className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-          <h2 className="text-xl font-semibold mb-2 pulse-text">Keine ROI-Daten verfügbar</h2>
-          <p className="pulse-text-secondary mb-4">
-            Fügen Sie zuerst Ihre Wallet-Adressen hinzu oder warten Sie auf neue ROI-Transaktionen.
-          </p>
-          <Button onClick={loadROIData} className="bg-green-500 hover:bg-green-600">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Erneut laden
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // BERECHNE KOMBINIERTE ROI-STATISTIKEN
+  const getCombinedROIStats = () => {
+    console.log('📊 Calculating ROI Stats:', { 
+      portfolioData: portfolioData ? 'loaded' : 'null', 
+      defiData: defiData ? 'loaded' : 'null' 
+    });
+    
+    const portfolioROI = {
+      daily: portfolioData?.dailyROI || 0,
+      weekly: portfolioData?.weeklyROI || 0,
+      monthly: portfolioData?.monthlyROI || 0
+    };
+    
+    const defiROI = {
+      daily: defiData?.positions?.roiAnalysis?.totalDailyROI || 0,
+      weekly: (defiData?.positions?.roiAnalysis?.totalDailyROI || 0) * 7,
+      monthly: defiData?.positions?.roiAnalysis?.estimatedMonthlyROI || 0
+    };
+    
+    const totalROI = {
+      daily: portfolioROI.daily + defiROI.daily,
+      weekly: portfolioROI.weekly + defiROI.weekly,
+      monthly: portfolioROI.monthly + defiROI.monthly
+    };
+    
+    console.log('💰 ROI Calculation Result:', {
+      portfolioROI,
+      defiROI,
+      totalROI,
+      portfolioValue: portfolioData?.totalValue || 0
+    });
+    
+    return { portfolioROI, defiROI, totalROI };
+  };
 
+  const roiStats = getCombinedROIStats();
+  
   const getCurrentROI = () => {
-    switch (timeFrame) {
-      case 'daily': return portfolioData.dailyROI || 0;
-      case 'weekly': return portfolioData.weeklyROI || 0;
-      case 'monthly': return portfolioData.monthlyROI || 0;
-      default: return portfolioData.monthlyROI || 0;
-    }
+    return roiStats.totalROI[timeFrame] || 0;
   };
 
   const getROIPercentage = () => {
-    const totalValue = portfolioData.totalValue || 0;
+    const totalValue = portfolioData?.totalValue || 0;
     const currentROI = getCurrentROI();
     return totalValue > 0 ? (currentROI / totalValue) * 100 : 0;
   };
 
-  // Filter ROI-Transaktionen nach Zeitrahmen
-  const getFilteredROITransactions = () => {
-    if (!portfolioData.roiTransactions) return [];
-    
-    const now = Date.now();
-    const timeFrameMs = {
-      daily: 24 * 60 * 60 * 1000,
-      weekly: 7 * 24 * 60 * 60 * 1000,
-      monthly: 30 * 24 * 60 * 60 * 1000
-    };
-    
-    const cutoff = now - timeFrameMs[timeFrame];
-    
-    return portfolioData.roiTransactions.filter(tx => 
-      new Date(tx.timestamp).getTime() > cutoff
-    );
-  };
-
-  // Gruppiere ROI-Transaktionen nach Token
-  const getROIByToken = () => {
-    const filteredTransactions = getFilteredROITransactions();
-    const tokenMap = new Map();
-    
-    filteredTransactions.forEach(tx => {
-      const existing = tokenMap.get(tx.tokenSymbol) || {
-        symbol: tx.tokenSymbol,
-        name: tx.tokenName,
-        contractAddress: tx.contractAddress,
-        totalAmount: 0,
-        totalValue: 0,
-        transactionCount: 0,
-        latestPrice: tx.price
-      };
-      
-      existing.totalAmount += tx.amount;
-      existing.totalValue += tx.value;
-      existing.transactionCount += 1;
-      
-      tokenMap.set(tx.tokenSymbol, existing);
-    });
-    
-    return Array.from(tokenMap.values()).sort((a, b) => b.totalValue - a.totalValue);
-  };
-
-  const roiStats = [
-    {
-      title: 'Täglicher ROI',
-      value: formatCurrency(portfolioData.dailyROI || 0),
-      icon: Clock,
-      active: timeFrame === 'daily',
-      onClick: () => setTimeFrame('daily')
-    },
-    {
-      title: 'Wöchentlicher ROI',
-      value: formatCurrency(portfolioData.weeklyROI || 0),
-      icon: Calendar,
-      active: timeFrame === 'weekly',
-      onClick: () => setTimeFrame('weekly')
-    },
-    {
-      title: 'Monatlicher ROI',
-      value: formatCurrency(portfolioData.monthlyROI || 0),
-      icon: TrendingUp,
-      active: timeFrame === 'monthly',
-      onClick: () => setTimeFrame('monthly')
-    }
+  const tabs = [
+    { id: 'overview', label: 'Überblick', icon: PieChart },
+    { id: 'defi', label: 'DeFi Positionen', icon: Target },
+    { id: 'positions', label: 'ROI Quellen', icon: Zap },
+    { id: 'detection', label: 'ROI Detection', icon: Activity }
   ];
-
-  const filteredTransactions = getFilteredROITransactions();
-  const roiByToken = getROIByToken();
 
   return (
     <div className="min-h-screen bg-black p-6">
@@ -215,9 +398,9 @@ const ROITrackerView = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold pulse-title">ROI Tracker</h1>
+            <h1 className="text-3xl font-bold pulse-title">ROI Tracker V2</h1>
             <p className="pulse-text-secondary">
-              Echte PulseChain ROI-Daten • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
+              Enterprise DeFi Analytics • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
             </p>
           </div>
           <div className="flex space-x-2">
@@ -229,228 +412,460 @@ const ROITrackerView = () => {
               {showDebug ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               Debug
             </Button>
-            <Button onClick={loadROIData} disabled={loading}>
+            <Button onClick={loadAllROIData} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Aktualisieren
             </Button>
           </div>
         </div>
 
-        {/* ROI PRICE VALIDATION WARNING */}
-        {portfolioData.roiTransactions?.filter(tx => tx.value === 0 && tx.amount > 0.001).length > 0 && (
-          <div className="pulse-card p-4 mb-6 border-l-4 border-yellow-500">
+        {/* 🔥 SMART CACHE STATUS */}
+        <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
+          <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 mr-2 text-yellow-400" />
-              <span className="pulse-text font-medium">
-                ⚠ {portfolioData.roiTransactions.filter(tx => tx.value === 0 && tx.amount > 0.001).length} ROI-Transaktionen ohne verlässliche Preise
-              </span>
+              <Target className="h-5 w-5 mr-2 text-green-400" />
+              <div>
+                <span className="pulse-text font-medium">
+                  🚀 Smart Cache Status: {portfolioData?.fromCache ? 'CACHE HIT' : 'FRESH DATA'}
+                </span>
+                <p className="pulse-text-secondary text-sm">
+                  Portfolio: {portfolioData ? '✅' : '❌'} • 
+                  Source: {portfolioData?.fromCache ? '📦 Cache' : '🔄 API'} • 
+                  API Calls: {portfolioData?.fromCache ? '0' : (portfolioData?.apiCalls || 'N/A')} • 
+                  Value: ${(portfolioData?.totalValue || 0).toFixed(0)}
+                </p>
+              </div>
             </div>
-            <p className="pulse-text-secondary text-sm mt-1">
-              Diese ROI-Transaktionen zeigen $0.00 bis verlässliche Preise verfügbar sind.
-            </p>
+            {portfolioData?.fromCache ? (
+              <Badge variant="outline" className="text-orange-400 border-orange-400">
+                📦 CACHED
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-cyan-400 border-cyan-400">
+                🔄 FRESH
+              </Badge>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* ROI Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {roiStats.map((stat, index) => (
-            <div 
-              key={index} 
-              className={`pulse-card p-6 cursor-pointer transition-all ${stat.active ? 'ring-2 ring-green-400 bg-green-400/10' : 'hover:bg-white/5'}`}
-              onClick={stat.onClick}
-            >
-              <div className="flex items-center">
-                <div className={`${stat.active ? 'bg-green-500' : 'bg-gray-600'} p-3 rounded-lg`}>
-                  <stat.icon className="h-6 w-6 text-white" />
+        {/* MORALIS STATUS INDICATORS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="pulse-card p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm pulse-text-secondary">Portfolio ROI</p>
+                <p className="text-xl font-bold text-green-400">
+                  {formatCurrency(roiStats.portfolioROI[timeFrame])}
+                </p>
+                <p className="text-xs pulse-text-secondary">
+                  {portfolioData?.roiTransactions?.length || 0} Transaktionen
+                </p>
+              </div>
+              <BarChart3 className="h-6 w-6 text-green-400" />
+            </div>
+          </div>
+          
+          <div className="pulse-card p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm pulse-text-secondary">🔥 Moralis DeFi ROI</p>
+                <p className="text-xl font-bold text-blue-400">
+                  {formatCurrency(roiStats.defiROI[timeFrame])}
+                </p>
+                <p className="text-xs pulse-text-secondary">
+                  ${(defiData?.summary?.roiAnalysis?.unclaimedValue || 0).toFixed(2)} unclaimed
+                </p>
+              </div>
+              <Target className="h-6 w-6 text-blue-400" />
+            </div>
+          </div>
+          
+          <div className="pulse-card p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm pulse-text-secondary">Gesamt ROI</p>
+                <p className="text-xl font-bold text-purple-400">
+                  {formatCurrency(getCurrentROI())}
+                </p>
+                <p className="text-xs pulse-text-secondary">
+                  {formatPercentage(getROIPercentage())} des Portfolios
+                </p>
+              </div>
+              <TrendingUp className="h-6 w-6 text-purple-400" />
+            </div>
+          </div>
+          
+          <div className="pulse-card p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm pulse-text-secondary">DeFi Positionen</p>
+                <p className="text-xl font-bold text-orange-400">
+                  {defiData?.positions?.roiAnalysis?.totalPositions || 0}
+                </p>
+                <p className="text-xs pulse-text-secondary">
+                  ${(defiData?.summary?.roiAnalysis?.totalValue || 0).toFixed(0)} DeFi Value
+                </p>
+              </div>
+              <Coins className="h-6 w-6 text-orange-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Time Frame Selector */}
+        <div className="flex justify-center mb-6">
+          <div className="pulse-card p-1 flex">
+            {['daily', 'weekly', 'monthly'].map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTimeFrame(tf)}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  timeFrame === tf 
+                    ? 'bg-green-500 text-white' 
+                    : 'pulse-text hover:bg-white/5'
+                }`}
+              >
+                {tf === 'daily' ? 'Täglich' : tf === 'weekly' ? 'Wöchentlich' : 'Monatlich'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-6">
+          <div className="pulse-card p-1 flex">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+                  activeTab === tab.id 
+                    ? 'bg-blue-500 text-white' 
+                    : 'pulse-text hover:bg-white/5'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* OVERVIEW TAB */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* ROI Summary */}
+            <div className="pulse-card p-6">
+              <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
+                <DollarSign className="h-5 w-5 mr-2 text-green-400" />
+                {timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI Überblick
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-green-400">{formatCurrency(getCurrentROI())}</p>
+                  <p className="text-sm pulse-text-secondary">Gesamt ROI</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium pulse-text-secondary">{stat.title}</p>
-                  <p className="text-2xl font-bold pulse-text">{stat.value}</p>
-                  {stat.active && (
-                    <p className="text-sm text-green-400">
-                      {formatPercentage(getROIPercentage())} des Portfolios
-                    </p>
-                  )}
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-blue-400">{formatPercentage(getROIPercentage())}</p>
+                  <p className="text-sm pulse-text-secondary">ROI %</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-purple-400">
+                    {(portfolioData?.roiTransactions?.length || 0) + (defiData?.positions?.positions?.length || 0)}
+                  </p>
+                  <p className="text-sm pulse-text-secondary">Quellen</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-orange-400">
+                    {formatCurrency(portfolioData?.totalValue || 0)}
+                  </p>
+                  <p className="text-sm pulse-text-secondary">Portfolio</p>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* ROI Breakdown */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="pulse-card p-6">
+                <h4 className="text-lg font-bold pulse-title mb-4">Portfolio ROI Breakdown</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="pulse-text-secondary">Transaktionen</span>
+                    <span className="pulse-text font-medium">{formatCurrency(roiStats.portfolioROI[timeFrame])}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="pulse-text-secondary">DeFi Positionen</span>
+                    <span className="pulse-text font-medium">{formatCurrency(roiStats.defiROI[timeFrame])}</span>
+                  </div>
+                  <div className="border-t border-white/10 pt-2 flex justify-between">
+                    <span className="pulse-text font-medium">Gesamt</span>
+                    <span className="pulse-text font-bold text-green-400">{formatCurrency(getCurrentROI())}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pulse-card p-6">
+                <h4 className="text-lg font-bold pulse-title mb-4">Moralis DeFi Status</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="pulse-text-secondary">Aktive Protokolle</span>
+                    <Badge variant="outline" className="text-green-400 border-green-400">
+                      {defiData?.summary?.roiAnalysis?.activeProtocols || 0}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="pulse-text-secondary">DeFi Wert</span>
+                    <span className="pulse-text font-medium">
+                      {formatCurrency(defiData?.summary?.roiAnalysis?.totalValue || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="pulse-text-secondary">Unclaimed Rewards</span>
+                    <span className="pulse-text font-medium text-green-400">
+                      {formatCurrency(defiData?.summary?.roiAnalysis?.unclaimedValue || 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DEFI TAB */}
+        {activeTab === 'defi' && (
+          <div className="space-y-6">
+            {defiData?.summary?.success ? (
+              <>
+                {/* DeFi Summary */}
+                <div className="pulse-card p-6">
+                  <h3 className="text-lg font-bold pulse-title mb-4">DeFi Portfolio Summary</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-400">
+                        {defiData.summary.roiAnalysis.activeProtocols}
+                      </p>
+                      <p className="text-sm pulse-text-secondary">Aktive Protokolle</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-400">
+                        {formatCurrency(defiData.summary.roiAnalysis.totalValue)}
+                      </p>
+                      <p className="text-sm pulse-text-secondary">DeFi Wert</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-purple-400">
+                        {formatCurrency(defiData.summary.roiAnalysis.unclaimedValue)}
+                      </p>
+                      <p className="text-sm pulse-text-secondary">Unclaimed</p>
+                    </div>
+                    <div className="text-center">
+                      <Badge variant="outline" className={`text-lg px-3 py-1 ${
+                        defiData.summary.roiAnalysis.roiPotential === 'high' 
+                          ? 'text-green-400 border-green-400' 
+                          : 'text-yellow-400 border-yellow-400'
+                      }`}>
+                        {defiData.summary.roiAnalysis.roiPotential === 'high' ? 'HIGH ROI' : 'LOW ROI'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DeFi Positions */}
+                {defiData.positions?.success && defiData.positions.positions?.length > 0 && (
+                  <div className="pulse-card p-6">
+                    <h3 className="text-lg font-bold pulse-title mb-4">DeFi Positionen</h3>
+                    <div className="space-y-4">
+                      {defiData.positions.positions.map((position, index) => (
+                        <div key={index} className="border border-white/10 rounded-lg p-4 bg-slate-800/30">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h4 className="font-medium pulse-text">{position.protocol}</h4>
+                              <p className="text-sm pulse-text-secondary">{position.label}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-green-400">{formatCurrency(position.balanceUsd)}</p>
+                              {position.unclaimedUsd > 0 && (
+                                <p className="text-sm text-blue-400">+{formatCurrency(position.unclaimedUsd)} unclaimed</p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {position.apy > 0 && (
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="pulse-text-secondary">APY:</span>
+                              <span className="text-green-400 font-medium">{position.apy.toFixed(2)}%</span>
+                            </div>
+                          )}
+                          
+                          {position.estimatedDailyROI > 0 && (
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="pulse-text-secondary">Tägliche ROI:</span>
+                              <span className="text-purple-400">{formatCurrency(position.estimatedDailyROI)}</span>
+                            </div>
+                          )}
+                          
+                          {position.tokens && position.tokens.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-white/10">
+                              <p className="text-sm pulse-text-secondary mb-2">Token:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {position.tokens.map((token, tokenIndex) => (
+                                  <Badge key={tokenIndex} variant="outline" className="text-xs">
+                                    {token.balanceFormatted} {token.symbol}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="pulse-card p-6 text-center">
+                <Target className="h-12 w-12 mx-auto mb-4 opacity-50 pulse-text-secondary" />
+                <h3 className="text-lg font-medium pulse-text mb-2">Keine DeFi-Daten verfügbar</h3>
+                <p className="pulse-text-secondary">
+                  {defiData?.summary?.error || 'DeFi-Daten konnten nicht geladen werden'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* POSITIONS TAB */}
+        {activeTab === 'positions' && (
+          <div className="space-y-6">
+            {/* Portfolio ROI Transactions */}
+            {portfolioData?.roiTransactions && portfolioData.roiTransactions.length > 0 ? (
+              <div className="pulse-card p-6">
+                <h3 className="text-lg font-bold pulse-title mb-4">Portfolio ROI Transaktionen</h3>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {portfolioData.roiTransactions.slice(0, 20).map((tx, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border border-white/10 rounded-lg bg-slate-800/30">
+                      <div className="flex items-center space-x-3">
+                        <div>
+                          <div className="font-medium pulse-text">{tx.tokenSymbol}</div>
+                          <div className="text-sm pulse-text-secondary">
+                            {new Date(tx.timestamp).toLocaleDateString('de-DE')}
+                          </div>
+                          <div className="text-xs pulse-text-secondary opacity-75">
+                            {tx.roiReason}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-400">
+                          {formatCurrency(tx.value)}
+                        </div>
+                        <div className="text-sm pulse-text-secondary">
+                          {formatNumber(tx.amount, 4)} {tx.tokenSymbol}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="pulse-card p-6 text-center">
+                <Zap className="h-12 w-12 mx-auto mb-4 opacity-50 pulse-text-secondary" />
+                <h3 className="text-lg font-medium pulse-text mb-2">Keine ROI-Transaktionen</h3>
+                <p className="pulse-text-secondary">Fügen Sie Wallet-Adressen hinzu oder warten Sie auf neue ROI-Aktivitäten</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DETECTION TAB */}
+        {activeTab === 'detection' && (
+          <div className="space-y-6">
+            {roiDetectionData?.success ? (
+              <div className="pulse-card p-6">
+                <h3 className="text-lg font-bold pulse-title mb-4">ROI Detection Results</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-400">{roiDetectionData.sources?.length || 0}</p>
+                    <p className="text-sm pulse-text-secondary">ROI Quellen</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-400">
+                      {formatCurrency(roiDetectionData.totalPotential || 0)}
+                    </p>
+                    <p className="text-sm pulse-text-secondary">Potenzial</p>
+                  </div>
+                  <div className="text-center">
+                    <Badge variant="outline" className={`text-lg px-3 py-1 ${
+                      roiDetectionData.riskLevel === 'low' ? 'text-green-400 border-green-400' :
+                      roiDetectionData.riskLevel === 'medium' ? 'text-yellow-400 border-yellow-400' :
+                      'text-red-400 border-red-400'
+                    }`}>
+                      {roiDetectionData.riskLevel?.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-400">
+                      {roiDetectionData.confidence ? `${(roiDetectionData.confidence * 100).toFixed(0)}%` : 'N/A'}
+                    </p>
+                    <p className="text-sm pulse-text-secondary">Confidence</p>
+                  </div>
+                </div>
+
+                {roiDetectionData.sources && roiDetectionData.sources.length > 0 && (
+                  <div className="space-y-3">
+                    {roiDetectionData.sources.map((source, index) => (
+                      <div key={index} className="border border-white/10 rounded-lg p-4 bg-slate-800/30">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-medium pulse-text">{source.type}</h4>
+                            <p className="text-sm pulse-text-secondary">{source.description}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-green-400">{formatCurrency(source.potential || 0)}</p>
+                            <Badge variant="outline" className="text-xs">
+                              {source.confidence ? `${(source.confidence * 100).toFixed(0)}%` : 'N/A'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="pulse-card p-6 text-center">
+                <Activity className="h-12 w-12 mx-auto mb-4 opacity-50 pulse-text-secondary" />
+                <h3 className="text-lg font-medium pulse-text mb-2">ROI Detection nicht verfügbar</h3>
+                <p className="pulse-text-secondary">
+                  {roiDetectionData?.error || 'ROI Detection konnte nicht ausgeführt werden'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Debug Information */}
-        {showDebug && portfolioData.debug && (
-          <div className="pulse-card p-6 mb-6">
+        {showDebug && (
+          <div className="pulse-card p-6 mt-6">
             <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
               <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
-              ROI Debug Information
+              Debug Information
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <span className="font-medium pulse-text-secondary">ROI Transaktionen:</span>
-                <p className="pulse-text">{portfolioData.roiTransactions?.length || 0}</p>
+                <span className="font-medium pulse-text-secondary">Portfolio Loaded:</span>
+                <p className="pulse-text">{portfolioData?.success ? 'Yes' : 'No'}</p>
               </div>
               <div>
-                <span className="font-medium pulse-text-secondary">Gefiltert ({timeFrame}):</span>
-                <p className="pulse-text">{filteredTransactions.length}</p>
+                <span className="font-medium pulse-text-secondary">DeFi Data:</span>
+                <p className="pulse-text">{defiData?.summary?.success ? 'Yes' : 'No'}</p>
               </div>
               <div>
-                <span className="font-medium pulse-text-secondary">Einzigartige Token:</span>
-                <p className="pulse-text">{roiByToken.length}</p>
+                <span className="font-medium pulse-text-secondary">ROI Detection:</span>
+                <p className="pulse-text">{roiDetectionData?.success ? 'Yes' : 'No'}</p>
               </div>
               <div>
-                <span className="font-medium pulse-text-secondary">ROI Percentage:</span>
-                <p className="pulse-text">{formatPercentage(getROIPercentage())}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Current ROI Summary */}
-        <div className="pulse-card p-6 mb-6">
-          <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
-            <DollarSign className="h-5 w-5 mr-2 text-green-400" />
-            {timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI Überblick
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-green-400">{formatCurrency(getCurrentROI())}</p>
-              <p className="text-sm pulse-text-secondary">Gesamt ROI</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-blue-400">{formatPercentage(getROIPercentage())}</p>
-              <p className="text-sm pulse-text-secondary">ROI %</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-purple-400">{filteredTransactions.length}</p>
-              <p className="text-sm pulse-text-secondary">Transaktionen</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-orange-400">{roiByToken.length}</p>
-              <p className="text-sm pulse-text-secondary">Token</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* ROI by Token */}
-          <div className="pulse-card p-6">
-            <h3 className="text-lg font-bold pulse-title mb-4">ROI nach Token ({timeFrame})</h3>
-            {roiByToken.length > 0 ? (
-              <div className="space-y-3">
-                {roiByToken.map((token, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Badge variant="outline" className="text-xs border-green-400 text-green-400">
-                        #{index + 1}
-                      </Badge>
-                      <div>
-                        <div className="font-medium pulse-text">{token.symbol}</div>
-                        <div className="text-sm pulse-text-secondary">
-                          {token.transactionCount} Transaktionen
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-green-400">
-                        {formatCurrency(token.totalValue)}
-                      </div>
-                      <div className="text-sm pulse-text-secondary">
-                        {formatNumber(token.totalAmount, 4)} {token.symbol}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 pulse-text-secondary">
-                <Coins className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
-              </div>
-            )}
-          </div>
-
-          {/* Recent ROI Transactions */}
-          <div className="pulse-card p-6">
-            <h3 className="text-lg font-bold pulse-title mb-4">Letzte ROI-Transaktionen ({timeFrame})</h3>
-            {filteredTransactions.length > 0 ? (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {filteredTransactions.slice(0, 20).map((tx, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border border-white/10 rounded-lg bg-slate-800/30">
-                    <div className="flex items-center space-x-3">
-                      <div>
-                        <div className="font-medium pulse-text">{tx.tokenSymbol}</div>
-                        <div className="text-sm pulse-text-secondary">
-                          {new Date(tx.timestamp).toLocaleDateString('de-DE')} {new Date(tx.timestamp).toLocaleTimeString('de-DE')}
-                        </div>
-                        <div className="text-xs pulse-text-secondary opacity-75">
-                          {tx.roiReason}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-green-400">
-                        {formatCurrency(tx.value)}
-                      </div>
-                      <div className="text-sm pulse-text-secondary">
-                        {formatNumber(tx.amount, 4)} {tx.tokenSymbol}
-                      </div>
-                      <div className="flex items-center space-x-1 mt-1">
-                        <a
-                          href={tx.explorerUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                        {tx.tokenExplorerUrl && (
-                          <a
-                            href={tx.tokenExplorerUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-green-400 hover:text-green-300"
-                          >
-                            <TrendingUp className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 pulse-text-secondary">
-                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Keine ROI-Transaktionen im ausgewählten Zeitraum</p>
-                <p className="text-sm mt-2">Versuchen Sie einen größeren Zeitrahmen oder fügen Sie Wallet-Adressen hinzu.</p>
-              </div>
-            )}
-          </div>
-
-        </div>
-
-        {/* Total ROI Performance */}
-        {portfolioData.totalValue > 0 && getCurrentROI() > 0 && (
-          <div className="pulse-card p-6 mt-6">
-            <h3 className="text-lg font-bold pulse-title mb-4">ROI Performance</h3>
-            <div className="bg-green-500/10 border border-green-400/20 p-6 rounded-lg">
-              <div className="text-center">
-                <h4 className="text-xl font-semibold mb-2 pulse-title">Portfolio ROI Analyse</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-sm pulse-text-secondary">Portfolio Wert</p>
-                    <p className="text-2xl font-bold pulse-text">{formatCurrency(portfolioData.totalValue)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm pulse-text-secondary">{timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI</p>
-                    <p className="text-2xl font-bold text-green-400">{formatCurrency(getCurrentROI())}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm pulse-text-secondary">ROI Rendite</p>
-                    <p className="text-2xl font-bold text-blue-400">{formatPercentage(getROIPercentage())}</p>
-                  </div>
-                </div>
+                <span className="font-medium pulse-text-secondary">Wallet:</span>
+                <p className="pulse-text">{defiData?.wallet ? `${defiData.wallet.slice(0, 8)}...` : 'None'}</p>
               </div>
             </div>
           </div>

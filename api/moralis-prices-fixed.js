@@ -1,4 +1,4 @@
-// 🚀 TRANSACTION API - 100% MORALIS ONLY
+// 🚀 MORALIS PRICES API - 100% MORALIS ONLY (FIXED)
 // Enterprise-grade APIs für PulseManager mit echtem Moralis SDK
 
 import Moralis from "moralis";
@@ -7,7 +7,7 @@ import { EvmChain } from "@moralisweb3/common-evm-utils";
 let moralisInitialized = false;
 
 export default async function handler(req, res) {
-  console.log('🔥 TRANSACTION API: 100% MORALIS ONLY');
+  console.log('🔥 PRICES API: 100% MORALIS ONLY (FIXED)');
   console.log('🔥 Method:', req.method);
   
   // Enable CORS
@@ -27,9 +27,9 @@ export default async function handler(req, res) {
   try {
     // Extract parameters from both GET and POST
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { endpoint, chain, address, type, limit } = params;
+    const { endpoint, addresses, chain } = params;
     
-    console.log('🔥 Parameters:', { endpoint, chain, address, type, limit });
+    console.log('🔥 Price Parameters:', { endpoint, addresses, chain });
 
     // 🔑 Moralis API Configuration
     const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       try {
         await Moralis.start({ apiKey: MORALIS_API_KEY });
         moralisInitialized = true;
-        console.log('✅ MORALIS SDK INITIALIZED - 100% MORALIS ONLY');
+        console.log('✅ MORALIS SDK INITIALIZED for Prices - 100% MORALIS ONLY');
       } catch (initError) {
         return res.status(500).json({
           result: [],
@@ -55,12 +55,19 @@ export default async function handler(req, res) {
       }
     }
 
-    // 📊 Transaction Handling - 100% MORALIS ONLY
-    if (endpoint === 'wallet-transactions') {
+    // 📊 Price Handling - 100% MORALIS ONLY
+    if (endpoint === 'token-prices') {
       
       try {
-        console.log(`🚀 MORALIS TRANSACTIONS: ${address} on chain ${chain}`);
+        console.log(`🚀 MORALIS PRICES: ${addresses} on chain ${chain}`);
         
+        if (!addresses) {
+          return res.status(400).json({
+            result: [],
+            _error: { message: 'No addresses provided' }
+          });
+        }
+
         // ⚠️ CRITICAL FIX: PulseChain NOT SUPPORTED by Moralis
         if (chain === '369') {
           console.warn('⚠️ PulseChain (369) not supported by Moralis Enterprise APIs');
@@ -75,22 +82,49 @@ export default async function handler(req, res) {
           });
         }
         
-        // Default to Ethereum - 100% MORALIS
-        const response = await Moralis.EvmApi.transaction.getWalletTransactions({
-          address,
-          chain: EvmChain.ETHEREUM
-        });
+        // Split addresses if comma-separated
+        const addressList = addresses.split(',').map(addr => addr.trim());
+        console.log(`💰 FETCHING PRICES for ${addressList.length} tokens`);
         
-        console.log(`✅ MORALIS SUCCESS: ${response.result.length} transactions`);
+        const priceResults = [];
+        
+        // Get prices for each token - 100% MORALIS
+        for (const tokenAddress of addressList) {
+          try {
+            const tokenPrice = await Moralis.EvmApi.token.getTokenPrice({
+              address: tokenAddress,
+              chain: EvmChain.ETHEREUM
+            });
+            
+            priceResults.push({
+              tokenAddress,
+              tokenSymbol: tokenPrice.result.tokenSymbol,
+              tokenName: tokenPrice.result.tokenName,
+              usdPrice: tokenPrice.result.usdPrice,
+              exchangeAddress: tokenPrice.result.exchangeAddress,
+              exchangeName: tokenPrice.result.exchangeName
+            });
+            
+            console.log(`💰 ${tokenPrice.result.tokenSymbol}: $${tokenPrice.result.usdPrice}`);
+            
+          } catch (tokenError) {
+            console.warn(`⚠️ Price not found for ${tokenAddress}: ${tokenError.message}`);
+            // Continue with other tokens
+          }
+        }
+        
+        console.log(`✅ MORALIS PRICES SUCCESS: ${priceResults.length} prices found`);
         
         return res.status(200).json({
-          ...response,
+          result: priceResults,
+          total: priceResults.length,
+          chain: chain,
           _moralis_only: true,
           _source: '100_percent_moralis'
         });
         
       } catch (moralisError) {
-        console.error('💥 MORALIS ERROR:', moralisError.message);
+        console.error('💥 MORALIS PRICES ERROR:', moralisError.message);
         
         return res.status(500).json({
           result: [],
@@ -106,12 +140,12 @@ export default async function handler(req, res) {
     return res.status(400).json({
       success: false,
       error: 'Invalid endpoint',
-      available: ['wallet-transactions'],
+      available: ['token-prices'],
       _moralis_only: true
     });
 
   } catch (error) {
-    console.error('💥 API ERROR:', error.message);
+    console.error('💥 PRICES API ERROR:', error.message);
     return res.status(500).json({
       result: [],
       _error: { message: error.message }

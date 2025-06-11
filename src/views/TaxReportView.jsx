@@ -49,13 +49,20 @@ const TaxReportView = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 TAX REPORT: Loading with TaxService...');
+      console.log('🔄 TAX REPORT V2: Loading with smart caching...');
       
-      // 1. Lade User-Wallets via CentralDataService (nur für Wallet-Liste)
+      // 1. 📦 Lade User-Wallets via Smart Cache System (nur für Wallet-Liste)
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
       
+      console.log('📊 TAX REPORT: Portfolio Cache Response:', {
+        success: portfolioData.success,
+        fromCache: portfolioData.fromCache,
+        apiCalls: portfolioData.apiCalls || 'Cache Hit',
+        walletCount: portfolioData.wallets?.length || 0
+      });
+      
       // SAFETY: Check if portfolioData is valid
-      if (!portfolioData || portfolioData.error) {
+      if (!portfolioData || (!portfolioData.success && !portfolioData.isLoaded)) {
         setError(portfolioData?.error || 'Unbekannter Fehler beim Laden der Portfolio-Daten');
         return;
       }
@@ -490,7 +497,7 @@ const TaxReportView = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTransactions.slice(0, 100).map((tx, index) => (
+                    {filteredTransactions.map((tx, index) => (
                       <tr key={index} className="border-b border-white/5 hover:bg-white/5">
                         <td className="py-3 px-2">
                           <div className="text-sm pulse-text">

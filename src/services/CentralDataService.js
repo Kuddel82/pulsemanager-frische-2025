@@ -1,8 +1,10 @@
 // 🎯 CENTRAL DATA SERVICE - 100% MORALIS ENTERPRISE ONLY
-// Eliminiert ALLE kostenlosen APIs für maximale Zuverlässigkeit
-// Datum: 2025-01-11 - ENTERPRISE ONLY: Nur bezahlte Moralis APIs
+// Eliminiert ALLE kostenlosen APIs für maximale Zuverlässigkeit  
+// V2: Mit intelligenter Database-Cache-Integration
+// Datum: 2025-01-11 - ENTERPRISE + SMART CACHING
 
 import { supabase } from '@/lib/supabaseClient';
+import { DatabaseCacheService } from './DatabaseCacheService';
 
 export class CentralDataService {
   
@@ -142,9 +144,35 @@ export class CentralDataService {
    * 🎯 HAUPTFUNKTION: Lade komplette Portfolio-Daten (100% MORALIS ENTERPRISE)
    */
   static async loadCompletePortfolio(userId) {
-    console.log(`🎯 CENTRAL SERVICE (100% MORALIS ENTERPRISE): Loading complete portfolio for user ${userId}`);
+    console.log(`🎯 CENTRAL SERVICE V2 (SMART CACHING): Loading portfolio for user ${userId}`);
     
-    // Check if we have Moralis Enterprise access
+    // 🧠 STEP 1: Check Cache First (Database-First Approach)
+    const cachedPortfolio = await DatabaseCacheService.getCachedPortfolio(userId);
+    
+    if (cachedPortfolio.success) {
+      console.log(`✅ CACHE HIT: Portfolio loaded from database cache - 0 API calls used!`);
+      
+      // Mark as loaded and add cache info
+      const cachedResult = {
+        ...cachedPortfolio.data,
+        isLoaded: true,
+        success: true,
+        fromCache: true,
+        lastCacheUpdate: cachedPortfolio.lastUpdate,
+        apiCallsSaved: 'CACHE HIT - 0 API calls used',
+        cacheOptimization: {
+          cacheHit: true,
+          apiCallsAvoided: 'Multiple',
+          cachingEnabled: true
+        }
+      };
+      
+      return cachedResult;
+    }
+    
+    console.log(`❌ CACHE MISS: Loading fresh data from APIs (${cachedPortfolio.reason})`);
+    
+    // Check if we have Moralis Enterprise access (only when cache miss)
     const hasMoralisAccess = await this.hasValidMoralisApiKey();
     
     if (!hasMoralisAccess) {
@@ -161,7 +189,11 @@ export class CentralDataService {
 
       if (wallets.length === 0) {
         console.log('⚠️ No wallets found for user');
-        return this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Fügen Sie Ihre Wallet-Adressen hinzu.');
+        const emptyPortfolio = this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Fügen Sie Ihre Wallet-Adressen hinzu.');
+        
+        // Cache empty portfolio to prevent repeated calls
+        await DatabaseCacheService.setCachedPortfolio(userId, emptyPortfolio);
+        return emptyPortfolio;
       }
 
       // 2. Lade Token-Balances (100% MORALIS ENTERPRISE)
@@ -193,6 +225,7 @@ export class CentralDataService {
       // 9. Portfolio Response zusammenstellen
       const portfolioResponse = {
         success: true,
+        isLoaded: true,
         userId: userId,
         totalValue: updatedTokenData.totalValue,
         
@@ -215,22 +248,34 @@ export class CentralDataService {
         // Portfolio-Statistiken
         stats: stats,
         
-        // API-Metadaten
-        dataSource: 'moralis_enterprise_only',
+        // API-Metadaten mit Caching-Info
+        dataSource: 'moralis_enterprise_cached',
         lastUpdated: new Date().toISOString(),
         apiCalls: pricesData.apiCalls || 0,
+        fromCache: false,
+        cacheOptimization: {
+          freshDataLoaded: true,
+          apiCallsUsed: pricesData.apiCalls || 0,
+          willBeCachedFor: '15 minutes',
+          nextRequestWillBeCached: true,
+          cachingEnabled: true
+        },
         
         // Status
         isRealTimeData: true,
-        disclaimer: 'Enterprise-grade data powered by Moralis Web3 Data API v2.2'
+        disclaimer: 'Fresh data cached for optimal performance - next requests will use 0 API calls'
       };
 
-      console.log(`✅ MORALIS ENTERPRISE PORTFOLIO COMPLETE: $${portfolioResponse.totalValue.toFixed(2)} across ${portfolioResponse.tokenCount} tokens`);
+      // 💾 STEP 10: Cache the Result for future requests
+      await DatabaseCacheService.setCachedPortfolio(userId, portfolioResponse);
+      console.log(`💾 Portfolio cached for 15 minutes - next requests will use 0 API calls!`);
+
+      console.log(`✅ SMART CACHED PORTFOLIO COMPLETE: $${portfolioResponse.totalValue.toFixed(2)} across ${portfolioResponse.tokenCount} tokens (${pricesData.apiCalls || 0} API calls used, next request = 0 calls)`);
       return portfolioResponse;
 
     } catch (error) {
-      console.error('💥 ENTERPRISE Portfolio loading error:', error);
-      return this.getEmptyPortfolio(userId, `ENTERPRISE ERROR: ${error.message}`);
+      console.error('💥 SMART CACHED Portfolio loading error:', error);
+      return this.getEmptyPortfolio(userId, `SMART CACHE ERROR: ${error.message}`);
     }
   }
 

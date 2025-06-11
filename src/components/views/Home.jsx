@@ -26,24 +26,59 @@ const Home = () => {
     return fallback;
   };
 
-  // 💎 Portfolio-Daten laden
+  // 💎 Portfolio-Daten laden (V2: Mit Smart Caching)
   const loadDashboardData = async () => {
     if (!user?.id) return;
     
     setDashboardLoading(true);
     try {
-      console.log('🏠 DASHBOARD: Loading portfolio data...');
+      console.log('🏠 DASHBOARD V2: Loading portfolio data with smart caching...');
       const data = await CentralDataService.loadCompletePortfolio(user.id);
       
-      if (data.isLoaded) {
+      console.log('📊 DASHBOARD: Portfolio response:', {
+        success: data.success,
+        isLoaded: data.isLoaded,
+        fromCache: data.fromCache,
+        totalValue: data.totalValue,
+        tokenCount: data.tokenCount,
+        apiCalls: data.apiCalls || 'N/A',
+        cacheInfo: data.cacheOptimization
+      });
+      
+      if (data.success || data.isLoaded) {
         setPortfolioData(data);
         setLastUpdate(new Date());
-        console.log('✅ DASHBOARD: Portfolio loaded successfully');
+        
+        if (data.fromCache) {
+          console.log('✅ DASHBOARD: Portfolio loaded from CACHE - 0 API calls used!');
+        } else {
+          console.log(`✅ DASHBOARD: Portfolio loaded from APIs - ${data.apiCalls || 0} API calls used, next request will use cache`);
+        }
       } else {
         console.warn('⚠️ DASHBOARD: Portfolio could not be loaded:', data.error);
+        // Set empty portfolio for UI consistency
+        setPortfolioData({
+          success: false,
+          totalValue: 0,
+          tokens: [],
+          wallets: [],
+          tokenCount: 0,
+          walletCount: 0,
+          error: data.error
+        });
       }
     } catch (error) {
       console.error('💥 DASHBOARD: Error loading portfolio:', error);
+      // Set error state for UI
+      setPortfolioData({
+        success: false,
+        totalValue: 0,
+        tokens: [],
+        wallets: [],
+        tokenCount: 0,
+        walletCount: 0,
+        error: error.message
+      });
     } finally {
       setDashboardLoading(false);
     }
@@ -168,7 +203,8 @@ const Home = () => {
           </div>
           <div className="text-sm pulse-text-secondary mb-1">Portfolio Value</div>
           <div className="text-xs pulse-text-secondary">
-            {lastUpdate ? `Letzte Aktualisierung: ${lastUpdate.toLocaleTimeString()}` : 'Klicke Refresh für Daten'}
+            {lastUpdate ? `Update: ${lastUpdate.toLocaleTimeString()}` : 'Klicke Refresh'}
+            {portfolioData?.fromCache && <span className="text-green-400 ml-1">📦 Cache</span>}
           </div>
         </div>
 
@@ -190,7 +226,7 @@ const Home = () => {
           </div>
           <div className="text-sm pulse-text-secondary mb-1">Token Holdings</div>
           <div className="text-xs pulse-text-secondary">
-            Diverse Investments
+            {portfolioData?.apiCalls ? `${portfolioData.apiCalls} API calls` : 'Cached Data'}
           </div>
         </div>
 
@@ -248,30 +284,46 @@ const Home = () => {
             <h2 className="text-xl font-bold pulse-text">Portfolio Status</h2>
           </div>
           
-          {portfolioData ? (
+          {(portfolioData?.success || portfolioData?.isLoaded) ? (
             <div className="space-y-3">
               <div className="flex justify-between items-center p-3 bg-green-500/10 rounded-lg">
-                <span className="text-sm pulse-text-secondary">✅ Portfolio geladen</span>
-                <span className="text-sm text-green-400 font-medium">{portfolioData.tokenCount} Tokens</span>
+                <span className="text-sm pulse-text-secondary">
+                  ✅ Portfolio geladen {portfolioData.fromCache ? '📦' : '🔄'}
+                </span>
+                <span className="text-sm text-green-400 font-medium">{portfolioData.tokenCount || 0} Tokens</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-blue-500/10 rounded-lg">
                 <span className="text-sm pulse-text-secondary">💼 Wallets verbunden</span>
-                <span className="text-sm text-blue-400 font-medium">{portfolioData.walletCount} Wallets</span>
+                <span className="text-sm text-blue-400 font-medium">{portfolioData.walletCount || 0} Wallets</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-purple-500/10 rounded-lg">
                 <span className="text-sm pulse-text-secondary">💰 Gesamtwert</span>
-                <span className="text-sm text-purple-400 font-medium">{formatCurrency(portfolioData.totalValue)}</span>
+                <span className="text-sm text-purple-400 font-medium">{formatCurrency(portfolioData.totalValue || 0)}</span>
               </div>
+              {portfolioData.fromCache ? (
+                <div className="flex justify-between items-center p-3 bg-orange-500/10 rounded-lg">
+                  <span className="text-sm pulse-text-secondary">📦 Cache Hit</span>
+                  <span className="text-sm text-orange-400 font-medium">0 API calls</span>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center p-3 bg-cyan-500/10 rounded-lg">
+                  <span className="text-sm pulse-text-secondary">🔄 Fresh Data</span>
+                  <span className="text-sm text-cyan-400 font-medium">{portfolioData.apiCalls || 0} API calls</span>
+                </div>
+              )}
               {lastUpdate && (
                 <div className="text-xs pulse-text-secondary text-center mt-3">
-                  Letzte Aktualisierung: {lastUpdate.toLocaleString()}
+                  Update: {lastUpdate.toLocaleString()}
+                  {portfolioData.fromCache && <span className="text-orange-400 ml-2">(From Cache)</span>}
                 </div>
               )}
             </div>
           ) : (
             <div className="text-center py-8">
               <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="pulse-text-secondary">Keine Portfolio-Daten geladen</p>
+              <p className="pulse-text-secondary">
+                {portfolioData?.error ? `Fehler: ${portfolioData.error}` : 'Keine Portfolio-Daten geladen'}
+              </p>
               <p className="text-sm pulse-text-secondary mt-2">Klicke "Portfolio Aktualisieren" für Live-Daten</p>
             </div>
           )}

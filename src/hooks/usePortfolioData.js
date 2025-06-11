@@ -56,11 +56,11 @@ export const usePortfolioData = () => {
       setError(null);
       
       const startTime = Date.now();
-      console.log('🔄 SMART LOAD: Loading portfolio data...');
+      console.log('🔄 SMART LOAD V2: Loading portfolio with smart caching...');
       
       const data = await CentralDataService.loadCompletePortfolio(user.id);
       
-      if (data.error) {
+      if (!data.success && !data.isLoaded && data.error) {
         setError(data.error);
         return null;
       }
@@ -71,15 +71,23 @@ export const usePortfolioData = () => {
       setLastUpdate(new Date());
       lastLoadTime.current = now;
       
-      // 📊 Update Stats
+      // 📊 Update Stats with Cache Info
       setStats(prev => ({
         totalLoads: prev.totalLoads + 1,
         lastLoadDuration: loadDuration,
         isRateLimited: false,
-        nextAllowedLoad: new Date(now + RATE_LIMIT_MS)
+        nextAllowedLoad: new Date(now + RATE_LIMIT_MS),
+        // NEW: Cache information
+        fromCache: data.fromCache || false,
+        apiCallsUsed: data.apiCalls || 0,
+        cacheHitRate: data.fromCache ? 100 : 0
       }));
       
-      console.log(`✅ SMART LOAD: Completed in ${loadDuration}ms`);
+      if (data.fromCache) {
+        console.log(`✅ SMART LOAD V2: CACHE HIT - 0 API calls used! (${loadDuration}ms)`);
+      } else {
+        console.log(`✅ SMART LOAD V2: Fresh data loaded - ${data.apiCalls || 0} API calls used (${loadDuration}ms)`);
+      }
       return data;
       
     } catch (err) {

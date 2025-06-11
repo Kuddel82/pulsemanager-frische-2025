@@ -125,7 +125,7 @@ const SmartLoadButton = ({
             </Badge>
           )}
           
-          {/* Loading Stats */}
+          {/* Loading Stats with Cache Info */}
           {stats && stats.totalLoads > 0 && (
             <div className="flex items-center space-x-2">
               <Badge variant="secondary" className="text-xs">
@@ -137,6 +137,26 @@ const SmartLoadButton = ({
                 <Badge variant="secondary" className="text-xs">
                   <Zap className="h-3 w-3 mr-1" />
                   {(stats.lastLoadDuration / 1000).toFixed(1)}s
+                </Badge>
+              )}
+              
+              {/* Cache Hit/Miss Badge */}
+              {stats.fromCache !== undefined && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${stats.fromCache ? 'border-orange-400 text-orange-600' : 'border-cyan-400 text-cyan-600'}`}
+                >
+                  {stats.fromCache ? '📦 Cache' : '🔄 Fresh'}
+                </Badge>
+              )}
+              
+              {/* API Calls Used */}
+              {stats.apiCallsUsed !== undefined && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${stats.apiCallsUsed === 0 ? 'border-green-400 text-green-600' : 'border-blue-400 text-blue-600'}`}
+                >
+                  {stats.apiCallsUsed} API calls
                 </Badge>
               )}
             </div>

@@ -345,11 +345,143 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🏆 DEFI SUMMARY - ROI Detection Goldmine
+    if (endpoint === 'defi-summary') {
+      try {
+        console.log(`🚀 V2 DEFI SUMMARY: Getting DeFi overview for ${address} on chain ${chainId}`);
+        
+        if (chainId === '0x171') {
+          return res.status(200).json({
+            result: { 
+              active_protocols: '0', 
+              total_positions: '0', 
+              total_usd_value: '0',
+              total_unclaimed_usd_value: '0'
+            },
+            _error: { 
+              message: 'PulseChain not supported by Moralis DeFi APIs',
+              chain: chainId
+            }
+          });
+        }
+        
+        const moralisChain = EvmChain.ETHEREUM;
+        
+        const response = await Moralis.EvmApi.wallets.getDefiSummary({
+          address,
+          chain: moralisChain
+        });
+        
+        console.log(`✅ V2 DEFI SUMMARY SUCCESS: ${response.result.active_protocols} protocols, $${response.result.total_usd_value} value`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_v2_defi_summary',
+          _roi_potential: response.result.total_unclaimed_usd_value || '0'
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 DEFI SUMMARY ERROR:', error.message);
+        return res.status(500).json({
+          result: null,
+          _error: { message: error.message, source: 'moralis_v2_defi_summary' }
+        });
+      }
+    }
+
+    // 🎯 DEFI POSITIONS - ROI Source Detection
+    if (endpoint === 'defi-positions') {
+      try {
+        console.log(`🚀 V2 DEFI POSITIONS: Getting DeFi positions for ${address} on chain ${chainId}`);
+        
+        if (chainId === '0x171') {
+          return res.status(200).json({
+            result: [],
+            _error: { 
+              message: 'PulseChain not supported by Moralis DeFi APIs',
+              chain: chainId
+            }
+          });
+        }
+        
+        const moralisChain = EvmChain.ETHEREUM;
+        
+        const response = await Moralis.EvmApi.wallets.getDefiPositionsSummary({
+          address,
+          chain: moralisChain
+        });
+        
+        console.log(`✅ V2 DEFI POSITIONS SUCCESS: ${response.result.length || 'Multiple'} positions found`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_v2_defi_positions',
+          _roi_detection: true
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 DEFI POSITIONS ERROR:', error.message);
+        return res.status(500).json({
+          result: [],
+          _error: { message: error.message, source: 'moralis_v2_defi_positions' }
+        });
+      }
+    }
+
+    // 🔍 DEFI POSITIONS BY PROTOCOL - Detailed ROI Analysis
+    if (endpoint === 'defi-protocol') {
+      try {
+        const { protocol } = params;
+        if (!protocol) {
+          return res.status(400).json({
+            error: 'Protocol parameter required',
+            available_protocols: ['aave-v3', 'uniswap-v2', 'uniswap-v3', 'compound-v2']
+          });
+        }
+        
+        console.log(`🚀 V2 DEFI PROTOCOL: Getting ${protocol} positions for ${address} on chain ${chainId}`);
+        
+        if (chainId === '0x171') {
+          return res.status(200).json({
+            result: null,
+            _error: { 
+              message: 'PulseChain not supported by Moralis DeFi APIs',
+              chain: chainId
+            }
+          });
+        }
+        
+        const moralisChain = EvmChain.ETHEREUM;
+        
+        const response = await Moralis.EvmApi.wallets.getDefiPositionsByProtocol({
+          address,
+          chain: moralisChain,
+          protocol
+        });
+        
+        console.log(`✅ V2 DEFI PROTOCOL SUCCESS: ${protocol} positions loaded`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_v2_defi_protocol',
+          _protocol: protocol,
+          _detailed_roi: true
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 DEFI PROTOCOL ERROR:', error.message);
+        return res.status(500).json({
+          result: null,
+          _error: { message: error.message, source: 'moralis_v2_defi_protocol' }
+        });
+      }
+    }
+
     // Invalid endpoint
     return res.status(200).json({
       success: false,
       error: 'Invalid endpoint',
-      available: ['wallet-tokens', 'portfolio', 'history', 'stats', 'native'],
+      available: ['wallet-tokens', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol'],
       _moralis_only: true
     });
 
