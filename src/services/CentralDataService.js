@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { DatabaseCacheService } from './DatabaseCacheService';
 import { ApiInterceptorService } from './ApiInterceptorService';
 import { TokenParsingService } from './TokenParsingService';
+import { GlobalRateLimiter } from './GlobalRateLimiter';
 
 export class CentralDataService {
   
@@ -45,14 +46,19 @@ export class CentralDataService {
       name: 'PulseChain',
       nativeSymbol: 'PLS',
       moralisChainId: '0x171',
-      explorerBase: 'https://scan.pulsechain.com'
+      explorerBase: 'https://scan.pulsechain.com',
+      // ✅ MORALIS UNTERSTÜTZT PULSECHAIN mit spezifischen DEXs
+      supportedDEXs: ['PULSEX', '9mm'],
+      moralisSupported: true
     },
     ETHEREUM: {
       id: 1,
       name: 'Ethereum',
       nativeSymbol: 'ETH',
       moralisChainId: '0x1',
-      explorerBase: 'https://etherscan.io'
+      explorerBase: 'https://etherscan.io',
+      supportedDEXs: ['uniswap', 'sushiswap', '1inch'],
+      moralisSupported: true
     }
   };
 
@@ -146,13 +152,24 @@ export class CentralDataService {
    * 🎯 HAUPTFUNKTION: Lade komplette Portfolio-Daten (100% MORALIS ENTERPRISE)
    */
   static async loadCompletePortfolio(userId) {
-    console.log(`🎯 CENTRAL SERVICE V2 (SMART CACHING): Loading portfolio for user ${userId}`);
+    console.log(`🎯 CENTRAL SERVICE V2 (SMART CACHING + RATE LIMITING): Loading portfolio for user ${userId}`);
+    
+    // 🛡️ STEP 0: Global Rate Limiting Check
+    const rateLimitCheck = GlobalRateLimiter.canUserMakeRequest(userId);
+    
+    if (!rateLimitCheck.allowed) {
+      console.warn(`🛡️ RATE LIMIT: User ${userId} request blocked - ${rateLimitCheck.reason}`);
+      return this.getEmptyPortfolio(userId, `Rate limit: Please wait ${rateLimitCheck.waitTimeSeconds} seconds before trying again. Reason: ${rateLimitCheck.reason}`);
+    }
     
     // 🧠 STEP 1: Check Cache First (Database-First Approach)
     const cachedPortfolio = await DatabaseCacheService.getCachedPortfolio(userId);
     
     if (cachedPortfolio.success) {
       console.log(`✅ CACHE HIT: Portfolio loaded from database cache - 0 API calls used!`);
+      
+      // Register cache hit
+      GlobalRateLimiter.registerRequest(userId, true);
       
       // Mark as loaded and add cache info
       const cachedResult = {
@@ -166,13 +183,17 @@ export class CentralDataService {
           cacheHit: true,
           apiCallsAvoided: 'Multiple',
           cachingEnabled: true
-        }
+        },
+        rateLimitInfo: GlobalRateLimiter.getStats()
       };
       
       return cachedResult;
     }
     
     console.log(`❌ CACHE MISS: Loading fresh data from APIs (${cachedPortfolio.reason})`);
+    
+    // Register API request start
+    GlobalRateLimiter.registerRequest(userId, false);
     
     // Check if we have Moralis Enterprise access (only when cache miss)
     const hasMoralisAccess = await this.hasValidMoralisApiKey();
@@ -295,10 +316,18 @@ export class CentralDataService {
       console.log(`💾 Portfolio cached for 15 minutes - next requests will use 0 API calls!`);
 
       console.log(`✅ SMART CACHED PORTFOLIO COMPLETE: $${portfolioResponse.totalValue.toFixed(2)} across ${portfolioResponse.tokenCount} tokens (${pricesData.apiCalls || 0} API calls used, next request = 0 calls)`);
+      
+      // Mark request as completed
+      GlobalRateLimiter.completeRequest(userId);
+      
       return portfolioResponse;
 
     } catch (error) {
       console.error('💥 SMART CACHED Portfolio loading error:', error);
+      
+      // Mark request as completed even on error
+      GlobalRateLimiter.completeRequest(userId);
+      
       return this.getEmptyPortfolio(userId, `SMART CACHE ERROR: ${error.message}`);
     }
   }

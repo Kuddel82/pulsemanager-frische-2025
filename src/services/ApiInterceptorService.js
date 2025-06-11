@@ -3,8 +3,8 @@
 
 export class ApiInterceptorService {
   
-  static SUPPORTED_CHAINS = ['1', '56', '137', '43114', '250']; // Ethereum, BSC, Polygon, Avalanche, Fantom
-  static UNSUPPORTED_CHAINS = ['369']; // PulseChain
+  static SUPPORTED_CHAINS = ['1', '0x1', '56', '137', '43114', '250', '369', '0x171']; // Ethereum, BSC, Polygon, Avalanche, Fantom, PulseChain
+  static UNSUPPORTED_CHAINS = []; // Alle wichtigen Chains werden von Moralis unterstützt
   
   /**
    * 🔍 Prüfe ob Chain von Moralis unterstützt wird

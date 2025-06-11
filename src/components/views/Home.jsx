@@ -8,6 +8,7 @@ import WalletReader from '@/components/WalletReader';
 import WalletManualInput from '@/components/WalletManualInput';
 import ROICalculator from '@/components/ROICalculator';
 import CentralDataService from '@/services/CentralDataService';
+import { GlobalRateLimiter } from '@/services/GlobalRateLimiter';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -26,9 +27,20 @@ const Home = () => {
     return fallback;
   };
 
-  // 💎 Portfolio-Daten laden (V2: Mit Smart Caching)
-  const loadDashboardData = async () => {
+  // 💎 Portfolio-Daten laden (V2: Mit Smart Caching + Rate Limiting)
+  const loadDashboardData = async (forceRefresh = false) => {
     if (!user?.id) return;
+    
+    // 🛡️ RATE LIMITING CHECK
+    const now = Date.now();
+    const timeSinceLastRefresh = now - lastRefresh;
+    
+    if (!forceRefresh && timeSinceLastRefresh < RATE_LIMIT_MS) {
+      const remainingSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastRefresh) / 1000);
+      console.log(`🛡️ RATE LIMITED: Please wait ${remainingSeconds} seconds before refreshing again`);
+      setRefreshCooldown(remainingSeconds);
+      return;
+    }
     
     setDashboardLoading(true);
     try {
@@ -48,6 +60,7 @@ const Home = () => {
       if (data.success || data.isLoaded) {
         setPortfolioData(data);
         setLastUpdate(new Date());
+        setLastRefresh(now);
         
         if (data.fromCache) {
           console.log('✅ DASHBOARD: Portfolio loaded from CACHE - 0 API calls used!');
@@ -56,7 +69,6 @@ const Home = () => {
         }
       } else {
         console.warn('⚠️ DASHBOARD: Portfolio could not be loaded:', data.error);
-        // Set empty portfolio for UI consistency
         setPortfolioData({
           success: false,
           totalValue: 0,
@@ -69,7 +81,6 @@ const Home = () => {
       }
     } catch (error) {
       console.error('💥 DASHBOARD: Error loading portfolio:', error);
-      // Set error state for UI
       setPortfolioData({
         success: false,
         totalValue: 0,
@@ -131,25 +142,29 @@ const Home = () => {
     }
   };
 
-  // Initiales Laden (AUTO-LOAD)
+  // 🛡️ RATE LIMITING STATE
+  const [lastRefresh, setLastRefresh] = useState(0);
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const RATE_LIMIT_MS = 2 * 60 * 1000; // 2 Minuten Rate Limit
+
+  // Initiales Laden (EINMALIG beim Login)
   useEffect(() => {
-    if (user?.id) {
-      console.log('🚀 AUTO-LOADING: Portfolio wird automatisch geladen...');
+    if (user?.id && lastRefresh === 0) {
+      console.log('🚀 INITIAL LOAD: Portfolio wird beim Login geladen...');
       loadDashboardData();
+      setLastRefresh(Date.now());
     }
   }, [user?.id]);
 
-  // 🔄 AUTO-REFRESH alle 3 Minuten (damit User nicht nervig Button klicken muss!)
+  // 🔄 COOLDOWN TIMER
   useEffect(() => {
-    if (user?.id) {
-      const interval = setInterval(() => {
-        console.log('🔄 AUTO-REFRESH: Portfolio wird automatisch aktualisiert...');
-        loadDashboardData();
-      }, 3 * 60 * 1000); // 3 Minuten Auto-Refresh
-      
-      return () => clearInterval(interval);
+    if (refreshCooldown > 0) {
+      const timer = setInterval(() => {
+        setRefreshCooldown(prev => Math.max(0, prev - 1));
+      }, 1000);
+      return () => clearInterval(timer);
     }
-  }, [user?.id]);
+  }, [refreshCooldown]);
   
   const handleLogout = async () => {
     logger.info('Home: Attempting logout.');
@@ -261,16 +276,23 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 🔄 Refresh Button */}
+      {/* 🔄 Refresh Button mit Rate Limiting */}
       <div className="flex justify-center mb-6">
         <button
-          onClick={loadDashboardData}
-          disabled={dashboardLoading}
+          onClick={() => loadDashboardData()}
+          disabled={dashboardLoading || refreshCooldown > 0}
           className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-semibold rounded-lg hover:from-green-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           <RefreshCw className={`h-4 w-4 ${dashboardLoading ? 'animate-spin' : ''}`} />
-          {dashboardLoading ? 'Lade Portfolio...' : 'Portfolio Aktualisieren'}
+          {dashboardLoading ? 'Lade Portfolio...' : 
+           refreshCooldown > 0 ? `Warten (${refreshCooldown}s)` : 
+           'Portfolio Aktualisieren'}
         </button>
+        {refreshCooldown > 0 && (
+          <div className="ml-4 flex items-center text-sm text-orange-400">
+            ⏱️ Rate Limit: {refreshCooldown}s
+          </div>
+        )}
       </div>
 
       {/* 🔌 WalletReader - DOM-sichere Wallet-Verbindung */}
@@ -330,6 +352,11 @@ const Home = () => {
                   {portfolioData.fromCache && <span className="text-orange-400 ml-2">(From Cache)</span>}
                 </div>
               )}
+              <div className="text-xs pulse-text-secondary text-center mt-2 p-2 bg-blue-500/10 rounded">
+                🛡️ Rate Limit: Refresh alle 2 Minuten möglich (schützt vor API-Überlastung)
+                <br />
+                📊 Global: {GlobalRateLimiter.getStats().activeUsers} User aktiv, {GlobalRateLimiter.getStats().cacheHitRate}% Cache Hit Rate
+              </div>
             </div>
           ) : (
             <div className="text-center py-8">
