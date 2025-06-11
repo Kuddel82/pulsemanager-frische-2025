@@ -1,241 +1,254 @@
-// 🔥 PulseChain Wallet API Parser
-// Extrahiert Token, Transaktionen und Portfolio-Daten von scan.pulsechain.com
-// DOM-sicher mit CORS-Fallback und manueller Eingabe
+// 🎯 WALLET PARSER - 100% MORALIS ENTERPRISE ONLY
+// Eliminiert ALLE kostenlosen APIs für maximale Zuverlässigkeit
+// Datum: 2025-01-11 - ENTERPRISE ONLY: Nur bezahlte Moralis APIs
 
 import { supabase } from '@/lib/supabaseClient';
 import { TokenPriceService } from './tokenPriceService';
 
 export class WalletParser {
   
-  // 🌐 API Endpoints für verschiedene Blockchains
-  static API_ENDPOINTS = {
-    369: {
-      name: 'PulseChain',
-      baseUrl: 'https://scan.pulsechain.com/api',
-      nativeSymbol: 'PLS',
-      nativeDecimals: 18
-    },
-    1: {
-      name: 'Ethereum',
-      baseUrl: 'https://api.etherscan.io/api',
-      nativeSymbol: 'ETH',
-      nativeDecimals: 18
-    }
+  // 🚀 100% MORALIS ENTERPRISE ENDPOINTS
+  static MORALIS_ENDPOINTS = {
+    tokens: '/api/moralis-tokens',
+    prices: '/api/moralis-prices',
+    transactions: '/api/moralis-transactions',
+    tokenTransfers: '/api/moralis-token-transfers'
   };
 
-  // 💰 Token Balance Parser
-  static async parseTokenBalances(walletAddress, chainId = 369) {
-    const endpoint = this.API_ENDPOINTS[chainId];
-    if (!endpoint) throw new Error(`Chain ${chainId} not supported`);
+  // 🌐 CHAIN CONFIGURATION
+  static CHAINS = {
+    PULSECHAIN: { id: 369, moralisChainId: '0x171', name: 'PulseChain' },
+    ETHEREUM: { id: 1, moralisChainId: '0x1', name: 'Ethereum' }
+  };
 
-    console.log(`🔍 PARSING TOKENS for ${walletAddress} on ${endpoint.name}`);
-
-    try {
-      // Fetch via Proxy (CORS-FREE)
-      const apiTokens = await this.fetchTokensFromAPI(walletAddress, chainId);
-      return apiTokens;
-    } catch (apiError) {
-      console.error('💥 PROXY API ERROR:', apiError.message);
-      
-      // Return error for handling in UI
-      return {
-        success: false,
-        error: true,
-        errorMessage: apiError.message,
-        address: walletAddress,
-        chainId: chainId,
-        timestamp: new Date().toISOString()
-      };
-    }
-  }
-
-  // 🔗 API Token Fetching (with CORS handling)
-  static async fetchTokensFromAPI(walletAddress, chainId) {
-    const endpoint = this.API_ENDPOINTS[chainId];
-    
-    if (chainId === 369) {
-      // PulseChain specific API calls
-      return await this.fetchPulseChainTokens(walletAddress);
-    } else if (chainId === 1) {
-      // Ethereum specific API calls
-      return await this.fetchEthereumTokens(walletAddress);
-    }
-    
-    throw new Error(`API not implemented for chain ${chainId}`);
-  }
-
-  // 🟢 PulseChain Token Fetching via IMPROVED API v1.0 (Real Contract Addresses)
+  /**
+   * 🚀 100% MORALIS ENTERPRISE: Token Fetching (NO FREE APIS)
+   */
   static async fetchPulseChainTokens(walletAddress) {
     const timestamp = Date.now();
     
     try {
-      console.log(`🚀 FETCHING TOKENS via IMPROVED API v1.0 for: ${walletAddress} [${timestamp}]`);
+      console.log(`🚀 MORALIS ENTERPRISE: Fetching tokens for ${walletAddress} [${timestamp}]`);
       
-      // ⚡ PULSECHAIN SCAN API CALLS VIA PROXY (CORS-sicher)
-      const proxyUrl = '/api/pulsechain';
+      // 🔑 CHECK MORALIS ENTERPRISE ACCESS
+      const testResponse = await fetch('/api/moralis-tokens?endpoint=test&chain=0x171&address=0x0000000000000000000000000000000000000000');
+      const testData = await testResponse.json();
       
-      // 1. Native PLS Balance
-      const nativeUrl = `${proxyUrl}?address=${walletAddress}&action=balance&module=account&tag=latest`;
-      console.log(`🔗 Native Proxy URL: ${nativeUrl}`);
-      
-      // 2. ERC20 Token List
-      const tokenUrl = `${proxyUrl}?address=${walletAddress}&action=tokenlist&module=account`;
-      console.log(`🔗 Token Proxy URL: ${tokenUrl}`);
-      
-      // 3. Recent Transactions für ROI-Analyse
-      const txUrl = `${proxyUrl}?address=${walletAddress}&action=txlist&module=account&startblock=0&endblock=99999999&sort=desc&offset=100`;
-      console.log(`🔗 Transaction Proxy URL: ${txUrl}`);
-      
-      // 4. Token Transfers für ROI-Tracking
-      const tokenTxUrl = `${proxyUrl}?address=${walletAddress}&action=tokentx&module=account&startblock=0&endblock=99999999&sort=desc&offset=100`;
-      console.log(`🔗 Token Transfer Proxy URL: ${tokenTxUrl}`);
-      
-      // 🔄 PARALLEL API CALLS VIA PROXY für bessere Performance
-      const [nativeResponse, tokenResponse, txResponse, tokenTxResponse] = await Promise.all([
-        fetch(nativeUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
-        fetch(tokenUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
-        fetch(txUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message })),
-        fetch(tokenTxUrl).then(r => r.json()).catch(e => ({ status: '0', message: e.message }))
-      ]);
-      
-      console.log(`📊 API RESPONSES:`, {
-        native: nativeResponse.status,
-        tokens: tokenResponse.status,
-        transactions: txResponse.status,
-        tokenTransfers: tokenTxResponse.status
-      });
-      
-      const tokens = [];
-      
-      // ⚡ Native PLS Processing
-      if (nativeResponse.status === '1') {
-        const plsBalance = parseFloat(nativeResponse.result) / Math.pow(10, 18);
-        const plsPrice = TokenPriceService.REAL_PULSECHAIN_PRICES['PLS'] || 3.09e-5;
-        
-        tokens.push({
-          name: 'PulseChain',
-          symbol: 'PLS',
-          contractAddress: 'native',
-          balance: plsBalance,
-          decimals: 18,
-          type: 'native',
-          estimatedPrice: plsPrice,
-          valueUSD: plsBalance * plsPrice,
-          dexScreenerUrl: 'https://dexscreener.com/pulsechain/0x0'
-        });
-        
-        console.log(`⚡ PLS: ${plsBalance.toFixed(4)} × $${plsPrice} = $${(plsBalance * plsPrice).toFixed(2)}`);
+      if (testData._fallback || testData.error) {
+        console.error(`🚨 CRITICAL: Moralis Enterprise API not available! Wallet parsing requires paid Moralis API key.`);
+        return {
+          success: false,
+          tokens: [],
+          error: 'ENTERPRISE ERROR: Moralis API Key required for token data',
+          totalValue: 0
+        };
       }
-      
-      // 🪙 ERC20 Token Processing mit ECHTER PREIS-INTEGRATION
-      if (tokenResponse.status === '1' && Array.isArray(tokenResponse.result)) {
-        console.log(`🪙 PROCESSING ${tokenResponse.result.length} ERC20 TOKENS`);
+
+      // 🚀 MORALIS ENTERPRISE API CALLS
+      const tokens = [];
+
+      // 1. Native PLS Balance via Moralis
+      try {
+        const nativeResponse = await fetch(`/api/moralis-tokens?endpoint=wallet-balance&chain=0x171&address=${walletAddress}`);
+        const nativeData = await nativeResponse.json();
         
-        for (const token of tokenResponse.result) {
-          const decimals = parseInt(token.decimals) || 18;
-          const balance = parseFloat(token.balance) / Math.pow(10, decimals);
+        if (nativeData.result && nativeData.result.balance) {
+          const plsBalance = parseFloat(nativeData.result.balance) / Math.pow(10, 18);
           
-          // Skip invalid tokens (stronger validation)
-          if (!token.symbol || !token.name || token.symbol.trim() === '' || 
-              token.name.trim() === '' || balance <= 0) {
-            continue;
-          }
+          // Get PLS price from Moralis Prices API
+          const priceResponse = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000`);
+          const priceData = await priceResponse.json();
+          const plsPrice = priceData.usdPrice || 0.000088; // Emergency fallback
           
-          // 💰 ECHTE PREISE aus TokenPriceService
-          const realPrice = await TokenPriceService.getTokenPrice(token.symbol, token.contractAddress);
-          const tokenValue = balance * realPrice;
+          tokens.push({
+            name: 'PulseChain',
+            symbol: 'PLS',
+            contractAddress: 'native',
+            balance: plsBalance,
+            decimals: 18,
+            type: 'native',
+            estimatedPrice: plsPrice,
+            valueUSD: plsBalance * plsPrice,
+            source: 'moralis_enterprise'
+          });
           
-          // Filtere nur Token mit Mindest-Wert ($0.001 statt $0.01 für mehr Tokens)
-          if (tokenValue >= 0.001) {
-            tokens.push({
-              name: token.name,
-              symbol: token.symbol,
-              contractAddress: token.contractAddress,
-              balance: balance,
-              decimals: decimals,
-              type: 'ERC20',
-              estimatedPrice: realPrice,
-              valueUSD: tokenValue,
-              dexScreenerUrl: `https://dexscreener.com/pulsechain/${token.contractAddress}`,
-              // 📊 Zusätzliche PulseWatch-kompatible Felder
-              holdingRank: 0, // Wird später gesetzt
-              percentageOfPortfolio: 0, // Wird später berechnet
-              priceChange24h: 0, // TODO: Implementieren
-              lastUpdated: new Date().toISOString()
-            });
-            
-            console.log(`🪙 TOKEN: ${token.symbol} - ${balance.toFixed(4)} × $${realPrice} = $${tokenValue.toFixed(2)}`);
+          console.log(`💎 MORALIS PLS: ${plsBalance.toFixed(4)} × $${plsPrice} = $${(plsBalance * plsPrice).toFixed(2)}`);
+        }
+      } catch (nativeError) {
+        console.error(`❌ Moralis native balance error:`, nativeError);
+      }
+
+      // 2. ERC20 Token List via Moralis
+      try {
+        const tokenResponse = await fetch(`/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=${walletAddress}`);
+        const tokenData = await tokenResponse.json();
+        
+        if (tokenData.result && Array.isArray(tokenData.result)) {
+          console.log(`📊 MORALIS: Found ${tokenData.result.length} ERC20 tokens for ${walletAddress}`);
+          
+          for (const token of tokenData.result) {
+            try {
+              const balance = parseFloat(token.balance) / Math.pow(10, parseInt(token.decimals) || 18);
+              
+              if (balance > 0) {
+                // Get token price from Moralis
+                const priceResponse = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x171&address=${token.token_address}`);
+                const priceData = await priceResponse.json();
+                const tokenPrice = priceData.usdPrice || 0;
+                
+                tokens.push({
+                  name: token.name || 'Unknown Token',
+                  symbol: token.symbol || 'UNKNOWN',
+                  contractAddress: token.token_address,
+                  balance: balance,
+                  decimals: parseInt(token.decimals) || 18,
+                  type: 'erc20',
+                  estimatedPrice: tokenPrice,
+                  valueUSD: balance * tokenPrice,
+                  source: 'moralis_enterprise'
+                });
+                
+                if (balance > 1 || tokenPrice > 0.01) {
+                  console.log(`💎 MORALIS TOKEN: ${token.symbol} ${balance.toFixed(4)} × $${tokenPrice} = $${(balance * tokenPrice).toFixed(2)}`);
+                }
+              }
+            } catch (tokenError) {
+              console.error(`❌ Token processing error:`, tokenError);
+            }
           }
         }
+      } catch (tokenError) {
+        console.error(`❌ Moralis token list error:`, tokenError);
       }
-      
-      // 📊 PORTFOLIO ANALYSIS (wie PulseWatch)
-      // Sortiere Token nach Wert (höchster zuerst)
-      tokens.sort((a, b) => b.valueUSD - a.valueUSD);
-      
-      // Setze Rankings und Portfolio-Anteile
+
       const totalValue = tokens.reduce((sum, token) => sum + token.valueUSD, 0);
-      tokens.forEach((token, index) => {
-        token.holdingRank = index + 1;
-        token.percentageOfPortfolio = totalValue > 0 ? (token.valueUSD / totalValue) * 100 : 0;
-      });
       
-      // 🎯 TOP HOLDINGS LOG (wie PulseWatch Dashboard)
-      console.log(`💎 TOP 5 HOLDINGS:`);
-      tokens.slice(0, 5).forEach(token => {
-        console.log(`${token.holdingRank}. ${token.symbol}: $${token.valueUSD.toFixed(2)} (${token.percentageOfPortfolio.toFixed(1)}%)`);
-      });
-      
-      const totalTokenValue = tokens.reduce((sum, token) => sum + token.valueUSD, 0);
-      
-      console.log(`💰 TOTAL PORTFOLIO VALUE: $${totalTokenValue.toFixed(2)}`);
-      console.log(`🪙 TOTAL TOKENS FOUND: ${tokens.length} (filtered for value >= $0.001)`);
+      console.log(`✅ MORALIS ENTERPRISE PARSING COMPLETE: ${tokens.length} tokens, Total: $${totalValue.toFixed(2)}`);
       
       return {
         success: true,
         tokens: tokens,
-        totalTokens: tokens.length,
-        totalValue: totalTokenValue,
-        address: walletAddress,
-        chainId: 369,
-        // 📊 PulseWatch-style statistics
-        statistics: {
-          totalValue: totalTokenValue,
-          tokenCount: tokens.length,
-          topHolding: tokens[0] || null,
-          portfolioDistribution: {
-            top5Percentage: tokens.slice(0, 5).reduce((sum, t) => sum + t.percentageOfPortfolio, 0),
-            top10Percentage: tokens.slice(0, 10).reduce((sum, t) => sum + t.percentageOfPortfolio, 0)
-          }
-        },
-        // 📈 Transaction data für ROI Analysis
-        transactions: {
-          normal: txResponse?.result || [],
-          tokenTransfers: tokenTxResponse?.result || []
-        },
-        // 🔍 Debug information
-        debug: {
-          apiCalls: {
-            native: nativeResponse.status === '1' ? 'SUCCESS' : `ERROR: ${nativeResponse.message}`,
-            tokens: tokenResponse.status === '1' ? 'SUCCESS' : `ERROR: ${tokenResponse.message}`,
-            transactions: txResponse.status === '1' ? 'SUCCESS' : `ERROR: ${txResponse.message}`,
-            tokenTransfers: tokenTxResponse.status === '1' ? 'SUCCESS' : `ERROR: ${tokenTxResponse.message}`
-          },
-          timestamp: new Date().toISOString()
-        }
+        error: null,
+        totalValue: totalValue,
+        source: 'moralis_enterprise_only',
+        timestamp: new Date().toISOString()
       };
       
     } catch (error) {
-      console.error('💥 IMPROVED API ERROR:', error.message);
-      throw new Error(`PULSECHAIN_API_ERROR: ${error.message}`);
+      console.error(`💥 MORALIS ENTERPRISE PARSING ERROR:`, error);
+      return {
+        success: false,
+        tokens: [],
+        error: `ENTERPRISE ERROR: ${error.message}`,
+        totalValue: 0
+      };
     }
   }
 
-  // 🔷 Ethereum Token Fetching  
+  /**
+   * 🚀 100% MORALIS ENTERPRISE: Multi-Chain Token Fetching
+   */
+  static async fetchTokensForAllChains(walletAddress) {
+    const allTokens = [];
+    let totalValue = 0;
+
+    // PulseChain Tokens
+    const pulseTokens = await this.fetchPulseChainTokens(walletAddress);
+    if (pulseTokens.success) {
+      allTokens.push(...pulseTokens.tokens);
+      totalValue += pulseTokens.totalValue;
+    }
+
+    // Ethereum Tokens (if enabled)
+    try {
+      const ethTokens = await this.fetchEthereumTokens(walletAddress);
+      if (ethTokens.success) {
+        allTokens.push(...ethTokens.tokens);
+        totalValue += ethTokens.totalValue;
+      }
+    } catch (ethError) {
+      console.log(`ℹ️ Ethereum parsing skipped: ${ethError.message}`);
+    }
+
+    return {
+      success: allTokens.length > 0,
+      tokens: allTokens,
+      totalValue: totalValue,
+      source: 'moralis_enterprise_multi_chain'
+    };
+  }
+
+  /**
+   * 🚀 MORALIS ENTERPRISE: Ethereum Token Fetching
+   */
   static async fetchEthereumTokens(walletAddress) {
-    // Ethereum API would require API key and is often CORS-blocked
-    // For now, return fallback structure
-    throw new Error('CORS_ERROR: Ethereum API requires API key and is CORS-blocked in browsers');
+    try {
+      console.log(`🚀 MORALIS ETHEREUM: Fetching tokens for ${walletAddress}`);
+      
+      const tokens = [];
+
+      // Ethereum Tokens via Moralis
+      const tokenResponse = await fetch(`/api/moralis-tokens?endpoint=wallet-tokens&chain=0x1&address=${walletAddress}`);
+      const tokenData = await tokenResponse.json();
+      
+      if (tokenData.result && Array.isArray(tokenData.result)) {
+        for (const token of tokenData.result) {
+          const balance = parseFloat(token.balance) / Math.pow(10, parseInt(token.decimals) || 18);
+          
+          if (balance > 0) {
+            const priceResponse = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x1&address=${token.token_address}`);
+            const priceData = await priceResponse.json();
+            const tokenPrice = priceData.usdPrice || 0;
+            
+            tokens.push({
+              name: token.name || 'Unknown Token',
+              symbol: token.symbol || 'UNKNOWN',
+              contractAddress: token.token_address,
+              balance: balance,
+              decimals: parseInt(token.decimals) || 18,
+              type: 'erc20',
+              chain: 'ethereum',
+              estimatedPrice: tokenPrice,
+              valueUSD: balance * tokenPrice,
+              source: 'moralis_enterprise'
+            });
+          }
+        }
+      }
+
+      const totalValue = tokens.reduce((sum, token) => sum + token.valueUSD, 0);
+      
+      return {
+        success: true,
+        tokens: tokens,
+        totalValue: totalValue,
+        source: 'moralis_enterprise_ethereum'
+      };
+      
+    } catch (error) {
+      console.error(`❌ Ethereum parsing error:`, error);
+      return {
+        success: false,
+        tokens: [],
+        totalValue: 0,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * 📊 Format tokens for display
+   */
+  static formatTokensForDisplay(tokens) {
+    return tokens
+      .filter(token => token.balance > 0)
+      .sort((a, b) => b.valueUSD - a.valueUSD)
+      .map(token => ({
+        ...token,
+        displayBalance: token.balance.toFixed(4),
+        displayValue: `$${token.valueUSD.toFixed(2)}`,
+        displayPrice: `$${token.estimatedPrice.toFixed(6)}`
+      }));
   }
 
   // 💾 Store Tokens in Supabase
