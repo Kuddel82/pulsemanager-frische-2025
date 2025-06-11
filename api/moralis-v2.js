@@ -604,11 +604,68 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔧 SYSTEM HEALTH CHECK - API Version & Status
+    if (endpoint === 'api-version' || endpoint === 'health') {
+      try {
+        console.log(`🔧 SYSTEM HEALTH: Checking API version and connectivity`);
+        
+        const response = await Moralis.EvmApi.utils.web3ApiVersion({});
+        
+        console.log(`✅ MORALIS API HEALTH: Version ${response.result.version}`);
+        
+        return res.status(200).json({
+          result: response.result,
+          moralis_status: 'online',
+          our_api_status: 'operational',
+          timestamp: new Date().toISOString(),
+          _source: 'moralis_health_check',
+          _debug_endpoint: true
+        });
+        
+      } catch (error) {
+        console.error('💥 MORALIS API HEALTH ERROR:', error.message);
+        return res.status(500).json({
+          result: null,
+          moralis_status: 'offline',
+          our_api_status: 'degraded',
+          error: error.message,
+          timestamp: new Date().toISOString(),
+          _source: 'moralis_health_check_failed'
+        });
+      }
+    }
+
+    // 🔍 ENDPOINT WEIGHTS - API Cost Information
+    if (endpoint === 'endpoint-weights') {
+      try {
+        console.log(`🔍 SYSTEM INFO: Getting endpoint cost information`);
+        
+        const response = await Moralis.EvmApi.utils.getEndpointWeights({});
+        
+        console.log(`✅ ENDPOINT WEIGHTS: Retrieved cost information for ${Object.keys(response.result).length} endpoints`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_endpoint_weights',
+          _cost_optimization: true,
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('💥 ENDPOINT WEIGHTS ERROR:', error.message);
+        return res.status(500).json({
+          result: null,
+          error: error.message,
+          _source: 'moralis_endpoint_weights_failed'
+        });
+      }
+    }
+
     // Invalid endpoint
     return res.status(200).json({
       success: false,
       error: 'Invalid endpoint',
-      available: ['wallet-tokens', 'wallet-tokens-prices', 'wallet-pnl-summary', 'wallet-token-transfers', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol', 'multiple-token-prices', 'token-price'],
+      available: ['wallet-tokens', 'wallet-tokens-prices', 'wallet-pnl-summary', 'wallet-token-transfers', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol', 'multiple-token-prices', 'token-price', 'api-version', 'health', 'endpoint-weights'],
       _moralis_only: true
     });
 

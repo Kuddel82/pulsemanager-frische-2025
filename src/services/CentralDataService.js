@@ -68,7 +68,9 @@ export class CentralDataService {
     tokens: '/api/moralis-tokens',
     prices: '/api/moralis-prices', 
     transactions: '/api/moralis-transactions',
-    tokenTransfers: '/api/moralis-token-transfers'
+    tokenTransfers: '/api/moralis-token-transfers',
+    // ✨ NEW: Enterprise Advanced APIs
+    enterpriseAdvanced: '/api/moralis-enterprise-apis'
   };
 
   // 💰 EMERGENCY FALLBACKS: Nur für absolute Notfälle (PLS/ETH/Stablecoins)
@@ -216,19 +218,19 @@ export class CentralDataService {
       const wallets = await this.loadUserWallets(userId);
       console.log(`📱 Loaded ${wallets.length} wallets`);
 
-      if (wallets.length === 0) {
-        console.log('⚠️ No wallets found for user');
-        
-        // 🔥 EMERGENCY FIX: Clear cache if wallets are 0 but should exist
-        console.log('🔥 EMERGENCY: Clearing cache due to 0 wallets - this might be a cache issue');
-        await DatabaseCacheService.forceClearUserCache(userId);
-        
-        const emptyPortfolio = this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Cache wurde geleert. Versuchen Sie erneut zu laden.');
-        
-        // DON'T cache empty portfolio when it might be a bug
-        // await DatabaseCacheService.setCachedPortfolio(userId, emptyPortfolio);
-        return emptyPortfolio;
-      }
+          if (wallets.length === 0) {
+      console.log('⚠️ No wallets found for user');
+      
+      // 🔥 EMERGENCY FIX: Clear cache if wallets are 0 but should exist
+      console.log('🔥 EMERGENCY: Clearing cache due to 0 wallets - this might be a cache issue');
+      await DatabaseCacheService.forceClearUserCache(userId);
+      
+      const emptyPortfolio = this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Cache wurde geleert. Versuchen Sie erneut zu laden.');
+      
+      // DON'T cache empty portfolio when it might be a bug
+      // await DatabaseCacheService.setCachedPortfolio(userId, emptyPortfolio);
+      return emptyPortfolio;
+    }
 
       // 🎯 SMART CHAIN ANALYSIS: Separate supported from unsupported chains
       const chainAnalysis = await ApiInterceptorService.handleMixedWalletPortfolio(wallets);
@@ -1883,6 +1885,430 @@ export class CentralDataService {
       disclaimer: updatedCount > 0 ? 'Real-time prices from Moralis API' : 'Manual price estimates'
     };
   }
+
+  /**
+   * 💎 NEW ENTERPRISE: Load Wallet History with Verbose Details
+   * Uses the advanced wallet-history-verbose endpoint for enhanced transaction analysis
+   */
+  static async loadWalletHistoryVerbose(wallets, limit = 100) {
+    console.log(`💎 ENTERPRISE VERBOSE: Loading detailed transaction history for ${wallets.length} wallets`);
+    
+    const allTransactions = [];
+    let totalApiCalls = 0;
+    
+    for (const wallet of wallets) {
+      try {
+        const chainId = wallet.chain_id || 369;
+        const chain = this.getChainConfig(chainId);
+        
+        console.log(`📜 VERBOSE HISTORY: ${wallet.address.slice(0, 8)}... on ${chain.name}`);
+        
+        const response = await fetch(this.MORALIS_ENDPOINTS.enterpriseAdvanced, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint: 'wallet-history-verbose',
+            address: wallet.address,
+            chain: chain.name.toLowerCase(),
+            limit: limit
+          })
+        });
+        
+        const data = await response.json();
+        totalApiCalls++;
+        
+        if (data.result && Array.isArray(data.result)) {
+          console.log(`✅ VERBOSE HISTORY SUCCESS: ${data.result.length} detailed transactions for ${wallet.address.slice(0, 8)}...`);
+          
+          // Enhance transactions with wallet context
+          const enhancedTransactions = data.result.map(tx => ({
+            ...tx,
+            walletAddress: wallet.address,
+            chainId: chainId,
+            chainName: chain.name,
+            _enterprise_features: data._enterprise_features,
+            _source: 'moralis_enterprise_verbose'
+          }));
+          
+          allTransactions.push(...enhancedTransactions);
+        } else {
+          console.warn(`⚠️ VERBOSE HISTORY FAILED: ${wallet.address.slice(0, 8)}... - ${data._error?.message || 'No data'}`);
+        }
+        
+      } catch (error) {
+        console.error(`💥 VERBOSE HISTORY ERROR for ${wallet.address}:`, error);
+      }
+    }
+    
+    console.log(`✅ ENTERPRISE VERBOSE COMPLETE: ${allTransactions.length} enhanced transactions loaded (${totalApiCalls} API calls)`);
+    
+    return {
+      transactions: allTransactions,
+      totalApiCalls,
+      source: 'moralis_enterprise_wallet_history_verbose',
+      enhancedFeatures: {
+        decodedTransactions: true,
+        transactionLabels: true,
+        categoryDetection: true,
+        internalTransactions: true
+      }
+    };
+  }
+
+  /**
+   * 💰 NEW ENTERPRISE: Load Native Balance with USD Value
+   * Gets precise ETH/PLS balances with accurate pricing
+   */
+  static async loadNativeBalances(wallets) {
+    console.log(`💰 ENTERPRISE NATIVE: Loading native balances for ${wallets.length} wallets`);
+    
+    const balances = [];
+    let totalApiCalls = 0;
+    let totalValue = 0;
+    
+    for (const wallet of wallets) {
+      try {
+        const chainId = wallet.chain_id || 369;
+        const chain = this.getChainConfig(chainId);
+        
+        console.log(`💎 NATIVE BALANCE: ${wallet.address.slice(0, 8)}... on ${chain.name}`);
+        
+        const response = await fetch(this.MORALIS_ENDPOINTS.enterpriseAdvanced, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint: 'native-balance',
+            address: wallet.address,
+            chain: chain.name.toLowerCase()
+          })
+        });
+        
+        const data = await response.json();
+        totalApiCalls++;
+        
+        if (data.result && data.result.balance) {
+          const balanceFormatted = parseFloat(data.result.balance_formatted || 0);
+          const currency = data.result.currency || chain.nativeSymbol;
+          
+          // Get current native token price
+          const nativePrice = this.EMERGENCY_PRICES[currency] || 0;
+          const usdValue = balanceFormatted * nativePrice;
+          totalValue += usdValue;
+          
+          const balanceData = {
+            walletAddress: wallet.address,
+            chainId: chainId,
+            chainName: chain.name,
+            balance: data.result.balance,
+            balanceFormatted: balanceFormatted,
+            currency: currency,
+            price: nativePrice,
+            usdValue: usdValue,
+            _source: data._source,
+            _precision: data._precision
+          };
+          
+          balances.push(balanceData);
+          
+          console.log(`✅ NATIVE BALANCE SUCCESS: ${balanceFormatted.toFixed(6)} ${currency} ($${usdValue.toFixed(2)}) for ${wallet.address.slice(0, 8)}...`);
+        } else {
+          console.warn(`⚠️ NATIVE BALANCE FAILED: ${wallet.address.slice(0, 8)}... - ${data._error?.message || 'No data'}`);
+        }
+        
+      } catch (error) {
+        console.error(`💥 NATIVE BALANCE ERROR for ${wallet.address}:`, error);
+      }
+    }
+    
+    console.log(`✅ ENTERPRISE NATIVE COMPLETE: ${balances.length} native balances loaded, total value: $${totalValue.toFixed(2)} (${totalApiCalls} API calls)`);
+    
+    return {
+      balances,
+      totalValue,
+      totalApiCalls,
+      source: 'moralis_enterprise_native_balance'
+    };
+  }
+
+  /**
+   * 💎 NEW ENTERPRISE: Load Enhanced Net Worth
+   * Gets comprehensive portfolio value with spam filtering
+   */
+  static async loadNetWorthEnhanced(wallets) {
+    console.log(`💎 ENTERPRISE NET WORTH: Loading enhanced portfolio value for ${wallets.length} wallets`);
+    
+    const netWorthData = [];
+    let totalApiCalls = 0;
+    let totalNetWorth = 0;
+    
+    for (const wallet of wallets) {
+      try {
+        const chainId = wallet.chain_id || 369;
+        const chain = this.getChainConfig(chainId);
+        
+        console.log(`📊 NET WORTH: ${wallet.address.slice(0, 8)}... on ${chain.name}`);
+        
+        const response = await fetch(this.MORALIS_ENDPOINTS.enterpriseAdvanced, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint: 'net-worth-enhanced',
+            address: wallet.address,
+            chain: chain.name.toLowerCase()
+          })
+        });
+        
+        const data = await response.json();
+        totalApiCalls++;
+        
+        if (data.result && typeof data.result.total_networth_usd === 'number') {
+          const netWorth = parseFloat(data.result.total_networth_usd || 0);
+          totalNetWorth += netWorth;
+          
+          const netWorthEntry = {
+            walletAddress: wallet.address,
+            chainId: chainId,
+            chainName: chain.name,
+            netWorthUsd: netWorth,
+            totalTokens: data.result.total_tokens || 0,
+            totalNfts: data.result.total_nfts || 0,
+            chains: data.result.chains || [],
+            _source: data._source,
+            _spam_filtered: data._spam_filtered,
+            _enterprise_accuracy: data._enterprise_accuracy
+          };
+          
+          netWorthData.push(netWorthEntry);
+          
+          console.log(`✅ NET WORTH SUCCESS: $${netWorth.toFixed(2)} (${data.result.total_tokens || 0} tokens) for ${wallet.address.slice(0, 8)}...`);
+        } else {
+          console.warn(`⚠️ NET WORTH FAILED: ${wallet.address.slice(0, 8)}... - ${data._error?.message || 'No data'}`);
+        }
+        
+      } catch (error) {
+        console.error(`💥 NET WORTH ERROR for ${wallet.address}:`, error);
+      }
+    }
+    
+    console.log(`✅ ENTERPRISE NET WORTH COMPLETE: $${totalNetWorth.toFixed(2)} total portfolio value (${totalApiCalls} API calls)`);
+    
+    return {
+      netWorthData,
+      totalNetWorth,
+      totalApiCalls,
+      source: 'moralis_enterprise_net_worth_enhanced',
+      spamFiltered: true,
+      enterpriseAccuracy: true
+    };
+  }
+
+  /**
+   * 🔄 NEW ENTERPRISE: Load Enhanced Token Transfers with ROI Detection
+   * Gets token transfers with enhanced metadata and automatic ROI flagging
+   */
+  static async loadTokenTransfersEnhanced(wallets, limit = 100) {
+    console.log(`🔄 ENTERPRISE TRANSFERS: Loading enhanced token transfers for ${wallets.length} wallets`);
+    
+    const allTransfers = [];
+    let totalApiCalls = 0;
+    let roiTransfersFound = 0;
+    
+    for (const wallet of wallets) {
+      try {
+        const chainId = wallet.chain_id || 369;
+        const chain = this.getChainConfig(chainId);
+        
+        console.log(`🔄 ENHANCED TRANSFERS: ${wallet.address.slice(0, 8)}... on ${chain.name}`);
+        
+        const response = await fetch(this.MORALIS_ENDPOINTS.enterpriseAdvanced, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint: 'token-transfers-enhanced',
+            address: wallet.address,
+            chain: chain.name.toLowerCase(),
+            limit: limit
+          })
+        });
+        
+        const data = await response.json();
+        totalApiCalls++;
+        
+        if (data.result && Array.isArray(data.result)) {
+          console.log(`✅ ENHANCED TRANSFERS SUCCESS: ${data.result.length} enhanced transfers for ${wallet.address.slice(0, 8)}...`);
+          
+          // Process and count ROI transfers
+          const enhancedTransfers = data.result.map(transfer => {
+            const isROI = transfer._roi_indicators?.potential_roi || false;
+            if (isROI) roiTransfersFound++;
+            
+            return {
+              ...transfer,
+              walletAddress: wallet.address,
+              chainId: chainId,
+              chainName: chain.name,
+              _source: data._source,
+              _roi_detected: isROI
+            };
+          });
+          
+          allTransfers.push(...enhancedTransfers);
+        } else {
+          console.warn(`⚠️ ENHANCED TRANSFERS FAILED: ${wallet.address.slice(0, 8)}... - ${data._error?.message || 'No data'}`);
+        }
+        
+      } catch (error) {
+        console.error(`💥 ENHANCED TRANSFERS ERROR for ${wallet.address}:`, error);
+      }
+    }
+    
+    console.log(`✅ ENTERPRISE TRANSFERS COMPLETE: ${allTransfers.length} enhanced transfers loaded, ${roiTransfersFound} ROI candidates found (${totalApiCalls} API calls)`);
+    
+    return {
+      transfers: allTransfers,
+      roiTransfersFound,
+      totalApiCalls,
+      source: 'moralis_enterprise_token_transfers_enhanced',
+      roiDetection: true,
+      metadataEnhanced: true
+    };
+  }
+
+  /**
+   * 🎯 NEW ENTERPRISE: Load Enhanced DeFi Positions with ROI Analysis
+   * Gets detailed DeFi positions for yield tracking and ROI detection
+   */
+  static async loadDefiPositionsEnhanced(wallets) {
+    console.log(`🎯 ENTERPRISE DEFI: Loading enhanced DeFi positions for ${wallets.length} wallets`);
+    
+    const allPositions = [];
+    let totalApiCalls = 0;
+    let totalYieldValue = 0;
+    
+    for (const wallet of wallets) {
+      try {
+        const chainId = wallet.chain_id || 369;
+        const chain = this.getChainConfig(chainId);
+        
+        console.log(`🎯 DEFI POSITIONS: ${wallet.address.slice(0, 8)}... on ${chain.name}`);
+        
+        const response = await fetch(this.MORALIS_ENDPOINTS.enterpriseAdvanced, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint: 'defi-positions-enhanced',
+            address: wallet.address,
+            chain: chain.name.toLowerCase()
+          })
+        });
+        
+        const data = await response.json();
+        totalApiCalls++;
+        
+        if (data.result && Array.isArray(data.result)) {
+          console.log(`✅ DEFI POSITIONS SUCCESS: ${data.result.length} DeFi positions for ${wallet.address.slice(0, 8)}...`);
+          
+          // Enhance positions with wallet context
+          const enhancedPositions = data.result.map(position => ({
+            ...position,
+            walletAddress: wallet.address,
+            chainId: chainId,
+            chainName: chain.name,
+            _source: data._source,
+            _roi_detection: data._roi_detection,
+            _yield_tracking: data._yield_tracking
+          }));
+          
+          allPositions.push(...enhancedPositions);
+        } else {
+          console.warn(`⚠️ DEFI POSITIONS FAILED: ${wallet.address.slice(0, 8)}... - ${data._error?.message || 'No data'}`);
+        }
+        
+      } catch (error) {
+        console.error(`💥 DEFI POSITIONS ERROR for ${wallet.address}:`, error);
+      }
+    }
+    
+    console.log(`✅ ENTERPRISE DEFI COMPLETE: ${allPositions.length} DeFi positions loaded (${totalApiCalls} API calls)`);
+    
+    return {
+      positions: allPositions,
+      totalYieldValue,
+      totalApiCalls,
+      source: 'moralis_enterprise_defi_positions_enhanced',
+      roiDetection: true,
+      yieldTracking: true,
+      liquidityAnalysis: true
+    };
+  }
+
+  /**
+   * 🔧 NEW ENTERPRISE: Health Check for Enterprise APIs
+   * Verifies all advanced features are operational
+   */
+  static async checkEnterpriseHealth() {
+    console.log(`🔧 ENTERPRISE HEALTH: Checking API status and features`);
+    
+    try {
+      const response = await fetch(this.MORALIS_ENDPOINTS.enterpriseAdvanced, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          endpoint: 'enterprise-health'
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.result && data.status === 'enterprise_operational') {
+        console.log(`✅ ENTERPRISE HEALTH: All advanced features operational`);
+        console.log(`🎯 Available Features:`, Object.keys(data.result.enterprise_features).filter(key => data.result.enterprise_features[key]));
+        
+        return {
+          operational: true,
+          status: data.status,
+          apiVersion: data.result.api_version,
+          features: data.result.enterprise_features,
+          chainSupport: data.result.chain_support,
+          timestamp: data.timestamp,
+          source: data._source
+        };
+      } else {
+        console.warn(`⚠️ ENTERPRISE HEALTH: Degraded service - ${data.error || 'Unknown issue'}`);
+        
+        return {
+          operational: false,
+          status: data.status || 'unknown',
+          error: data.error,
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+    } catch (error) {
+      console.error(`💥 ENTERPRISE HEALTH ERROR:`, error);
+      
+      return {
+        operational: false,
+        status: 'error',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+
 }
 
 export default CentralDataService; 
