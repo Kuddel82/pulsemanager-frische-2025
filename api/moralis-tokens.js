@@ -43,15 +43,17 @@ export default async function handler(req, res) {
       return res.status(200).json(emptyResult);
     }
 
-    // 🌐 Chain ID Mapping
+    // 🌐 Chain ID Mapping (Moralis Standard Format)
     const chainIdMap = {
+      '369': '0x171',        // PulseChain
       'pulsechain': '0x171',
-      'ethereum': '0x1',
       'pls': '0x171',
+      '1': '0x1',            // Ethereum Mainnet  
+      'ethereum': '0x1',
       'eth': '0x1'
     };
 
-    const chainId = chainIdMap[chain?.toLowerCase()] || '0x171'; // Default PulseChain
+    const chainId = chainIdMap[chain?.toString().toLowerCase()] || '0x171'; // Default PulseChain
 
     let apiUrl;
     let params = new URLSearchParams();
@@ -89,20 +91,13 @@ export default async function handler(req, res) {
         break;
 
       case 'token-prices':
-        // Bulk token price lookup
-        if (!addresses) {
-          return res.status(200).json({ 
-            success: false,
-            error: 'Addresses parameter required for token-prices',
-            _safe_mode: true
-          });
-        }
-        apiUrl = `${MORALIS_BASE_URL}/erc20/prices`;
-        params.append('chain', chainId);
-        // Split addresses and limit to 25 (Moralis limit)
-        const addressList = addresses.split(',').slice(0, 25);
-        addressList.forEach(addr => params.append('tokens', addr));
-        break;
+        // DEPRECATED: Token prices should use /api/moralis-prices instead
+        return res.status(200).json({
+          success: false,
+          error: 'Use /api/moralis-prices endpoint for price data',
+          redirect: '/api/moralis-prices',
+          _safe_mode: true
+        });
 
       case 'token-metadata':
         // Token metadata (symbol, name, decimals)

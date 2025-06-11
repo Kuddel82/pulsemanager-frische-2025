@@ -254,8 +254,8 @@ export class CentralDataService {
       try {
         let response;
         
-        // 🚀 100% MORALIS ENTERPRISE API
-        console.log(`💎 USING MORALIS ENTERPRISE for ${chain.name}`);
+        // 🚀 100% MORALIS ENTERPRISE API (STANDARD COMPLIANT)
+        console.log(`💎 USING MORALIS ENTERPRISE for ${chain.name} (Chain: ${chain.moralisChainId})`);
         
         response = await fetch(`/api/moralis-tokens?endpoint=wallet-tokens&chain=${chain.moralisChainId}&address=${wallet.address}`, {
           method: 'GET',
