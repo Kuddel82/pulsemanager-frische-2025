@@ -5,6 +5,8 @@
 
 import { supabase } from '@/lib/supabaseClient';
 import { DatabaseCacheService } from './DatabaseCacheService';
+import { ApiInterceptorService } from './ApiInterceptorService';
+import { TokenParsingService } from './TokenParsingService';
 
 export class CentralDataService {
   
@@ -196,6 +198,20 @@ export class CentralDataService {
         return emptyPortfolio;
       }
 
+      // 🎯 SMART CHAIN ANALYSIS: Separate supported from unsupported chains
+      const chainAnalysis = await ApiInterceptorService.handleMixedWalletPortfolio(wallets);
+      console.log(`🎯 CHAIN ANALYSIS: ${chainAnalysis.supported.length} supported chains, ${chainAnalysis.unsupported.length} unsupported chains`);
+      
+      // 🚨 WARNING: If all wallets are on unsupported chains
+      if (chainAnalysis.supported.length === 0) {
+        console.warn(`⚠️ ALL WALLETS ON UNSUPPORTED CHAINS: Only cache data available`);
+        
+        // Return limited portfolio with cache data only
+        const limitedPortfolio = this.getLimitedPortfolioFromCache(userId, wallets);
+        await DatabaseCacheService.setCachedPortfolio(userId, limitedPortfolio);
+        return limitedPortfolio;
+      }
+
       // 2. Lade Token-Balances (100% MORALIS ENTERPRISE)
       const tokenData = await this.loadTokenBalancesMoralisOnly(wallets);
       console.log(`🪙 MORALIS ENTERPRISE: Loaded ${tokenData.tokens.length} tokens`);
@@ -204,25 +220,33 @@ export class CentralDataService {
       const pricesData = await this.loadTokenPricesMoralisOnly(tokenData.tokens);
       console.log(`💰 MORALIS ENTERPRISE: Updated prices for ${pricesData.updatedCount} tokens`);
 
-      // 4. Aktualisiere Token-Werte
-      const updatedTokenData = this.updateTokenValuesWithRealPricesFixed(tokenData, pricesData);
-      console.log(`🔄 ENTERPRISE: Updated token values: $${updatedTokenData.totalValue.toFixed(2)}`);
+      // 4. 🔧 FIXED TOKEN PARSING (behebt 32k DAI Bug)
+      console.log(`🔧 APPLYING TOKEN PARSING FIXES...`);
+      const parsedTokenData = TokenParsingService.processPortfolioTokens(tokenData.tokens);
+      console.log(`🔧 TOKEN PARSING: ${parsedTokenData.corrections} corrections applied`);
+      
+      // 5. Aktualisiere Token-Werte mit geparsten Daten
+      const updatedTokenData = this.updateTokenValuesWithRealPricesFixed(
+        { tokens: parsedTokenData.tokens, totalValue: parsedTokenData.totalValue }, 
+        pricesData
+      );
+      console.log(`🔄 ENTERPRISE: Updated token values: $${updatedTokenData.totalValue.toFixed(2)} (${parsedTokenData.corrections} parsing fixes)`);
 
-      // 5. Lade ROI-Transaktionen (100% MORALIS ENTERPRISE)
-      const roiData = await this.loadROITransactionsMoralisOnly(wallets, pricesData.priceMap);
+      // 6. Lade ROI-Transaktionen (100% MORALIS ENTERPRISE)
+      const roiData = await this.loadROITransactionsMoralisOnly(chainAnalysis.supported, pricesData.priceMap);
       console.log(`📊 MORALIS ENTERPRISE: Loaded ${roiData.transactions.length} ROI transactions, Monthly ROI: $${roiData.monthlyROI.toFixed(2)}`);
 
-      // 6. Lade Tax-Transaktionen (100% MORALIS ENTERPRISE) 
-      const taxData = await this.loadTaxTransactionsMoralisOnly(wallets, pricesData.priceMap);
+      // 7. Lade Tax-Transaktionen (100% MORALIS ENTERPRISE) 
+      const taxData = await this.loadTaxTransactionsMoralisOnly(chainAnalysis.supported, pricesData.priceMap);
       console.log(`📄 MORALIS ENTERPRISE: Loaded ${taxData.transactions.length} tax transactions`);
 
-      // 7. Berechne Portfolio-Statistiken
+      // 8. Berechne Portfolio-Statistiken
       const stats = this.calculatePortfolioStats(updatedTokenData, roiData);
       
-      // 8. Sortiere und optimiere Daten für UI
+      // 9. Sortiere und optimiere Daten für UI
       const sortedTokens = this.sortAndRankTokens(updatedTokenData.tokens);
 
-      // 9. Portfolio Response zusammenstellen
+      // 10. Portfolio Response zusammenstellen
       const portfolioResponse = {
         success: true,
         isLoaded: true,
@@ -266,7 +290,7 @@ export class CentralDataService {
         disclaimer: 'Fresh data cached for optimal performance - next requests will use 0 API calls'
       };
 
-      // 💾 STEP 10: Cache the Result for future requests
+      // 💾 STEP 11: Cache the Result for future requests
       await DatabaseCacheService.setCachedPortfolio(userId, portfolioResponse);
       console.log(`💾 Portfolio cached for 15 minutes - next requests will use 0 API calls!`);
 
@@ -1355,6 +1379,56 @@ export class CentralDataService {
       top5Value: tokens.slice(0, 5).reduce((sum, t) => sum + t.value, 0),
       top5Percentage: totalValue > 0 ? (tokens.slice(0, 5).reduce((sum, t) => sum + t.value, 0) / totalValue) * 100 : 0,
       concentrationRisk: tokens.length > 0 ? (tokens[0].value / totalValue) * 100 : 0
+    };
+  }
+
+  /**
+   * 🔧 Limited Portfolio für nicht unterstützte Chains
+   */
+  static getLimitedPortfolioFromCache(userId, wallets) {
+    return {
+      success: true,
+      isLoaded: true,
+      userId: userId,
+      totalValue: 0,
+      
+      tokens: [],
+      tokenCount: 0,
+      uniqueTokens: 0,
+      
+      wallets: wallets,
+      walletCount: wallets.length,
+      
+      // Leere ROI/Tax-Daten
+      roiTransactions: [],
+      dailyROI: 0,
+      weeklyROI: 0,
+      monthlyROI: 0,
+      taxTransactions: [],
+      
+      // Portfolio-Statistiken
+      stats: {
+        totalValue: 0,
+        totalROI: 0,
+        roiPercentage: 0,
+        change24h: 0,
+        topToken: null,
+        tokenDistribution: []
+      },
+      
+      // Metadata
+      dataSource: 'limited_cache_only',
+      lastUpdated: new Date().toISOString(),
+      apiCalls: 0,
+      fromCache: true,
+      
+      // Warnung
+      warning: 'PulseChain wallets detected - limited data available (Moralis does not support PulseChain yet)',
+      recommendation: 'Use PulseWatch.app for full PulseChain portfolio tracking',
+      
+      // Status
+      isRealTimeData: false,
+      disclaimer: 'Limited portfolio due to unsupported chains'
     };
   }
 

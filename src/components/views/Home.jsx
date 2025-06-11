@@ -131,10 +131,23 @@ const Home = () => {
     }
   };
 
-  // Initiales Laden
+  // Initiales Laden (AUTO-LOAD)
   useEffect(() => {
     if (user?.id) {
+      console.log('🚀 AUTO-LOADING: Portfolio wird automatisch geladen...');
       loadDashboardData();
+    }
+  }, [user?.id]);
+
+  // 🔄 AUTO-REFRESH alle 3 Minuten (damit User nicht nervig Button klicken muss!)
+  useEffect(() => {
+    if (user?.id) {
+      const interval = setInterval(() => {
+        console.log('🔄 AUTO-REFRESH: Portfolio wird automatisch aktualisiert...');
+        loadDashboardData();
+      }, 3 * 60 * 1000); // 3 Minuten Auto-Refresh
+      
+      return () => clearInterval(interval);
     }
   }, [user?.id]);
   

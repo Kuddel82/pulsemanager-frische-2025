@@ -402,10 +402,17 @@ export class TaxService {
     try {
       console.log(`💾 Caching ${transactions.length} transactions for user ${userId}...`);
       
+      // 🔧 FIXED: Entferne Duplikate BEVOR Batch-Processing
+      const uniqueTransactions = transactions.filter((tx, index, self) => 
+        index === self.findIndex(t => t.txHash === tx.txHash)
+      );
+      
+      console.log(`🔧 Removed ${transactions.length - uniqueTransactions.length} duplicate transactions from batch`);
+      
       // 🔧 FIXED: UPSERT statt DELETE + INSERT (vermeidet 409 Conflicts)
-      const batchSize = 500; // Kleiner für Stabilität
-      for (let i = 0; i < transactions.length; i += batchSize) {
-        const batch = transactions.slice(i, i + batchSize).map(tx => ({
+      const batchSize = 100; // DEUTLICH KLEINER für Stabilität bei UPSERT
+      for (let i = 0; i < uniqueTransactions.length; i += batchSize) {
+        const batch = uniqueTransactions.slice(i, i + batchSize).map(tx => ({
           user_id: userId,
           wallet_id: tx.walletId,
           wallet_address: tx.walletAddress,
@@ -437,22 +444,35 @@ export class TaxService {
           processed_at: tx.processedAt.toISOString()
         }));
         
-        // 🔧 UPSERT statt INSERT - verhindert 409 Conflicts
+        // 🔧 SIMPLIFIED UPSERT - nur ignoreDuplicates
         const { error } = await supabase
           .from("transactions_cache")
           .upsert(batch, { 
-            onConflict: 'user_id,tx_hash',
-            ignoreDuplicates: false // Update bestehende Einträge
+            ignoreDuplicates: true // Einfach Duplikate ignorieren
           });
         
         if (error) {
           console.warn(`⚠️ Cache batch ${i}-${i + batchSize} failed:`, error.code, error.message);
+          
+          // 🔧 FALLBACK: Insert einzeln bei Batch-Fehlern
+          for (const row of batch) {
+            try {
+              await supabase
+                .from("transactions_cache")
+                .upsert([row], { ignoreDuplicates: true });
+            } catch (singleError) {
+              console.warn(`⚠️ Single row upsert failed for tx ${row.tx_hash}:`, singleError.message);
+            }
+          }
         } else {
           console.log(`✅ Cache batch ${i}-${i + batchSize} saved successfully`);
         }
+        
+        // Kurze Pause zwischen Batches
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      console.log(`✅ Transaction caching complete - 409 conflicts avoided!`);
+      console.log(`✅ Transaction caching complete - ${uniqueTransactions.length} unique transactions cached!`);
       
     } catch (error) {
       console.warn('⚠️ Transaction caching failed:', error);
