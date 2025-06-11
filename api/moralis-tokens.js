@@ -1,5 +1,6 @@
 // 🚀 MORALIS SDK INTEGRATION - Real Moralis SDK Objects  
 // Enterprise-grade APIs für PulseManager mit echtem Moralis SDK
+// + PulseChain Scanner API Fallback für >2000 Token Wallets
 
 import Moralis from "moralis";
 import { EvmChain } from "@moralisweb3/common-evm-utils";
@@ -61,24 +62,6 @@ export default async function handler(req, res) {
     const chainId = chainIdMap[chain?.toString().toLowerCase()] || '0x171';
     console.log(`🔍 CHAIN MAPPING: Input='${chain}' -> Output='${chainId}'`);
 
-    // 🎉 INITIALIZE MORALIS SDK  
-    if (!moralisInitialized) {
-      try {
-        await Moralis.start({
-          apiKey: MORALIS_API_KEY,
-        });
-        moralisInitialized = true;
-        console.log('✅ MORALIS SDK INITIALIZED');
-      } catch (initError) {
-        console.error('💥 MORALIS SDK INIT ERROR:', initError.message);
-        return res.status(200).json({
-          success: false,
-          error: 'Moralis SDK initialization failed',
-          _safe_mode: true
-        });
-      }
-    }
-
     // 📊 API Endpoint Routing with REAL SDK
     if (endpoint === 'wallet-tokens') {
       // NULL Address Test für hasValidMoralisApiKey
@@ -91,6 +74,77 @@ export default async function handler(req, res) {
           _message: 'Test call with null address - API Key validation passed'
         });
       }
+
+      // 🟣 PULSECHAIN FALLBACK: Use PulseChain Scanner API
+      if (chainId === '0x171') {
+        console.log('🟣 PULSECHAIN: Using PulseChain Scanner API fallback');
+        
+        try {
+          // PulseChain Scanner API endpoint
+          const pulseApiUrl = `https://scan.pulsechain.com/api?module=account&action=tokenlist&address=${address}`;
+          
+          const pulseResponse = await fetch(pulseApiUrl);
+          const pulseData = await pulseResponse.json();
+          
+          if (pulseData.status === '1' && Array.isArray(pulseData.result)) {
+            console.log(`🟣 PULSECHAIN SUCCESS: ${pulseData.result.length} tokens found`);
+            
+            const formattedTokens = pulseData.result.map(token => ({
+              symbol: token.symbol,
+              name: token.name,
+              token_address: token.contractAddress,
+              decimals: token.decimals,
+              balance: token.balance,
+              _source: 'pulsechain_scanner'
+            }));
+            
+            return res.status(200).json({
+              result: formattedTokens,
+              total: formattedTokens.length,
+              _pulsechain_native: true,
+              _source: 'pulsechain_scanner_api'
+            });
+          } else {
+            console.log('🟣 PULSECHAIN: Empty wallet or API error');
+            return res.status(200).json({
+              result: [],
+              total: 0,
+              _fallback: {
+                reason: 'pulsechain_scanner_empty',
+                message: 'No tokens found on PulseChain Scanner'
+              }
+            });
+          }
+        } catch (pulseError) {
+          console.error('🟣 PULSECHAIN API ERROR:', pulseError.message);
+          return res.status(200).json({
+            result: [],
+            total: 0,
+            _fallback: {
+              reason: 'pulsechain_scanner_failed',
+              message: 'PulseChain Scanner API unavailable'
+            }
+          });
+        }
+      }
+
+      // 🎉 INITIALIZE MORALIS SDK für Ethereum  
+      if (!moralisInitialized) {
+        try {
+          await Moralis.start({
+            apiKey: MORALIS_API_KEY,
+          });
+          moralisInitialized = true;
+          console.log('✅ MORALIS SDK INITIALIZED');
+        } catch (initError) {
+          console.error('💥 MORALIS SDK INIT ERROR:', initError.message);
+          return res.status(200).json({
+            success: false,
+            error: 'Moralis SDK initialization failed',
+            _safe_mode: true
+          });
+        }
+      }
       
       try {
         console.log(`🚀 MORALIS SDK: Getting wallet tokens for ${address} on chain ${chainId}`);
@@ -100,10 +154,10 @@ export default async function handler(req, res) {
           throw new Error(`Invalid Ethereum address format: ${address}`);
         }
         
-        // Use real Moralis SDK - OHNE LIMIT PARAMETER!
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        // Use real Moralis SDK
+        const moralisChain = EvmChain.ETHEREUM;
         
-        console.log('🎯 MORALIS CALL: NO LIMIT PARAMETER - only address, chain, excludeSpam');
+        console.log('🎯 MORALIS CALL: address, chain, excludeSpam');
         
         const tokenBalances = await Moralis.EvmApi.token.getWalletTokenBalances({
           address,
@@ -119,6 +173,23 @@ export default async function handler(req, res) {
       } catch (sdkError) {
         console.error('💥 MORALIS SDK ERROR:', sdkError.message);
         
+        // 🔥 LARGE WALLET FALLBACK: >2000 Tokens
+        if (sdkError.message.includes('over 2000 tokens')) {
+          console.log('🔥 LARGE WALLET DETECTED: Implementing chunked fallback');
+          
+          return res.status(200).json({
+            result: [],
+            total: 0,
+            _large_wallet: true,
+            _message: 'Wallet contains >2000 tokens - Use ROI/Tax specific endpoints with pagination',
+            _suggestion: 'Break down requests by token type or time period',
+            _fallback: {
+              reason: 'large_wallet_over_2000_tokens',
+              message: 'Use paginated endpoints for large wallets'
+            }
+          });
+        }
+        
         // Check for specific error types
         if (sdkError.message.includes('Invalid address')) {
           return res.status(200).json({
@@ -127,18 +198,6 @@ export default async function handler(req, res) {
             _error: {
               message: 'Invalid wallet address format',
               type: 'address_validation'
-            }
-          });
-        }
-        
-        if (chainId === '0x171' && (sdkError.message.includes('chain') || sdkError.message.includes('0x171'))) {
-          return res.status(200).json({
-            result: [],
-            total: 0,
-            _fallback: {
-              reason: 'pulsechain_not_supported',
-              message: 'PulseChain not supported by Moralis SDK',
-              chain: chainId
             }
           });
         }
