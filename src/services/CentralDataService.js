@@ -289,7 +289,7 @@ export class CentralDataService {
     console.log(`🚀 MORALIS ENTERPRISE MODE: ${hasMoralisAccess ? 'USING MORALIS APIS' : 'FALLBACK TO FREE APIS'}`);
 
     for (const wallet of wallets) {
-      const chainId = wallet.chain_id || 369; // Default PulseChain
+      const chainId = wallet.chain_id || 369;
       const chain = this.getChainConfig(chainId);
       
       console.log(`🔍 ENTERPRISE: Loading tokens for wallet ${wallet.address} on ${chain.name}`);
@@ -301,7 +301,7 @@ export class CentralDataService {
           // 🚀 100% MORALIS ENTERPRISE API
           console.log(`💎 USING MORALIS ENTERPRISE for ${chain.name}`);
           
-          response = await fetch('/api/moralis-tokens', {
+          response = await fetch(`/api/moralis-tokens?endpoint=wallet-tokens&chain=${chain.moralisChainId}&address=${wallet.address}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -326,6 +326,14 @@ export class CentralDataService {
                 balance: token.balance
               }))
             };
+          } else if (response._fallback) {
+            // Moralis API not available, use fallback
+            console.warn(`⚠️ MORALIS ENTERPRISE not available, using fallback for ${wallet.address}`);
+            hasMoralisAccess = false; // Switch to fallback for this wallet
+            
+            response = await fetch(
+              `${chain.apiProxy}?address=${wallet.address}&action=tokenlist&module=account`
+            ).then(r => r.json());
           }
         } else {
           // 📡 FALLBACK: PulseChain Scanner API
