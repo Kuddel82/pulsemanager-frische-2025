@@ -660,17 +660,31 @@ export class CentralDataService {
         // 🚀 100% MORALIS ENTERPRISE API
         console.log(`💎 USING MORALIS TRANSACTIONS API for ${chain.name}`);
         
-        response = await fetch('/api/moralis-token-transfers', {
+        // 🛡️ SAFE API CALL: Handle all possible errors
+        const apiResponse = await fetch('/api/moralis-token-transfers', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             address: wallet.address,
-            chain: chain.moralisChainId,
+            chain: chain.moralisChainId || '0x171',
             limit: 500
           })
-        }).then(r => r.json());
+        });
+
+        // 🔒 SAFE RESPONSE PARSING: Handle malformed JSON
+        let responseText = '';
+        try {
+          responseText = await apiResponse.text();
+          response = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`💥 MORALIS API RESPONSE PARSE ERROR for ${wallet.address}:`, parseError.message);
+          console.error(`💥 RAW RESPONSE (first 200 chars):`, responseText.slice(0, 200));
+          
+          // Continue with empty result - don't crash the entire portfolio loading
+          response = { success: false, result: [] };
+        }
         
         // Transform Moralis response to match expected format
         if (response.result && Array.isArray(response.result)) {
@@ -765,17 +779,31 @@ export class CentralDataService {
         // 🚀 100% MORALIS ENTERPRISE API
         console.log(`💎 USING MORALIS TOKEN TRANSFERS API for ${chain.name}`);
         
-        response = await fetch('/api/moralis-token-transfers', {
+        // 🛡️ SAFE API CALL: Handle all possible errors  
+        const apiResponse = await fetch('/api/moralis-token-transfers', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             address: wallet.address,
-            chain: chain.moralisChainId,
+            chain: chain.moralisChainId || '0x171',
             limit: 2000  // Higher limit for tax reporting
           })
-        }).then(r => r.json());
+        });
+
+        // 🔒 SAFE RESPONSE PARSING: Handle malformed JSON
+        let responseText = '';
+        try {
+          responseText = await apiResponse.text();
+          response = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`💥 MORALIS TAX API RESPONSE PARSE ERROR for ${wallet.address}:`, parseError.message);
+          console.error(`💥 RAW RESPONSE (first 200 chars):`, responseText.slice(0, 200));
+          
+          // Continue with empty result - don't crash the entire portfolio loading
+          response = { success: false, result: [] };
+        }
         
         // Transform Moralis response for tax processing
         if (response.result && Array.isArray(response.result)) {

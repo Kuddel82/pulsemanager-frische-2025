@@ -21,13 +21,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { address, chain = '0x171', cursor, limit = 100 } = req.body;
-
-    // Validierung
-    if (!address) {
+    // 🔒 SAFE JSON PARSING: Prevent crashes
+    let requestData = {};
+    
+    try {
+      requestData = req.body || {};
+    } catch (parseError) {
+      console.error('💥 JSON PARSE ERROR:', parseError);
       return res.status(400).json({ 
-        error: 'Missing required parameter',
-        required: { address: 'Wallet address required' }
+        error: 'Invalid JSON in request body',
+        message: parseError.message
+      });
+    }
+
+    const { address, chain = '0x171', cursor, limit = 100 } = requestData;
+
+    // 🛡️ IMPROVED VALIDATION
+    if (!address || typeof address !== 'string') {
+      return res.status(400).json({ 
+        error: 'Missing or invalid address parameter',
+        required: { address: 'Valid wallet address string required' },
+        received: { address: typeof address }
       });
     }
 
@@ -52,30 +66,39 @@ export default async function handler(req, res) {
       });
     }
 
+    // 🌐 CHAIN NORMALIZATION: Handle different chain formats
+    let normalizedChain = chain;
+    if (chain === '369' || chain === 'pulsechain' || chain === 'pls') {
+      normalizedChain = '0x171';
+    } else if (chain === '1' || chain === 'ethereum' || chain === 'eth') {
+      normalizedChain = '0x1';
+    }
+
     // 🌐 Moralis Web3 Data API v2.2 - ERC20 Token Transfers Endpoint
     const apiUrl = `https://deep-index.moralis.io/api/v2.2/${address}/erc20/transfers`;
     
     const params = new URLSearchParams({
-      chain: chain,
-      limit: Math.min(parseInt(limit), 100).toString()
+      chain: normalizedChain,
+      limit: Math.min(parseInt(limit) || 100, 100).toString()
     });
     
-    if (cursor) {
+    if (cursor && typeof cursor === 'string') {
       params.append('cursor', cursor);
     }
 
     const fullUrl = `${apiUrl}?${params.toString()}`;
     
-    console.log(`🚀 MORALIS TOKEN TRANSFERS: Loading ERC20 transfers for ${address.slice(0, 8)}... (${chain})`);
+    console.log(`🚀 MORALIS TOKEN TRANSFERS: Loading ERC20 transfers for ${address.slice(0, 8)}... (${normalizedChain})`);
 
-    // 📡 Moralis Enterprise API Call
+    // 📡 Moralis Enterprise API Call with timeout
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: {
         'X-API-Key': MORALIS_API_KEY,
         'Accept': 'application/json',
         'User-Agent': 'PulseManager-Enterprise/1.0'
-      }
+      },
+      timeout: 30000
     });
 
     if (!response.ok) {
@@ -116,7 +139,24 @@ export default async function handler(req, res) {
       });
     }
 
-    const data = await response.json();
+    // 🔒 SAFE JSON PARSING: Handle malformed responses
+    let data = {};
+    try {
+      const text = await response.text();
+      data = JSON.parse(text);
+    } catch (jsonError) {
+      console.error('💥 MORALIS RESPONSE JSON ERROR:', jsonError);
+      return res.status(200).json({
+        success: false,
+        result: [],
+        total: 0,
+        _error: {
+          message: 'Invalid JSON response from Moralis API',
+          raw_response_length: jsonError.toString().length,
+          fallback: 'Use alternative data source'
+        }
+      });
+    }
     
     // 📊 Process and enhance token transfer data
     const transfers = (data.result || []).map(transfer => ({
@@ -175,18 +215,28 @@ export default async function handler(req, res) {
     return res.status(200).json(result);
 
   } catch (error) {
-    console.error('💥 MORALIS TOKEN TRANSFERS ERROR:', error.message);
+    console.error('💥 MORALIS TOKEN TRANSFERS CRITICAL ERROR:', error.message);
+    console.error('💥 ERROR STACK:', error.stack);
     
-    // 🛡️ FALLBACK: Return empty result instead of 500 error
+    // 🛡️ ABSOLUTE FALLBACK: NEVER return 500 error - always return 200 with error info
     return res.status(200).json({ 
       success: false,
       result: [],
       total: 0,
-      _error: {
-        message: error.message,
+      page: 0,
+      page_size: 100,
+      cursor: null,
+      _critical_error: {
+        message: error.message || 'Unknown error',
+        name: error.name || 'Error',
         endpoint: 'moralis-token-transfers',
         timestamp: new Date().toISOString(),
-        fallback: 'Use alternative data source'
+        fallback: 'System will continue with empty transaction data',
+        request_debug: {
+          hasBody: !!req.body,
+          method: req.method,
+          userAgent: req.headers['user-agent'] || 'unknown'
+        }
       }
     });
   }
