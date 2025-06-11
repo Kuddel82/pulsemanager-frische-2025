@@ -1,6 +1,6 @@
 import { Wallet, LayoutDashboard, Info, Image as ImageIcon, TrendingUp, ShoppingCart, Shuffle, Leaf, FileSpreadsheet, Percent, BookOpen, Settings as SettingsIcon, Award, FileText, Mail, ShieldCheck, BadgeInfo as InfoIcon, Users, BarChartHorizontalBig, Home, BarChart2, Repeat, Zap, AlertTriangle } from 'lucide-react';
-import { translationsEn } from '@/config/locales/en';
-import { translationsDe } from '@/config/locales/de';
+import { translationsEn } from '@/config/locales/en.js';
+import { translationsDe } from '@/config/locales/de.js';
 
 export const TRIAL_DURATION_DAYS = 3;
 

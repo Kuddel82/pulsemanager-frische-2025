@@ -1,10 +1,10 @@
-// 🚀 ENTERPRISE INTEGRATION SERVICE
-// Integriert die neuen Moralis Enterprise APIs nahtlos in den bestehenden Portfolio-Flow
-// Datum: 2025-01-11 - ENTERPRISE ENHANCEMENT LAYER
+// 🚀 PRO INTEGRATION SERVICE (former Enterprise)
+// Integriert die Pro-kompatiblen Moralis APIs für kostenoptimierte Portfolio-Analyse
+// Datum: 2025-01-11 - PRO COST OPTIMIZATION (Enterprise -> Pro)
 
 import CentralDataService from './CentralDataService';
 
-export class EnterpriseIntegrationService {
+export class ProIntegrationService {
   
   /**
    * 🚀 Enhanced Portfolio Loading with Enterprise Features
@@ -342,4 +342,4 @@ export class EnterpriseIntegrationService {
   }
 }
 
-export default EnterpriseIntegrationService; 
+export default ProIntegrationService; 

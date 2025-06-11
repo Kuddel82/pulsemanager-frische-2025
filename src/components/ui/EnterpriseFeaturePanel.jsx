@@ -21,7 +21,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import EnterpriseIntegrationService from '@/services/EnterpriseIntegrationService';
+import ProIntegrationService from '@/services/EnterpriseIntegrationService';
 
 const EnterpriseFeaturePanel = ({ portfolioData }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -31,8 +31,8 @@ const EnterpriseFeaturePanel = ({ portfolioData }) => {
     return null;
   }
   
-  const featureSummary = EnterpriseIntegrationService.getEnterpriseFeatureSummary(portfolioData);
-  const performanceReport = EnterpriseIntegrationService.generatePerformanceReport(portfolioData);
+  const featureSummary = ProIntegrationService.getEnterpriseFeatureSummary(portfolioData);
+  const performanceReport = ProIntegrationService.generatePerformanceReport(portfolioData);
   
   const isEnterpriseActive = featureSummary.status === 'enterprise';
   const enhancementCount = featureSummary.features?.length || 0;

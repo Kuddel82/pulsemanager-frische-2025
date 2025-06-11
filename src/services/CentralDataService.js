@@ -1,7 +1,7 @@
-// 🎯 CENTRAL DATA SERVICE - 100% MORALIS ENTERPRISE ONLY
-// Eliminiert ALLE kostenlosen APIs für maximale Zuverlässigkeit  
+// 🎯 CENTRAL DATA SERVICE - MORALIS PRO COST OPTIMIZED
+// REST API calls statt teurer SDK calls für Kostenoptimierung
 // V2: Mit intelligenter Database-Cache-Integration
-// Datum: 2025-01-11 - ENTERPRISE + SMART CACHING
+// Datum: 2025-01-11 - PRO PLAN + SMART CACHING
 
 import { supabase } from '@/lib/supabaseClient';
 import { DatabaseCacheService } from './DatabaseCacheService';
@@ -66,14 +66,14 @@ export class CentralDataService {
     }
   };
 
-  // 🚀 MORALIS ENTERPRISE ENDPOINTS (ONLY)
+    // 🚀 MORALIS PRO ENDPOINTS (COST OPTIMIZED)
   static MORALIS_ENDPOINTS = {
     tokens: '/api/moralis-tokens',
-    prices: '/api/moralis-prices', 
+    prices: '/api/moralis-prices',
     transactions: '/api/moralis-transactions',
     tokenTransfers: '/api/moralis-token-transfers',
-    // ✨ NEW: Enterprise Advanced APIs
-    enterpriseAdvanced: '/api/moralis-enterprise-apis'
+    // ✨ NEW: Pro-optimized V2 API
+    v2: '/api/moralis-v2'
   };
 
   // 💰 EMERGENCY FALLBACKS: Nur für absolute Notfälle (PLS/ETH/Stablecoins)
