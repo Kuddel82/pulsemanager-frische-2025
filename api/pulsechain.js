@@ -1,205 +1,113 @@
-// 🚀 MORALIS API PROXY - Professional Web3 Data Provider
-// Enterprise-grade APIs für PulseManager mit Rate Limiting & Fallbacks
+// 🚀 PulseChain API Proxy - Vercel Serverless Function v1.2.0
+// Eliminiert CORS-Probleme durch Server-seitigen Proxy
+// Route: /api/pulsechain?address=0x...&action=tokenlist&module=account
+// Updated: 2025-01-11 - FIXED API Interface for EtherScan compatibility
 
 export default async function handler(req, res) {
-  // Enable CORS
+  // Add CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(200).end();
+    return;
   }
 
   try {
-    const { endpoint, chain, address, addresses, cursor, limit } = req.query;
+    const { address, action, module, page, offset, sort, startblock, endblock, tag } = req.query;
 
-    // 🔑 Moralis API Configuration
-    const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-    const MORALIS_BASE_URL = process.env.MORALIS_BASE_URL || 'https://deep-index.moralis.io/api/v2.2';
-
-    if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
-      console.warn('⚠️ MORALIS: API Key not configured, falling back to scan.pulsechain.com');
-      return res.status(503).json({ 
-        error: 'Moralis API not configured',
-        fallback: 'Use scan.pulsechain.com',
-        setup: 'Add MORALIS_API_KEY to .env file'
+    if (!address) {
+      return res.status(400).json({
+        error: 'Missing required parameter: address',
+        example: '/api/pulsechain?address=0x...&action=tokenlist&module=account'
       });
     }
 
-    // 🌐 Chain ID Mapping
-    const chainIdMap = {
-      'pulsechain': '0x171',
-      'ethereum': '0x1',
-      'pls': '0x171',
-      'eth': '0x1'
-    };
+    // 🌐 PulseChain Scan API Configuration  
+    const PULSECHAIN_API_BASE = 'https://scan.pulsechain.com/api';
+    
+    // Build query parameters for PulseChain API
+    const params = new URLSearchParams({
+      module: module || 'account',
+      action: action || 'tokenlist', 
+      address: address.toLowerCase()
+    });
 
-    const chainId = chainIdMap[chain?.toLowerCase()] || '0x171'; // Default PulseChain
+    // Add optional parameters
+    if (page) params.append('page', page);
+    if (offset) params.append('offset', offset);
+    if (sort) params.append('sort', sort);
+    if (startblock) params.append('startblock', startblock);
+    if (endblock) params.append('endblock', endblock);
+    if (tag) params.append('tag', tag);
 
-    let apiUrl;
-    let params = new URLSearchParams();
+    const proxyUrl = `${PULSECHAIN_API_BASE}?${params.toString()}`;
+    
+    console.log(`🔗 PulseChain Proxy: ${action || 'tokenlist'} for ${address.slice(0, 8)}...`);
 
-    // 📊 API Endpoint Routing
-    switch (endpoint) {
-      case 'wallet-tokens':
-        // Token balances für eine Wallet
-        if (!address) {
-          return res.status(400).json({ error: 'Address parameter required for wallet-tokens' });
-        }
-        apiUrl = `${MORALIS_BASE_URL}/${address}/erc20`;
-        params.append('chain', chainId);
-        if (cursor) params.append('cursor', cursor);
-        if (limit) params.append('limit', Math.min(parseInt(limit), 100));
-        break;
-
-      case 'wallet-history':
-        // Transaction history für eine Wallet
-        if (!address) {
-          return res.status(400).json({ error: 'Address parameter required for wallet-history' });
-        }
-        apiUrl = `${MORALIS_BASE_URL}/${address}`;
-        params.append('chain', chainId);
-        if (cursor) params.append('cursor', cursor);
-        if (limit) params.append('limit', Math.min(parseInt(limit), 100));
-        break;
-
-      case 'token-prices':
-        // Bulk token price lookup
-        if (!addresses) {
-          return res.status(400).json({ error: 'Addresses parameter required for token-prices' });
-        }
-        apiUrl = `${MORALIS_BASE_URL}/erc20/prices`;
-        params.append('chain', chainId);
-        // Split addresses and limit to 25 (Moralis limit)
-        const addressList = addresses.split(',').slice(0, 25);
-        addressList.forEach(addr => params.append('tokens', addr));
-        break;
-
-      case 'token-metadata':
-        // Token metadata (symbol, name, decimals)
-        if (!addresses) {
-          return res.status(400).json({ error: 'Addresses parameter required for token-metadata' });
-        }
-        apiUrl = `${MORALIS_BASE_URL}/erc20/metadata`;
-        params.append('chain', chainId);
-        const metadataAddresses = addresses.split(',').slice(0, 25);
-        metadataAddresses.forEach(addr => params.append('addresses', addr));
-        break;
-
-      default:
-        return res.status(400).json({ 
-          error: 'Invalid endpoint',
-          available: ['wallet-tokens', 'wallet-history', 'token-prices', 'token-metadata']
-        });
-    }
-
-    const fullUrl = `${apiUrl}?${params.toString()}`;
-    console.log(`🚀 MORALIS PROXY: ${endpoint} for ${chain} - ${address?.slice(0, 8) || addresses?.split(',').length + ' addresses'}...`);
-
-    // 📡 Make request to Moralis API
-    const response = await fetch(fullUrl, {
+    const response = await fetch(proxyUrl, {
+      method: 'GET',
       headers: {
-        'X-API-Key': MORALIS_API_KEY,
         'Accept': 'application/json',
-        'User-Agent': 'PulseManager/1.0'
+        'User-Agent': 'PulseManager/1.2'
       },
       timeout: 30000
     });
 
     if (!response.ok) {
-      console.error(`❌ Moralis API Error: ${response.status} ${response.statusText}`);
-      
-      // Check for specific error codes
-      if (response.status === 429) {
-        return res.status(429).json({ 
-          error: 'Rate limit exceeded',
-          message: 'Moralis API rate limit reached. Try again later.',
-          retryAfter: response.headers.get('retry-after') || '60'
-        });
-      }
-
-      if (response.status === 401) {
-        return res.status(401).json({ 
-          error: 'Invalid API key',
-          message: 'Check your MORALIS_API_KEY in .env file'
-        });
-      }
-
+      console.error(`❌ PulseChain API Error: ${response.status} ${response.statusText}`);
       return res.status(response.status).json({ 
-        error: `Moralis API Error: ${response.status}`,
-        message: response.statusText 
+        error: `PulseChain API Error: ${response.status}`,
+        message: response.statusText,
+        url: proxyUrl.replace(PULSECHAIN_API_BASE, '[API_BASE]') // Hide full URL in logs
       });
     }
 
     const data = await response.json();
     
-    // 📊 Log successful requests with useful stats
-    let logMessage = `✅ MORALIS ${endpoint.toUpperCase()}:`;
-    
-    if (data.result && Array.isArray(data.result)) {
-      logMessage += ` ${data.result.length} items`;
-      
-      // Specific logging for different endpoints
-      if (endpoint === 'wallet-tokens') {
-        const nonZeroTokens = data.result.filter(token => 
-          parseFloat(token.balance) > 0 || parseFloat(token.balance_formatted) > 0
-        );
-        logMessage += ` (${nonZeroTokens.length} with balance)`;
-      }
-      
-      if (endpoint === 'token-prices') {
-        const tokensWithPrice = data.result.filter(token => token.usdPrice > 0);
-        logMessage += ` (${tokensWithPrice.length} with prices)`;
-      }
+    // 📊 Log successful requests with useful info
+    if (data.status === '1' && Array.isArray(data.result)) {
+      console.log(`✅ PULSECHAIN ${(action || 'tokenlist').toUpperCase()}: ${data.result.length} results for ${address.slice(0, 8)}...`);
+    } else if (data.message === 'NOTOK') {
+      // Normal for empty wallets - less logging
+      console.log(`📱 PULSECHAIN: Empty result for ${address.slice(0, 8)}... (normal)`);
     }
-    
-    console.log(logMessage);
 
-    // 🔄 Add metadata to response
-    const responseData = {
+    // Add proxy metadata
+    const result = {
       ...data,
       _proxy: {
-        provider: 'moralis',
-        endpoint,
-        chain: chainId,
+        source: 'scan.pulsechain.com',
         timestamp: new Date().toISOString(),
-        hasMore: data.cursor ? true : false
+        version: '1.2.0'
       }
     };
 
-    // 📈 Set appropriate caching headers
-    const cacheTime = endpoint === 'token-prices' ? 60 : 300; // Prices cache 1min, other data 5min
-    res.setHeader('Cache-Control', `s-maxage=${cacheTime}, stale-while-revalidate=${cacheTime * 2}`);
-    
-    return res.status(200).json(responseData);
+    // Set caching headers (5 minutes for API data)
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+
+    res.status(200).json(result);
 
   } catch (error) {
-    console.error('💥 MORALIS PROXY ERROR:', error.message);
+    console.error('💥 PulseChain Proxy Error:', error.message);
     
-    // Handle timeout errors
+    // Handle different error types
     if (error.name === 'AbortError' || error.code === 'TIMEOUT') {
-      return res.status(408).json({ 
+      return res.status(408).json({
         error: 'Request timeout',
-        message: 'Moralis API took too long to respond',
-        fallback: 'Try scan.pulsechain.com'
+        message: 'PulseChain API took too long to respond'
       });
     }
 
-    // Handle network errors
     if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      return res.status(503).json({ 
-        error: 'Service unavailable',
-        message: 'Moralis API is currently unavailable',
-        fallback: 'Use backup APIs'
+      return res.status(503).json({
+        error: 'Service unavailable', 
+        message: 'PulseChain API is currently unreachable'
       });
     }
     
-    return res.status(500).json({ 
+    res.status(500).json({
       error: 'Proxy request failed',
       message: error.message,
       timestamp: new Date().toISOString()

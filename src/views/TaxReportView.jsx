@@ -1,5 +1,5 @@
 // 📄 TAX REPORT VIEW - Zeigt echte Steuerdaten von PulseChain
-// Datum: 2025-01-08 - PHASE 3: ECHTE STEUERDATEN INTEGRATION
+// Datum: 2025-01-08 - PHASE 3: ECHTE STEUERDATEN INTEGRATION + SAFETY GUARDS
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -54,8 +54,9 @@ const TaxReportView = () => {
       // 1. Lade User-Wallets via CentralDataService (nur für Wallet-Liste)
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
       
-      if (portfolioData.error) {
-        setError(portfolioData.error);
+      // SAFETY: Check if portfolioData is valid
+      if (!portfolioData || portfolioData.error) {
+        setError(portfolioData?.error || 'Unbekannter Fehler beim Laden der Portfolio-Daten');
         return;
       }
       
@@ -70,6 +71,12 @@ const TaxReportView = () => {
       
       // 2. TaxService für alle Transaction-Daten (mit Caching!)
       const fullTaxData = await TaxService.fetchFullTransactionHistory(user.id, wallets);
+      
+      // SAFETY: Check if fullTaxData is valid
+      if (!fullTaxData) {
+        setError('Fehler beim Laden der Transaktionshistorie');
+        return;
+      }
       
       setTaxData(fullTaxData);
       setLastUpdate(new Date());
@@ -180,31 +187,36 @@ const TaxReportView = () => {
 
   // 🎯 Filter transactions by category (NEUES FORMAT)
   const getFilteredTransactions = () => {
-    if (!taxData) return [];
-    
-    switch (filterCategory) {
-      case 'all':
-        return taxData.allTransactions || [];
-      case 'taxable':
-        return taxData.taxableTransactions || [];
-      case 'purchases':
-        return taxData.purchases || [];
-      case 'sales':
-        return taxData.sales || [];
-      default:
-        return taxData.allTransactions || [];
+    // SAFETY: Return empty array if no taxData
+    if (!taxData || !taxData.allTransactions) {
+      return [];
     }
+    
+    return taxData.allTransactions.filter(tx => {
+      try {
+        if (filterCategory === 'taxable' && !tx.isTaxable) return false;
+        if (filterCategory === 'purchases' && tx.direction !== 'out') return false;
+        if (filterCategory === 'sales' && tx.direction !== 'in') return false;
+        return true;
+      } catch (error) {
+        console.warn('Filter error for transaction:', tx, error);
+        return false;
+      }
+    });
   };
 
-  // 📊 Get tax statistics from TaxService summary
+  // 📊 Get tax statistics from TaxService summary with SAFETY GUARDS
   const getTaxStats = () => {
-    if (!taxData?.taxSummary) {
+    // SAFETY: Return default values if no taxData
+    if (!taxData || !taxData.taxSummary) {
       return {
         totalTransactions: 0,
         taxableTransactions: 0,
         taxableIncome: 0,
         purchases: 0,
-        sales: 0
+        sales: 0,
+        purchasesCount: 0,
+        salesCount: 0
       };
     }
     
@@ -221,6 +233,7 @@ const TaxReportView = () => {
     };
   };
 
+  // SAFETY: Get filtered transactions and stats with guards
   const filteredTransactions = getFilteredTransactions();
   const taxStats = getTaxStats();
 
