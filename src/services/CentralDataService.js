@@ -10,7 +10,7 @@ export class CentralDataService {
   static async hasValidMoralisApiKey() {
     try {
       // Use a simple wallet-tokens test request with null address
-      const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
+      const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000');
       const data = await response.json();
       
       // ✅ NEW: Accept test-mode responses as valid
