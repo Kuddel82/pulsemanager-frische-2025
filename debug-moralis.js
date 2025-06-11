@@ -2,7 +2,14 @@ import Moralis from "moralis";
 import { EvmChain } from "@moralisweb3/common-evm-utils";
 
 // 🔑 DEINE MORALIS API CONFIGURATION
-const MORALIS_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjNiYjEyNDQ0LWVkYmUtNDQyNi1hOThlLWFlNzBjZTAzZGRhNCIsIm9yZ0lkIjoiNDUxOTc4IiwidXNlcklkIjoiNDY1MDQ5IiwidHlwZUlkIjoiY2JhYzQ1ZTctODk4Ni00ZGFlLWE4NTUtMDA3ZmFlNjM4ZDgyIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDk0MzkxNzEsImV4cCI6NDkwNTE5OTE3MX0.nTFPzga8CQX4Yxryvu2zCkCVHsJp5VDoIy_CthTrOvc";
+// 🔑 SECURE: API Key aus Environment Variable laden
+const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
+
+if (!MORALIS_API_KEY) {
+  console.error('❌ MORALIS_API_KEY not found in environment variables!');
+  console.log('💡 Add MORALIS_API_KEY to your .env file or environment');
+  process.exit(1);
+}
 const address = "0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a"; // Deine Wallet
 
 async function debugMoralisAPI() {
