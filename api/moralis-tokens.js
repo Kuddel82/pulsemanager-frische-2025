@@ -3,19 +3,29 @@
 
 import Moralis from "moralis";
 import { EvmChain } from "@moralisweb3/common-evm-utils";
-import { NextResponse } from 'next/server';
 
 let moralisInitialized = false;
 
-export async function GET(request) {
-  console.log('🔥 DEBUG: /src/app/api/moralis-tokens/route.js AUFGERUFEN!');
-  console.log('🔥 DEBUG: URL:', request.url);
+export default async function handler(req, res) {
+  console.log('🔥 DEBUG: /api/moralis-tokens.js AUFGERUFEN!');
+  console.log('🔥 DEBUG: URL:', req.url);
+  console.log('🔥 DEBUG: Query:', req.query);
   
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const endpoint = searchParams.get('endpoint');
-    const chain = searchParams.get('chain');
-    const address = searchParams.get('address');
+    const { endpoint, chain, address } = req.query;
     
     console.log('🔥 DEBUG: Parameter erhalten:', { endpoint, chain, address });
 
@@ -26,7 +36,7 @@ export async function GET(request) {
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
       console.warn('⚠️ MORALIS TOKENS: API Key not configured - returning empty results');
       
-      return NextResponse.json({
+      return res.status(200).json({
         result: [],
         total: 0,
         _fallback: {
@@ -61,7 +71,7 @@ export async function GET(request) {
         console.log('✅ MORALIS SDK INITIALIZED');
       } catch (initError) {
         console.error('💥 MORALIS SDK INIT ERROR:', initError.message);
-        return NextResponse.json({
+        return res.status(200).json({
           success: false,
           error: 'Moralis SDK initialization failed',
           _safe_mode: true
@@ -74,7 +84,7 @@ export async function GET(request) {
       // NULL Address Test für hasValidMoralisApiKey
       if (!address || address === '0x0000000000000000000000000000000000000000') {
         console.log('⚠️ NULL ADDRESS DETECTED - returning test result');
-        return NextResponse.json({ 
+        return res.status(200).json({ 
           result: [],
           total: 0,
           _test_mode: true,
@@ -104,14 +114,14 @@ export async function GET(request) {
         console.log(`✅ MORALIS SDK SUCCESS: ${tokenBalances.result.length} tokens found`);
         
         // Return the raw Moralis response
-        return NextResponse.json(tokenBalances);
+        return res.status(200).json(tokenBalances);
         
       } catch (sdkError) {
         console.error('💥 MORALIS SDK ERROR:', sdkError.message);
         
         // Check for specific error types
         if (sdkError.message.includes('Invalid address')) {
-          return NextResponse.json({
+          return res.status(200).json({
             result: [],
             total: 0,
             _error: {
@@ -122,7 +132,7 @@ export async function GET(request) {
         }
         
         if (chainId === '0x171' && (sdkError.message.includes('chain') || sdkError.message.includes('0x171'))) {
-          return NextResponse.json({
+          return res.status(200).json({
             result: [],
             total: 0,
             _fallback: {
@@ -134,7 +144,7 @@ export async function GET(request) {
         }
         
         // Generic error handling
-        return NextResponse.json({
+        return res.status(200).json({
           result: [],
           total: 0,
           _error: {
@@ -147,7 +157,7 @@ export async function GET(request) {
     }
 
     // Invalid endpoint
-    return NextResponse.json({
+    return res.status(200).json({
       success: false,
       error: 'Invalid endpoint',
       available: ['wallet-tokens'],
@@ -157,7 +167,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('💥 MORALIS PROXY ERROR:', error.message);
     
-    return NextResponse.json({
+    return res.status(200).json({
       result: [],
       total: 0,
       _error: {
