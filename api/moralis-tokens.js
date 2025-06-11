@@ -61,7 +61,11 @@ export default async function handler(req, res) {
       case 'wallet-tokens':
         // Token balances für eine Wallet
         if (!address) {
-          return res.status(400).json({ error: 'Address parameter required for wallet-tokens' });
+          return res.status(200).json({ 
+            success: false,
+            error: 'Address parameter required for wallet-tokens',
+            _safe_mode: true
+          });
         }
         apiUrl = `${MORALIS_BASE_URL}/${address}/erc20`;
         params.append('chain', chainId);
@@ -72,7 +76,11 @@ export default async function handler(req, res) {
       case 'wallet-history':
         // Transaction history für eine Wallet
         if (!address) {
-          return res.status(400).json({ error: 'Address parameter required for wallet-history' });
+          return res.status(200).json({ 
+            success: false,
+            error: 'Address parameter required for wallet-history',
+            _safe_mode: true
+          });
         }
         apiUrl = `${MORALIS_BASE_URL}/${address}`;
         params.append('chain', chainId);
@@ -83,7 +91,11 @@ export default async function handler(req, res) {
       case 'token-prices':
         // Bulk token price lookup
         if (!addresses) {
-          return res.status(400).json({ error: 'Addresses parameter required for token-prices' });
+          return res.status(200).json({ 
+            success: false,
+            error: 'Addresses parameter required for token-prices',
+            _safe_mode: true
+          });
         }
         apiUrl = `${MORALIS_BASE_URL}/erc20/prices`;
         params.append('chain', chainId);
@@ -95,7 +107,11 @@ export default async function handler(req, res) {
       case 'token-metadata':
         // Token metadata (symbol, name, decimals)
         if (!addresses) {
-          return res.status(400).json({ error: 'Addresses parameter required for token-metadata' });
+          return res.status(200).json({ 
+            success: false,
+            error: 'Addresses parameter required for token-metadata',
+            _safe_mode: true
+          });
         }
         apiUrl = `${MORALIS_BASE_URL}/erc20/metadata`;
         params.append('chain', chainId);
@@ -103,10 +119,12 @@ export default async function handler(req, res) {
         metadataAddresses.forEach(addr => params.append('addresses', addr));
         break;
 
-      default:
-        return res.status(400).json({ 
+            default:
+        return res.status(200).json({
+          success: false,
           error: 'Invalid endpoint',
-          available: ['wallet-tokens', 'wallet-history', 'token-prices', 'token-metadata']
+          available: ['wallet-tokens', 'wallet-history', 'token-prices', 'token-metadata'],
+          _safe_mode: true
         });
     }
 
