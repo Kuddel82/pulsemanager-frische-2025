@@ -272,8 +272,20 @@ export class CentralDataService {
               hasError: !!parsed._error,
               hasFallback: !!parsed._fallback,
               hasSuccess: !!parsed.success,
-              keys: Object.keys(parsed).slice(0, 10),
-              fullResponse: parsed
+              status: parsed.status,
+              cursor: parsed.cursor,
+              page: parsed.page,
+              page_size: parsed.page_size,
+              keys: Object.keys(parsed),
+              chain: chain.moralisChainId,
+              // Sample token for structure analysis
+              sampleToken: parsed.result && parsed.result[0] ? {
+                hasBalance: 'balance' in parsed.result[0],
+                hasBalanceFormatted: 'balance_formatted' in parsed.result[0],
+                hasTokenAddress: 'token_address' in parsed.result[0],
+                hasUsdPrice: 'usd_price' in parsed.result[0],
+                fields: Object.keys(parsed.result[0])
+              } : null
             });
             return parsed;
           } catch (parseError) {
@@ -296,8 +308,16 @@ export class CentralDataService {
               symbol: token.symbol,
               name: token.name,
               contractAddress: token.token_address,
-              decimals: token.decimals,
-              balance: token.balance
+              decimals: parseInt(token.decimals) || 18,
+              balance: token.balance,
+              // Standard Moralis fields (für Debugging)
+              _moralis_fields: {
+                balance_formatted: token.balance_formatted,
+                usd_price: token.usd_price,
+                usd_value: token.usd_value,
+                logo: token.logo,
+                thumbnail: token.thumbnail
+              }
             }))
           };
         } else if (Array.isArray(response) && response.length >= 0) {
@@ -314,12 +334,20 @@ export class CentralDataService {
             }))
           };
         } else if (response._fallback) {
-          // Moralis API not available, use fallback
-          console.warn(`⚠️ MORALIS ENTERPRISE not available, using fallback for ${wallet.address}`);
-          
-          response = await fetch(
-            `${chain.apiProxy}?address=${wallet.address}&action=tokenlist&module=account`
-          ).then(r => r.json());
+          // 🚨 MORALIS API not available or unsupported chain
+          if (response._fallback.reason === 'pulsechain_not_supported') {
+            console.warn(`⚠️ PULSECHAIN NOT SUPPORTED by Moralis - wallet ${wallet.address} will show empty`);
+            response = {
+              status: 'NOTOK',
+              message: 'PulseChain not supported by Moralis API yet'
+            };
+          } else {
+            console.warn(`⚠️ MORALIS ENTERPRISE not available: ${response._fallback.reason} for ${wallet.address}`);
+            response = {
+              status: 'NOTOK', 
+              message: response._fallback.message || 'Moralis API not available'
+            };
+          }
         } else if (response._error) {
           // ✅ MORALIS: API error occurred but returned safely
           console.warn(`⚠️ MORALIS API ERROR: ${response._error.message} for wallet ${wallet.address}`);

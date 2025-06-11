@@ -45,15 +45,24 @@ export default async function handler(req, res) {
 
     // 🌐 Chain ID Mapping (Moralis Standard Format)
     const chainIdMap = {
-      '369': '0x171',        // PulseChain
+      '369': '0x171',        // PulseChain (wenn unterstützt)
       'pulsechain': '0x171',
       'pls': '0x171',
+      '0x171': '0x171',      // Direct hex format
       '1': '0x1',            // Ethereum Mainnet  
       'ethereum': '0x1',
-      'eth': '0x1'
+      'eth': '0x1',
+      '0x1': '0x1'           // Direct hex format
     };
 
     const chainId = chainIdMap[chain?.toString().toLowerCase()] || '0x171'; // Default PulseChain
+    
+    // 🚨 PULSECHAIN SUPPORT CHECK
+    if (chainId === '0x171') {
+      console.warn(`⚠️ PULSECHAIN NOTICE: Chain ${chainId} may not be fully supported by Moralis yet. Using experimental support.`);
+    }
+    
+    console.log(`🔍 CHAIN MAPPING: Input='${chain}' -> Output='${chainId}'`);
 
     let apiUrl;
     let params = new URLSearchParams();
@@ -137,7 +146,7 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      console.error(`❌ Moralis API Error: ${response.status} ${response.statusText}`);
+      console.error(`❌ Moralis API Error: ${response.status} ${response.statusText} for chain ${chainId}`);
       
       // Check for specific error codes
       if (response.status === 429) {
@@ -161,6 +170,21 @@ export default async function handler(req, res) {
         });
       }
 
+      if (response.status === 400 && chainId === '0x171') {
+        // 🚨 PULSECHAIN SPECIFIC: Chain not supported by Moralis
+        console.warn('⚠️ PULSECHAIN NOT SUPPORTED by Moralis - returning empty result');
+        return res.status(200).json({
+          result: [],
+          total: 0,
+          _fallback: {
+            reason: 'pulsechain_not_supported',
+            message: 'PulseChain support limited in Moralis API. Use alternative data source.',
+            chain: chainId,
+            alternative_suggestion: 'Use PulseChain Scanner API'
+          }
+        });
+      }
+
       // 🛡️ FALLBACK: For other errors, return empty result
       return res.status(200).json({
         result: [],
@@ -168,6 +192,7 @@ export default async function handler(req, res) {
         _error: {
           status: response.status,
           message: response.statusText,
+          chain: chainId,
           fallback: 'Use alternative data source'
         }
       });
