@@ -37,15 +37,12 @@ export default async function handler(req, res) {
 
     // 🛡️ FALLBACK: If no Moralis API key, return empty results
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
-      console.warn('⚠️ MORALIS TOKENS: API Key not configured - returning empty results');
+      console.error('🚨 CRITICAL: Moralis API Key required for Enterprise functionality');
       
-      return res.status(200).json({
-        result: [],
-        total: 0,
-        _fallback: {
-          reason: 'moralis_api_key_not_configured',
-          message: 'Add MORALIS_API_KEY to environment for token data'
-        }
+      return res.status(401).json({
+        error: 'ENTERPRISE ERROR: Moralis API Key required',
+        message: 'Add valid MORALIS_API_KEY to .env file',
+        critical: true
       });
     }
 

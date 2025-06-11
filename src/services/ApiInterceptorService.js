@@ -55,7 +55,7 @@ export class ApiInterceptorService {
           result: [],
           error: error.message,
           _intercepted: true,
-          _fallback: true
+          _enterprise_required: true
         })
       };
     }

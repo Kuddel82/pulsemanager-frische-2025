@@ -78,7 +78,7 @@ export class ROIDetectionService {
               total_usd_value: '0',
               total_unclaimed_usd_value: '0'
             },
-            _fallback500: true
+            _error_handled: true
           };
         }
         throw new Error(`DeFi Summary API error: ${response.status}`);
@@ -132,7 +132,7 @@ export class ROIDetectionService {
           return {
             success: true, // Return success with empty data to not crash portfolio
             positions: [],
-            _fallback500: true
+            _error_handled: true
           };
         }
         throw new Error(`DeFi Positions API error: ${response.status}`);
@@ -180,7 +180,7 @@ export class ROIDetectionService {
               token_transfers: { total: '0' },
               nft_transfers: { total: '0' }
             },
-            _fallback500: true
+            _error_handled: true
           };
         }
         throw new Error(`Wallet Stats API error: ${response.status}`);

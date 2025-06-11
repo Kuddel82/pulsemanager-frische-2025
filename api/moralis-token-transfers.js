@@ -69,20 +69,11 @@ export default async function handler(req, res) {
     const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
     
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
-      console.warn('⚠️ MORALIS API KEY not configured - returning empty result');
-      return res.status(200).json({
-        success: true,
-        result: [],
-        total: 0,
-        page: 0,
-        page_size: limit,
-        cursor: null,
-        _fallback: {
-          reason: 'moralis_api_key_not_configured',
-          message: 'Add MORALIS_API_KEY to environment variables for token transfer data',
-          alternative: 'System will continue with empty transaction data'
-        },
-        _safe_mode: true
+      console.error('🚨 CRITICAL: Moralis API Key required for Enterprise functionality');
+      return res.status(401).json({
+        error: 'ENTERPRISE ERROR: Moralis API Key required',
+        message: 'Add valid MORALIS_API_KEY to .env file',
+        critical: true
       });
     }
 

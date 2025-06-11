@@ -23,11 +23,11 @@ export default async function handler(req, res) {
     const MORALIS_BASE_URL = process.env.MORALIS_BASE_URL || 'https://deep-index.moralis.io/api/v2.2';
 
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
-      console.warn('⚠️ MORALIS: API Key not configured, falling back to scan.pulsechain.com');
-      return res.status(503).json({ 
-        error: 'Moralis API not configured',
-        fallback: 'Use scan.pulsechain.com',
-        setup: 'Add MORALIS_API_KEY to .env file'
+      console.error('🚨 CRITICAL: Moralis API Key required for Enterprise functionality');
+      return res.status(401).json({ 
+        error: 'ENTERPRISE ERROR: Moralis API Key required',
+        message: 'Add valid MORALIS_API_KEY to .env file',
+        critical: true
       });
     }
 
