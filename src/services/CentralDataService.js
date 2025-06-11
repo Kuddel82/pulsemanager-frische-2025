@@ -265,7 +265,10 @@ export class CentralDataService {
         }).then(r => r.text()).then(text => {
           try {
             const parsed = JSON.parse(text);
-            console.log(`🔍 MORALIS RAW RESPONSE for ${wallet.address.slice(0, 8)}:`, {
+            // 🚨 COMPLETE RESPONSE DUMP für echte Moralis-Struktur-Analyse
+            console.log(`🔍 FULL MORALIS RESPONSE DUMP for ${wallet.address.slice(0, 8)}:`, parsed);
+            
+            console.log(`🔍 MORALIS RESPONSE ANALYSIS for ${wallet.address.slice(0, 8)}:`, {
               hasResult: !!parsed.result,
               resultType: Array.isArray(parsed.result) ? 'array' : typeof parsed.result,
               resultLength: Array.isArray(parsed.result) ? parsed.result.length : 'N/A',
@@ -277,15 +280,28 @@ export class CentralDataService {
               page: parsed.page,
               page_size: parsed.page_size,
               keys: Object.keys(parsed),
+              keyCount: Object.keys(parsed).length,
               chain: chain.moralisChainId,
-              // Sample token for structure analysis
+              
+              // Prüfe alternative Felder
+              hasTokens: !!parsed.tokens,
+              hasData: !!parsed.data,
+              hasBalances: !!parsed.balances,
+              hasItems: !!parsed.items,
+              
+              // Sample token für Struktur-Analyse
               sampleToken: parsed.result && parsed.result[0] ? {
                 hasBalance: 'balance' in parsed.result[0],
                 hasBalanceFormatted: 'balance_formatted' in parsed.result[0],
                 hasTokenAddress: 'token_address' in parsed.result[0],
                 hasUsdPrice: 'usd_price' in parsed.result[0],
                 fields: Object.keys(parsed.result[0])
-              } : null
+              } : null,
+              
+              // Prüfe alternative Token-Strukturen
+              alternativeTokenSample: parsed.tokens && parsed.tokens[0] ? Object.keys(parsed.tokens[0]) : 
+                                    parsed.data && parsed.data[0] ? Object.keys(parsed.data[0]) :
+                                    parsed.balances && parsed.balances[0] ? Object.keys(parsed.balances[0]) : null
             });
             return parsed;
           } catch (parseError) {
@@ -395,11 +411,53 @@ export class CentralDataService {
               }))
             };
           } else {
-            // Completely unknown format - treat as empty
-            response = {
-              status: 'NOTOK',
-              message: 'Unknown response format from Moralis API'
-            };
+            // 🚨 UNEXPECTED FORMAT - Log everything and try to extract data anyway
+            console.warn(`🚨 TRYING TO EXTRACT DATA FROM UNKNOWN FORMAT:`, {
+              topLevelKeys: Object.keys(response).slice(0, 20),
+              hasArrayValues: Object.values(response).some(val => Array.isArray(val)),
+              arrayKeys: Object.keys(response).filter(key => Array.isArray(response[key])),
+              objectKeys: Object.keys(response).filter(key => typeof response[key] === 'object' && response[key] !== null),
+              totalKeys: Object.keys(response).length
+            });
+            
+            // Try to find ANY array that might contain tokens
+            let possibleTokenArray = null;
+            for (const [key, value] of Object.entries(response)) {
+              if (Array.isArray(value) && value.length > 0) {
+                // Check if first item looks like a token
+                const firstItem = value[0];
+                if (firstItem && typeof firstItem === 'object' && 
+                    (firstItem.symbol || firstItem.token_address || firstItem.contractAddress || firstItem.balance)) {
+                  possibleTokenArray = value;
+                  console.log(`🔧 FOUND POSSIBLE TOKEN ARRAY in key '${key}':`, {
+                    length: value.length,
+                    sampleItem: firstItem,
+                    sampleKeys: Object.keys(firstItem)
+                  });
+                  break;
+                }
+              }
+            }
+            
+            if (possibleTokenArray) {
+              response = {
+                status: '1',
+                result: possibleTokenArray.map(token => ({
+                  symbol: token.symbol || token.tokenSymbol || 'UNKNOWN',
+                  name: token.name || token.tokenName || 'Unknown Token',
+                  contractAddress: token.token_address || token.contractAddress || token.address || '0x',
+                  decimals: parseInt(token.decimals) || parseInt(token.decimal) || 18,
+                  balance: token.balance || token.amount || '0'
+                }))
+              };
+              console.log(`✅ SUCCESSFULLY EXTRACTED ${possibleTokenArray.length} tokens from unknown format`);
+            } else {
+              // Completely unknown format - treat as empty
+              response = {
+                status: 'NOTOK',
+                message: 'Unknown response format from Moralis API - no token data found'
+              };
+            }
           }
         }
         
