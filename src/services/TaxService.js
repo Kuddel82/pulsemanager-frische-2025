@@ -122,161 +122,198 @@ export class TaxService {
   }
 
   /**
-   * 🔄 Lade ALLE Transaktionen via Moralis APIs (FIXED!)
+   * 🔄 Lade ALLE Transaktionen via Moralis Enterprise APIs (PulseChain + ETH)
    */
   static async loadAllTransactionsViaMoralis(wallets) {
     const allTransactions = [];
     
+    // 🎯 Multi-Chain Support: 99% PulseChain + ETH
+    const supportedChains = [
+      { id: '0x171', name: 'PulseChain', symbol: 'PLS', priority: 1 },
+      { id: '0x1', name: 'Ethereum', symbol: 'ETH', priority: 2 }
+    ];
+    
     for (const wallet of wallets) {
-      console.log(`📡 Loading transactions via Moralis for wallet ${wallet.address}...`);
+      console.log(`📡 Loading multi-chain transactions for wallet ${wallet.address}...`);
       
-      try {
-        // 🚀 Nutze MORALIS-TRANSACTIONS API (existiert!)
-        const response = await fetch(`/api/moralis-transactions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: wallet.address,
-            chain: '0x171' // PulseChain hex
-          })
-        });
-        
-        if (!response.ok) {
-          console.warn(`⚠️ Moralis API Error for wallet ${wallet.address}: ${response.status}`);
-          continue;
-        }
-        
-        const data = await response.json();
-        
-        if (data.result && Array.isArray(data.result)) {
-          // Verarbeite Moralis Transaktionen zu Standard-Format
-          const processedTx = data.result.map(tx => ({
-            walletId: wallet.id,
-            walletAddress: wallet.address,
-            txHash: tx.hash,
-            blockTimestamp: new Date(tx.block_timestamp),
-            blockNumber: parseInt(tx.block_number),
-            
-            tokenSymbol: 'PLS', // Moralis-Transactions sind meist native
-            tokenName: 'PulseChain',
-            contractAddress: null, // Native token
-            tokenDecimal: 18,
-            
-            from: tx.from_address?.toLowerCase(),
-            to: tx.to_address?.toLowerCase(),
-            
-            // Native PLS Amount-Berechnung
-            rawValue: tx.value,
-            amount: this.calculateTokenAmount(tx.value, 18),
-            
-            // ROI-Erkennung für native PLS schwieriger
-            isIncoming: tx.to_address?.toLowerCase() === wallet.address.toLowerCase(),
-            isROI: false, // Für PLS schwer automatisch erkennbar
-            
-            gas: parseInt(tx.gas),
-            gasPrice: parseInt(tx.gas_price),
-            gasUsed: parseInt(tx.receipt_gas_used) || 0,
-            
-            // Preis-Daten später hinzufügen
-            priceUSD: 0,
-            valueUSD: 0,
-            
-            source: 'moralis_transactions',
-            processedAt: new Date()
-          }));
+      for (const chain of supportedChains) {
+        try {
+          console.log(`⛓️ Processing ${chain.name} (${chain.id}) for wallet ${wallet.address.slice(0, 8)}...`);
           
-          allTransactions.push(...processedTx);
-          console.log(`📊 Wallet ${wallet.address}: Loaded ${processedTx.length} native transactions`);
-        }
-        
-        // 🚀 Zusätzlich: TOKEN TRANSFERS laden
-        const tokenResponse = await fetch(`/api/moralis-token-transfers`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: wallet.address,
-            chain: '0x171'
-          })
-        });
-        
-        if (tokenResponse.ok) {
-          const tokenData = await tokenResponse.json();
+          // 🚀 1. NATIVE TRANSACTIONS (PLS/ETH)
+          const nativeResponse = await fetch(`/api/moralis-transactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              address: wallet.address,
+              chain: chain.id,
+              limit: 100
+            })
+          });
           
-          if (tokenData.result && Array.isArray(tokenData.result)) {
-            const tokenTransactions = tokenData.result.map(tx => ({
-              walletId: wallet.id,
-              walletAddress: wallet.address,
-              txHash: tx.transaction_hash,
-              blockTimestamp: new Date(tx.block_timestamp),
-              blockNumber: parseInt(tx.block_number),
-              
-              tokenSymbol: tx.token_symbol || 'UNKNOWN',
-              tokenName: tx.token_name || 'Unknown Token',
-              contractAddress: tx.address,
-              tokenDecimal: parseInt(tx.token_decimals) || 18,
-              
-              from: tx.from_address?.toLowerCase(),
-              to: tx.to_address?.toLowerCase(),
-              
-              rawValue: tx.value,
-              amount: this.calculateTokenAmount(tx.value, tx.token_decimals),
-              
-              // ROI-Erkennung: Null-Adresse = Minting
-              isIncoming: tx.to_address?.toLowerCase() === wallet.address.toLowerCase(),
-              isROI: tx.from_address === '0x0000000000000000000000000000000000000000',
-              
-              gas: 0, // Token transfers haben eigene Gas-Kosten
-              gasPrice: 0,
-              gasUsed: 0,
-              
-              priceUSD: 0,
-              valueUSD: 0,
-              
-              source: 'moralis_token_transfers',
-              processedAt: new Date()
-            }));
+          if (nativeResponse.ok) {
+            const nativeData = await nativeResponse.json();
             
-            allTransactions.push(...tokenTransactions);
-            console.log(`📊 Wallet ${wallet.address}: Loaded ${tokenTransactions.length} token transfers`);
+            if (nativeData.success && nativeData.result) {
+              const nativeTransactions = nativeData.result.map(tx => ({
+                walletId: wallet.id,
+                walletAddress: wallet.address,
+                txHash: tx.hash,
+                blockTimestamp: new Date(tx.block_timestamp),
+                blockNumber: parseInt(tx.block_number),
+                
+                tokenSymbol: chain.symbol,
+                tokenName: chain.name,
+                contractAddress: null, // Native token
+                tokenDecimal: 18,
+                
+                from: tx.from_address?.toLowerCase(),
+                to: tx.to_address?.toLowerCase(),
+                
+                rawValue: tx.value,
+                amount: this.calculateTokenAmount(tx.value, 18),
+                
+                // ROI-Erkennung für native schwieriger (meist Käufe/Verkäufe)
+                isIncoming: tx.is_incoming,
+                isROI: false, // Native Transaktionen sind selten ROI
+                
+                gas: parseInt(tx.gas) || 0,
+                gasPrice: parseInt(tx.gas_price) || 0,
+                gasUsed: parseInt(tx.receipt_gas_used) || 0,
+                
+                priceUSD: 0, // Später hinzufügen
+                valueUSD: 0,
+                
+                chainId: chain.id,
+                chainName: chain.name,
+                source: 'moralis_native_transactions',
+                processedAt: new Date()
+              }));
+              
+              allTransactions.push(...nativeTransactions);
+              console.log(`✅ ${chain.name}: ${nativeTransactions.length} native transactions`);
+            }
           }
+          
+          // 🚀 2. TOKEN TRANSFERS (ERC-20)
+          const tokenResponse = await fetch(`/api/moralis-token-transfers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              address: wallet.address,
+              chain: chain.id,
+              limit: 100
+            })
+          });
+          
+          if (tokenResponse.ok) {
+            const tokenData = await tokenResponse.json();
+            
+            if (tokenData.success && tokenData.result) {
+              const tokenTransactions = tokenData.result.map(transfer => ({
+                walletId: wallet.id,
+                walletAddress: wallet.address,
+                txHash: transfer.transaction_hash,
+                blockTimestamp: new Date(transfer.block_timestamp),
+                blockNumber: parseInt(transfer.block_number),
+                
+                tokenSymbol: transfer.token_symbol || 'UNKNOWN',
+                tokenName: transfer.token_name || 'Unknown Token',
+                contractAddress: transfer.address, // Contract address
+                tokenDecimal: parseInt(transfer.token_decimals) || 18,
+                
+                from: transfer.from_address?.toLowerCase(),
+                to: transfer.to_address?.toLowerCase(),
+                
+                rawValue: transfer.value,
+                amount: parseFloat(transfer.value_formatted) || this.calculateTokenAmount(transfer.value, transfer.token_decimals),
+                
+                // 🎯 ROI-ERKENNUNG: Kritisch für deutsche Steuerberechnung!
+                isIncoming: transfer.is_incoming,
+                isROI: transfer.is_roi_mint, // Minting von Null-Adresse = ROI!
+                
+                gas: 0, // Token transfers haben separate Gas-Kosten
+                gasPrice: 0,
+                gasUsed: 0,
+                
+                priceUSD: 0, // Später hinzufügen
+                valueUSD: 0,
+                
+                chainId: chain.id,
+                chainName: chain.name,
+                source: 'moralis_token_transfers',
+                processedAt: new Date()
+              }));
+              
+              allTransactions.push(...tokenTransactions);
+              console.log(`✅ ${chain.name}: ${tokenTransactions.length} token transfers`);
+            }
+          }
+          
+          // 📊 Rate Limiting für Enterprise-Level Performance
+          await new Promise(resolve => setTimeout(resolve, 150));
+          
+        } catch (error) {
+          console.error(`💥 Error loading ${chain.name} transactions for wallet ${wallet.address}:`, error);
         }
-        
-        // Rate Limiting für Moralis
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-      } catch (error) {
-        console.error(`💥 Error loading transactions for wallet ${wallet.address}:`, error);
       }
     }
     
-    console.log(`🎯 TOTAL TRANSACTIONS LOADED: ${allTransactions.length}`);
+    console.log(`🎯 MULTI-CHAIN TOTAL: ${allTransactions.length} transactions loaded across ${supportedChains.length} chains`);
+    
+    // 📊 Statistiken loggen
+    const chainStats = supportedChains.map(chain => {
+      const chainTxs = allTransactions.filter(tx => tx.chainId === chain.id);
+      return `${chain.name}: ${chainTxs.length}`;
+    }).join(', ');
+    
+    console.log(`📈 Chain distribution: ${chainStats}`);
+    
     return allTransactions;
   }
 
   /**
-   * 💰 Reichere Transaktionen mit Preisen an (FIXED!)
+   * 💰 Reichere Transaktionen mit Preisen an (Multi-Chain: PulseChain + ETH)
    */
   static async enrichTransactionsWithPrices(transactions) {
-    console.log(`💰 Enriching ${transactions.length} transactions with prices...`);
-    
-    // Gruppiere nach Contract-Adressen für effiziente Preis-Abfrage
-    const contractAddresses = [...new Set(
-      transactions
-        .filter(tx => tx.contractAddress) // nur Token, nicht native PLS
-        .map(tx => tx.contractAddress)
-    )];
+    console.log(`💰 Enriching ${transactions.length} multi-chain transactions with prices...`);
     
     const priceMap = new Map();
     
-    // 💰 Lade Preise via MORALIS-PRICES API (korrekte Parameter!)
-    if (contractAddresses.length > 0) {
+    // 🎯 Gruppiere nach Chains für effiziente Preis-Abfrage
+    const chainGroups = {
+      '0x171': [], // PulseChain
+      '0x1': []    // Ethereum
+    };
+    
+    // Native tokens direkt setzen
+    const nativeTokens = {
+      '0x171': 'pls', // PulseChain native
+      '0x1': 'eth'    // Ethereum native
+    };
+    
+    // Gruppiere Contract-Adressen nach Chains
+    transactions.forEach(tx => {
+      if (tx.contractAddress && chainGroups[tx.chainId]) {
+        chainGroups[tx.chainId].push(tx.contractAddress);
+      }
+    });
+    
+    // 💰 Lade Preise für jede Chain separat
+    for (const [chainId, contractAddresses] of Object.entries(chainGroups)) {
+      if (contractAddresses.length === 0) continue;
+      
+      const uniqueAddresses = [...new Set(contractAddresses)];
+      
       try {
+        console.log(`💰 Loading prices for ${uniqueAddresses.length} tokens on chain ${chainId}...`);
+        
         const response = await fetch(`/api/moralis-prices`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            tokenAddresses: contractAddresses.slice(0, 25), // Batch-Limit
-            chain: '0x171'
+            tokenAddresses: uniqueAddresses.slice(0, 25), // Moralis Limit
+            chain: chainId
           })
         });
         
@@ -285,60 +322,76 @@ export class TaxService {
           if (data.success && data.prices) {
             data.prices.forEach(priceData => {
               if (priceData.tokenAddress && priceData.usdPrice) {
-                priceMap.set(priceData.tokenAddress.toLowerCase(), parseFloat(priceData.usdPrice));
+                const key = `${chainId}:${priceData.tokenAddress.toLowerCase()}`;
+                priceMap.set(key, parseFloat(priceData.usdPrice));
               }
             });
           }
         }
-      } catch (error) {
-        console.warn('⚠️ Price loading failed:', error);
-      }
-    }
-    
-    // Native PLS Preis separat laden
-    try {
-      const plsResponse = await fetch(`/api/moralis-prices`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tokenAddresses: ['0x0000000000000000000000000000000000000000'], // Native
-          chain: '0x171'
-        })
-      });
-      
-      if (plsResponse.ok) {
-        const plsData = await plsResponse.json();
-        if (plsData.success && plsData.nativePrice) {
-          priceMap.set('native', parseFloat(plsData.nativePrice.usdPrice));
+        
+        // 🚀 Native Token Preis für diese Chain laden
+        const nativeResponse = await fetch(`/api/moralis-prices`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tokenAddresses: ['native'], // Spezial-Keyword für native
+            chain: chainId
+          })
+        });
+        
+        if (nativeResponse.ok) {
+          const nativeData = await nativeResponse.json();
+          if (nativeData.success && nativeData.nativePrice) {
+            const nativeKey = `${chainId}:native`;
+            priceMap.set(nativeKey, parseFloat(nativeData.nativePrice.usdPrice));
+          }
         }
+        
+      } catch (error) {
+        console.warn(`⚠️ Price loading failed for chain ${chainId}:`, error);
       }
-    } catch (error) {
-      console.warn('⚠️ PLS price loading failed:', error);
+      
+      // Rate limiting zwischen Chain-Aufrufen
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Berechne USD-Werte
+    // 📊 Berechne USD-Werte mit Chain-spezifischen Preisen
     const enrichedTransactions = transactions.map(tx => {
       let price = 0;
+      let priceKey;
       
       if (tx.contractAddress) {
-        // Token-Preis
-        price = priceMap.get(tx.contractAddress?.toLowerCase()) || 0;
+        // Token-Preis (Chain-spezifisch)
+        priceKey = `${tx.chainId}:${tx.contractAddress.toLowerCase()}`;
       } else {
-        // Native PLS
-        price = priceMap.get('native') || 0;
+        // Native Token (PLS/ETH)
+        priceKey = `${tx.chainId}:native`;
       }
       
+      price = priceMap.get(priceKey) || 0;
       const valueUSD = price > 0 ? tx.amount * price : 0;
       
       return {
         ...tx,
         priceUSD: price,
         valueUSD: valueUSD,
-        hasPriceData: price > 0
+        hasPriceData: price > 0,
+        priceKey: priceKey // Debug info
       };
     });
     
-    console.log(`💰 Price enrichment complete: ${priceMap.size} tokens with prices`);
+    // 📈 Statistiken
+    const priceStats = Array.from(priceMap.entries()).reduce((acc, [key, price]) => {
+      const [chainId] = key.split(':');
+      const chainName = chainId === '0x171' ? 'PulseChain' : 'Ethereum';
+      if (!acc[chainName]) acc[chainName] = 0;
+      acc[chainName]++;
+      return acc;
+    }, {});
+    
+    const statsText = Object.entries(priceStats).map(([chain, count]) => `${chain}: ${count}`).join(', ');
+    console.log(`💰 Multi-chain price enrichment complete: ${statsText}`);
+    
     return enrichedTransactions;
   }
 
