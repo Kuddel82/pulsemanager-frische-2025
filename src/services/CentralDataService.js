@@ -244,27 +244,53 @@ export class CentralDataService {
         return limitedPortfolio;
       }
 
-      // 2. Lade Token-Balances (100% MORALIS ENTERPRISE)
-      const tokenData = await this.loadTokenBalancesMoralisOnly(wallets);
-      console.log(`🪙 MORALIS ENTERPRISE: Loaded ${tokenData.tokens.length} tokens`);
+            // 2. 💎 GAME CHANGER: Load Token Balances + Prices in ONE call!
+      console.log(`💎 TRYING NEW COMBINED API: wallet-tokens-prices for efficiency...`);
+      
+      let tokenData, combinedPrices;
+      
+      try {
+        // Try the new combined API first
+        const combinedData = await this.loadTokenBalancesAndPricesCombined(wallets);
+        
+        if (combinedData.success && combinedData.tokens.length > 0) {
+          console.log(`🎉 COMBINED API SUCCESS: ${combinedData.tokens.length} tokens with prices in ONE call!`);
+          tokenData = { tokens: combinedData.tokens };
+          combinedPrices = {
+            priceMap: combinedData.priceMap,
+            updatedCount: combinedData.tokens.filter(t => t.price > 0).length,
+            apiCalls: 1, // Only one API call needed!
+            sources: ['moralis_combined_api'],
+            efficiency: 'maximum'
+          };
+        } else {
+          throw new Error('Combined API not available, falling back to separate calls');
+        }
+      } catch (error) {
+        console.log(`⚠️ COMBINED API FALLBACK: ${error.message}`);
+        console.log(`🔄 Using separate API calls...`);
+        
+        // Fallback to separate calls
+        tokenData = await this.loadTokenBalancesMoralisOnly(wallets);
+        console.log(`🪙 MORALIS ENTERPRISE: Loaded ${tokenData.tokens.length} tokens`);
 
-      // 3. Lade Token-Preise (100% MORALIS ENTERPRISE)  
-      const pricesData = await this.loadTokenPricesMoralisOnly(tokenData.tokens);
-      console.log(`💰 MORALIS ENTERPRISE: Updated prices for ${pricesData.updatedCount} tokens`);
-      
-      // 3.5. 🚀 MORALIS REAL-TIME PRICES: Load PulseChain token prices from Moralis Price API
-      const pulseXPrices = await this.loadPulseXPrices(tokenData.tokens);
-      console.log(`🚀 MORALIS PRICE API: Updated prices for ${pulseXPrices.updatedCount} PulseChain tokens`);
-      
-              // Merge Moralis Price API with Moralis Enterprise prices
-        const combinedPrices = {
+        const pricesData = await this.loadTokenPricesMoralisOnly(tokenData.tokens);
+        console.log(`💰 MORALIS ENTERPRISE: Updated prices for ${pricesData.updatedCount} tokens`);
+        
+        // For PulseChain, try the real-time price API, fallback to manual if needed
+        const pulseXPrices = await this.loadPulseXPrices(tokenData.tokens);
+        console.log(`🚀 MORALIS PRICE API: Updated prices for ${pulseXPrices.updatedCount} PulseChain tokens`);
+        
+        combinedPrices = {
           ...pricesData,
           priceMap: { ...pricesData.priceMap, ...pulseXPrices.priceMap },
           updatedCount: pricesData.updatedCount + pulseXPrices.updatedCount,
           pulseXUpdated: pulseXPrices.updatedCount,
-          pulseXSource: pulseXPrices.source, // Store the actual source (moralis_price_api or manual_fallback)
-          sources: ['moralis_enterprise', pulseXPrices.source || 'moralis_price_api']
+          pulseXSource: pulseXPrices.source,
+          sources: ['moralis_enterprise', pulseXPrices.source || 'moralis_price_api'],
+          efficiency: 'fallback'
         };
+      }
 
       // 4. 🔧 FIXED TOKEN PARSING (behebt 32k DAI Bug)
       console.log(`🔧 APPLYING TOKEN PARSING FIXES...`);
@@ -949,10 +975,12 @@ export class CentralDataService {
       // Priority 1: Live-Preise aus Price Map (Combined Sources)
       if (priceMap.has(contractKey)) {
         price = priceMap.get(contractKey);
-        // Determine source based on chain and data source
-        if (token.chainId === 369) {
+        // Determine source based on data source and efficiency
+        if (token.priceSource === 'moralis_combined') {
+          priceSource = 'moralis_combined'; // Combined API (most efficient)
+        } else if (token.chainId === 369) {
           // Check if this came from real Moralis API or fallback
-          const pulseXSource = pricesData.pulseXSource;
+          const pulseXSource = pricesData?.pulseXSource;
           if (pulseXSource === 'moralis_price_api') {
             priceSource = 'moralis_realtime'; // Real Moralis price API
           } else {
@@ -1002,7 +1030,7 @@ export class CentralDataService {
         price: price,
         value: value,
         priceSource: priceSource,
-        hasReliablePrice: price > 0 && (priceSource === 'moralis_live' || priceSource === 'moralis_realtime' || priceSource === 'pulsex_manual'),
+        hasReliablePrice: price > 0 && (priceSource === 'moralis_live' || priceSource === 'moralis_combined' || priceSource === 'moralis_realtime' || priceSource === 'pulsex_manual'),
         isIncludedInPortfolio: price > 0 && value >= 0.01, // Min $0.01 Wert
         
         // Zusätzliche Debug-Info
@@ -1630,6 +1658,112 @@ export class CentralDataService {
    */
   static sortAndRankTokens(tokens) {
     return tokens.sort((a, b) => b.value - a.value);
+  }
+
+  /**
+   * 💎 COMBINED TOKEN BALANCES + PRICES API (Game Changer!)
+   * Loads token balances AND prices in a single API call
+   */
+  static async loadTokenBalancesAndPricesCombined(wallets) {
+    const allTokens = [];
+    const priceMap = new Map();
+    let totalApiCalls = 0;
+
+    console.log(`💎 COMBINED API: Loading balances + prices for ${wallets.length} wallets`);
+
+    for (const wallet of wallets) {
+      const chainId = wallet.chain_id || 369;
+      const chain = this.getChainConfig(chainId);
+      
+      console.log(`💎 COMBINED: Processing wallet ${wallet.address} on ${chain.name}`);
+      
+      try {
+        const response = await fetch(`/api/moralis-v2?endpoint=wallet-tokens-prices&chain=${chain.moralisChainId}&address=${wallet.address}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        let responseText = '';
+        let data = {};
+        try {
+          responseText = await response.text();
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`💥 COMBINED API PARSE ERROR for ${wallet.address}:`, parseError.message);
+          continue;
+        }
+        
+        if (data.result && Array.isArray(data.result)) {
+          console.log(`✅ COMBINED API: Found ${data.result.length} tokens with prices for ${wallet.address}`);
+          totalApiCalls++;
+          
+          for (const tokenData of data.result) {
+            try {
+              const balance = parseFloat(tokenData.balance_formatted) || 0;
+              const price = parseFloat(tokenData.usd_price) || 0;
+              const value = parseFloat(tokenData.usd_value) || 0;
+
+              if (balance > 0) {
+                const token = {
+                  walletId: wallet.id,
+                  walletAddress: wallet.address,
+                  chainId: wallet.chain_id || 369,
+                  
+                  symbol: tokenData.symbol || 'UNKNOWN',
+                  name: tokenData.name || 'Unknown Token',
+                  contractAddress: tokenData.token_address,
+                  decimals: parseInt(tokenData.decimals) || 18,
+                  
+                  balance: balance,
+                  price: price,
+                  value: value,
+                  
+                  // Source tracking
+                  source: 'moralis_combined_api',
+                  priceSource: price > 0 ? 'moralis_combined' : 'no_price',
+                  hasReliablePrice: price > 0,
+                  isIncludedInPortfolio: price > 0 && value >= 0.01,
+                  
+                  // Chain info
+                  chainBadge: chain.name === 'Ethereum' ? 'ETH' : 'PLS',
+                  explorerBase: chain.explorerBase,
+                  
+                  // Metadata
+                  lastUpdated: new Date().toISOString()
+                };
+                
+                allTokens.push(token);
+                
+                if (price > 0) {
+                  priceMap.set(tokenData.token_address?.toLowerCase(), price);
+                  priceMap.set(tokenData.symbol?.toUpperCase(), price);
+                }
+              }
+            } catch (tokenError) {
+              console.error(`💥 Error processing combined token:`, tokenError);
+            }
+          }
+        } else {
+          console.warn(`⚠️ COMBINED API: No valid data for ${wallet.address}`);
+        }
+      } catch (error) {
+        console.error(`💥 COMBINED API ERROR for wallet ${wallet.address}:`, error.message);
+        // Continue with next wallet instead of failing completely
+      }
+    }
+
+    console.log(`💎 COMBINED API COMPLETE: ${allTokens.length} tokens, ${Array.from(priceMap.keys()).length / 2} prices, ${totalApiCalls} API calls`);
+
+    return {
+      success: allTokens.length > 0,
+      tokens: allTokens,
+      priceMap: priceMap,
+      totalApiCalls: totalApiCalls,
+      efficiency: 'combined_api_single_call_per_wallet',
+      source: 'moralis_combined_tokens_prices'
+    };
   }
 
   /**

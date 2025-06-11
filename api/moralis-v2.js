@@ -502,11 +502,113 @@ export default async function handler(req, res) {
       }
     }
 
+    // 💎 WALLET TOKENS WITH PRICES - Game changer API!
+    if (endpoint === 'wallet-tokens-prices') {
+      try {
+        console.log(`🚀 V2 WALLET TOKENS+PRICES: Getting balances + prices for ${address} on chain ${chainId}`);
+        
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
+        
+        const response = await Moralis.EvmApi.wallets.getWalletTokenBalancesPrice({
+          address,
+          chain: moralisChain,
+          excludeSpam: true,
+          excludeUnverifiedContracts: true
+        });
+        
+        console.log(`✅ V2 WALLET TOKENS+PRICES SUCCESS: ${response.result.length} tokens with prices`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_v2_wallet_tokens_prices',
+          _combined_api: true,
+          _api_efficiency: 'single_call_instead_of_multiple'
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 WALLET TOKENS+PRICES ERROR:', error.message);
+        return res.status(500).json({
+          result: [],
+          _error: { message: error.message, source: 'moralis_v2_wallet_tokens_prices' }
+        });
+      }
+    }
+
+    // 📈 WALLET PNL SUMMARY - Profit/Loss tracking
+    if (endpoint === 'wallet-pnl-summary') {
+      try {
+        console.log(`🚀 V2 WALLET PNL SUMMARY: Getting P&L for ${address} on chain ${chainId}`);
+        
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
+        
+        const response = await Moralis.EvmApi.wallets.getWalletProfitabilitySummary({
+          address,
+          chain: moralisChain,
+          days: 30
+        });
+        
+        console.log(`✅ V2 WALLET PNL SUCCESS: ${response.result.total_count_of_trades || 0} trades analyzed`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_v2_wallet_pnl_summary',
+          _pnl_tracking: true
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 WALLET PNL SUMMARY ERROR:', error.message);
+        return res.status(500).json({
+          result: null,
+          _error: { message: error.message, source: 'moralis_v2_wallet_pnl_summary' }
+        });
+      }
+    }
+
+    // 🔄 WALLET TOKEN TRANSFERS - Transaction history
+    if (endpoint === 'wallet-token-transfers') {
+      try {
+        const requestLimit = Math.min(limit || 100, 100);
+        console.log(`🚀 V2 WALLET TOKEN TRANSFERS: Getting transfers for ${address} on chain ${chainId}`);
+        
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
+        
+        const response = await Moralis.EvmApi.token.getWalletTokenTransfers({
+          address,
+          chain: moralisChain,
+          cursor,
+          limit: requestLimit,
+          order: 'DESC'
+        });
+        
+        console.log(`✅ V2 WALLET TOKEN TRANSFERS SUCCESS: ${response.result.length} transfers found`);
+        
+        return res.status(200).json({
+          result: response.result,
+          cursor: response.cursor,
+          page_size: response.page_size,
+          _source: 'moralis_v2_wallet_token_transfers'
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 WALLET TOKEN TRANSFERS ERROR:', error.message);
+        return res.status(500).json({
+          result: [],
+          _error: { message: error.message, source: 'moralis_v2_wallet_token_transfers' }
+        });
+      }
+    }
+
     // Invalid endpoint
     return res.status(200).json({
       success: false,
       error: 'Invalid endpoint',
-      available: ['wallet-tokens', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol', 'multiple-token-prices', 'token-price'],
+      available: ['wallet-tokens', 'wallet-tokens-prices', 'wallet-pnl-summary', 'wallet-token-transfers', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol', 'multiple-token-prices', 'token-price'],
       _moralis_only: true
     });
 
