@@ -147,12 +147,62 @@ const Home = () => {
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const RATE_LIMIT_MS = 2 * 60 * 1000; // 2 Minuten Rate Limit
 
-  // Initiales Laden (EINMALIG beim Login)
+  // Initiales Laden (EINMALIG beim Login) - BYPASS RATE LIMITING für Auto-Load
   useEffect(() => {
     if (user?.id && lastRefresh === 0) {
       console.log('🚀 INITIAL LOAD: Portfolio wird beim Login geladen...');
-      loadDashboardData();
-      setLastRefresh(Date.now());
+      
+      // BYPASS Rate Limiting für Auto-Load beim Login
+      setDashboardLoading(true);
+      CentralDataService.loadCompletePortfolio(user.id)
+        .then(data => {
+          console.log('📊 DASHBOARD: Portfolio response:', {
+            success: data.success,
+            isLoaded: data.isLoaded,
+            fromCache: data.fromCache,
+            totalValue: data.totalValue,
+            tokenCount: data.tokenCount,
+            apiCalls: data.apiCalls || 'N/A'
+          });
+          
+          if (data.success || data.isLoaded) {
+            setPortfolioData(data);
+            setLastUpdate(new Date());
+            setLastRefresh(Date.now());
+            
+            if (data.fromCache) {
+              console.log('✅ DASHBOARD AUTO-LOAD: Portfolio loaded from CACHE - 0 API calls used!');
+            } else {
+              console.log(`✅ DASHBOARD AUTO-LOAD: Portfolio loaded from APIs - ${data.apiCalls || 0} API calls used`);
+            }
+          } else {
+            console.warn('⚠️ DASHBOARD AUTO-LOAD: Portfolio could not be loaded:', data.error);
+            setPortfolioData({
+              success: false,
+              totalValue: 0,
+              tokens: [],
+              wallets: [],
+              tokenCount: 0,
+              walletCount: 0,
+              error: data.error
+            });
+          }
+        })
+        .catch(error => {
+          console.error('💥 DASHBOARD AUTO-LOAD: Error loading portfolio:', error);
+          setPortfolioData({
+            success: false,
+            totalValue: 0,
+            tokens: [],
+            wallets: [],
+            tokenCount: 0,
+            walletCount: 0,
+            error: error.message
+          });
+        })
+        .finally(() => {
+          setDashboardLoading(false);
+        });
     }
   }, [user?.id]);
 
