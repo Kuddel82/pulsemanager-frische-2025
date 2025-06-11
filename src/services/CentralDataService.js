@@ -1,30 +1,55 @@
-// 🎯 CENTRAL DATA SERVICE - DATENKONSISTENZ-FIX
+// 🎯 CENTRAL DATA SERVICE - 100% MORALIS ENTERPRISE MODUS
 // Ersetzt das Chaos von verschiedenen Services durch eine einheitliche API
-// Datum: 2025-01-08 - CRITICAL FIX: Echte Daten Precision
+// Datum: 2025-01-11 - CRITICAL FIX: 100% Moralis wenn API Key vorhanden
 
 import { supabase } from '@/lib/supabaseClient';
 
 export class CentralDataService {
   
-  // 🏷️ OFFIZIELLE PULSECHAIN API ENDPOINTS (verifiziert)
-  // 🌐 MULTI-CHAIN CONFIGURATION
+  // 🔑 ENTERPRISE MODE DETECTION
+  static async hasValidMoralisApiKey() {
+    try {
+      const response = await fetch('/api/moralis-tokens?endpoint=test&chain=0x171&address=0x0000000000000000000000000000000000000000');
+      const data = await response.json();
+      
+      // Check if we get a proper Moralis response instead of fallback
+      return !data._fallback && !data.error;
+    } catch {
+      return false;
+    }
+  }
+
+  // 🌐 MULTI-CHAIN CONFIGURATION - MORALIS FIRST
   static CHAINS = {
     PULSECHAIN: {
       id: 369,
       name: 'PulseChain',
       nativeSymbol: 'PLS',
-      apiProxy: '/api/pulsechain',
+      moralisChainId: '0x171',
+      apiProxy: '/api/pulsechain',           // Fallback only
+      moralisProxy: '/api/moralis-tokens',   // Primary (when API key available)
       explorerBase: 'https://scan.pulsechain.com'
     },
     ETHEREUM: {
       id: 1,
       name: 'Ethereum',
       nativeSymbol: 'ETH',
-      apiProxy: '/api/moralis-tokens',
+      moralisChainId: '0x1',
+      apiProxy: '/api/moralis-tokens',       // Direct Moralis for ETH
+      moralisProxy: '/api/moralis-tokens',   // Primary
       explorerBase: 'https://etherscan.io'
     }
   };
 
+  // 🚀 MORALIS ENTERPRISE ENDPOINTS
+  static MORALIS_ENDPOINTS = {
+    tokens: '/api/moralis-tokens',
+    prices: '/api/moralis-prices', 
+    transactions: '/api/moralis-transactions',
+    tokenTransfers: '/api/moralis-token-transfers'
+  };
+
+  // 📡 LEGACY FALLBACK ENDPOINTS (nur ohne Moralis API Key)
   static PROXY_ENDPOINTS = {
     pulsechain: '/api/pulsechain',
     ethereum: '/api/moralis-tokens',
@@ -54,14 +79,6 @@ export class CentralDataService {
     
     // 🔗 Wichtige WGEP Token (falls Live-Preis fehlt)
     'WGEP': 0.00001       // WGEP minimal fallback
-  };
-
-  // 🌐 MORALIS API-ENDPUNKTE 
-  static MORALIS_ENDPOINTS = {
-    prices: '/api/moralis-prices',
-    tokens: '/api/moralis-tokens',
-    portfolio: '/api/moralis-portfolio',
-    transactions: '/api/moralis-transactions'
   };
 
   // 🎯 DRUCKER-CONTRACTS (für ROI-Erkennung)
@@ -147,10 +164,14 @@ export class CentralDataService {
   }
 
   /**
-   * 🎯 HAUPTFUNKTION: Lade komplette Portfolio-Daten mit echten Preisen (FIXED)
+   * 🎯 HAUPTFUNKTION: Lade komplette Portfolio-Daten mit echten Preisen (100% MORALIS)
    */
   static async loadCompletePortfolio(userId) {
-    console.log(`🎯 CENTRAL SERVICE (FIXED): Loading complete portfolio for user ${userId}`);
+    console.log(`🎯 CENTRAL SERVICE (100% MORALIS): Loading complete portfolio for user ${userId}`);
+    
+    // Check if we have Moralis Enterprise access
+    const hasMoralisAccess = await this.hasValidMoralisApiKey();
+    console.log(`🔑 MORALIS ENTERPRISE ACCESS: ${hasMoralisAccess ? '✅ ACTIVE' : '❌ FALLBACK MODE'}`);
     
     try {
       // 1. Lade User Wallets
@@ -162,25 +183,25 @@ export class CentralDataService {
         return this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Fügen Sie Ihre Wallet-Adressen hinzu.');
       }
 
-      // 2. Lade echte Token-Balances von PulseChain API (FIXED PRECISION)
-      const tokenData = await this.loadRealTokenBalancesFixed(wallets);
-      console.log(`🪙 FIXED: Loaded ${tokenData.tokens.length} tokens with total raw value $${tokenData.totalValue.toFixed(2)}`);
+      // 2. Lade echte Token-Balances (100% MORALIS ENTERPRISE)
+      const tokenData = await this.loadRealTokenBalancesMoralisFirst(wallets, hasMoralisAccess);
+      console.log(`🪙 MORALIS ENTERPRISE: Loaded ${tokenData.tokens.length} tokens with total raw value $${tokenData.totalValue.toFixed(2)}`);
 
-      // 3. Lade echte Token-Preise von Moralis Enterprise (FIXED CONTRACT MATCHING)
+      // 3. Lade echte Token-Preise (100% MORALIS ENTERPRISE)
       const pricesData = await this.loadMoralisTokenPricesFixed(tokenData.tokens);
-      console.log(`💰 MORALIS: Updated prices for ${pricesData.updatedCount} tokens`);
+      console.log(`💰 MORALIS ENTERPRISE: Updated prices for ${pricesData.updatedCount} tokens`);
 
       // 4. Aktualisiere Token-Werte mit echten Preisen (FIXED PRECISION)
       const updatedTokenData = this.updateTokenValuesWithRealPricesFixed(tokenData, pricesData);
       console.log(`🔄 FIXED: Updated token values: $${updatedTokenData.totalValue.toFixed(2)}`);
 
-      // 5. Lade ROI-Transaktionen (FIXED LOADING - mehr Transaktionen)
-      const roiData = await this.loadRealROITransactionsFixed(wallets, pricesData.priceMap);
-      console.log(`📊 FIXED: Loaded ${roiData.transactions.length} ROI transactions, Monthly ROI: $${roiData.monthlyROI.toFixed(2)}`);
+      // 5. Lade ROI-Transaktionen (100% MORALIS ENTERPRISE)
+      const roiData = await this.loadRealROITransactionsMoralisFirst(wallets, pricesData.priceMap, hasMoralisAccess);
+      console.log(`📊 MORALIS ENTERPRISE: Loaded ${roiData.transactions.length} ROI transactions, Monthly ROI: $${roiData.monthlyROI.toFixed(2)}`);
 
-      // 6. Lade historische Transaktionen für Tax Export (FIXED LOADING)
-      const taxData = await this.loadTaxTransactionsFixed(wallets, pricesData.priceMap);
-      console.log(`📄 FIXED: Loaded ${taxData.transactions.length} tax transactions`);
+      // 6. Lade historische Transaktionen für Tax Export (100% MORALIS ENTERPRISE)
+      const taxData = await this.loadTaxTransactionsMoralisFirst(wallets, pricesData.priceMap, hasMoralisAccess);
+      console.log(`📄 MORALIS ENTERPRISE: Loaded ${taxData.transactions.length} tax transactions`);
 
       // 7. Berechne Portfolio-Statistiken
       const portfolioStats = this.calculatePortfolioStats(updatedTokenData, roiData);
@@ -259,35 +280,66 @@ export class CentralDataService {
   }
 
   /**
-   * 🪙 MULTI-CHAIN: Lade Token-Balances von verschiedenen Chains (PRECISION FIXED)
+   * 🪙 100% MORALIS ENTERPRISE: Token-Balances von Moralis APIs (ENTERPRISE MODE)
    */
-  static async loadRealTokenBalancesFixed(wallets) {
+  static async loadRealTokenBalancesMoralisFirst(wallets, hasMoralisAccess) {
     const allTokens = [];
     let totalValue = 0;
+
+    console.log(`🚀 MORALIS ENTERPRISE MODE: ${hasMoralisAccess ? 'USING MORALIS APIS' : 'FALLBACK TO FREE APIS'}`);
 
     for (const wallet of wallets) {
       const chainId = wallet.chain_id || 369; // Default PulseChain
       const chain = this.getChainConfig(chainId);
       
-      console.log(`🔍 MULTI-CHAIN: Loading tokens for wallet ${wallet.address} on ${chain.name}`);
+      console.log(`🔍 ENTERPRISE: Loading tokens for wallet ${wallet.address} on ${chain.name}`);
       
       try {
-        // Verwende entsprechenden Chain-Proxy
-        const response = await fetch(
-          `${chain.apiProxy}?address=${wallet.address}&action=tokenlist&module=account`
-        );
+        let response;
         
-        if (!response.ok) {
-          console.warn(`⚠️ API Error for ${wallet.address}: ${response.status}`);
-          continue;
+        if (hasMoralisAccess) {
+          // 🚀 100% MORALIS ENTERPRISE API
+          console.log(`💎 USING MORALIS ENTERPRISE for ${chain.name}`);
+          
+          response = await fetch('/api/moralis-tokens', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }).then(r => r.text()).then(text => {
+            try {
+              return JSON.parse(text);
+            } catch {
+              return { error: 'Invalid JSON response' };
+            }
+          });
+          
+          // Transform Moralis response to match expected format
+          if (response.result && Array.isArray(response.result)) {
+            response = {
+              status: '1',
+              result: response.result.map(token => ({
+                symbol: token.symbol,
+                name: token.name,
+                contractAddress: token.token_address,
+                decimals: token.decimals,
+                balance: token.balance
+              }))
+            };
+          }
+        } else {
+          // 📡 FALLBACK: PulseChain Scanner API
+          console.log(`🔄 FALLBACK: Using PulseChain Scanner for ${chain.name}`);
+          
+          response = await fetch(
+            `${chain.apiProxy}?address=${wallet.address}&action=tokenlist&module=account`
+          ).then(r => r.json());
         }
         
-        const data = await response.json();
-        
-        if (data.status === '1' && Array.isArray(data.result)) {
-          console.log(`📊 FIXED: Found ${data.result.length} token entries for wallet ${wallet.address}`);
+        if (response.status === '1' && Array.isArray(response.result)) {
+          console.log(`📊 ENTERPRISE: Found ${response.result.length} token entries for wallet ${wallet.address}`);
           
-          for (const tokenData of data.result) {
+          for (const tokenData of response.result) {
             try {
               // FIXED: Proper BigNumber calculation with precision
               const rawBalance = tokenData.balance;
@@ -305,16 +357,17 @@ export class CentralDataService {
                 balance = Number(wholePart) + (Number(fractionalPart) / Number(divisorBigInt));
               }
               
-              // Log tokens for debugging (only significant ones)
+              // Log significant tokens for debugging
               if (balance > 1 || ['PLS', 'HEX', 'PLSX', 'INC', 'WGEP'].includes(tokenData.symbol)) {
-                console.log(`🔍 TOKEN DEBUG:`, {
+                console.log(`🔍 ENTERPRISE TOKEN:`, {
                   symbol: tokenData.symbol,
                   calculatedBalance: balance.toFixed(4),
-                  contractAddress: tokenData.contractAddress.slice(0, 8) + '...'
+                  contractAddress: tokenData.contractAddress.slice(0, 8) + '...',
+                  source: hasMoralisAccess ? 'MORALIS_ENTERPRISE' : 'PULSECHAIN_SCANNER'
                 });
               }
               
-              // Include ALL tokens with any balance (no filtering)
+              // Include ALL tokens with any balance
               if (balance > 0) {
                 const token = {
                   walletId: wallet.id,
@@ -337,7 +390,7 @@ export class CentralDataService {
                   
                   // Raw data for debugging
                   rawBalance: rawBalance,
-                  source: `${chain.name.toLowerCase()}_api`,
+                  source: hasMoralisAccess ? 'moralis_enterprise' : `${chain.name.toLowerCase()}_scanner`,
                   calculationMethod: 'bigint_precision',
                   
                   // 🌐 Chain-spezifische Info
@@ -352,13 +405,12 @@ export class CentralDataService {
             }
           }
         } else {
-          // ✅ NOTOK ist NORMAL für Wallets ohne Token-Transaktionen (z.B. Best Wallet)
-          if (data.message === 'NOTOK' || data.status === '0' || data.status === 'NOTOK') {
+          // ✅ NOTOK ist NORMAL für Wallets ohne Token-Transaktionen
+          if (response.message === 'NOTOK' || response.status === '0' || response.status === 'NOTOK') {
             console.log(`📱 Empty wallet (no tokens): ${wallet.address} - This is normal for new/unused wallets`);
           } else {
-            console.warn(`⚠️ API error for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
+            console.warn(`⚠️ API error for wallet ${wallet.address}: ${response.message || response.status || 'Unknown error'}`);
           }
-          // NICHT als Fehler behandeln - weiter mit nächster Wallet
           continue;
         }
       } catch (error) {
@@ -366,7 +418,7 @@ export class CentralDataService {
       }
     }
 
-    console.log(`🔍 FIXED: Total tokens found before pricing: ${allTokens.length}`);
+    console.log(`🔍 ENTERPRISE: Total tokens found before pricing: ${allTokens.length}`);
 
     return {
       tokens: allTokens,
@@ -636,277 +688,227 @@ export class CentralDataService {
   }
 
   /**
-   * 📊 Lade echte ROI-Transaktionen (FIXED LOADING - mehr Transaktionen)
+   * 📊 100% MORALIS ENTERPRISE: ROI-Transaktionen von Moralis APIs (ENTERPRISE MODE)
    */
-  static async loadRealROITransactionsFixed(wallets, priceMap) {
+  static async loadRealROITransactionsMoralisFirst(wallets, priceMap, hasMoralisAccess) {
     const allTransactions = [];
     const roiStats = { daily: 0, weekly: 0, monthly: 0 };
+
+    console.log(`🚀 MORALIS ENTERPRISE ROI: ${hasMoralisAccess ? 'USING MORALIS APIS' : 'FALLBACK TO FREE APIS'}`);
 
     for (const wallet of wallets) {
       const chainId = wallet.chain_id || 369;
       const chain = this.getChainConfig(chainId);
       
       try {
-        console.log(`📊 MULTI-CHAIN ROI: Loading transactions for wallet ${wallet.address} on ${chain.name}`);
+        console.log(`📊 ENTERPRISE ROI: Loading transactions for wallet ${wallet.address} on ${chain.name}`);
         
-        // PERFORMANCE FIX: Balanced transaction loading (500 instead of 2000)
-        const response = await fetch(
-          `${chain.apiProxy}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=500`
-        );
+        let response;
         
-        if (!response.ok) continue;
-        
-        const data = await response.json();
-        
-        if (data.status === '1' && Array.isArray(data.result)) {
-          console.log(`📋 FIXED: Found ${data.result.length} transactions for wallet ${wallet.address}`);
+        if (hasMoralisAccess) {
+          // 🚀 100% MORALIS ENTERPRISE API
+          console.log(`💎 USING MORALIS TRANSACTIONS API for ${chain.name}`);
           
-          for (const tx of data.result) {
-            // Nur eingehende Transaktionen (ROI)
-            if (tx.to && tx.to.toLowerCase() === wallet.address.toLowerCase()) {
-              const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal) || 18);
-              const timestamp = new Date(parseInt(tx.timeStamp) * 1000);
-              
-              // Verbesserte ROI-Erkennung
-              const isROI = this.isROITransaction(tx, amount);
-              
-              if (amount > 0 && isROI) {
-                const contractKey = tx.contractAddress?.toLowerCase();
-                
-                // 🎯 NEUE ROI-PREISLOGIK: Verwende dieselbe Logik wie Portfolio-Tokens
-                let price = 0;
-                let priceSource = 'no_price';
-                
-                // Priority 1: Live-Preise aus Price Map (Moralis Enterprise)
-                if (priceMap.has(contractKey)) {
-                  price = priceMap.get(contractKey);
-                  priceSource = 'moralis_live';
-                  
-                  // Plausibilitätsprüfung für ROI-Preise
-                  if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(tx.tokenSymbol)) {
-                    console.warn(`🚨 ROI HIGH PRICE BLOCKED: ${tx.tokenSymbol} = $${price} (blocked for safety)`);
-                    price = 0;
-                    priceSource = 'blocked_suspicious';
-                  }
-                }
-                
-                // Priority 2: Nur minimale Fallbacks (native Tokens)
-                if (price === 0 && this.FALLBACK_PRICES[tx.tokenSymbol]) {
-                  price = this.FALLBACK_PRICES[tx.tokenSymbol];
-                  priceSource = 'fallback_minimal';
-                }
-                
-                const value = amount * price;
-                
-                // Debug: ROI-Transaktionen ohne Preis
-                if (value === 0 && amount > 0.001) {
-                  console.log(`🔍 ROI NO PRICE: ${tx.tokenSymbol} ${amount.toFixed(4)} tokens - ${contractKey} - ${priceSource}`);
-                } else if (value > 0) {
-                  console.log(`💰 ROI VALUE: ${tx.tokenSymbol} ${amount.toFixed(4)} × $${price.toFixed(6)} = $${value.toFixed(4)} [${priceSource}]`);
-                }
-                
-                const roiTx = {
-                  walletId: wallet.id,
-                  walletAddress: wallet.address,
-                  chainId: chainId,
-                  chainName: chain.name,
-                  
-                  txHash: tx.hash,
-                  blockNumber: parseInt(tx.blockNumber),
-                  timestamp: timestamp,
-                  
-                  tokenSymbol: tx.tokenSymbol,
-                  tokenName: tx.tokenName,
-                  contractAddress: tx.contractAddress,
-                  
-                  amount: amount,
-                  price: price,
-                  value: value,
-                  
-                  isROI: true,
-                  roiType: this.determineROIType(tx, amount, timestamp),
-                  roiReason: this.getROIReason(tx),
-                  
-                  fromAddress: tx.from,
-                  toAddress: tx.to,
-                  
-                  // 🌐 DYNAMIC EXPLORER URLS
-                  explorerUrl: `${chain.explorerBase}/tx/${tx.hash}`,
-                  tokenExplorerUrl: this.getExplorerUrl(tx.contractAddress, chainId)
-                };
-                
-                allTransactions.push(roiTx);
-                
-                // Berechne ROI-Statistiken
-                const timeDiff = Date.now() - timestamp.getTime();
-                if (timeDiff <= 24 * 60 * 60 * 1000) roiStats.daily += value;
-                if (timeDiff <= 7 * 24 * 60 * 60 * 1000) roiStats.weekly += value;
-                if (timeDiff <= 30 * 24 * 60 * 60 * 1000) roiStats.monthly += value;
-                
-                if (value > 0.01) {
-                  console.log(`🎯 FIXED ROI: ${tx.tokenSymbol} ${amount.toFixed(4)} = $${value.toFixed(2)} from ${tx.from.slice(0,8)}...`);
-                }
-              }
-            }
+          response = await fetch('/api/moralis-token-transfers', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              address: wallet.address,
+              chain: chain.moralisChainId,
+              limit: 500
+            })
+          }).then(r => r.json());
+          
+          // Transform Moralis response to match expected format
+          if (response.result && Array.isArray(response.result)) {
+            response = {
+              status: '1',
+              result: response.result.map(tx => ({
+                hash: tx.transaction_hash,
+                from: tx.from_address,
+                to: tx.to_address,
+                value: tx.value,
+                tokenSymbol: tx.token_symbol,
+                tokenName: tx.token_name,
+                contractAddress: tx.address,
+                blockNumber: tx.block_number,
+                timeStamp: Math.floor(new Date(tx.block_timestamp).getTime() / 1000).toString()
+              }))
+            };
           }
         } else {
-          // ✅ NOTOK ist NORMAL für Wallets ohne Transaktionen (z.B. Best Wallet)
-          if (data.message === 'NOTOK' || data.status === '0' || data.status === 'NOTOK') {
-            console.log(`📱 Empty wallet (no ROI transactions): ${wallet.address} - This is normal for new/unused wallets`);
-          } else {
-            console.warn(`⚠️ ROI API error for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
+          // 📡 FALLBACK: PulseChain Scanner API
+          console.log(`🔄 FALLBACK: Using PulseChain Scanner for ${chain.name}`);
+          
+          response = await fetch(
+            `${chain.apiProxy}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=500`
+          ).then(r => r.json());
+        }
+        
+        if (response.status === '1' && Array.isArray(response.result)) {
+          console.log(`📊 ENTERPRISE ROI: Found ${response.result.length} transactions for ${wallet.address}`);
+          
+          // Process transactions for ROI calculation
+          for (const tx of response.result.slice(0, 100)) { // Limit for performance
+            try {
+              const timestamp = parseInt(tx.timeStamp) * 1000;
+              const txDate = new Date(timestamp);
+              const now = new Date();
+              const daysDiff = (now - txDate) / (1000 * 60 * 60 * 24);
+              
+              // Calculate ROI value
+              const tokenAddress = tx.contractAddress?.toLowerCase();
+              const tokenPrice = priceMap.get(tokenAddress) || 0;
+              const value = parseFloat(tx.value) / Math.pow(10, 18) * tokenPrice;
+              
+              if (value > 1 && daysDiff <= 30) { // Only significant transactions in last 30 days
+                const transaction = {
+                  hash: tx.hash,
+                  walletAddress: wallet.address,
+                  tokenSymbol: tx.tokenSymbol,
+                  value: value,
+                  date: txDate.toISOString(),
+                  daysDiff: Math.floor(daysDiff),
+                  source: hasMoralisAccess ? 'moralis_enterprise' : 'pulsechain_scanner'
+                };
+                
+                allTransactions.push(transaction);
+                
+                // Add to ROI stats
+                if (daysDiff <= 1) roiStats.daily += value;
+                if (daysDiff <= 7) roiStats.weekly += value;
+                if (daysDiff <= 30) roiStats.monthly += value;
+              }
+            } catch (txError) {
+              console.error(`💥 Error processing transaction:`, txError);
+            }
           }
         }
       } catch (error) {
-        console.warn(`⚠️ Error loading ROI for wallet ${wallet.address}:`, error.message);
+        console.error(`💥 Error loading ROI transactions for wallet ${wallet.address}:`, error.message);
       }
     }
 
-    // Sortiere nach Timestamp (neueste zuerst)
-    allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-    console.log(`✅ FIXED: ROI loading complete - ${allTransactions.length} ROI transactions, Monthly: $${roiStats.monthly.toFixed(2)}`);
+    console.log(`📊 ENTERPRISE ROI COMPLETE: ${allTransactions.length} ROI transactions processed`);
 
     return {
       transactions: allTransactions,
-      stats: roiStats,
       dailyROI: roiStats.daily,
       weeklyROI: roiStats.weekly,
-      monthlyROI: roiStats.monthly
+      monthlyROI: roiStats.monthly,
+      source: hasMoralisAccess ? 'moralis_enterprise' : 'mixed_apis'
     };
   }
 
   /**
-   * 📄 Lade Transaktionen für Tax Export (FIXED LOADING - mehr Transaktionen)
+   * 📄 100% MORALIS ENTERPRISE: Tax-Transaktionen von Moralis APIs (ENTERPRISE MODE) 
    */
-  static async loadTaxTransactionsFixed(wallets, priceMap) {
+  static async loadTaxTransactionsMoralisFirst(wallets, priceMap, hasMoralisAccess) {
     const allTransactions = [];
-    const taxSummary = {
-      totalIncome: 0,
-      totalCapitalGains: 0,
-      totalFees: 0,
-      transactionCount: 0
-    };
+
+    console.log(`🚀 MORALIS ENTERPRISE TAX: ${hasMoralisAccess ? 'USING MORALIS APIS' : 'FALLBACK TO FREE APIS'}`);
 
     for (const wallet of wallets) {
       const chainId = wallet.chain_id || 369;
       const chain = this.getChainConfig(chainId);
       
       try {
-        console.log(`📄 MULTI-CHAIN TAX: Loading transactions for wallet ${wallet.address} on ${chain.name}`);
+        console.log(`📄 ENTERPRISE TAX: Loading transactions for wallet ${wallet.address} on ${chain.name}`);
         
-        // 📈 ERWEITERT: Höheres Transaktionslimit für bessere Steuerdaten
-        const response = await fetch(
-          `${chain.apiProxy}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=2000`
-        );
+        let response;
         
-        if (!response.ok) continue;
-        
-        const data = await response.json();
-        
-        if (data.status === '1' && Array.isArray(data.result)) {
-          console.log(`📋 FIXED TAX: Found ${data.result.length} transactions for wallet ${wallet.address}`);
+        if (hasMoralisAccess) {
+          // 🚀 100% MORALIS ENTERPRISE API
+          console.log(`💎 USING MORALIS TOKEN TRANSFERS API for ${chain.name}`);
           
-          for (const tx of data.result) {
-            const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal) || 18);
-            const timestamp = new Date(parseInt(tx.timeStamp) * 1000);
-            const isIncoming = tx.to && tx.to.toLowerCase() === wallet.address.toLowerCase();
-            
-            const contractKey = tx.contractAddress?.toLowerCase();
-            
-            // 🎯 NEUE TAX-PREISLOGIK: Konsistent mit Portfolio & ROI
-            let price = 0;
-            let priceSource = 'no_price';
-            
-            // Priority 1: Live-Preise aus Price Map (Moralis Enterprise)
-            if (priceMap.has(contractKey)) {
-              price = priceMap.get(contractKey);
-              priceSource = 'moralis_live';
-              
-              // Plausibilitätsprüfung
-              if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(tx.tokenSymbol)) {
-                price = 0;
-                priceSource = 'blocked_suspicious';
-              }
-            }
-            
-            // Priority 2: Minimale Fallbacks
-            if (price === 0 && this.FALLBACK_PRICES[tx.tokenSymbol]) {
-              price = this.FALLBACK_PRICES[tx.tokenSymbol];
-              priceSource = 'fallback_minimal';
-            }
-            
-            const value = amount * price;
-            
-            const taxTx = {
-              walletId: wallet.id,
-              walletAddress: wallet.address,
-              chainId: chainId,
-              chainName: chain.name,
-              
-              txHash: tx.hash,
-              blockNumber: parseInt(tx.blockNumber),
-              blockTimestamp: timestamp.toISOString(),
-              
-              tokenSymbol: tx.tokenSymbol,
-              tokenName: tx.tokenName,
-              contractAddress: tx.contractAddress,
-              decimals: parseInt(tx.tokenDecimal) || 18,
-              
-              amount: amount,
-              amountRaw: tx.value,
-              price: price,
-              valueUSD: value,
-              priceSource: priceSource,
-              
-              direction: isIncoming ? 'in' : 'out',
-              txType: 'transfer',
-              
-              fromAddress: tx.from,
-              toAddress: tx.to,
-              
-              gasUsed: parseInt(tx.gasUsed || 0),
-              gasPrice: parseInt(tx.gasPrice || 0),
-              gasFeeUSD: 0,
-              
-              // Verbesserte Steuer-Klassifikation
-              isTaxable: this.isTaxableTransaction(tx, amount, isIncoming),
-              taxCategory: this.getTaxCategory(tx, amount, isIncoming),
-              isROITransaction: isIncoming && this.isROITransaction(tx, amount),
-              
-              // 🌐 DYNAMIC EXPLORER URLS
-              explorerUrl: `${chain.explorerBase}/tx/${tx.hash}`,
-              tokenExplorerUrl: this.getExplorerUrl(tx.contractAddress, chainId),
-              
-              createdAt: new Date().toISOString()
+          response = await fetch('/api/moralis-token-transfers', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              address: wallet.address,
+              chain: chain.moralisChainId,
+              limit: 2000  // Higher limit for tax reporting
+            })
+          }).then(r => r.json());
+          
+          // Transform Moralis response for tax processing
+          if (response.result && Array.isArray(response.result)) {
+            response = {
+              status: '1',
+              result: response.result.map(tx => ({
+                hash: tx.transaction_hash,
+                from: tx.from_address,
+                to: tx.to_address,
+                value: tx.value,
+                tokenSymbol: tx.token_symbol,
+                tokenName: tx.token_name,
+                contractAddress: tx.address,
+                blockNumber: tx.block_number,
+                timeStamp: Math.floor(new Date(tx.block_timestamp).getTime() / 1000).toString(),
+                tokenDecimal: tx.token_decimals || '18'
+              }))
             };
-            
-            allTransactions.push(taxTx);
-            
-            // Aktualisiere Tax Summary
-            if (taxTx.isTaxable) {
-              taxSummary.totalIncome += value;
-              taxSummary.transactionCount++;
-            }
           }
         } else {
-          // ✅ NOTOK ist NORMAL für Wallets ohne Transaktionen (z.B. Best Wallet)
-          if (data.message === 'NOTOK' || data.status === '0' || data.status === 'NOTOK') {
-            console.log(`📱 Empty wallet (no tax transactions): ${wallet.address} - This is normal for new/unused wallets`);
-          } else {
-            console.warn(`⚠️ Tax API error for wallet ${wallet.address}: ${data.message || data.status || 'Unknown error'}`);
+          // 📡 FALLBACK: PulseChain Scanner API
+          console.log(`🔄 FALLBACK: Using PulseChain Scanner for ${chain.name}`);
+          
+          response = await fetch(
+            `${chain.apiProxy}?address=${wallet.address}&action=tokentx&module=account&sort=desc&offset=2000`
+          ).then(r => r.json());
+        }
+        
+        if (response.status === '1' && Array.isArray(response.result)) {
+          console.log(`📄 ENTERPRISE TAX: Found ${response.result.length} transactions for ${wallet.address}`);
+          
+          // Process all transactions for tax reporting
+          for (const tx of response.result) {
+            try {
+              const timestamp = parseInt(tx.timeStamp) * 1000;
+              const txDate = new Date(timestamp);
+              
+              // Calculate transaction value in USD
+              const tokenAddress = tx.contractAddress?.toLowerCase();
+              const tokenPrice = priceMap.get(tokenAddress) || 0;
+              const decimals = parseInt(tx.tokenDecimal) || 18;
+              const tokenAmount = parseFloat(tx.value) / Math.pow(10, decimals);
+              const valueUSD = tokenAmount * tokenPrice;
+              
+              const transaction = {
+                hash: tx.hash,
+                walletAddress: wallet.address,
+                date: txDate.toISOString(),
+                tokenSymbol: tx.tokenSymbol,
+                tokenAmount: tokenAmount,
+                tokenPrice: tokenPrice,
+                valueUSD: valueUSD,
+                from: tx.from,
+                to: tx.to,
+                type: tx.from.toLowerCase() === wallet.address.toLowerCase() ? 'OUT' : 'IN',
+                source: hasMoralisAccess ? 'moralis_enterprise' : 'pulsechain_scanner',
+                contractAddress: tx.contractAddress
+              };
+              
+              allTransactions.push(transaction);
+            } catch (txError) {
+              console.error(`💥 Error processing tax transaction:`, txError);
+            }
           }
         }
       } catch (error) {
-        console.warn(`⚠️ Error loading tax data for wallet ${wallet.address}:`, error.message);
+        console.error(`💥 Error loading tax transactions for wallet ${wallet.address}:`, error.message);
       }
     }
 
-    console.log(`✅ FIXED: Tax data loading complete - ${allTransactions.length} transactions, Income: $${taxSummary.totalIncome.toFixed(2)}`);
+    console.log(`📄 ENTERPRISE TAX COMPLETE: ${allTransactions.length} tax transactions processed`);
 
     return {
       transactions: allTransactions,
-      summary: taxSummary
+      source: hasMoralisAccess ? 'moralis_enterprise' : 'mixed_apis'
     };
   }
 
