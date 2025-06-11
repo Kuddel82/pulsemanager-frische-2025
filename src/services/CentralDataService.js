@@ -271,7 +271,9 @@ export class CentralDataService {
               resultLength: Array.isArray(parsed.result) ? parsed.result.length : 'N/A',
               hasError: !!parsed._error,
               hasFallback: !!parsed._fallback,
-              keys: Object.keys(parsed)
+              hasSuccess: !!parsed.success,
+              keys: Object.keys(parsed).slice(0, 10),
+              fullResponse: parsed
             });
             return parsed;
           } catch (parseError) {
@@ -281,7 +283,7 @@ export class CentralDataService {
           }
         });
         
-        // Transform Moralis response to match expected format
+        // 🔧 ENHANCED: Transform Moralis response to match expected format
         if (response.result && Array.isArray(response.result)) {
           // ✅ MORALIS: Valid response (may be empty array - that's normal)
           if (response.result.length === 0) {
@@ -291,6 +293,19 @@ export class CentralDataService {
           response = {
             status: '1',
             result: response.result.map(token => ({
+              symbol: token.symbol,
+              name: token.name,
+              contractAddress: token.token_address,
+              decimals: token.decimals,
+              balance: token.balance
+            }))
+          };
+        } else if (Array.isArray(response) && response.length >= 0) {
+          // 🔧 NEW: Handle direct array responses (some Moralis endpoints return arrays directly)
+          console.log(`🔧 MORALIS DIRECT ARRAY RESPONSE: ${response.length} tokens for ${wallet.address}`);
+          response = {
+            status: '1',
+            result: response.map(token => ({
               symbol: token.symbol,
               name: token.name,
               contractAddress: token.token_address,
@@ -312,6 +327,52 @@ export class CentralDataService {
             status: '0',
             message: response._error.message || 'API Error'
           };
+        } else if (response.success === false && response.error) {
+          // 🔧 NEW: Handle API error responses with success:false
+          console.warn(`⚠️ MORALIS API ERROR (success:false): ${response.error} for wallet ${wallet.address}`);
+          response = {
+            status: '0',
+            message: response.error
+          };
+        } else if (!response.result && !response._fallback && !response._error && !Array.isArray(response)) {
+          // 🔧 NEW: Handle unexpected response structures
+          console.warn(`⚠️ UNEXPECTED MORALIS RESPONSE STRUCTURE for wallet ${wallet.address}:`, {
+            keys: Object.keys(response),
+            hasResult: !!response.result,
+            hasSuccess: !!response.success,
+            responseType: typeof response
+          });
+          
+          // Try to extract data from various possible response formats
+          let extractedResult = [];
+          
+          if (response.data && Array.isArray(response.data)) {
+            extractedResult = response.data;
+          } else if (response.tokens && Array.isArray(response.tokens)) {
+            extractedResult = response.tokens;
+          } else if (response.balances && Array.isArray(response.balances)) {
+            extractedResult = response.balances;
+          }
+          
+          if (extractedResult.length > 0) {
+            console.log(`🔧 EXTRACTED DATA: Found ${extractedResult.length} tokens in alternate field`);
+            response = {
+              status: '1',
+              result: extractedResult.map(token => ({
+                symbol: token.symbol || token.tokenSymbol,
+                name: token.name || token.tokenName,
+                contractAddress: token.token_address || token.contractAddress || token.address,
+                decimals: token.decimals || token.decimal || 18,
+                balance: token.balance || token.amount || '0'
+              }))
+            };
+          } else {
+            // Completely unknown format - treat as empty
+            response = {
+              status: 'NOTOK',
+              message: 'Unknown response format from Moralis API'
+            };
+          }
         }
         
         if (response.status === '1' && Array.isArray(response.result)) {
