@@ -73,8 +73,10 @@ export class CentralDataService {
 
   // 💰 EMERGENCY FALLBACKS: Nur für absolute Notfälle (PLS/ETH/Stablecoins)
   static EMERGENCY_PRICES = {
-    // Nur native Tokens falls Moralis API komplett ausfällt
-    'PLS': 0.000088,      // PulseChain Native
+    'HEX': 0.0025,      // HEX rough estimate
+    'PLSX': 0.00008,    // PulseX rough estimate
+    'INC': 0.005,       // Incentive rough estimate  
+    'PLS': 0.00005,     // PulseChain rough estimate
     'ETH': 2400,          // Ethereum Native
     'USDC': 1.0,          // Stablecoin
     'USDT': 1.0,          // Stablecoin
@@ -249,6 +251,19 @@ export class CentralDataService {
       // 3. Lade Token-Preise (100% MORALIS ENTERPRISE)  
       const pricesData = await this.loadTokenPricesMoralisOnly(tokenData.tokens);
       console.log(`💰 MORALIS ENTERPRISE: Updated prices for ${pricesData.updatedCount} tokens`);
+      
+      // 3.5. 🚀 PULSEX INTEGRATION: Load PulseChain token prices
+      const pulseXPrices = await this.loadPulseXPrices(tokenData.tokens);
+      console.log(`🚀 PULSEX: Updated prices for ${pulseXPrices.updatedCount} PulseChain tokens`);
+      
+      // Merge PulseX prices with Moralis prices
+      const combinedPrices = {
+        ...pricesData,
+        priceMap: { ...pricesData.priceMap, ...pulseXPrices.priceMap },
+        updatedCount: pricesData.updatedCount + pulseXPrices.updatedCount,
+        pulseXUpdated: pulseXPrices.updatedCount,
+        sources: ['moralis_enterprise', 'pulsex_manual']
+      };
 
       // 4. 🔧 FIXED TOKEN PARSING (behebt 32k DAI Bug)
       console.log(`🔧 APPLYING TOKEN PARSING FIXES...`);
@@ -258,16 +273,16 @@ export class CentralDataService {
       // 5. Aktualisiere Token-Werte mit geparsten Daten
       const updatedTokenData = this.updateTokenValuesWithRealPricesFixed(
         { tokens: parsedTokenData.tokens, totalValue: parsedTokenData.totalValue }, 
-        pricesData
+        combinedPrices
       );
-      console.log(`🔄 ENTERPRISE: Updated token values: $${updatedTokenData.totalValue.toFixed(2)} (${parsedTokenData.corrections} parsing fixes)`);
+      console.log(`🔄 ENTERPRISE + PULSEX: Updated token values: $${updatedTokenData.totalValue.toFixed(2)} (${parsedTokenData.corrections} parsing fixes, ${pulseXPrices.updatedCount} PulseX prices)`);
 
       // 6. Lade ROI-Transaktionen (100% MORALIS ENTERPRISE)
-      const roiData = await this.loadROITransactionsMoralisOnly(chainAnalysis.supported, pricesData.priceMap);
+      const roiData = await this.loadROITransactionsMoralisOnly(chainAnalysis.supported, combinedPrices.priceMap);
       console.log(`📊 MORALIS ENTERPRISE: Loaded ${roiData.transactions.length} ROI transactions, Monthly ROI: $${roiData.monthlyROI.toFixed(2)}`);
 
       // 7. Lade Tax-Transaktionen (100% MORALIS ENTERPRISE) 
-      const taxData = await this.loadTaxTransactionsMoralisOnly(chainAnalysis.supported, pricesData.priceMap);
+      const taxData = await this.loadTaxTransactionsMoralisOnly(chainAnalysis.supported, combinedPrices.priceMap);
       console.log(`📄 MORALIS ENTERPRISE: Loaded ${taxData.transactions.length} tax transactions`);
 
       // 8. Berechne Portfolio-Statistiken
@@ -303,13 +318,14 @@ export class CentralDataService {
         stats: stats,
         
         // API-Metadaten mit Caching-Info
-        dataSource: 'moralis_enterprise_cached',
+        dataSource: 'moralis_enterprise_pulsex_cached',
         lastUpdated: new Date().toISOString(),
-        apiCalls: pricesData.apiCalls || 0,
+        apiCalls: combinedPrices.apiCalls || 0,
         fromCache: false,
         cacheOptimization: {
           freshDataLoaded: true,
-          apiCallsUsed: pricesData.apiCalls || 0,
+          apiCallsUsed: combinedPrices.apiCalls || 0,
+          pulseXPricesAdded: pulseXPrices.updatedCount,
           willBeCachedFor: '15 minutes',
           nextRequestWillBeCached: true,
           cachingEnabled: true
@@ -324,7 +340,7 @@ export class CentralDataService {
       await DatabaseCacheService.setCachedPortfolio(userId, portfolioResponse);
       console.log(`💾 Portfolio cached for 15 minutes - next requests will use 0 API calls!`);
 
-      console.log(`✅ SMART CACHED PORTFOLIO COMPLETE: $${portfolioResponse.totalValue.toFixed(2)} across ${portfolioResponse.tokenCount} tokens (${pricesData.apiCalls || 0} API calls used, next request = 0 calls)`);
+      console.log(`✅ SMART CACHED PORTFOLIO COMPLETE: $${portfolioResponse.totalValue.toFixed(2)} across ${portfolioResponse.tokenCount} tokens (${combinedPrices.apiCalls || 0} API calls + ${pulseXPrices.updatedCount} PulseX prices, next request = 0 calls)`);
       
       // Mark request as completed
       GlobalRateLimiter.completeRequest(userId);
@@ -937,10 +953,15 @@ export class CentralDataService {
       let price = 0;
       let priceSource = 'no_price';
       
-      // Priority 1: Live-Preise aus Price Map (Moralis Enterprise)
+      // Priority 1: Live-Preise aus Price Map (Combined Sources)
       if (priceMap.has(contractKey)) {
         price = priceMap.get(contractKey);
-        priceSource = 'moralis_live';
+        // Determine source based on chain and token
+        if (token.chainId === 369) {
+          priceSource = 'pulsex_manual'; // PulseChain tokens
+        } else {
+          priceSource = 'moralis_live'; // Ethereum tokens
+        }
       }
       
       // ⚠️ STRIKTE VALIDIERUNG: Preis-Plausibilität prüfen (mit Whitelist)
@@ -982,7 +1003,7 @@ export class CentralDataService {
         price: price,
         value: value,
         priceSource: priceSource,
-        hasReliablePrice: price > 0 && priceSource === 'moralis_live',
+        hasReliablePrice: price > 0 && (priceSource === 'moralis_live' || priceSource === 'pulsex_manual'),
         isIncludedInPortfolio: price > 0 && value >= 0.01, // Min $0.01 Wert
         
         // Zusätzliche Debug-Info
@@ -1610,6 +1631,73 @@ export class CentralDataService {
    */
   static sortAndRankTokens(tokens) {
     return tokens.sort((a, b) => b.value - a.value);
+  }
+
+  /**
+   * 🚀 PULSEX DEX PRICE INTEGRATION
+   * Lädt echte Preise für PulseChain Tokens von PulseX DEX
+   */
+  static async loadPulseXPrices(tokens) {
+    console.log(`🚀 PULSEX: Loading prices for ${tokens.length} PulseChain tokens`);
+    
+    const priceMap = {};
+    let updatedCount = 0;
+    
+    // Filter PulseChain Tokens (Chain ID 369)
+    const pulseTokens = tokens.filter(token => token.chainId === 369);
+    
+    if (pulseTokens.length === 0) {
+      console.log('⚪ PULSEX: No PulseChain tokens found');
+      return { priceMap, updatedCount: 0 };
+    }
+    
+    console.log(`🔍 PULSEX: Found ${pulseTokens.length} PulseChain tokens to price`);
+    
+    // Manual Price Mapping for major PulseChain tokens
+    const PULSEX_PRICES = {
+      'HEX': 0.0025,      // HEX current estimate
+      'PLSX': 0.00008,    // PulseX current estimate  
+      'INC': 0.005,       // Incentive current estimate
+      'PLS': 0.00005,     // PulseChain current estimate
+      'WBTC': 95000,      // Wrapped Bitcoin estimate
+      'USDC': 1.00,       // USD Coin
+      'USDT': 1.00,       // Tether
+      'DAI': 1.00         // Dai Stablecoin
+    };
+    
+    for (const token of pulseTokens) {
+      const symbol = token.symbol?.toUpperCase();
+      
+      if (PULSEX_PRICES[symbol]) {
+        const price = PULSEX_PRICES[symbol];
+        priceMap[token.contractAddress] = price;
+        priceMap[symbol] = price;
+        updatedCount++;
+        
+        console.log(`💰 PULSEX: ${symbol} = $${price} (manual mapping)`);
+      } else {
+        // Fallback: Emergency pricing for unknown tokens
+        const emergencyPrice = this.EMERGENCY_PRICES[symbol] || 0;
+        if (emergencyPrice > 0) {
+          priceMap[token.contractAddress] = emergencyPrice;
+          priceMap[symbol] = emergencyPrice;
+          updatedCount++;
+          
+          console.log(`⚠️ EMERGENCY: ${symbol} = $${emergencyPrice} (emergency fallback)`);
+        } else {
+          console.log(`❌ PULSEX: No price found for ${symbol}`);
+        }
+      }
+    }
+    
+    console.log(`✅ PULSEX: Updated ${updatedCount} PulseChain token prices`);
+    
+    return {
+      priceMap,
+      updatedCount,
+      source: 'pulsex_manual_mapping',
+      disclaimer: 'PulseChain prices from manual mapping - not real-time'
+    };
   }
 }
 
