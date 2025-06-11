@@ -36,17 +36,9 @@ export class TransactionHistoryService {
    */
   static async checkMoralisAccess() {
     try {
-      const response = await fetch('/api/moralis-token-transfers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: '0x0000000000000000000000000000000000000000',
-          chain: '0x171',
-          limit: 1
-        })
-      });
+      const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
       const data = await response.json();
-      return !data._fallback && !data.error;
+      return !data._fallback && !data._error && response.ok;
     } catch {
       return false;
     }

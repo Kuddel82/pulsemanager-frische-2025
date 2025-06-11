@@ -26,14 +26,14 @@ export class TokenPriceService {
     try {
       console.log(`💰 MORALIS PRICE: Getting price for ${symbol} (${contractAddress})`);
       
-      // 🔑 CHECK MORALIS ENTERPRISE ACCESS
-      const testResponse = await fetch('/api/moralis-prices?endpoint=test&chain=0x171&address=0x0000000000000000000000000000000000000000');
-      const testData = await testResponse.json();
-      
-      if (testData._fallback || testData.error) {
-        console.warn(`⚠️ MORALIS ENTERPRISE not available, using emergency fallback for ${symbol}`);
-        return this.EMERGENCY_PRICES[symbol] || 0;
-      }
+             // 🔑 CHECK MORALIS ENTERPRISE ACCESS  
+       const testResponse = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
+       const testData = await testResponse.json();
+       
+       if (testData._fallback || testData._error || !testResponse.ok) {
+         console.warn(`⚠️ MORALIS ENTERPRISE not available, using emergency fallback for ${symbol}`);
+         return this.EMERGENCY_PRICES[symbol] || 0;
+       }
 
       // 🚀 MORALIS ENTERPRISE PRICE API
       const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=${chainId}&address=${contractAddress}`);
@@ -154,10 +154,10 @@ export class TokenPriceService {
    */
   static async isMoralisEnterpriseAvailable() {
     try {
-      const response = await fetch('/api/moralis-prices?endpoint=test&chain=0x171&address=0x0000000000000000000000000000000000000000');
+      const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
       const data = await response.json();
       
-      return !data._fallback && !data.error;
+      return !data._fallback && !data._error && response.ok;
     } catch {
       return false;
     }

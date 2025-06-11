@@ -9,11 +9,12 @@ export class CentralDataService {
   // 🔑 ENTERPRISE MODE DETECTION
   static async hasValidMoralisApiKey() {
     try {
-      const response = await fetch('/api/moralis-tokens?endpoint=test&chain=0x171&address=0x0000000000000000000000000000000000000000');
+      // Use a simple wallet-tokens test request
+      const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
       const data = await response.json();
       
       // Check if we get a proper Moralis response instead of fallback
-      return !data._fallback && !data.error;
+      return !data._fallback && !data._error && response.ok;
     } catch {
       return false;
     }

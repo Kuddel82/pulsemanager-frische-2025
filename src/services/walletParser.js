@@ -30,19 +30,19 @@ export class WalletParser {
     try {
       console.log(`🚀 MORALIS ENTERPRISE: Fetching tokens for ${walletAddress} [${timestamp}]`);
       
-      // 🔑 CHECK MORALIS ENTERPRISE ACCESS
-      const testResponse = await fetch('/api/moralis-tokens?endpoint=test&chain=0x171&address=0x0000000000000000000000000000000000000000');
-      const testData = await testResponse.json();
-      
-      if (testData._fallback || testData.error) {
-        console.error(`🚨 CRITICAL: Moralis Enterprise API not available! Wallet parsing requires paid Moralis API key.`);
-        return {
-          success: false,
-          tokens: [],
-          error: 'ENTERPRISE ERROR: Moralis API Key required for token data',
-          totalValue: 0
-        };
-      }
+             // 🔑 CHECK MORALIS ENTERPRISE ACCESS
+       const testResponse = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
+       const testData = await testResponse.json();
+       
+       if (testData._fallback || testData._error || !testResponse.ok) {
+         console.error(`🚨 CRITICAL: Moralis Enterprise API not available! Wallet parsing requires paid Moralis API key.`);
+         return {
+           success: false,
+           tokens: [],
+           error: 'ENTERPRISE ERROR: Moralis API Key required for token data',
+           totalValue: 0
+         };
+       }
 
       // 🚀 MORALIS ENTERPRISE API CALLS
       const tokens = [];
