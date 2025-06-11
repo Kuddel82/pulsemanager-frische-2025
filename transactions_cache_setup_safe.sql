@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS transactions_cache (
   -- 👤 User-Referenz
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   wallet_id UUID, -- Kann NULL sein falls lokale Wallet-IDs
+  wallet_address TEXT, -- 🔧 FIXED: Fehlende Spalte hinzugefügt
   
   -- 🔗 Blockchain-Daten
   tx_hash TEXT NOT NULL,
@@ -57,6 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_cache_user_timestamp ON transactions
 CREATE INDEX IF NOT EXISTS idx_transactions_cache_contract ON transactions_cache(contract_address);
 CREATE INDEX IF NOT EXISTS idx_transactions_cache_roi ON transactions_cache(user_id, is_roi_transaction, value_usd) WHERE is_roi_transaction = true;
 CREATE INDEX IF NOT EXISTS idx_transactions_cache_created ON transactions_cache(created_at);
+CREATE INDEX IF NOT EXISTS idx_transactions_cache_wallet_address ON transactions_cache(wallet_address); -- 🔧 FIXED: Index für wallet_address
 
 -- 🛡️ ROW LEVEL SECURITY (DSGVO-konform)
 ALTER TABLE transactions_cache ENABLE ROW LEVEL SECURITY;
@@ -154,4 +156,7 @@ BEGIN
   RAISE NOTICE '   - Functions: cleanup_old_transaction_cache(), get_tax_summary()';
   RAISE NOTICE '   - Indexes: Performance-optimiert für TAX SERVICE';
   RAISE NOTICE '🎯 Ready for unlimited transaction processing!';
-END $$; 
+END $$;
+
+-- 🔧 FIXED: Fehlende Spalte zu existierender Tabelle hinzufügen
+ALTER TABLE transactions_cache ADD COLUMN IF NOT EXISTS wallet_address TEXT; 
