@@ -107,7 +107,7 @@ export async function GET(request) {
           const tokenBalances = await Moralis.EvmApi.token.getWalletTokenBalances({
             address,
             chain: moralisChain,
-            limit: limit ? Math.min(parseInt(limit), 100) : 100
+            excludeSpam: true
           });
           
           console.log(`✅ MORALIS SDK SUCCESS: ${tokenBalances.result.length} tokens found`);
