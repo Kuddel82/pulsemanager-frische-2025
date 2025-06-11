@@ -216,10 +216,15 @@ export class CentralDataService {
 
       if (wallets.length === 0) {
         console.log('⚠️ No wallets found for user');
-        const emptyPortfolio = this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Fügen Sie Ihre Wallet-Adressen hinzu.');
         
-        // Cache empty portfolio to prevent repeated calls
-        await DatabaseCacheService.setCachedPortfolio(userId, emptyPortfolio);
+        // 🔥 EMERGENCY FIX: Clear cache if wallets are 0 but should exist
+        console.log('🔥 EMERGENCY: Clearing cache due to 0 wallets - this might be a cache issue');
+        await DatabaseCacheService.forceClearUserCache(userId);
+        
+        const emptyPortfolio = this.getEmptyPortfolio(userId, 'Keine Wallets gefunden. Cache wurde geleert. Versuchen Sie erneut zu laden.');
+        
+        // DON'T cache empty portfolio when it might be a bug
+        // await DatabaseCacheService.setCachedPortfolio(userId, emptyPortfolio);
         return emptyPortfolio;
       }
 

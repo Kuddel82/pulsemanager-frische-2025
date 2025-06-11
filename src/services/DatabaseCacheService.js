@@ -352,4 +352,37 @@ export class DatabaseCacheService {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * 🔥 FORCE CLEAR USER CACHE
+   * Löscht kompletten Cache für einen User (für Debug/Fix)
+   */
+  static async forceClearUserCache(userId) {
+    try {
+      console.log(`🔥 FORCE CLEARING CACHE for user ${userId}`);
+      
+      // Lösche Portfolio Cache
+      const { error: portfolioError } = await supabase
+        .from('portfolio_cache')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (portfolioError) throw portfolioError;
+      
+      // Lösche ROI Analysis Cache
+      const { error: roiError } = await supabase
+        .from('roi_analysis_cache')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (roiError && roiError.code !== 'PGRST116') throw roiError;
+      
+      console.log('🔥 FORCE CLEAR: All cache cleared for user');
+      return { success: true, message: 'Cache force cleared' };
+      
+    } catch (error) {
+      console.error('💥 Force Clear Cache Error:', error);
+      return { success: false, error: error.message };
+    }
+  }
 } 

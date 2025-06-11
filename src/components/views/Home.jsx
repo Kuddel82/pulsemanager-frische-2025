@@ -177,6 +177,26 @@ const Home = () => {
             }
           } else {
             console.warn('⚠️ DASHBOARD AUTO-LOAD: Portfolio could not be loaded:', data.error);
+            
+            // 🔥 EMERGENCY: If error mentions cache, try force refresh once
+            if (data.error && data.error.includes('Cache wurde geleert')) {
+              console.log('🔥 EMERGENCY RETRY: Cache was cleared, trying fresh load...');
+              setTimeout(() => {
+                console.log('🔄 RETRY: Loading portfolio after cache clear...');
+                CentralDataService.loadCompletePortfolio(user.id)
+                  .then(retryData => {
+                    if (retryData.success || retryData.isLoaded) {
+                      console.log('✅ RETRY SUCCESS: Portfolio loaded after cache clear!');
+                      setPortfolioData(retryData);
+                      setLastUpdate(new Date());
+                    }
+                  })
+                  .catch(retryError => {
+                    console.error('💥 RETRY FAILED:', retryError);
+                  });
+              }, 2000); // Wait 2 seconds before retry
+            }
+            
             setPortfolioData({
               success: false,
               totalValue: 0,
