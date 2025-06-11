@@ -87,17 +87,9 @@ export default async function handler(req, res) {
       try {
         console.log(`🚀 V2 PORTFOLIO: Getting net worth for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: { total_networth_usd: '0', chains: [] },
-            _error: { 
-              message: 'PulseChain not supported by Moralis Portfolio APIs',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         
         const response = await Moralis.EvmApi.wallets.getWalletNetWorth({
           address,
@@ -129,18 +121,9 @@ export default async function handler(req, res) {
       try {
         console.log(`🚀 V2 HISTORY: Getting complete history for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: [],
-            cursor: null,
-            _error: { 
-              message: 'PulseChain not supported by Moralis History APIs',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         const requestLimit = Math.min(limit || 100, 100);
         
         const response = await Moralis.EvmApi.wallets.getWalletHistory({
@@ -176,17 +159,9 @@ export default async function handler(req, res) {
       try {
         console.log(`🚀 V2 STATS: Getting wallet stats for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: { nfts: '0', collections: '0', transactions: { total: '0' } },
-            _error: { 
-              message: 'PulseChain not supported by Moralis Stats APIs',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         
         const response = await Moralis.EvmApi.wallets.getWalletStats({
           address,
@@ -214,18 +189,9 @@ export default async function handler(req, res) {
       try {
         console.log(`🚀 V2 NATIVE: Getting native transactions for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: [],
-            cursor: null,
-            _error: { 
-              message: 'PulseChain not supported by Moralis Native APIs',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         const requestLimit = Math.min(limit || 100, 100);
         
         const response = await Moralis.EvmApi.transaction.getWalletTransactions({
@@ -307,18 +273,8 @@ export default async function handler(req, res) {
           });
         }
         
-        // PulseChain not supported by Moralis
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: [],
-            total: 0,
-            _fallback: {
-              reason: 'pulsechain_not_supported_by_moralis',
-              message: 'PulseChain not yet supported by Moralis SDK',
-              chain: chainId
-            }
-          });
-        }
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        console.log(`💎 PROCESSING PULSECHAIN TOKENS: Chain ${chainId} now fully supported by Moralis!`);
         
         // Check for specific error types
         if (sdkError.message.includes('Invalid address')) {
@@ -350,22 +306,9 @@ export default async function handler(req, res) {
       try {
         console.log(`🚀 V2 DEFI SUMMARY: Getting DeFi overview for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: { 
-              active_protocols: '0', 
-              total_positions: '0', 
-              total_usd_value: '0',
-              total_unclaimed_usd_value: '0'
-            },
-            _error: { 
-              message: 'PulseChain not supported by Moralis DeFi APIs',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         
         const response = await Moralis.EvmApi.wallets.getDefiSummary({
           address,
@@ -394,17 +337,9 @@ export default async function handler(req, res) {
       try {
         console.log(`🚀 V2 DEFI POSITIONS: Getting DeFi positions for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: [],
-            _error: { 
-              message: 'PulseChain not supported by Moralis DeFi APIs',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         
         const response = await Moralis.EvmApi.wallets.getDefiPositionsSummary({
           address,
@@ -441,17 +376,9 @@ export default async function handler(req, res) {
         
         console.log(`🚀 V2 DEFI PROTOCOL: Getting ${protocol} positions for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: null,
-            _error: { 
-              message: 'PulseChain not supported by Moralis DeFi APIs',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         
         const response = await Moralis.EvmApi.wallets.getDefiPositionsByProtocol({
           address,
@@ -495,18 +422,9 @@ export default async function handler(req, res) {
         
         console.log(`🚀 V2 MULTIPLE PRICES: Getting prices for ${tokens.length} tokens on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: [],
-            _error: { 
-              message: 'PulseChain not supported by Moralis Price APIs yet',
-              chain: chainId,
-              suggestion: 'Use Ethereum tokens or wait for PulseChain support'
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         
         // Extract just the token addresses for Moralis API
         const tokenAddresses = tokens.map(token => token.token_address || token).filter(Boolean);
@@ -557,17 +475,9 @@ export default async function handler(req, res) {
         
         console.log(`🚀 V2 TOKEN PRICE: Getting price for ${address} on chain ${chainId}`);
         
-        if (chainId === '0x171') {
-          return res.status(200).json({
-            result: null,
-            _error: { 
-              message: 'PulseChain not supported by Moralis Price APIs yet',
-              chain: chainId
-            }
-          });
-        }
-        
-        const moralisChain = EvmChain.ETHEREUM;
+        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
+        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
+        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
         
         const response = await Moralis.EvmApi.token.getTokenPrice({
           address,

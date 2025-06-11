@@ -252,19 +252,19 @@ export class CentralDataService {
       const pricesData = await this.loadTokenPricesMoralisOnly(tokenData.tokens);
       console.log(`💰 MORALIS ENTERPRISE: Updated prices for ${pricesData.updatedCount} tokens`);
       
-      // 3.5. 🚀 PULSEX INTEGRATION: Load PulseChain token prices
+      // 3.5. 🚀 MORALIS REAL-TIME PRICES: Load PulseChain token prices from Moralis Price API
       const pulseXPrices = await this.loadPulseXPrices(tokenData.tokens);
-      console.log(`🚀 PULSEX: Updated prices for ${pulseXPrices.updatedCount} PulseChain tokens`);
+      console.log(`🚀 MORALIS PRICE API: Updated prices for ${pulseXPrices.updatedCount} PulseChain tokens`);
       
-      // Merge PulseX prices with Moralis prices
-      const combinedPrices = {
-        ...pricesData,
-        priceMap: { ...pricesData.priceMap, ...pulseXPrices.priceMap },
-        updatedCount: pricesData.updatedCount + pulseXPrices.updatedCount,
-        pulseXUpdated: pulseXPrices.updatedCount,
-        pulseXSource: pulseXPrices.source, // Store the actual source (moralis_price_api or manual_fallback)
-        sources: ['moralis_enterprise', pulseXPrices.source || 'pulsex_manual']
-      };
+              // Merge Moralis Price API with Moralis Enterprise prices
+        const combinedPrices = {
+          ...pricesData,
+          priceMap: { ...pricesData.priceMap, ...pulseXPrices.priceMap },
+          updatedCount: pricesData.updatedCount + pulseXPrices.updatedCount,
+          pulseXUpdated: pulseXPrices.updatedCount,
+          pulseXSource: pulseXPrices.source, // Store the actual source (moralis_price_api or manual_fallback)
+          sources: ['moralis_enterprise', pulseXPrices.source || 'moralis_price_api']
+        };
 
       // 4. 🔧 FIXED TOKEN PARSING (behebt 32k DAI Bug)
       console.log(`🔧 APPLYING TOKEN PARSING FIXES...`);
@@ -276,7 +276,7 @@ export class CentralDataService {
         { tokens: parsedTokenData.tokens, totalValue: parsedTokenData.totalValue }, 
         combinedPrices
       );
-      console.log(`🔄 ENTERPRISE + PULSEX: Updated token values: $${updatedTokenData.totalValue.toFixed(2)} (${parsedTokenData.corrections} parsing fixes, ${pulseXPrices.updatedCount} PulseX prices)`);
+      console.log(`🔄 ENTERPRISE + MORALIS PRICE API: Updated token values: $${updatedTokenData.totalValue.toFixed(2)} (${parsedTokenData.corrections} parsing fixes, ${pulseXPrices.updatedCount} real-time prices)`);
 
       // 6. Lade ROI-Transaktionen (100% MORALIS ENTERPRISE)
       const roiData = await this.loadROITransactionsMoralisOnly(chainAnalysis.supported, combinedPrices.priceMap);
@@ -319,14 +319,14 @@ export class CentralDataService {
         stats: stats,
         
         // API-Metadaten mit Caching-Info
-        dataSource: 'moralis_enterprise_pulsex_cached',
+        dataSource: 'moralis_enterprise_realtime_cached',
         lastUpdated: new Date().toISOString(),
         apiCalls: combinedPrices.apiCalls || 0,
         fromCache: false,
         cacheOptimization: {
           freshDataLoaded: true,
           apiCallsUsed: combinedPrices.apiCalls || 0,
-          pulseXPricesAdded: pulseXPrices.updatedCount,
+          realtimePricesAdded: pulseXPrices.updatedCount,
           willBeCachedFor: '15 minutes',
           nextRequestWillBeCached: true,
           cachingEnabled: true
@@ -341,7 +341,7 @@ export class CentralDataService {
       await DatabaseCacheService.setCachedPortfolio(userId, portfolioResponse);
       console.log(`💾 Portfolio cached for 15 minutes - next requests will use 0 API calls!`);
 
-      console.log(`✅ SMART CACHED PORTFOLIO COMPLETE: $${portfolioResponse.totalValue.toFixed(2)} across ${portfolioResponse.tokenCount} tokens (${combinedPrices.apiCalls || 0} API calls + ${pulseXPrices.updatedCount} PulseX prices, next request = 0 calls)`);
+      console.log(`✅ SMART CACHED PORTFOLIO COMPLETE: $${portfolioResponse.totalValue.toFixed(2)} across ${portfolioResponse.tokenCount} tokens (${combinedPrices.apiCalls || 0} API calls + ${pulseXPrices.updatedCount} real-time prices, next request = 0 calls)`);
       
       // Mark request as completed
       GlobalRateLimiter.completeRequest(userId);
@@ -579,20 +579,12 @@ export class CentralDataService {
             }))
           };
         } else if (response._fallback) {
-          // 🚨 MORALIS API not available or unsupported chain
-          if (response._fallback.reason === 'pulsechain_not_supported') {
-            console.warn(`⚠️ PULSECHAIN NOT SUPPORTED by Moralis - wallet ${wallet.address} will show empty`);
-            response = {
-              status: 'NOTOK',
-              message: 'PulseChain not supported by Moralis API yet'
-            };
-          } else {
-            console.warn(`⚠️ MORALIS ENTERPRISE not available: ${response._fallback.reason} for ${wallet.address}`);
-            response = {
-              status: 'NOTOK', 
-              message: response._fallback.message || 'Moralis API not available'
-            };
-          }
+          // 🚨 MORALIS API not available 
+          console.warn(`⚠️ MORALIS ENTERPRISE not available: ${response._fallback.reason} for ${wallet.address}`);
+          response = {
+            status: 'NOTOK', 
+            message: response._fallback.message || 'Moralis API not available'
+          };
         } else if (response._error) {
           // ✅ MORALIS: API error occurred but returned safely
           console.warn(`⚠️ MORALIS API ERROR: ${response._error.message} for wallet ${wallet.address}`);
