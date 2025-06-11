@@ -157,8 +157,17 @@ export class TokenPriceService {
       const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
       const data = await response.json();
       
-      return !data._fallback && !data._error && response.ok;
-    } catch {
+      // ✅ Accept test-mode responses as valid
+      if (data._test_mode && data._message && response.ok) {
+        console.log('✅ MORALIS ENTERPRISE: Available (test passed)');
+        return true;
+      }
+      
+      const isAvailable = !data._fallback && !data._error && response.ok;
+      console.log(`🔍 MORALIS ENTERPRISE: ${isAvailable ? 'Available' : 'Not available'}`);
+      return isAvailable;
+    } catch (error) {
+      console.log(`🔍 MORALIS ENTERPRISE: Error - ${error.message}`);
       return false;
     }
   }

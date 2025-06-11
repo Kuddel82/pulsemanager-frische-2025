@@ -9,14 +9,28 @@ export class CentralDataService {
   // 🔑 ENTERPRISE MODE DETECTION
   static async hasValidMoralisApiKey() {
     try {
-      // Use a simple wallet-tokens test request
+      // Use a simple wallet-tokens test request with null address
       const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
       const data = await response.json();
       
+      // ✅ NEW: Accept test-mode responses as valid
+      if (data._test_mode && data._message && response.ok) {
+        console.log('✅ MORALIS API KEY VALIDATION: Test passed with null address');
+        return true;
+      }
+      
       // Check if we get a proper Moralis response instead of fallback
-      return !data._fallback && !data._error && response.ok;
-    } catch {
-      return false;
+      const isValid = !data._fallback && !data._error && response.ok;
+      
+      if (!isValid) {
+        console.error('🚨 CRITICAL: No Moralis Enterprise access detected! System requires paid Moralis API key.');
+        throw new Error('ENTERPRISE ERROR: Moralis API Key required for data access');
+      }
+      
+      return isValid;
+    } catch (error) {
+      console.error('🚨 CRITICAL: No Moralis Enterprise access detected! System requires paid Moralis API key.');
+      throw new Error('ENTERPRISE ERROR: Moralis API Key required for data access');
     }
   }
 
