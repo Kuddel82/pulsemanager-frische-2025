@@ -1,11 +1,15 @@
 import { useState } from "react";
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function WalletReader() {
+  const { user } = useAuth();
   const [address, setAddress] = useState(null);
   const [balance, setBalance] = useState(null);
   const [chainId, setChainId] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
+  const [isSavingToDb, setIsSavingToDb] = useState(false);
 
   const getChainName = (chainId) => {
     const chains = {
@@ -15,6 +19,77 @@ export default function WalletReader() {
       11155111: "Ethereum Sepolia",
     };
     return chains[chainId] || `Chain ${chainId}`;
+  };
+
+  // 💾 NEUE FUNKTION: Speichere Wallet automatisch in Datenbank
+  const saveWalletToDatabase = async (walletAddress, walletChainId) => {
+    if (!user?.id) {
+      console.warn('⚠️ No user logged in, cannot save wallet to database');
+      return false;
+    }
+
+    setIsSavingToDb(true);
+    
+    try {
+      console.log(`💾 WALLET READER: Auto-saving wallet ${walletAddress} to database`);
+      
+      // Prüfe ob Wallet bereits existiert
+      const { data: existingWallet, error: checkError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('address', walletAddress.toLowerCase())
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingWallet) {
+        console.log('✅ WALLET READER: Wallet already exists in database, updating...');
+        
+        // Update existing wallet (activate if inactive)
+        const { error: updateError } = await supabase
+          .from('wallets')
+          .update({
+            is_active: true,
+            chain_id: walletChainId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingWallet.id);
+          
+        if (updateError) throw updateError;
+        
+        console.log('✅ WALLET READER: Existing wallet updated and activated');
+        return true;
+      } else {
+        console.log('💾 WALLET READER: Creating new wallet entry...');
+        
+        // Create new wallet entry
+        const { error: insertError } = await supabase
+          .from('wallets')
+          .insert({
+            user_id: user.id,
+            address: walletAddress.toLowerCase(),
+            chain_id: walletChainId,
+            name: `${getChainName(walletChainId)} Wallet`,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          
+        if (insertError) throw insertError;
+        
+        console.log('✅ WALLET READER: New wallet saved to database');
+        return true;
+      }
+    } catch (error) {
+      console.error('💥 WALLET READER: Error saving to database:', error);
+      setError(`Database save failed: ${error.message}`);
+      return false;
+    } finally {
+      setIsSavingToDb(false);
+    }
   };
 
   const connectWallet = async () => {
@@ -39,11 +114,32 @@ export default function WalletReader() {
         params: [addr, "latest"],
       });
 
+      const walletChainId = parseInt(chain, 16);
+      const walletBalance = (parseInt(bal, 16) / 1e18).toFixed(4);
+
       setAddress(addr);
-      setChainId(parseInt(chain, 16));
-      setBalance((parseInt(bal, 16) / 1e18).toFixed(4)); // ETH/PLS Balance
+      setChainId(walletChainId);
+      setBalance(walletBalance);
       
-      console.log("✅ Wallet connected:", { addr, chain: parseInt(chain, 16), balance: parseInt(bal, 16) / 1e18 });
+      console.log("✅ Wallet connected:", { addr, chain: walletChainId, balance: walletBalance });
+
+      // 🚀 AUTOMATISCH zur Datenbank hinzufügen
+      if (user?.id) {
+        console.log("💾 WALLET READER: Auto-saving connected wallet to database...");
+        const saved = await saveWalletToDatabase(addr, walletChainId);
+        
+        if (saved) {
+          console.log("🎉 WALLET READER: Wallet automatically added to your account!");
+          // Optional: Show success message
+          setTimeout(() => {
+            console.log("🔄 WALLET READER: Wallet is now available for portfolio loading");
+          }, 1000);
+        }
+      } else {
+        console.warn("⚠️ WALLET READER: No user logged in, wallet not saved to database");
+        setError("Achtung: Wallet verbunden, aber nicht gespeichert. Bitte loggen Sie sich ein.");
+      }
+      
     } catch (err) {
       console.error("❌ Wallet connection error:", err);
       
@@ -75,7 +171,10 @@ export default function WalletReader() {
         </div>
         <div>
           <h3 className="text-lg font-bold pulse-text">Wallet Reader</h3>
-          <p className="text-sm pulse-text-secondary">DOM-sichere Wallet-Verbindung</p>
+          <p className="text-sm pulse-text-secondary">
+            Auto-Connect & Save to Portfolio
+            {isSavingToDb && <span className="text-orange-400 ml-2">💾 Speichert...</span>}
+          </p>
         </div>
       </div>
 
@@ -85,10 +184,16 @@ export default function WalletReader() {
         </div>
       )}
 
+      {!user?.id && (
+        <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+          <p className="text-yellow-400 text-sm">⚠️ Bitte loggen Sie sich ein um Wallets zu speichern</p>
+        </div>
+      )}
+
       {!address ? (
         <button 
           onClick={connectWallet} 
-          disabled={isConnecting}
+          disabled={isConnecting || isSavingToDb}
           className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-lg text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2"
         >
           {isConnecting ? (
@@ -96,14 +201,26 @@ export default function WalletReader() {
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               Verbinde...
             </>
+          ) : isSavingToDb ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              Speichere...
+            </>
           ) : (
             <>
-              🔌 Wallet verbinden
+              🔌 Wallet verbinden & speichern
             </>
           )}
         </button>
       ) : (
         <div className="space-y-4">
+          {/* Success Message */}
+          {user?.id && !isSavingToDb && (
+            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <p className="text-green-400 text-sm">✅ Wallet verbunden und automatisch zu Ihrem Portfolio hinzugefügt!</p>
+            </div>
+          )}
+
           {/* Wallet Info */}
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
@@ -122,6 +239,13 @@ export default function WalletReader() {
                 {balance} {chainId === 369 ? 'PLS' : 'ETH'}
               </span>
             </div>
+
+            {user?.id && (
+              <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg">
+                <span className="text-sm pulse-text-secondary">💾 Portfolio:</span>
+                <span className="text-sm text-green-400">✅ Gespeichert</span>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -148,6 +272,7 @@ export default function WalletReader() {
               {chainId === 1 && "🔵 Ethereum Mainnet erkannt"}  
               {chainId === 943 && "🟡 PulseChain Testnet erkannt"}
               {![369, 1, 943].includes(chainId) && "⚠️ Unbekanntes Netzwerk"}
+              {user?.id && <span className="block mt-1 text-green-400">💾 Automatisch zu Portfolio hinzugefügt</span>}
             </div>
           )}
         </div>
