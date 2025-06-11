@@ -12,41 +12,34 @@ import { debugWalletLoad, debugCacheData, debugMoralisResponse, fetchAllTransact
 
 export class CentralDataService {
   
-  // 🔑 ENTERPRISE MODE DETECTION
+  // 🔑 ENTERPRISE MODE DETECTION - 100% MORALIS ENTERPRISE
   static async hasValidMoralisApiKey() {
     try {
-      // ⚠️ EMERGENCY FIX: Handle missing API key gracefully
-      console.log('🔍 API KEY CHECK: Testing Moralis access...');
+      console.log('🔍 MORALIS ENTERPRISE: Testing API access...');
       
       // Use a simple wallet-tokens test request with null address
       const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000');
       const data = await response.json();
       
-      // ✅ FIXED: Accept various response types as valid
+      // ✅ Accept test-mode responses as valid
       if (data._test_mode && data._message && response.ok) {
-        console.log('✅ MORALIS API KEY VALIDATION: Test passed with null address');
+        console.log('✅ MORALIS ENTERPRISE: Test passed with null address');
         return true;
-      }
-      
-      // ✅ FIXED: Don't throw error if API key is missing, just log warning
-      if (data._error && data._error.message && data._error.message.includes('API Key')) {
-        console.warn('⚠️ WARNING: Moralis API Key not configured - using fallback mode');
-        return false; // Return false instead of throwing error
       }
       
       // Check if we get a proper Moralis response instead of fallback
       const isValid = !data._fallback && !data._error && response.ok;
       
       if (!isValid) {
-        console.warn('⚠️ WARNING: No Moralis Enterprise access detected - using fallback mode');
-        return false; // Return false instead of throwing error
+        console.error('🚨 CRITICAL: No Moralis Enterprise access detected! System requires paid Moralis API key.');
+        throw new Error('ENTERPRISE ERROR: Moralis API Key required for data access');
       }
       
-      console.log('✅ MORALIS API KEY: Valid enterprise access detected');
+      console.log('✅ MORALIS ENTERPRISE: Valid API access confirmed');
       return isValid;
     } catch (error) {
-      console.warn('⚠️ WARNING: Moralis API validation failed - using fallback mode:', error.message);
-      return false; // Return false instead of throwing error
+      console.error('🚨 CRITICAL: No Moralis Enterprise access detected! System requires paid Moralis API key.');
+      throw new Error('ENTERPRISE ERROR: Moralis API Key required for data access');
     }
   }
 
@@ -217,12 +210,11 @@ export class CentralDataService {
     const hasMoralisAccess = await this.hasValidMoralisApiKey();
     
     if (!hasMoralisAccess) {
-      console.warn(`⚠️ WARNING: No Moralis Enterprise access - using FALLBACK mode with limited data`);
-      // ✅ FIXED: Don't return empty portfolio, try to load what we can
-      // return this.getEmptyPortfolio(userId, 'ENTERPRISE ERROR: Moralis API Key required for data access.');
-    } else {
-      console.log(`🔑 MORALIS ENTERPRISE ACCESS: ✅ ACTIVE`);
+      console.error(`🚨 CRITICAL: No Moralis Enterprise access detected! System requires paid Moralis API key.`);
+      return this.getEmptyPortfolio(userId, 'ENTERPRISE ERROR: Moralis API Key required for data access.');
     }
+
+    console.log(`🔑 MORALIS ENTERPRISE ACCESS: ✅ ACTIVE`);
     
     try {
       // 1. Lade User Wallets
