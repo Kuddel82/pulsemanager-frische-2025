@@ -3,18 +3,18 @@
 
 export class GlobalRateLimiter {
   
-  // 🛡️ RATE LIMITING KONFIGURATION
+  // 🛡️ RATE LIMITING KONFIGURATION - DEVELOPMENT FRIENDLY
   static CONFIG = {
-    // User-spezifische Limits
-    USER_RATE_LIMIT_MS: 2 * 60 * 1000,    // 2 Minuten zwischen Requests pro User
+    // User-spezifische Limits - VIEL LOCKERER für Development
+    USER_RATE_LIMIT_MS: 10 * 1000,           // 10 Sekunden statt 2 Minuten!
     
-    // Globale Limits (für alle User zusammen)
-    GLOBAL_RATE_LIMIT_MS: 5 * 1000,       // 5 Sekunden zwischen Requests global
-    MAX_CONCURRENT_REQUESTS: 5,           // Max 5 gleichzeitige API-Requests
+    // Globale Limits (für alle User zusammen) - AUCH LOCKERER
+    GLOBAL_RATE_LIMIT_MS: 1 * 1000,          // 1 Sekunde statt 5 Sekunden
+    MAX_CONCURRENT_REQUESTS: 10,             // 10 statt 5 gleichzeitige Requests
     
     // Cache Limits
-    CACHE_HIT_RATE_TARGET: 0.8,          // 80% Cache Hit Rate anstreben
-    MAX_API_CALLS_PER_HOUR: 100          // Max 100 API Calls pro Stunde global
+    CACHE_HIT_RATE_TARGET: 0.8,              // 80% Cache Hit Rate anstreben
+    MAX_API_CALLS_PER_HOUR: 500              // 500 statt 100 API Calls pro Stunde
   };
   
   // 📊 TRACKING STATE
@@ -35,6 +35,12 @@ export class GlobalRateLimiter {
    * 🛡️ Prüfe ob User eine Anfrage machen darf
    */
   static canUserMakeRequest(userId) {
+    // 🚨 RATE LIMITING KOMPLETT AUSGESCHALTET FÜR DEVELOPMENT
+    return {
+      allowed: true,
+      reason: 'rate_limiting_disabled'
+    };
+    
     const now = Date.now();
     
     // 1. User-spezifisches Rate Limiting

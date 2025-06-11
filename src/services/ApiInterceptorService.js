@@ -5,6 +5,7 @@ export class ApiInterceptorService {
   
   static SUPPORTED_CHAINS = ['1', '0x1', '56', '137', '43114', '250', '369', '0x171']; // Ethereum, BSC, Polygon, Avalanche, Fantom, PulseChain
   static UNSUPPORTED_CHAINS = []; // Alle wichtigen Chains werden von Moralis unterstützt
+  static originalFetch = null; // Store original fetch function
   
   /**
    * 🔍 Prüfe ob Chain von Moralis unterstützt wird
@@ -37,9 +38,12 @@ export class ApiInterceptorService {
         };
       }
       
-      // Chain wird unterstützt - normaler API Call
+      // Chain wird unterstützt - normaler API Call mit ORIGINAL fetch (nicht der intercepted version)
       console.log(`✅ API INTERCEPTOR: Chain ${chain} supported - proceeding with API call`);
-      return await fetch(url, options);
+      
+      // CRITICAL FIX: Use original fetch to prevent infinite recursion
+      const fetchToUse = this.originalFetch || fetch;
+      return await fetchToUse(url, options);
       
     } catch (error) {
       console.error('💥 API INTERCEPTOR: Error during interception:', error);
@@ -143,7 +147,8 @@ export class ApiInterceptorService {
    */
   static enableGlobalInterception() {
     if (typeof window !== 'undefined' && !window.__apiInterceptorEnabled) {
-      const originalFetch = window.fetch;
+      // CRITICAL FIX: Store original fetch BEFORE overriding
+      this.originalFetch = window.fetch.bind(window);
       
       window.fetch = async (url, options = {}) => {
         // Nur Moralis API Calls intercepten
@@ -151,12 +156,12 @@ export class ApiInterceptorService {
           return await this.interceptMoralisApiCall(url, options);
         }
         
-        // Alle anderen Calls normal durchführen
-        return await originalFetch(url, options);
+        // Alle anderen Calls mit ORIGINAL fetch durchführen
+        return await this.originalFetch(url, options);
       };
       
       window.__apiInterceptorEnabled = true;
-      console.log('🛡️ API INTERCEPTOR: Global interception enabled');
+      console.log('🛡️ API INTERCEPTOR: Global interception enabled with original fetch preserved');
     }
   }
   
@@ -164,9 +169,10 @@ export class ApiInterceptorService {
    * 🔧 Disable Global Interception
    */
   static disableGlobalInterception() {
-    if (typeof window !== 'undefined' && window.__originalFetch) {
-      window.fetch = window.__originalFetch;
+    if (typeof window !== 'undefined' && this.originalFetch) {
+      window.fetch = this.originalFetch;
       window.__apiInterceptorEnabled = false;
+      this.originalFetch = null;
       console.log('🛡️ API INTERCEPTOR: Global interception disabled');
     }
   }
