@@ -1,25 +1,38 @@
-import React from 'react';
+import * as React from "react"
+import { cva } from "class-variance-authority"
+import { cn } from "@/lib/utils"
 
-// STUB: Native HTML badge to replace Radix-UI Badge
-export const Badge = ({ children, className, variant = "default", ...props }) => {
+// Log nur einmal, nicht bei jedem Render
+let hasLoggedStub = false;
+if (!hasLoggedStub) {
   console.log('🔧 Using STUB Badge - Radix-UI disabled for DOM stability');
-  
-  const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
-  
-  const variantClasses = {
-    default: "bg-green-400/20 text-green-400 border border-green-400/30",
-    secondary: "bg-gray-600/20 text-gray-300 border border-gray-600/30",
-    destructive: "bg-red-500/20 text-red-400 border border-red-500/30",
-    outline: "border border-white/20 text-white"
-  };
-  
-  const finalClasses = `${baseClasses} ${variantClasses[variant]} ${className || ''}`;
-  
-  return (
-    <span className={finalClasses} {...props}>
-      {children}
-    </span>
-  );
-};
+  hasLoggedStub = true;
+}
 
-export default Badge;
+const badgeVariants = cva(
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  {
+    variants: {
+      variant: {
+        default:
+          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+        secondary:
+          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        destructive:
+          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+        outline: "text-foreground",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+function Badge({ className, variant, ...props }) {
+  return (
+    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+  )
+}
+
+export { Badge, badgeVariants }

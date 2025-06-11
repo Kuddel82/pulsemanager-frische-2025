@@ -336,15 +336,69 @@ export class CentralDataService {
    * 📱 Lade User Wallets aus Supabase
    */
   static async loadUserWallets(userId) {
-    const { data, error } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
+    console.log(`📱 LOADING WALLETS: Starting wallet load for user ${userId}`);
+    
+    try {
+      // 1. Check Auth Session first
+      const { data: session } = await supabase.auth.getSession();
+      console.log(`🔐 AUTH SESSION: ${session?.session ? 'Valid' : 'Invalid'} session for wallet loading`);
+      
+      // 2. Check if user exists in auth
+      if (session?.session?.user) {
+        console.log(`👤 AUTH USER: ${session.session.user.id} (matches query: ${session.session.user.id === userId})`);
+      }
+      
+      // 3. Query wallets with detailed logging
+      console.log(`🔍 WALLET QUERY: Executing query for user_id=${userId} AND is_active=true`);
+      
+      const { data, error, count } = await supabase
+        .from('wallets')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+      // 4. Log detailed results
+      console.log(`📊 WALLET QUERY RESULT: Found ${data?.length || 0} wallets, count=${count}, error=${error?.message || 'none'}`);
+      
+      if (data && data.length > 0) {
+        console.log(`✅ WALLETS LOADED: ${data.length} wallets found`, data.map(w => ({
+          address: w.address?.slice(0, 8) + '...',
+          chain: w.chain_id,
+          active: w.is_active
+        })));
+      } else {
+        console.warn(`⚠️ NO WALLETS: No wallets found for user ${userId}. Possible causes:
+        - User has no wallets added to their account
+        - Wallets are marked as inactive (is_active=false)  
+        - RLS policy blocking access
+        - User ID mismatch between auth and query`);
+        
+        // Additional debugging: Check if ANY wallets exist for this user
+        const { data: allWallets, count: totalCount } = await supabase
+          .from('wallets')
+          .select('*', { count: 'exact' })
+          .eq('user_id', userId);
+          
+        console.log(`🔍 DEBUG: Total wallets for user (including inactive): ${totalCount || 0}`);
+        
+        if (allWallets && allWallets.length > 0) {
+          console.log(`🔍 DEBUG: Found ${allWallets.length} total wallets, active status:`, 
+            allWallets.map(w => ({ address: w.address?.slice(0, 8), is_active: w.is_active })));
+        }
+      }
+
+      if (error) {
+        console.error(`💥 WALLET LOAD ERROR:`, error);
+        throw error;
+      }
+      
+      return data || [];
+      
+    } catch (error) {
+      console.error(`💥 WALLET LOADING FAILED for user ${userId}:`, error);
+      throw error;
+    }
   }
 
   /**
