@@ -282,6 +282,7 @@ const PortfolioView = () => {
                         variant="outline"
                         className={`text-xs ${
                           token.priceSource === 'moralis_live' ? 'border-green-400 text-green-400' :
+                          token.priceSource === 'moralis_realtime' ? 'border-emerald-400 text-emerald-400' :
                           token.priceSource === 'pulsex_manual' ? 'border-purple-400 text-purple-400' :
                           token.priceSource === 'fallback_minimal' ? 'border-blue-400 text-blue-400' :
                           token.priceSource?.includes('blocked') ? 'border-red-400 text-red-400' :
@@ -289,7 +290,8 @@ const PortfolioView = () => {
                         }`}
                       >
                         {token.priceSource === 'moralis_live' ? '🔵 Moralis' :
-                         token.priceSource === 'pulsex_manual' ? '🚀 PulseX' :
+                         token.priceSource === 'moralis_realtime' ? '💎 Moralis RT' :
+                         token.priceSource === 'pulsex_manual' ? '🚀 Manual' :
                          token.priceSource === 'fallback_minimal' ? '🟡 Fallback' : 
                          token.priceSource?.includes('blocked') ? '🔴 Blocked' :
                          '⚪ Unknown'}

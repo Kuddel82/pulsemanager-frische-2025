@@ -477,11 +477,126 @@ export default async function handler(req, res) {
       }
     }
 
+    // 💰 MULTIPLE TOKEN PRICES - Real-time pricing
+    if (endpoint === 'multiple-token-prices') {
+      try {
+        const { tokens } = params;
+        if (!tokens || !Array.isArray(tokens)) {
+          return res.status(400).json({
+            error: 'tokens parameter required (array of token addresses)',
+            example: {
+              tokens: [
+                { token_address: '0x...', exchange: 'pulsex' },
+                { token_address: '0x...', exchange: 'uniswap-v3' }
+              ]
+            }
+          });
+        }
+        
+        console.log(`🚀 V2 MULTIPLE PRICES: Getting prices for ${tokens.length} tokens on chain ${chainId}`);
+        
+        if (chainId === '0x171') {
+          return res.status(200).json({
+            result: [],
+            _error: { 
+              message: 'PulseChain not supported by Moralis Price APIs yet',
+              chain: chainId,
+              suggestion: 'Use Ethereum tokens or wait for PulseChain support'
+            }
+          });
+        }
+        
+        const moralisChain = EvmChain.ETHEREUM;
+        
+        // Extract just the token addresses for Moralis API
+        const tokenAddresses = tokens.map(token => token.token_address || token).filter(Boolean);
+        
+        if (tokenAddresses.length === 0) {
+          return res.status(400).json({
+            error: 'No valid token addresses provided'
+          });
+        }
+        
+        console.log(`🔄 MORALIS PRICE API: Requesting prices for ${tokenAddresses.length} tokens`);
+        
+        const response = await Moralis.EvmApi.token.getMultipleTokenPrices({
+          chain: moralisChain,
+          include: 'percent_change'
+        }, {
+          tokens: tokenAddresses.slice(0, 25).map(address => ({ // Limit to 25 tokens
+            token_address: address
+          }))
+        });
+        
+        console.log(`✅ V2 MULTIPLE PRICES SUCCESS: ${response.result.length} prices retrieved`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_v2_multiple_prices',
+          _real_time: true,
+          _api_calls: 1
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 MULTIPLE PRICES ERROR:', error.message);
+        return res.status(500).json({
+          result: [],
+          _error: { message: error.message, source: 'moralis_v2_multiple_prices' }
+        });
+      }
+    }
+
+    // 💰 SINGLE TOKEN PRICE - Individual token pricing
+    if (endpoint === 'token-price') {
+      try {
+        if (!address) {
+          return res.status(400).json({
+            error: 'address parameter required (token contract address)'
+          });
+        }
+        
+        console.log(`🚀 V2 TOKEN PRICE: Getting price for ${address} on chain ${chainId}`);
+        
+        if (chainId === '0x171') {
+          return res.status(200).json({
+            result: null,
+            _error: { 
+              message: 'PulseChain not supported by Moralis Price APIs yet',
+              chain: chainId
+            }
+          });
+        }
+        
+        const moralisChain = EvmChain.ETHEREUM;
+        
+        const response = await Moralis.EvmApi.token.getTokenPrice({
+          address,
+          chain: moralisChain,
+          include: 'percent_change'
+        });
+        
+        console.log(`✅ V2 TOKEN PRICE SUCCESS: ${response.result.tokenSymbol} = $${response.result.usdPrice}`);
+        
+        return res.status(200).json({
+          result: response.result,
+          _source: 'moralis_v2_token_price',
+          _real_time: true
+        });
+        
+      } catch (error) {
+        console.error('💥 V2 TOKEN PRICE ERROR:', error.message);
+        return res.status(500).json({
+          result: null,
+          _error: { message: error.message, source: 'moralis_v2_token_price' }
+        });
+      }
+    }
+
     // Invalid endpoint
     return res.status(200).json({
       success: false,
       error: 'Invalid endpoint',
-      available: ['wallet-tokens', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol'],
+      available: ['wallet-tokens', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol', 'multiple-token-prices', 'token-price'],
       _moralis_only: true
     });
 

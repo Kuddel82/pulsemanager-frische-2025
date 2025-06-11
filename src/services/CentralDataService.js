@@ -262,7 +262,8 @@ export class CentralDataService {
         priceMap: { ...pricesData.priceMap, ...pulseXPrices.priceMap },
         updatedCount: pricesData.updatedCount + pulseXPrices.updatedCount,
         pulseXUpdated: pulseXPrices.updatedCount,
-        sources: ['moralis_enterprise', 'pulsex_manual']
+        pulseXSource: pulseXPrices.source, // Store the actual source (moralis_price_api or manual_fallback)
+        sources: ['moralis_enterprise', pulseXPrices.source || 'pulsex_manual']
       };
 
       // 4. 🔧 FIXED TOKEN PARSING (behebt 32k DAI Bug)
@@ -956,9 +957,15 @@ export class CentralDataService {
       // Priority 1: Live-Preise aus Price Map (Combined Sources)
       if (priceMap.has(contractKey)) {
         price = priceMap.get(contractKey);
-        // Determine source based on chain and token
+        // Determine source based on chain and data source
         if (token.chainId === 369) {
-          priceSource = 'pulsex_manual'; // PulseChain tokens
+          // Check if this came from real Moralis API or fallback
+          const pulseXSource = pricesData.pulseXSource;
+          if (pulseXSource === 'moralis_price_api') {
+            priceSource = 'moralis_realtime'; // Real Moralis price API
+          } else {
+            priceSource = 'pulsex_manual'; // Manual fallback
+          }
         } else {
           priceSource = 'moralis_live'; // Ethereum tokens
         }
@@ -1003,7 +1010,7 @@ export class CentralDataService {
         price: price,
         value: value,
         priceSource: priceSource,
-        hasReliablePrice: price > 0 && (priceSource === 'moralis_live' || priceSource === 'pulsex_manual'),
+        hasReliablePrice: price > 0 && (priceSource === 'moralis_live' || priceSource === 'moralis_realtime' || priceSource === 'pulsex_manual'),
         isIncludedInPortfolio: price > 0 && value >= 0.01, // Min $0.01 Wert
         
         // Zusätzliche Debug-Info
@@ -1634,11 +1641,11 @@ export class CentralDataService {
   }
 
   /**
-   * 🚀 PULSEX DEX PRICE INTEGRATION
-   * Lädt echte Preise für PulseChain Tokens von PulseX DEX
+   * 🚀 MORALIS REAL-TIME PRICE API INTEGRATION
+   * Lädt echte Preise für PulseChain Tokens von Moralis Price API
    */
   static async loadPulseXPrices(tokens) {
-    console.log(`🚀 PULSEX: Loading prices for ${tokens.length} PulseChain tokens`);
+    console.log(`🚀 MORALIS PRICE API: Loading real-time prices for ${tokens.length} tokens`);
     
     const priceMap = {};
     let updatedCount = 0;
@@ -1647,56 +1654,107 @@ export class CentralDataService {
     const pulseTokens = tokens.filter(token => token.chainId === 369);
     
     if (pulseTokens.length === 0) {
-      console.log('⚪ PULSEX: No PulseChain tokens found');
+      console.log('⚪ MORALIS PRICE API: No PulseChain tokens found');
       return { priceMap, updatedCount: 0 };
     }
     
-    console.log(`🔍 PULSEX: Found ${pulseTokens.length} PulseChain tokens to price`);
+    console.log(`🔍 MORALIS PRICE API: Found ${pulseTokens.length} PulseChain tokens to price`);
     
-    // Manual Price Mapping for major PulseChain tokens
-    const PULSEX_PRICES = {
-      'HEX': 0.0025,      // HEX current estimate
-      'PLSX': 0.00008,    // PulseX current estimate  
-      'INC': 0.005,       // Incentive current estimate
-      'PLS': 0.00005,     // PulseChain current estimate
-      'WBTC': 95000,      // Wrapped Bitcoin estimate
-      'USDC': 1.00,       // USD Coin
-      'USDT': 1.00,       // Tether
-      'DAI': 1.00         // Dai Stablecoin
-    };
-    
-    for (const token of pulseTokens) {
-      const symbol = token.symbol?.toUpperCase();
+    // 🚀 REAL MORALIS PRICE API: getMultipleTokenPrices
+    try {
+      // Prepare token addresses for batch price request
+      const tokenAddresses = pulseTokens
+        .filter(token => token.contractAddress && token.contractAddress !== '0x')
+        .map(token => ({
+          token_address: token.contractAddress,
+          exchange: 'pulsex' // Specify PulseX as the exchange
+        }))
+        .slice(0, 25); // Limit to 25 tokens per batch (API limit)
       
-      if (PULSEX_PRICES[symbol]) {
-        const price = PULSEX_PRICES[symbol];
-        priceMap[token.contractAddress] = price;
-        priceMap[symbol] = price;
-        updatedCount++;
+      if (tokenAddresses.length > 0) {
+        console.log(`🔄 MORALIS PRICE API: Requesting prices for ${tokenAddresses.length} tokens`);
         
-        console.log(`💰 PULSEX: ${symbol} = $${price} (manual mapping)`);
-      } else {
-        // Fallback: Emergency pricing for unknown tokens
-        const emergencyPrice = this.EMERGENCY_PRICES[symbol] || 0;
-        if (emergencyPrice > 0) {
-          priceMap[token.contractAddress] = emergencyPrice;
-          priceMap[symbol] = emergencyPrice;
+        const response = await fetch('/api/moralis-v2?endpoint=multiple-token-prices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tokens: tokenAddresses,
+            chain: '0x171', // PulseChain chain ID
+            include: 'percent_change'
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.result && Array.isArray(data.result)) {
+            console.log(`✅ MORALIS PRICE API: Received ${data.result.length} price results`);
+            
+            for (const priceData of data.result) {
+              const tokenAddress = priceData.token_address?.toLowerCase();
+              const price = parseFloat(priceData.usd_price) || 0;
+              const symbol = priceData.token_symbol;
+              
+              if (price > 0 && tokenAddress) {
+                priceMap[tokenAddress] = price;
+                if (symbol) {
+                  priceMap[symbol.toUpperCase()] = price;
+                }
+                updatedCount++;
+                
+                console.log(`💰 MORALIS PRICE API: ${symbol} = $${price.toFixed(8)} (real-time)`);
+              }
+            }
+          } else {
+            console.warn('⚠️ MORALIS PRICE API: No valid price data in response');
+          }
+        } else {
+          console.warn(`⚠️ MORALIS PRICE API: HTTP ${response.status} - falling back to manual prices`);
+        }
+      }
+    } catch (error) {
+      console.error('💥 MORALIS PRICE API ERROR:', error.message);
+      console.log('🔄 Falling back to manual price mapping...');
+    }
+    
+    // 🔄 FALLBACK: Manual Price Mapping if API fails
+    if (updatedCount === 0) {
+      console.log('🔄 FALLBACK: Using manual price mapping for PulseChain tokens');
+      
+      const FALLBACK_PRICES = {
+        'HEX': 0.0025,      // HEX current estimate
+        'PLSX': 0.00008,    // PulseX current estimate  
+        'INC': 0.005,       // Incentive current estimate
+        'PLS': 0.00005,     // PulseChain current estimate
+        'WBTC': 95000,      // Wrapped Bitcoin estimate
+        'USDC': 1.00,       // USD Coin
+        'USDT': 1.00,       // Tether
+        'DAI': 1.00         // Dai Stablecoin
+      };
+      
+      for (const token of pulseTokens) {
+        const symbol = token.symbol?.toUpperCase();
+        
+        if (FALLBACK_PRICES[symbol]) {
+          const price = FALLBACK_PRICES[symbol];
+          priceMap[token.contractAddress] = price;
+          priceMap[symbol] = price;
           updatedCount++;
           
-          console.log(`⚠️ EMERGENCY: ${symbol} = $${emergencyPrice} (emergency fallback)`);
-        } else {
-          console.log(`❌ PULSEX: No price found for ${symbol}`);
+          console.log(`💰 FALLBACK: ${symbol} = $${price} (manual estimate)`);
         }
       }
     }
     
-    console.log(`✅ PULSEX: Updated ${updatedCount} PulseChain token prices`);
+    console.log(`✅ MORALIS PRICE API COMPLETE: Updated ${updatedCount} PulseChain token prices`);
     
     return {
       priceMap,
       updatedCount,
-      source: 'pulsex_manual_mapping',
-      disclaimer: 'PulseChain prices from manual mapping - not real-time'
+      source: updatedCount > 0 ? 'moralis_price_api' : 'manual_fallback',
+      disclaimer: updatedCount > 0 ? 'Real-time prices from Moralis API' : 'Manual price estimates'
     };
   }
 }
