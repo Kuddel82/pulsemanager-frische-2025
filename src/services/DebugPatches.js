@@ -58,34 +58,59 @@ export function debugWalletLoad(wallets, userId) {
     firstWallet: wallets?.[0] ? {
       address: wallets[0].address?.slice(0, 8) + '...',
       chainId: wallets[0].chain_id,
-      isActive: wallets[0].is_active
+      isActive: wallets[0].is_active,
+      userId: wallets[0].user_id
     } : null
   });
 
   if (!Array.isArray(wallets)) {
     console.error("❌ WALLET DEBUG: Wallets ist kein Array!");
-    return [];
+    return wallets; // ← RETURN ORIGINAL DATA, DON'T FILTER!
   }
 
-  const validWallets = wallets.filter(wallet => {
-    const isValid = wallet?.address && wallet?.user_id === userId && wallet?.is_active;
-    if (!isValid) {
-      console.warn("⚠️ WALLET DEBUG: Invalid wallet filtered out:", {
-        hasAddress: !!wallet?.address,
-        userIdMatch: wallet?.user_id === userId,
-        isActive: wallet?.is_active
+  // 🔧 DEBUG ONLY - DON'T FILTER, JUST ANALYZE
+  let validCount = 0;
+  let issues = [];
+
+  wallets.forEach((wallet, index) => {
+    const hasAddress = !!wallet?.address;
+    const userIdMatch = wallet?.user_id === userId;
+    const isActive = !!wallet?.is_active;
+    const isValid = hasAddress && userIdMatch && isActive;
+    
+    if (isValid) {
+      validCount++;
+    } else {
+      issues.push({
+        index,
+        address: wallet?.address?.slice(0, 8) + '...',
+        hasAddress,
+        userIdMatch,
+        userIdExpected: userId,
+        userIdActual: wallet?.user_id,
+        isActive,
+        reasons: [
+          !hasAddress && "missing_address",
+          !userIdMatch && "user_id_mismatch", 
+          !isActive && "inactive"
+        ].filter(Boolean)
       });
     }
-    return isValid;
   });
 
-  console.log("✅ WALLET DEBUG RESULT:", {
+  console.log("✅ WALLET DEBUG ANALYSIS:", {
     inputCount: wallets.length,
-    validCount: validWallets.length,
-    filteredOut: wallets.length - validWallets.length
+    validCount,
+    issueCount: issues.length,
+    issues: issues.length > 0 ? issues : 'none'
   });
 
-  return validWallets;
+  if (issues.length > 0) {
+    console.warn("⚠️ WALLET DEBUG ISSUES FOUND:", issues);
+  }
+
+  // 🚨 CRITICAL: ALWAYS RETURN ORIGINAL DATA - DON'T FILTER IN DEBUG!
+  return wallets;
 }
 
 /**
