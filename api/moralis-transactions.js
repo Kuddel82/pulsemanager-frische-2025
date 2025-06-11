@@ -1,4 +1,4 @@
-// 🚀 MORALIS ENTERPRISE API - NATIVE TRANSACTIONS
+// 🚀 MORALIS ENTERPRISE API - NATIVE TRANSACTIONS (WITH FALLBACK)
 // Professional Web3 Data API v2.2 für PulseManager - 1000+ User Ready
 
 export default async function handler(req, res) {
@@ -34,10 +34,21 @@ export default async function handler(req, res) {
     // Moralis Enterprise Configuration
     const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
     
-    if (!MORALIS_API_KEY) {
-      return res.status(500).json({ 
-        error: 'Server configuration error',
-        message: 'Moralis API key not configured'
+    // 🛡️ FALLBACK: If no Moralis API key, return empty result instead of error
+    if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
+      console.warn('⚠️ MORALIS API KEY not configured - returning empty result');
+      return res.status(200).json({
+        success: true,
+        result: [],
+        total: 0,
+        page: 0,
+        page_size: limit,
+        cursor: null,
+        _fallback: {
+          reason: 'moralis_api_key_not_configured',
+          message: 'Add MORALIS_API_KEY to environment variables for transaction data',
+          alternative: 'Use PulseChain Scanner API instead'
+        }
       });
     }
 
@@ -79,16 +90,29 @@ export default async function handler(req, res) {
       }
 
       if (response.status === 401) {
-        return res.status(401).json({ 
-          error: 'Authentication failed',
-          message: 'Invalid Moralis API key'
+        // 🛡️ FALLBACK: Return empty result for auth errors instead of failing
+        console.warn('⚠️ MORALIS AUTH ERROR - returning empty result');
+        return res.status(200).json({
+          success: true,
+          result: [],
+          total: 0,
+          _fallback: {
+            reason: 'moralis_auth_error',
+            message: 'Check MORALIS_API_KEY configuration'
+          }
         });
       }
 
-      return res.status(response.status).json({ 
-        error: `Moralis API Error`,
-        status: response.status,
-        message: response.statusText 
+      // 🛡️ FALLBACK: For other errors, return empty result with error info
+      return res.status(200).json({
+        success: false,
+        result: [],
+        total: 0,
+        _error: {
+          status: response.status,
+          message: response.statusText,
+          fallback: 'Use alternative data source'
+        }
       });
     }
 
@@ -158,11 +182,17 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('💥 MORALIS TRANSACTIONS ERROR:', error.message);
     
-    return res.status(500).json({ 
-      error: 'Transaction loading failed',
-      message: error.message,
-      endpoint: 'moralis-transactions',
-      timestamp: new Date().toISOString()
+    // 🛡️ FALLBACK: Return empty result instead of 500 error
+    return res.status(200).json({ 
+      success: false,
+      result: [],
+      total: 0,
+      _error: {
+        message: error.message,
+        endpoint: 'moralis-transactions',
+        timestamp: new Date().toISOString(),
+        fallback: 'Use alternative data source'
+      }
     });
   }
 } 
