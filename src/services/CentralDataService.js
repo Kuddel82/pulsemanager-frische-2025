@@ -261,14 +261,30 @@ export class CentralDataService {
           }
         }).then(r => r.text()).then(text => {
           try {
-            return JSON.parse(text);
-          } catch {
-            return { error: 'Invalid JSON response' };
+            const parsed = JSON.parse(text);
+            console.log(`🔍 MORALIS RAW RESPONSE for ${wallet.address.slice(0, 8)}:`, {
+              hasResult: !!parsed.result,
+              resultType: Array.isArray(parsed.result) ? 'array' : typeof parsed.result,
+              resultLength: Array.isArray(parsed.result) ? parsed.result.length : 'N/A',
+              hasError: !!parsed._error,
+              hasFallback: !!parsed._fallback,
+              keys: Object.keys(parsed)
+            });
+            return parsed;
+          } catch (parseError) {
+            console.error(`💥 JSON PARSE ERROR for ${wallet.address}:`, parseError.message);
+            console.log(`📄 RAW RESPONSE TEXT:`, text.slice(0, 200));
+            return { error: 'Invalid JSON response', rawText: text.slice(0, 200) };
           }
         });
         
         // Transform Moralis response to match expected format
         if (response.result && Array.isArray(response.result)) {
+          // ✅ MORALIS: Valid response (may be empty array - that's normal)
+          if (response.result.length === 0) {
+            console.log(`📱 MORALIS: Empty wallet (no tokens): ${wallet.address} - This is normal for new/unused wallets`);
+          }
+          
           response = {
             status: '1',
             result: response.result.map(token => ({
@@ -286,6 +302,13 @@ export class CentralDataService {
           response = await fetch(
             `${chain.apiProxy}?address=${wallet.address}&action=tokenlist&module=account`
           ).then(r => r.json());
+        } else if (response._error) {
+          // ✅ MORALIS: API error occurred but returned safely
+          console.warn(`⚠️ MORALIS API ERROR: ${response._error.message} for wallet ${wallet.address}`);
+          response = {
+            status: '0',
+            message: response._error.message || 'API Error'
+          };
         }
         
         if (response.status === '1' && Array.isArray(response.result)) {
@@ -357,9 +380,16 @@ export class CentralDataService {
             }
           }
         } else {
-          // ✅ NOTOK ist NORMAL für Wallets ohne Token-Transaktionen
+          // ✅ Handle all non-success response cases
           if (response.message === 'NOTOK' || response.status === '0' || response.status === 'NOTOK') {
             console.log(`📱 Empty wallet (no tokens): ${wallet.address} - This is normal for new/unused wallets`);
+          } else if (response._error) {
+            console.warn(`⚠️ MORALIS API ERROR for wallet ${wallet.address}: ${response._error.message || 'API Error'}`);
+          } else if (response.error) {
+            console.warn(`⚠️ RESPONSE ERROR for wallet ${wallet.address}: ${response.error}`);
+          } else if (!response.result) {
+            console.warn(`⚠️ UNEXPECTED RESPONSE for wallet ${wallet.address}: No result field found`);
+            console.log('🔍 RESPONSE STRUCTURE:', Object.keys(response));
           } else {
             console.warn(`⚠️ API error for wallet ${wallet.address}: ${response.message || response.status || 'Unknown error'}`);
           }
