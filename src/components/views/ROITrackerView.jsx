@@ -319,14 +319,14 @@ const ROITrackerView = () => {
                 <Coins className="h-5 w-5 text-blue-500" />
                 Top Token Holdings
                 <Badge variant="outline" className="ml-2">
-                  {portfolioData.tokens.length} Tokens
+                  {portfolioData?.tokens?.length || 0} Tokens
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {portfolioData.tokens.length > 0 ? (
+              {(portfolioData?.tokens?.length || 0) > 0 ? (
                 <div className="space-y-2">
-                  {portfolioData.tokens.slice(0, 10).map((token, index) => (
+                  {(portfolioData?.tokens || []).slice(0, 10).map((token, index) => (
                     <div key={`${token.symbol}-${token.contractAddress}-${index}`} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
                         <div className="text-sm font-mono text-gray-500 w-8">

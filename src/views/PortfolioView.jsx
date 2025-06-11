@@ -204,7 +204,7 @@ const PortfolioView = () => {
         )}
 
         {/* PRICE SOURCE VALIDATION WARNING */}
-        {portfolioData.tokens.filter(t => !t.hasReliablePrice && t.balance > 0.001).length > 0 && (
+        {portfolioData?.tokens?.filter(t => !t.hasReliablePrice && t.balance > 0.001).length > 0 && (
           <div className="pulse-card p-4 mb-6 border-l-4 border-yellow-500">
             <div className="flex items-center">
               <AlertCircle className="h-5 w-5 mr-2 text-yellow-400" />
@@ -220,7 +220,7 @@ const PortfolioView = () => {
 
         {/* Token Holdings */}
         <div className="pulse-card p-6">
-          <h3 className="text-lg font-bold pulse-text mb-4">Token Holdings ({portfolioData.tokens.length})</h3>
+          <h3 className="text-lg font-bold pulse-text mb-4">Token Holdings ({portfolioData?.tokens?.length || 0})</h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -236,7 +236,7 @@ const PortfolioView = () => {
                 </tr>
               </thead>
               <tbody>
-                {portfolioData.tokens.map((token, index) => (
+                {(portfolioData?.tokens || []).map((token, index) => (
                   <tr key={index} className={`border-b border-white/5 hover:bg-white/5 ${!token.hasReliablePrice ? 'opacity-60' : ''}`}>
                     <td className="py-3 px-2">
                       <Badge variant="outline" className={`text-xs ${token.isIncludedInPortfolio ? 'border-green-400 text-green-400' : 'border-gray-500 text-gray-500'}`}>
@@ -326,11 +326,11 @@ const PortfolioView = () => {
         </div>
 
         {/* Portfolio Distribution */}
-        {portfolioData.tokens.filter(t => t.isIncludedInPortfolio).length > 0 && (
+        {(portfolioData?.tokens || []).filter(t => t.isIncludedInPortfolio).length > 0 && (
           <div className="pulse-card p-6 mt-6">
             <h3 className="text-lg font-bold pulse-text mb-4">Portfolio Verteilung (nur Tokens mit verlässlichen Preisen)</h3>
             <div className="space-y-3">
-              {portfolioData.tokens.filter(t => t.isIncludedInPortfolio).slice(0, 10).map((token, index) => (
+              {(portfolioData?.tokens || []).filter(t => t.isIncludedInPortfolio).slice(0, 10).map((token, index) => (
                 <div key={index} className="flex items-center">
                   <div className="w-20 text-sm font-medium pulse-text">{token.symbol}</div>
                   <div className="flex-1 mx-3">

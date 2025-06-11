@@ -314,30 +314,17 @@ export default async function handler(req, res) {
           timestamp: new Date().toISOString(),
           fallback: 'System operating in emergency mode'
         },
-  } catch (error) {
-    console.error('💥 MORALIS TOKEN TRANSFERS CRITICAL ERROR:', error.message);
-    console.error('💥 ERROR STACK:', error.stack);
-    
-    // 🛡️ ABSOLUTE FALLBACK: NEVER return 500 error - always return 200 with error info
-    return res.status(200).json({ 
-      success: false,
-      result: [],
-      total: 0,
-      page: 0,
-      page_size: 100,
-      cursor: null,
-      _critical_error: {
-        message: error.message || 'Unknown error',
-        name: error.name || 'Error',
-        endpoint: 'moralis-token-transfers',
-        timestamp: new Date().toISOString(),
-        fallback: 'System will continue with empty transaction data',
-        request_debug: {
-          hasBody: !!req.body,
-          method: req.method,
-          userAgent: req.headers['user-agent'] || 'unknown'
-        }
-      }
-    });
+        _safe_mode: true
+      });
+    } catch (emergencyError) {
+      // 🛡️ FINAL EMERGENCY FALLBACK
+      console.error('💥 EMERGENCY FALLBACK ACTIVATED:', emergencyError.message);
+      return res.status(200).json({ 
+        success: false,
+        result: [],
+        total: 0,
+        _emergency: true
+      });
+    }
   }
 } 

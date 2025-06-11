@@ -91,9 +91,9 @@ const DebugView = () => {
       
       if (portfolioData && !portfolioData.error) {
         dataQuality.tokensFound = {
-          success: portfolioData.tokens.length > 0,
-          count: portfolioData.tokens.length,
-          message: `${portfolioData.tokens.length} tokens found`
+          success: (portfolioData?.tokens?.length || 0) > 0,
+          count: portfolioData?.tokens?.length || 0,
+          message: `${portfolioData?.tokens?.length || 0} tokens found`
         };
         
         dataQuality.totalValue = {
@@ -115,12 +115,12 @@ const DebugView = () => {
         };
         
         // Test real prices
-                    const tokensWithRealPrices = portfolioData.tokens.filter(t => t.priceSource === 'moralis_live').length;
+                    const tokensWithRealPrices = (portfolioData?.tokens || []).filter(t => t.priceSource === 'moralis_live').length;
         dataQuality.realPrices = {
           success: tokensWithRealPrices > 0,
           count: tokensWithRealPrices,
-          total: portfolioData.tokens.length,
-          message: `${tokensWithRealPrices}/${portfolioData.tokens.length} tokens have real prices`
+          total: portfolioData?.tokens?.length || 0,
+          message: `${tokensWithRealPrices}/${portfolioData?.tokens?.length || 0} tokens have real prices`
         };
 
         // EXTENDED: Check for problematic data
@@ -135,9 +135,9 @@ const DebugView = () => {
         };
 
         dataQuality.zeroValues = {
-          success: tokensWithZeroValue < portfolioData.tokens.length * 0.5, // Less than 50% with zero value
+          success: tokensWithZeroValue < (portfolioData?.tokens?.length || 0) * 0.5, // Less than 50% with zero value
           count: tokensWithZeroValue,
-          total: portfolioData.tokens.length,
+          total: portfolioData?.tokens?.length || 0,
           message: `${tokensWithZeroValue} tokens have zero value`
         };
 
@@ -162,10 +162,10 @@ const DebugView = () => {
       // Test 4: Performance Metrics (EXTENDED)
       results.performance = {
         loadTime: loadTime,
-        tokensPerSecond: portfolioData?.tokens ? (portfolioData.tokens.length / (loadTime / 1000)).toFixed(2) : 0,
+        tokensPerSecond: portfolioData?.tokens ? ((portfolioData?.tokens?.length || 0) / (loadTime / 1000)).toFixed(2) : 0,
         apiCalls: portfolioData?.debug?.apiCalls || 0,
         pricesUpdated: portfolioData?.debug?.pricesUpdated || 0,
-        transactionsPerSecond: portfolioData?.taxTransactions ? (portfolioData.taxTransactions.length / (loadTime / 1000)).toFixed(2) : 0
+        transactionsPerSecond: portfolioData?.taxTransactions ? ((portfolioData?.taxTransactions?.length || 0) / (loadTime / 1000)).toFixed(2) : 0
       };
 
       // Test 5: Value Consistency Check

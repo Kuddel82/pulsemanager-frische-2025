@@ -67,7 +67,7 @@ const Home = () => {
     }
 
     try {
-      const csvData = portfolioData.tokens.map(token => ({
+      const csvData = (portfolioData?.tokens || []).map(token => ({
         Symbol: token.symbol,
         Name: token.name || 'Unknown',
         Balance: token.balance,
