@@ -119,11 +119,11 @@ export class CentralDataService {
       }
 
       // 2. Lade Token-Balances (100% MORALIS ENTERPRISE)
-      const tokenData = await this.loadTokenBalancesMoralisOnly(wallets);
+      const tokenData = await this.loadRealTokenBalancesMoralisFirst(wallets, true);
       console.log(`🪙 MORALIS ENTERPRISE: Loaded ${tokenData.tokens.length} tokens`);
 
       // 3. Lade Token-Preise (100% MORALIS ENTERPRISE)  
-      const pricesData = await this.loadTokenPricesMoralisOnly(tokenData.tokens);
+      const pricesData = await this.loadMoralisTokenPricesFixed(tokenData.tokens);
       console.log(`💰 MORALIS ENTERPRISE: Updated prices for ${pricesData.updatedCount} tokens`);
 
       // 4. Aktualisiere Token-Werte
@@ -131,11 +131,11 @@ export class CentralDataService {
       console.log(`🔄 ENTERPRISE: Updated token values: $${updatedTokenData.totalValue.toFixed(2)}`);
 
       // 5. Lade ROI-Transaktionen (100% MORALIS ENTERPRISE)
-      const roiData = await this.loadROITransactionsMoralisOnly(wallets, pricesData.priceMap);
+      const roiData = await this.loadRealROITransactionsMoralisFirst(wallets, pricesData.priceMap, true);
       console.log(`📊 MORALIS ENTERPRISE: Loaded ${roiData.transactions.length} ROI transactions, Monthly ROI: $${roiData.monthlyROI.toFixed(2)}`);
 
       // 6. Lade Tax-Transaktionen (100% MORALIS ENTERPRISE) 
-      const taxData = await this.loadTaxTransactionsMoralisOnly(wallets, pricesData.priceMap);
+      const taxData = await this.loadTaxTransactionsMoralisFirst(wallets, pricesData.priceMap, true);
       console.log(`📄 MORALIS ENTERPRISE: Loaded ${taxData.transactions.length} tax transactions`);
 
       // 7. Berechne Portfolio-Statistiken
