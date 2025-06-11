@@ -311,12 +311,38 @@ export class CentralDataService {
           }
         });
         
-        // 🔧 ENHANCED: Transform Moralis response to match expected format
-        if (response.result && Array.isArray(response.result)) {
-          // ✅ MORALIS: Valid response (may be empty array - that's normal)
-          if (response.result.length === 0) {
-            console.log(`📱 MORALIS: Empty wallet (no tokens): ${wallet.address} - This is normal for new/unused wallets`);
-          }
+        // 🎉 BREAKTHROUGH: Handle REAL Moralis SDK Response Structure
+        if (response.jsonResponse && Array.isArray(response.jsonResponse)) {
+          // ✅ REAL MORALIS SDK: Direct array of Erc20Value objects
+          console.log(`🎉 MORALIS SDK SUCCESS: ${response.jsonResponse.length} tokens found for ${wallet.address}`);
+          
+          response = {
+            status: '1',
+            result: response.jsonResponse.map(tokenObj => {
+              // Extract from Moralis Erc20Value object
+              const token = tokenObj._token._value;
+              const value = tokenObj._value;
+              
+              return {
+                symbol: token.symbol || 'UNKNOWN',
+                name: token.name || 'Unknown Token',
+                contractAddress: token.contractAddress.checksum || token.contractAddress._value,
+                decimals: parseInt(token.decimals) || 18,
+                balance: value.amount.toString(), // BigNumber to string
+                // Moralis SDK specific fields
+                _moralis_fields: {
+                  balance_formatted: tokenObj.display().split(' ')[0], // Extract number part
+                  logo: token.logo,
+                  thumbnail: token.thumbnail,
+                  possibleSpam: token.possibleSpam,
+                  raw_display: tokenObj.display()
+                }
+              };
+            })
+          };
+        } else if (response.result && Array.isArray(response.result)) {
+          // ✅ FALLBACK: Old API format (if any)
+          console.log(`📊 FALLBACK FORMAT: ${response.result.length} tokens found for ${wallet.address}`);
           
           response = {
             status: '1',
@@ -326,7 +352,6 @@ export class CentralDataService {
               contractAddress: token.token_address,
               decimals: parseInt(token.decimals) || 18,
               balance: token.balance,
-              // Standard Moralis fields (für Debugging)
               _moralis_fields: {
                 balance_formatted: token.balance_formatted,
                 usd_price: token.usd_price,
