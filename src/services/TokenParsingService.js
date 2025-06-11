@@ -65,31 +65,64 @@ export class TokenParsingService {
         }
       }
       
-      // 🚨 SANITY CHECK: Extreme Werte abfangen (32k DAI Bug)
-      if (formattedBalance > 1000000000) { // 1 Milliarde+
+      // 🚨 EXTREME VALUE PROTECTION: Aggressivere Limits gegen Parsing-Fehler
+      if (formattedBalance > 100000000) { // 100 Million+ (deutlich niedrigeres Limit)
         console.warn(`⚠️ SUSPICIOUS BALANCE: ${symbol} has ${formattedBalance.toLocaleString()} tokens - likely parsing error`);
         
         // Versuche alternative Decimals nur bei BigInt Conversion
         if (typeof rawBalance === 'string' && !rawBalance.includes('.')) {
-          try {
-            const altDecimals = decimals + 6; // +6 Decimals versuchen
-            const balanceBigInt = BigInt(rawBalance);
-            const altDivisor = BigInt(10 ** altDecimals);
-            const altBalance = Number(balanceBigInt) / Number(altDivisor);
-        
-            if (altBalance < 1000000) {
-              console.log(`🔧 FIXED DECIMALS: ${symbol} corrected from ${formattedBalance} to ${altBalance} (${altDecimals} decimals)`);
-              return {
-                ...token,
-                balance: altBalance,
-                decimals: altDecimals,
-                _corrected: true,
-                _originalBalance: formattedBalance
-              };
+          let fixedBalance = null;
+          
+          // Versuche verschiedene Decimal-Korrekturen
+          for (let extraDecimals = 6; extraDecimals <= 18; extraDecimals += 6) {
+            try {
+              const altDecimals = decimals + extraDecimals;
+              const balanceBigInt = BigInt(rawBalance);
+              const altDivisor = BigInt(10 ** altDecimals);
+              const altBalance = Number(balanceBigInt) / Number(altDivisor);
+              
+              // Akzeptiere wenn Wert unter 10 Million ist
+              if (altBalance < 10000000) {
+                fixedBalance = altBalance;
+                console.log(`🔧 FIXED DECIMALS: ${symbol} corrected from ${formattedBalance.toLocaleString()} to ${altBalance.toLocaleString()} (+${extraDecimals} decimals)`);
+                
+                return {
+                  ...token,
+                  balance: fixedBalance,
+                  decimals: altDecimals,
+                  _corrected: true,
+                  _originalBalance: formattedBalance,
+                  _correction: `+${extraDecimals}_decimals`
+                };
+              }
+            } catch (altError) {
+              continue; // Versuche nächste Decimal-Korrektur
             }
-          } catch (altError) {
-            console.warn(`⚠️ ALT DECIMALS FAILED: ${symbol} could not fix with alternative decimals`);
           }
+          
+          // Wenn keine Decimal-Korrektur funktioniert, auf 0 setzen
+          if (!fixedBalance) {
+            console.warn(`🚨 EXTREME VALUE ZEROED: ${symbol} set to 0 (was ${formattedBalance.toLocaleString()})`);
+            return {
+              ...token,
+              balance: 0,
+              decimals: decimals,
+              _corrected: true,
+              _originalBalance: formattedBalance,
+              _correction: 'zeroed_extreme_value'
+            };
+          }
+        } else {
+          // Für bereits formatierte extreme Werte: auf 0 setzen
+          console.warn(`🚨 EXTREME FORMATTED VALUE ZEROED: ${symbol} set to 0 (was ${formattedBalance.toLocaleString()})`);
+          return {
+            ...token,
+            balance: 0,
+            decimals: decimals,
+            _corrected: true,
+            _originalBalance: formattedBalance,
+            _correction: 'zeroed_formatted_extreme'
+          };
         }
       }
       

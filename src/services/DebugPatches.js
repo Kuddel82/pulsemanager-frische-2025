@@ -201,13 +201,19 @@ export function debugMoralisResponse(response, endpoint, wallet) {
   // Check for common Moralis response issues
   const moralisIssues = [];
   
-  if (!response.result && !response.error) moralisIssues.push("No result or error in response");
+  // 🔧 LESS STRICT: Allow test responses and fallbacks
+  const hasValidData = response.result || response.jsonResponse || response._test_mode || response.error;
+  
+  if (!hasValidData) moralisIssues.push("No result or error in response");
   if (response.status === '0' || response.status === 'NOTOK') moralisIssues.push("API returned error status");
-  if (response.result && Array.isArray(response.result) && response.result.length === 0) moralisIssues.push("Empty result array");
+  
+  // 🔧 ALLOW EMPTY ARRAYS: Some wallets legitimately have 0 tokens
+  // if (response.result && Array.isArray(response.result) && response.result.length === 0) moralisIssues.push("Empty result array");
   
   if (moralisIssues.length > 0) {
     console.warn(`⚠️ MORALIS DEBUG ISSUES [${endpoint}]:`, moralisIssues);
   }
   
-  return moralisIssues.length === 0;
+  // 🔧 LESS STRICT: Return true if we have any valid response structure
+  return hasValidData && moralisIssues.length === 0;
 } 

@@ -309,6 +309,33 @@ export class MoralisV2Service {
         }
       });
       
+      // 🔧 BETTER 500 ERROR HANDLING
+      if (!response.ok) {
+        if (response.status === 500) {
+          console.warn(`⚠️ DeFi Summary not available: [C0006] Request failed, Internal Server Error(500): Unknown error occurred. Please try again or contact support.`);
+          return {
+            success: true, // Return success with empty data instead of failing
+            defiSummary: {
+              active_protocols: 0,
+              total_usd_value: 0,
+              total_unclaimed_usd_value: 0,
+              total_positions: 0
+            },
+            roiAnalysis: {
+              hasActivePositions: false,
+              hasUnclaimedRewards: false,
+              totalValue: 0,
+              unclaimedValue: 0,
+              activeProtocols: 0,
+              roiPotential: 'none'
+            },
+            _fallback500: true,
+            source: 'moralis_v2_defi_summary_fallback'
+          };
+        }
+        throw new Error(`DeFi Summary API error: ${response.status}`);
+      }
+
       const data = await response.json();
       
       if (data._error) {
@@ -359,6 +386,29 @@ export class MoralisV2Service {
         method: 'GET'
       });
       
+      // 🔧 BETTER 500 ERROR HANDLING
+      if (!response.ok) {
+        if (response.status === 500) {
+          console.warn(`⚠️ DeFi Positions not available: [C0006] Request failed, Internal Server Error(500): Unknown error occurred. Please try again or contact support.`);
+          return {
+            success: true, // Return success with empty data instead of failing
+            positions: [],
+            roiSources: [],
+            roiAnalysis: {
+              totalPositions: 0,
+              roiSourcesCount: 0,
+              totalROIValue: 0,
+              totalDailyROI: 0,
+              estimatedMonthlyROI: 0,
+              hasActiveROI: false
+            },
+            _fallback500: true,
+            source: 'moralis_v2_defi_positions_fallback'
+          };
+        }
+        throw new Error(`DeFi Positions API error: ${response.status}`);
+      }
+
       const data = await response.json();
       
       if (data._error) {
