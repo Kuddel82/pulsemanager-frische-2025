@@ -1,54 +1,73 @@
-// 🚀 MORALIS ENTERPRISE API - TOKEN TRANSFERS (WITH FALLBACK)
-// Professional Web3 Data API v2.2 für PulseManager - 1000+ User Ready
+// 🚀 CRASH-SAFE MORALIS API - Absolutely NO crashes allowed
+// Ultra-defensive programming for bulletproof API
 
 export default async function handler(req, res) {
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // Nur POST für bessere Parameter-Übergabe
-  if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      error: 'Method not allowed',
-      message: 'Use POST for token transfer requests',
-      required: { address: 'string', chain: 'string', cursor?: 'string', limit?: 'number' }
-    });
-  }
-
   try {
-    // 🔒 SAFE JSON PARSING: Prevent crashes
+    // 🛡️ CORS Headers - Always set first
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    // 🛡️ OPTIONS handling - Always handle first
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+
+    // 🛡️ METHOD validation - Fail gracefully
+    if (req.method !== 'POST') {
+      return res.status(200).json({ 
+        success: false,
+        result: [],
+        total: 0,
+        error: 'Method not allowed - use POST',
+        _safe_mode: true
+      });
+    }
+
+    // 🛡️ ABSOLUTE SAFE REQUEST PARSING
     let requestData = {};
     
     try {
-      requestData = req.body || {};
-    } catch (parseError) {
-      console.error('💥 JSON PARSE ERROR:', parseError);
-      return res.status(400).json({ 
-        error: 'Invalid JSON in request body',
-        message: parseError.message
+      // Multiple fallback layers for request parsing
+      if (req.body && typeof req.body === 'object') {
+        requestData = req.body;
+      } else if (req.body && typeof req.body === 'string') {
+        try {
+          requestData = JSON.parse(req.body);
+        } catch {
+          requestData = {};
+        }
+      }
+    } catch (error) {
+      console.error('💥 REQUEST PARSE ERROR (non-critical):', error.message);
+      requestData = {};
+    }
+
+    // 🛡️ SAFE PARAMETER EXTRACTION with defaults
+    const address = requestData.address || '';
+    const chain = requestData.chain || '0x171';
+    const cursor = requestData.cursor || null;
+    const limit = parseInt(requestData.limit) || 100;
+
+    // 🛡️ BASIC VALIDATION - Return safe response on validation failure
+    if (!address || typeof address !== 'string' || address.length < 10) {
+      console.warn('⚠️ Invalid address parameter, returning empty result');
+      return res.status(200).json({
+        success: false,
+        result: [],
+        total: 0,
+        page: 0,
+        page_size: limit,
+        cursor: null,
+        error: 'Invalid or missing address parameter',
+        _safe_mode: true,
+        _validation_failed: true
       });
     }
 
-    const { address, chain = '0x171', cursor, limit = 100 } = requestData;
-
-    // 🛡️ IMPROVED VALIDATION
-    if (!address || typeof address !== 'string') {
-      return res.status(400).json({ 
-        error: 'Missing or invalid address parameter',
-        required: { address: 'Valid wallet address string required' },
-        received: { address: typeof address }
-      });
-    }
-
-    // Moralis Enterprise Configuration
+    // 🛡️ ENVIRONMENT CHECK - Fail gracefully if no API key
     const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
     
-    // 🛡️ FALLBACK: If no Moralis API key, return empty result instead of error
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
       console.warn('⚠️ MORALIS API KEY not configured - returning empty result');
       return res.status(200).json({
@@ -61,132 +80,186 @@ export default async function handler(req, res) {
         _fallback: {
           reason: 'moralis_api_key_not_configured',
           message: 'Add MORALIS_API_KEY to environment variables for token transfer data',
-          alternative: 'Use PulseChain Scanner API instead'
-        }
+          alternative: 'System will continue with empty transaction data'
+        },
+        _safe_mode: true
       });
     }
 
-    // 🌐 CHAIN NORMALIZATION: Handle different chain formats
-    let normalizedChain = chain;
-    if (chain === '369' || chain === 'pulsechain' || chain === 'pls') {
-      normalizedChain = '0x171';
-    } else if (chain === '1' || chain === 'ethereum' || chain === 'eth') {
-      normalizedChain = '0x1';
-    }
-
-    // 🌐 Moralis Web3 Data API v2.2 - ERC20 Token Transfers Endpoint
-    const apiUrl = `https://deep-index.moralis.io/api/v2.2/${address}/erc20/transfers`;
-    
-    const params = new URLSearchParams({
-      chain: normalizedChain,
-      limit: Math.min(parseInt(limit) || 100, 100).toString()
-    });
-    
-    if (cursor && typeof cursor === 'string') {
-      params.append('cursor', cursor);
-    }
-
-    const fullUrl = `${apiUrl}?${params.toString()}`;
-    
-    console.log(`🚀 MORALIS TOKEN TRANSFERS: Loading ERC20 transfers for ${address.slice(0, 8)}... (${normalizedChain})`);
-
-    // 📡 Moralis Enterprise API Call with timeout
-    const response = await fetch(fullUrl, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': MORALIS_API_KEY,
-        'Accept': 'application/json',
-        'User-Agent': 'PulseManager-Enterprise/1.0'
-      },
-      timeout: 30000
-    });
-
-    if (!response.ok) {
-      console.error(`❌ Moralis API Error: ${response.status} - ${response.statusText}`);
-      
-      if (response.status === 429) {
-        return res.status(429).json({ 
-          error: 'Rate limit exceeded',
-          retryAfter: response.headers.get('retry-after') || '60',
-          enterprise: 'Upgrade to higher tier for 1000+ users'
-        });
-      }
-
-      if (response.status === 401) {
-        // 🛡️ FALLBACK: Return empty result for auth errors instead of failing
-        console.warn('⚠️ MORALIS AUTH ERROR - returning empty result');
-        return res.status(200).json({
-          success: true,
-          result: [],
-          total: 0,
-          _fallback: {
-            reason: 'moralis_auth_error',
-            message: 'Check MORALIS_API_KEY configuration'
-          }
-        });
-      }
-
-      // 🛡️ FALLBACK: For other errors, return empty result with error info
-      return res.status(200).json({
-        success: false,
-        result: [],
-        total: 0,
-        _error: {
-          status: response.status,
-          message: response.statusText,
-          fallback: 'Use alternative data source'
-        }
-      });
-    }
-
-    // 🔒 SAFE JSON PARSING: Handle malformed responses
-    let data = {};
+    // 🛡️ CHAIN NORMALIZATION - Safe with fallback
+    let normalizedChain = '0x171'; // Safe default
     try {
-      const text = await response.text();
-      data = JSON.parse(text);
-    } catch (jsonError) {
-      console.error('💥 MORALIS RESPONSE JSON ERROR:', jsonError);
+      if (chain === '369' || chain === 'pulsechain' || chain === 'pls') {
+        normalizedChain = '0x171';
+      } else if (chain === '1' || chain === 'ethereum' || chain === 'eth') {
+        normalizedChain = '0x1';
+      } else if (typeof chain === 'string' && chain.startsWith('0x')) {
+        normalizedChain = chain;
+      }
+    } catch (error) {
+      console.error('💥 CHAIN NORMALIZATION ERROR (non-critical):', error.message);
+      normalizedChain = '0x171';
+    }
+
+    // 🛡️ SAFE URL CONSTRUCTION
+    let apiUrl = '';
+    let fullUrl = '';
+    
+    try {
+      apiUrl = `https://deep-index.moralis.io/api/v2.2/${address}/erc20/transfers`;
+      
+      const params = new URLSearchParams();
+      params.append('chain', normalizedChain);
+      params.append('limit', Math.min(Math.max(parseInt(limit) || 100, 1), 100).toString());
+      
+      if (cursor && typeof cursor === 'string' && cursor.length > 0) {
+        params.append('cursor', cursor);
+      }
+
+      fullUrl = `${apiUrl}?${params.toString()}`;
+    } catch (error) {
+      console.error('💥 URL CONSTRUCTION ERROR:', error.message);
       return res.status(200).json({
         success: false,
         result: [],
         total: 0,
-        _error: {
-          message: 'Invalid JSON response from Moralis API',
-          raw_response_length: jsonError.toString().length,
-          fallback: 'Use alternative data source'
+        error: 'URL construction failed',
+        _safe_mode: true,
+        _url_error: true
+      });
+    }
+
+    console.log(`🚀 SAFE MORALIS REQUEST: ${address.slice(0, 8)}... on ${normalizedChain}`);
+
+    // 🛡️ ULTRA-SAFE FETCH with multiple fallback layers
+    let response = null;
+    let responseText = '';
+    
+    try {
+      // Set a shorter timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      
+      response = await fetch(fullUrl, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': MORALIS_API_KEY,
+          'Accept': 'application/json',
+          'User-Agent': 'PulseManager-Safe/1.0'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      console.error('💥 FETCH ERROR (returning empty result):', fetchError.message);
+      return res.status(200).json({
+        success: false,
+        result: [],
+        total: 0,
+        page: 0,
+        page_size: limit,
+        cursor: null,
+        error: 'Network request failed',
+        _safe_mode: true,
+        _fetch_error: fetchError.message
+      });
+    }
+
+    // 🛡️ SAFE RESPONSE STATUS CHECK
+    if (!response || !response.ok) {
+      console.error(`💥 MORALIS API ERROR: ${response?.status || 'unknown'} - ${response?.statusText || 'unknown'}`);
+      
+      return res.status(200).json({
+        success: false,
+        result: [],
+        total: 0,
+        page: 0,
+        page_size: limit,
+        cursor: null,
+        error: `Moralis API error: ${response?.status || 'unknown'}`,
+        _safe_mode: true,
+        _api_error: {
+          status: response?.status || 'unknown',
+          statusText: response?.statusText || 'unknown'
         }
       });
     }
-    
-    // 📊 Process and enhance token transfer data
-    const transfers = (data.result || []).map(transfer => ({
-      // Standard fields
-      transaction_hash: transfer.transaction_hash,
-      block_number: transfer.block_number,
-      block_timestamp: transfer.block_timestamp,
-      
-      // Addresses
-      from_address: transfer.from_address,
-      to_address: transfer.to_address,
-      
-      // Token info
-      address: transfer.address,
-      value: transfer.value,
-      
-      // Enhanced fields for tax calculation
-      is_incoming: transfer.to_address?.toLowerCase() === address.toLowerCase(),
-      is_token_transfer: true,
-      chain_id: chain,
-      
-      // Metadata
-      _moralis: {
-        api_version: 'v2.2',
-        data_source: 'enterprise',
-        processed_at: new Date().toISOString()
-      }
-    }));
 
-    // 📈 Response with enterprise metadata
+    // 🛡️ ULTRA-SAFE RESPONSE PARSING
+    let data = {};
+    
+    try {
+      responseText = await response.text();
+      
+      if (!responseText || responseText.length === 0) {
+        throw new Error('Empty response from Moralis');
+      }
+      
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('💥 RESPONSE PARSE ERROR (returning empty result):', parseError.message);
+      console.error('💥 RAW RESPONSE (first 500 chars):', responseText.slice(0, 500));
+      
+      return res.status(200).json({
+        success: false,
+        result: [],
+        total: 0,
+        page: 0,
+        page_size: limit,
+        cursor: null,
+        error: 'Invalid JSON response from Moralis API',
+        _safe_mode: true,
+        _parse_error: parseError.message,
+        _raw_response_length: responseText.length
+      });
+    }
+
+    // 🛡️ SAFE DATA PROCESSING
+    let transfers = [];
+    
+    try {
+      if (data && data.result && Array.isArray(data.result)) {
+        transfers = data.result.map(transfer => {
+          try {
+            return {
+              // Standard fields with safe defaults
+              transaction_hash: transfer.transaction_hash || '',
+              block_number: transfer.block_number || 0,
+              block_timestamp: transfer.block_timestamp || new Date().toISOString(),
+              
+              // Addresses with safe defaults
+              from_address: transfer.from_address || '',
+              to_address: transfer.to_address || '',
+              
+              // Token info with safe defaults
+              address: transfer.address || '',
+              value: transfer.value || '0',
+              
+              // Enhanced fields for tax calculation
+              is_incoming: (transfer.to_address || '').toLowerCase() === address.toLowerCase(),
+              is_token_transfer: true,
+              chain_id: normalizedChain,
+              
+              // Metadata
+              _moralis: {
+                api_version: 'v2.2',
+                data_source: 'enterprise',
+                processed_at: new Date().toISOString()
+              }
+            };
+          } catch (transferError) {
+            console.error('💥 TRANSFER PROCESSING ERROR (skipping item):', transferError.message);
+            return null;
+          }
+        }).filter(transfer => transfer !== null); // Remove failed items
+      }
+    } catch (processingError) {
+      console.error('💥 DATA PROCESSING ERROR (returning empty result):', processingError.message);
+      transfers = [];
+    }
+
+    // 🛡️ SAFE RESULT CONSTRUCTION
     const result = {
       success: true,
       result: transfers,
@@ -200,20 +273,46 @@ export default async function handler(req, res) {
         provider: 'moralis',
         api_version: 'v2.2',
         endpoint: 'token_transfers',
-        chain_id: chain,
+        chain_id: normalizedChain,
         user_scalable: '1000+',
         cache_strategy: 'blockchain_confirmed',
         timestamp: new Date().toISOString()
-      }
+      },
+      _safe_mode: true,
+      _processed_transfers: transfers.length
     };
 
-    // 🔄 Caching for enterprise performance
-    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
+    // 🛡️ SAFE RESPONSE HEADERS
+    try {
+      res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
+    } catch (headerError) {
+      console.error('💥 HEADER ERROR (non-critical):', headerError.message);
+    }
     
-    console.log(`✅ MORALIS TOKEN TRANSFERS: ${transfers.length} token transfers loaded for ${address.slice(0, 8)}...`);
+    console.log(`✅ SAFE MORALIS SUCCESS: ${transfers.length} transfers for ${address.slice(0, 8)}...`);
     
     return res.status(200).json(result);
 
+  } catch (criticalError) {
+    // 🛡️ ABSOLUTE LAST RESORT - This should NEVER fail
+    console.error('💥 CRITICAL ERROR IN SAFE API:', criticalError.message);
+    console.error('💥 CRITICAL ERROR STACK:', criticalError.stack);
+    
+    try {
+      return res.status(200).json({ 
+        success: false,
+        result: [],
+        total: 0,
+        page: 0,
+        page_size: 100,
+        cursor: null,
+        _critical_error: {
+          message: criticalError.message || 'Unknown critical error',
+          name: criticalError.name || 'Error',
+          endpoint: 'moralis-token-transfers',
+          timestamp: new Date().toISOString(),
+          fallback: 'System operating in emergency mode'
+        },
   } catch (error) {
     console.error('💥 MORALIS TOKEN TRANSFERS CRITICAL ERROR:', error.message);
     console.error('💥 ERROR STACK:', error.stack);
