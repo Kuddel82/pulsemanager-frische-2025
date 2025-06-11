@@ -192,7 +192,7 @@ export class TaxService {
     for (const contractAddress of contractAddresses.slice(0, 100)) { // Limit für Performance
       try {
         const response = await fetch(
-          `/api/dexscreener-proxy?endpoint=tokens&addresses=${contractAddress}`
+                      `/api/moralis-prices?endpoint=token-prices&addresses=${contractAddress}&chain=369`
         );
         
         if (response.ok) {

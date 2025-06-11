@@ -1,198 +1,280 @@
-// 💰 Token Price Service - KORRIGIERTE PULSECHAIN PREISE
-// Basiert auf echten Wallet-Daten vom User (26.007,51 Portfolio-Wert)
+// 💰 Token Price Service - 100% MORALIS ENTERPRISE INTEGRATION
+// Komplette Umstellung von DexScreener auf Moralis für maximale Datenqualität
 
 export class TokenPriceService {
   
-  // 🏷️ ECHTE PULSECHAIN TOKEN CONTRACT-ADRESSEN (User-Wallet basiert)
-  static PULSECHAIN_TOKENS = {
-    // User's actual tokens with REAL contract addresses from scan.pulsechain.com
-    'MISSOR': '0x6F5E5B8aD3D9d8B4c8Ca5a6F2f6f9f8f7f6f5f4f3f2f1f0f', // 💤 MISSOR
-    'REMEMBER': '0x1234567890123456789012345678901234567890', // 🎭 REMEMBER REMEMBER THE 5TH OF NOVEMBER  
-    'SOIL': '0x22b2f187e6ee1f9bc8f7fc38bb0d9357462800e4', // SOIL - SUN Minimeal SOIL
-    'FINVESTA': '0xabcdef1234567890abcdef1234567890abcdef12', // Finvesta
-    'FLEXMAS': '0xd15C444F1199Ae72795eba15E8C1db44E47abF62', // FLEXMAS
-    'DOMINANCE': '0x64bab8470043748014318b075685addaa1f22a87', // DOMINANCE
-    'GAS': '0x6bea7cfef803d1e3d5f7c0103f7ded065644e197', // ⛽ GAS Money
-    'BEAST': '0xfedcba0987654321fedcba0987654321fedcba09', // BEAST
-    'FINFIRE': '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b', // FINFIRE - FINANCE ON FIRE
-    'PLS': 'native', // PulseChain Native
-    'SAV': '0x26b6b3b61d7eae6d5fe2f5e8ea8b71746aca7c50', // SⒶV SⒶVⒶNT
-    'PLSX': '0x95B303987A60C71504D99Aa1b13B4DA07b0790ab', // PulseX
-    'DAI': '0xefD766cCb38EaF1dfd701853BFCe31359239F305', // PulseChain DAI (NOT Ethereum!)
-    'WBTC': '0xb17D901469B9208B17d916112988A3FeD19b5cA1', // PulseChain WBTC (NOT Bitcoin!)
-    'PRINTER': '0x9876543210987654321098765432109876543210', // 🖨️ WORLDS GREATEST PDAI PRINTER
-    'PLSPUP': '0x5432109876543210987654321098765432109876', // PLSPUPPY
-    'HEX': '0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39', // HEX
-    'SECRET': '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd', // SECRET - Conspiracy
-    'MNEMONICS': '0x1111222233334444555566667777888899990000', // 🧠 Mnemonics
-    'INC': '0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d', // Incentive
-    'FUD': '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' // F㉾D - Reserve Teh ㉾
+  // 🔵 MORALIS ENTERPRISE API CONFIGURATION
+  static MORALIS_CONFIG = {
+    baseUrl: '/api/moralis-prices',
+    defaultChain: 369, // PulseChain
+    batchSize: 25,     // Moralis limit
+    timeout: 30000
   };
 
-  // 🌐 ECHTE PULSECHAIN PREISE (EXAKT nach User's PulseWatch Wallet - $26,007.51)
-  static REAL_PULSECHAIN_PRICES = {
-    // ⭐ TOP HOLDINGS (User's actual prices from real wallet)
-    'DOMINANCE': 11.08,        // $48,000 / 4.33K = $11.08 (CORRECTED FROM $0.48!)
-    'REMEMBER': 7.23e-7,       // 🎭 REMEMBER: $3,936.81 / 5.46T = $7.23e-7 (CORRECTED!)
-    'FINVESTA': 33.76,         // Finvesta: $2,567.81 / 76.06 = $33.76 ✓
-    'FLEXMAS': 0.40,           // FLEXMAS: $2,351.28 / 5.88K = $0.40 ✓  
-    'GAS': 2.74e-4,            // ⛽ GAS: $1,478.30 / 5.40M = $2.74e-4 ✓
-    
-    // 📈 MIDDLE HOLDINGS
-    'MISSOR': 0.011,           // 💤 MISSOR: Korrigiert für bessere Accuracy
-    'SOIL': 0.122,             // SOIL: Leicht korrigiert von PulseWatch Daten
-    'BEAST': 0.64,             // BEAST: Original beibehalten
-    'FINFIRE': 5.09,           // FINFIRE: Original beibehalten
-    'PLS': 3.09e-5,            // PLS: Native token
-    'SAV': 0.334,              // SⒶV: Leicht korrigiert
-    'PLSX': 2.622e-5,          // PLSX: Korrigiert auf echten Wert ($0.00002622)
-    
-    // 🔹 SMALLER HOLDINGS
-    'DAI': 2.31e-3,            // DAI (PulseChain): Original
-    'WBTC': 416.33,            // WBTC (PulseChain): Original  
-    'PRINTER': 58.99,          // 🖨️ PRINTER: Original
-    'PLSPUP': 163.32,          // PLSPUP: Original
-    'HEX': 5.943e-3,           // HEX: Korrigiert auf $0.005943
-    'SECRET': 1.45e-5,         // SECRET: Original
-    'MNEMONICS': 0.49,         // 🧠 Mnemonics: Original
-    'INC': 1.44,               // INC: Original
-    'FUD': 1.06e-4,            // F㉾D: Original
-    
-    // Fallback für andere Token
-    'USDC': 1.0,
-    'USDT': 1.0,
-    'WETH': 2500
+  // 🏷️ MINIMAL FALLBACK PRICES (nur für kritische native Tokens)
+  static MINIMAL_FALLBACKS = {
+    'PLS': 0.000088,      // PulseChain Native
+    'PLSX': 0.00002622,   // PulseX
+    'HEX': 0.005943,      // HEX
+    'ETH': 2400,          // Ethereum
+    'WETH': 2400,         // Wrapped Ethereum
+    'DAI': 1.0,           // DAI Stablecoin
+    'USDC': 1.0,          // USDC Stablecoin
+    'USDT': 1.0,          // USDT Stablecoin
   };
 
-  // 📊 VERBESSERTER DexScreener API mit PulseChain-spezifischer Logik (via Proxy)
-  static async fetchDexScreenerPrice(tokenAddress) {
+  // 🔵 MORALIS ENTERPRISE: Einzelner Token-Preis
+  static async fetchMoralisPrice(contractAddress, chainId = 369) {
     try {
-      // PulseChain-Integration via Proxy (CORS-safe)
-      const proxyUrl = `/api/dexscreener-proxy?endpoint=tokens&addresses=${tokenAddress}`;
-      console.log(`🔍 DexScreener Proxy URL: ${proxyUrl}`);
+      console.log(`🔵 Moralis API call for ${contractAddress}`);
       
-      const response = await fetch(proxyUrl, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
+      const response = await fetch(
+        `${this.MORALIS_CONFIG.baseUrl}?endpoint=token-prices&addresses=${contractAddress}&chain=${chainId}`,
+        { timeout: this.MORALIS_CONFIG.timeout }
+      );
       
-      if (!response.ok) return null;
+      if (!response.ok) {
+        console.warn(`⚠️ Moralis API Error: ${response.status} ${response.statusText}`);
+        return null;
+      }
       
       const data = await response.json();
-      if (data.pairs && data.pairs.length > 0) {
-        // Priorisiere PulseChain Paare mit bester Liquidität
-        const pulsePairs = data.pairs
-          .filter(pair => 
-            pair.chainId === 'pulsechain' || 
-            pair.baseToken?.address?.toLowerCase() === tokenAddress?.toLowerCase() ||
-            pair.quoteToken?.address?.toLowerCase() === tokenAddress?.toLowerCase()
-          )
-          .sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+      
+      if (data.result && data.result.length > 0) {
+        const tokenPrice = data.result[0];
         
-        if (pulsePairs.length > 0) {
-          const bestPair = pulsePairs[0];
-          const price = parseFloat(bestPair.priceUsd) || null;
-          console.log(`💰 DexScreener: ${tokenAddress} = $${price} (Liquidity: $${bestPair.liquidity?.usd || 0})`);
-          return price;
+        if (tokenPrice.tokenAddress && tokenPrice.usdPrice > 0) {
+          const price = parseFloat(tokenPrice.usdPrice);
+          console.log(`💰 Moralis: ${contractAddress} = $${price.toFixed(6)}`);
+          
+          return {
+            price: price,
+            source: 'moralis_enterprise',
+            timestamp: new Date().toISOString(),
+            tokenAddress: tokenPrice.tokenAddress,
+            tokenSymbol: tokenPrice.tokenSymbol
+          };
         }
       }
-      return null;
-    } catch (error) {
-      // Reduzierte Fehler-Logs für bessere Konsolen-Klarheit
-      if (Math.random() < 0.05) { // Nur 5% der Fehler loggen
-        console.log(`🔍 DexScreener: Preis für ${tokenAddress} nicht verfügbar`);
-      }
-      return null;
-    }
-  }
-
-  // 🦎 CoinGecko API (Backup)
-  static async fetchCoinGeckoPrice(tokenSymbol) {
-    try {
-      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${tokenSymbol}&vs_currencies=usd`);
-      if (!response.ok) return null;
       
-      const data = await response.json();
-      return data[tokenSymbol]?.usd || null;
+      console.log(`🔍 Moralis: Preis für ${contractAddress} nicht verfügbar`);
+      return null;
+      
     } catch (error) {
-      console.warn(`🦎 CoinGecko API Error für ${tokenSymbol}:`, error.message);
+      console.warn(`⚠️ Moralis API Error:`, error.message);
       return null;
     }
   }
 
-  // 💰 KORRIGIERTE Hauptfunktion: Token-Preis abrufen
-  static async getTokenPrice(tokenSymbol, contractAddress = null) {
+  // 🔵 MORALIS ENTERPRISE: Batch-Preise für mehrere Token
+  static async fetchBatchPrices(contractAddresses, chainId = 369) {
+    try {
+      const batchSize = this.MORALIS_CONFIG.batchSize;
+      const priceMap = new Map();
+      
+      for (let i = 0; i < contractAddresses.length; i += batchSize) {
+        const batch = contractAddresses.slice(i, i + batchSize);
+        const addressParam = batch.join(',');
+        
+        console.log(`🔵 Moralis Batch API call (${batch.length} tokens)`);
+        
+        const response = await fetch(
+          `${this.MORALIS_CONFIG.baseUrl}?endpoint=token-prices&addresses=${addressParam}&chain=${chainId}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.result && Array.isArray(data.result)) {
+            for (const tokenPrice of data.result) {
+              if (tokenPrice.tokenAddress && tokenPrice.usdPrice > 0) {
+                const price = parseFloat(tokenPrice.usdPrice);
+                priceMap.set(tokenPrice.tokenAddress.toLowerCase(), {
+                  price: price,
+                  source: 'moralis_enterprise',
+                  symbol: tokenPrice.tokenSymbol
+                });
+              }
+            }
+          }
+        }
+        
+        // Rate limiting für Moralis
+        if (i + batchSize < contractAddresses.length) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+      
+      console.log(`🔵 Moralis Batch: ${priceMap.size} prices fetched from ${contractAddresses.length} requests`);
+      return priceMap;
+      
+    } catch (error) {
+      console.error(`💥 Moralis Batch Error:`, error);
+      return new Map();
+    }
+  }
+
+  // 💰 HAUPTFUNKTION: Token-Preis abrufen (100% Moralis)
+  static async getTokenPrice(tokenSymbol, contractAddress = null, chainId = 369) {
     const symbol = tokenSymbol?.toUpperCase();
     
-    // 1. ZUERST: Echte PulseChain-Preise verwenden
-    if (this.REAL_PULSECHAIN_PRICES[symbol]) {
-      console.log(`💰 ECHTER PulseChain-Preis für ${symbol}: $${this.REAL_PULSECHAIN_PRICES[symbol]}`);
-      return this.REAL_PULSECHAIN_PRICES[symbol];
-    }
-
-    // 2. Symbol-Mapping für alternative Namen
-    const symbolMapping = {
-      '💤': 'MISSOR',
-      '🎭': 'REMEMBER', 
-      '⛽': 'GAS',
-      '🖨️': 'PRINTER',
-      '🧠': 'MNEMONICS',
-      'F㉾D': 'FUD',
-      'SⒶVⒶNT': 'SAV',
-      'SⒶV': 'SAV'
-    };
-    
-    const mappedSymbol = symbolMapping[symbol] || symbol;
-    if (this.REAL_PULSECHAIN_PRICES[mappedSymbol]) {
-      console.log(`💰 ECHTER PulseChain-Preis für ${mappedSymbol} (${symbol}): $${this.REAL_PULSECHAIN_PRICES[mappedSymbol]}`);
-      return this.REAL_PULSECHAIN_PRICES[mappedSymbol];
-    }
-
-    // 3. Versuche DexScreener nur als letzte Option
+    // 1. PRIORITY 1: Moralis Enterprise API
     if (contractAddress && contractAddress !== 'native' && contractAddress !== 'unknown') {
-      const dexPrice = await this.fetchDexScreenerPrice(contractAddress);
-      if (dexPrice && dexPrice > 0) {
-        console.log(`💰 DexScreener-Preis für ${symbol}: $${dexPrice}`);
-        return dexPrice;
+      const moralisResult = await this.fetchMoralisPrice(contractAddress, chainId);
+      if (moralisResult && moralisResult.price > 0) {
+        return moralisResult.price;
       }
     }
 
-    // 4. Unbekannter Token - Reduzierte Logging-Frequenz
-    if (Math.random() < 0.1) { // Nur 10% der Fälle loggen
-      console.log(`💭 Kein Preis verfügbar für ${symbol} - normale Situation bei neuen Token`);
+    // 2. PRIORITY 2: Minimal Fallbacks (nur für native/kritische Tokens)
+    if (this.MINIMAL_FALLBACKS[symbol]) {
+      const fallbackPrice = this.MINIMAL_FALLBACKS[symbol];
+      console.log(`🔄 Fallback-Preis für ${symbol}: $${fallbackPrice}`);
+      return fallbackPrice;
     }
+
+    // 3. Kein Preis gefunden
+    console.log(`❌ Kein Preis verfügbar für ${symbol} (${contractAddress})`);
     return 0;
   }
 
-  // 🔄 Batch-Preise für mehrere Token
-  static async getBatchPrices(tokens) {
+  // 🔄 Batch-Preise für Token-Array
+  static async getBatchTokenPrices(tokens, chainId = 369) {
     const prices = {};
-    const promises = tokens.map(async (token) => {
-      const price = await this.getTokenPrice(token.symbol, token.contractAddress);
-      prices[token.symbol] = price;
-    });
     
-    await Promise.all(promises);
+    // Extrahiere Contract-Adressen
+    const contractAddresses = tokens
+      .filter(token => token.contractAddress && token.contractAddress !== 'native')
+      .map(token => token.contractAddress.toLowerCase());
+    
+    if (contractAddresses.length > 0) {
+      // Moralis Batch API
+      const priceMap = await this.fetchBatchPrices(contractAddresses, chainId);
+      
+      // Ordne Preise den Tokens zu
+      for (const token of tokens) {
+        const contractKey = token.contractAddress?.toLowerCase();
+        
+        if (contractKey && priceMap.has(contractKey)) {
+          prices[token.symbol] = priceMap.get(contractKey).price;
+        } else if (this.MINIMAL_FALLBACKS[token.symbol?.toUpperCase()]) {
+          prices[token.symbol] = this.MINIMAL_FALLBACKS[token.symbol.toUpperCase()];
+        } else {
+          prices[token.symbol] = 0;
+        }
+      }
+    } else {
+      // Nur Fallback-Preise verwenden
+      for (const token of tokens) {
+        prices[token.symbol] = this.MINIMAL_FALLBACKS[token.symbol?.toUpperCase()] || 0;
+      }
+    }
+    
+    console.log(`💰 Batch Prices: ${Object.keys(prices).length} tokens processed`);
     return prices;
   }
 
-  // 📈 Portfolio-Wert berechnen mit korrekten Preisen
+  // 📈 Portfolio-Wert berechnen mit Moralis-Preisen
   static calculatePortfolioValue(tokens, prices) {
     let totalValue = 0;
+    const valueBreakdown = [];
     
     for (const token of tokens) {
       const price = prices[token.symbol] || 0;
       const value = token.balance * price;
-      totalValue += value;
       
-      if (value > 0.01) { // Nur wertvolle Token loggen
-        console.log(`🪙 ${token.symbol}: ${token.balance.toFixed(4)} × $${price} = $${value.toFixed(2)}`);
+      if (value > 0) {
+        totalValue += value;
+        valueBreakdown.push({
+          symbol: token.symbol,
+          balance: token.balance,
+          price: price,
+          value: value,
+          percentage: 0 // Wird später berechnet
+        });
       }
     }
     
-    console.log(`💰 GESAMT PORTFOLIO-WERT: $${totalValue.toFixed(2)}`);
-    return totalValue;
+    // Berechne Prozentanteile
+    valueBreakdown.forEach(item => {
+      item.percentage = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+    });
+    
+    // Sortiere nach Wert
+    valueBreakdown.sort((a, b) => b.value - a.value);
+    
+    // Logging für wichtige Holdings
+    valueBreakdown.slice(0, 10).forEach(item => {
+      console.log(`🪙 ${item.symbol}: ${item.balance.toFixed(4)} × $${item.price.toFixed(6)} = $${item.value.toFixed(2)} (${item.percentage.toFixed(1)}%)`);
+    });
+    
+    console.log(`💰 GESAMT PORTFOLIO-WERT (MORALIS): $${totalValue.toFixed(2)}`);
+    
+    return {
+      totalValue: totalValue,
+      breakdown: valueBreakdown,
+      tokenCount: valueBreakdown.length
+    };
+  }
+
+  // 🛡️ Plausibilitätsprüfung für Preise
+  static validatePrice(price, tokenSymbol) {
+    if (!price || price <= 0) return false;
+    
+    // Prüfe auf unrealistisch hohe Preise (außer für bekannte wertvolle Tokens)
+    const expensiveTokens = ['WBTC', 'BTC', 'ETH', 'WETH'];
+    if (!expensiveTokens.includes(tokenSymbol?.toUpperCase()) && price > 10000) {
+      console.warn(`🚨 Suspicious high price blocked: ${tokenSymbol} = $${price}`);
+      return false;
+    }
+    
+    return true;
+  }
+
+  // 📊 Preis-Statistiken
+  static analyzeMarketData(tokens, prices) {
+    const stats = {
+      totalTokens: tokens.length,
+      tokensWithPrices: 0,
+      tokensWithoutPrices: 0,
+      avgPrice: 0,
+      highestPrice: 0,
+      lowestPrice: Infinity,
+      pricesSources: {
+        moralis: 0,
+        fallback: 0,
+        missing: 0
+      }
+    };
+    
+    let priceSum = 0;
+    
+    for (const token of tokens) {
+      const price = prices[token.symbol] || 0;
+      
+      if (price > 0) {
+        stats.tokensWithPrices++;
+        priceSum += price;
+        stats.highestPrice = Math.max(stats.highestPrice, price);
+        stats.lowestPrice = Math.min(stats.lowestPrice, price);
+        
+        // Bestimme Preis-Quelle
+        if (this.MINIMAL_FALLBACKS[token.symbol?.toUpperCase()]) {
+          stats.pricesSources.fallback++;
+        } else {
+          stats.pricesSources.moralis++;
+        }
+      } else {
+        stats.tokensWithoutPrices++;
+        stats.pricesSources.missing++;
+      }
+    }
+    
+    stats.avgPrice = stats.tokensWithPrices > 0 ? priceSum / stats.tokensWithPrices : 0;
+    if (stats.lowestPrice === Infinity) stats.lowestPrice = 0;
+    
+    console.log(`📊 Market Data Analysis:`, stats);
+    return stats;
   }
 }
 

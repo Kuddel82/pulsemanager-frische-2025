@@ -536,9 +536,9 @@ const TaxReportView = () => {
                             >
                               <ExternalLink className="h-4 w-4" />
                             </a>
-                            {tx.dexScreenerUrl && (
-                              <a
-                                href={tx.dexScreenerUrl}
+                                                    {tx.tokenExplorerUrl && (
+                          <a
+                            href={tx.tokenExplorerUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-green-500 hover:text-green-700"

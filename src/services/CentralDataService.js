@@ -28,8 +28,8 @@ export class CentralDataService {
   static PROXY_ENDPOINTS = {
     pulsechain: '/api/pulsechain',
     ethereum: '/api/moralis-tokens',
-    pulsewatch: '/api/moralis-prices', 
-    dexscreener: '/api/moralis-prices'
+    moralis_prices: '/api/moralis-prices',
+    moralis_tokens: '/api/moralis-tokens'
   };
 
   // 💰 MINIMAL FALLBACKS: Nur für native & Stablecoins (Multi-Chain)
@@ -56,10 +56,12 @@ export class CentralDataService {
     'WGEP': 0.00001       // WGEP minimal fallback
   };
 
-  // 🌐 ZUSÄTZLICHE API-ENDPUNKTE
-  static ADDITIONAL_PRICE_APIS = {
-    moralis: '/api/moralis-prices',
-    dexscreener: '/api/moralis-prices'
+  // 🌐 MORALIS API-ENDPUNKTE 
+  static MORALIS_ENDPOINTS = {
+    prices: '/api/moralis-prices',
+    tokens: '/api/moralis-tokens',
+    portfolio: '/api/moralis-portfolio',
+    transactions: '/api/moralis-transactions'
   };
 
   // 🎯 DRUCKER-CONTRACTS (für ROI-Erkennung)
@@ -105,15 +107,11 @@ export class CentralDataService {
   }
 
   /**
-   * 🔗 HELPER: DexScreener URL für verschiedene Chains
+   * 🔗 HELPER: Explorer URL für verschiedene Chains
    */
-  static getDexScreenerUrl(contractAddress, chainId) {
-    const chainNames = {
-      369: 'pulsechain',
-      1: 'ethereum'
-    };
-    const chainName = chainNames[chainId] || 'pulsechain';
-    return `https://dexscreener.com/${chainName}/${contractAddress}`;
+  static getExplorerUrl(contractAddress, chainId) {
+    const chainConfig = this.getChainConfig(chainId);
+    return `${chainConfig.explorerBase}/token/${contractAddress}`;
   }
 
   /**
@@ -168,9 +166,9 @@ export class CentralDataService {
       const tokenData = await this.loadRealTokenBalancesFixed(wallets);
       console.log(`🪙 FIXED: Loaded ${tokenData.tokens.length} tokens with total raw value $${tokenData.totalValue.toFixed(2)}`);
 
-      // 3. Lade echte Token-Preise von DexScreener (FIXED CONTRACT MATCHING)
-      const pricesData = await this.loadRealTokenPricesFixed(tokenData.tokens);
-      console.log(`💰 FIXED: Updated prices for ${pricesData.updatedCount} tokens`);
+      // 3. Lade echte Token-Preise von Moralis Enterprise (FIXED CONTRACT MATCHING)
+      const pricesData = await this.loadMoralisTokenPricesFixed(tokenData.tokens);
+      console.log(`💰 MORALIS: Updated prices for ${pricesData.updatedCount} tokens`);
 
       // 4. Aktualisiere Token-Werte mit echten Preisen (FIXED PRECISION)
       const updatedTokenData = this.updateTokenValuesWithRealPricesFixed(tokenData, pricesData);
@@ -378,10 +376,10 @@ export class CentralDataService {
   }
 
   /**
-   * 💰 MULTI-CHAIN LIVE-PREISE: DexScreener + MORALIS_ENTERPRISE für alle Chains
+   * 💰 MORALIS ENTERPRISE LIVE-PREISE: 100% Moralis für alle Chains
    */
-  static async loadRealTokenPricesFixed(tokens) {
-    console.log(`💰 MULTI-CHAIN PRICES: Loading prices for ${tokens.length} tokens`);
+  static async loadMoralisTokenPricesFixed(tokens) {
+    console.log(`💰 MORALIS ENTERPRISE: Loading prices for ${tokens.length} tokens`);
     
     const priceMap = new Map();
     let updatedCount = 0;
@@ -401,17 +399,17 @@ export class CentralDataService {
       }
     });
 
-    // 🌟 PRIORITY 1: DexScreener API für jede Chain separat
+    // 🔵 MORALIS ENTERPRISE: Preise für alle Chains
     for (const [chainId, chainTokens] of Object.entries(tokensByChain)) {
       if (chainTokens.length === 0) continue;
       
       const chainConfig = this.getChainConfig(parseInt(chainId));
       const contractAddresses = [...new Set(chainTokens.map(t => t.contractAddress.toLowerCase()))];
       
-      console.log(`🔗 ${chainConfig.name.toUpperCase()}: Fetching prices for ${contractAddresses.length} contracts`);
+      console.log(`🔵 MORALIS ${chainConfig.name.toUpperCase()}: Fetching prices for ${contractAddresses.length} contracts`);
 
       try {
-        const batchSize = 30; // DexScreener limit
+        const batchSize = 25; // Moralis limit
         
         for (let i = 0; i < contractAddresses.length; i += batchSize) {
           const batch = contractAddresses.slice(i, i + batchSize);
@@ -419,7 +417,7 @@ export class CentralDataService {
           
           try {
             const response = await fetch(
-              `"/api/moralis-prices"?endpoint=tokens&addresses=${addressParam}`
+              `/api/moralis-prices?endpoint=token-prices&addresses=${addressParam}&chain=${chainId}`
             );
             
             apiCalls++;
@@ -427,42 +425,42 @@ export class CentralDataService {
             if (response.ok) {
               const data = await response.json();
               
-              if (data.pairs && Array.isArray(data.pairs)) {
-                for (const pair of data.pairs) {
-                  if (pair.baseToken && pair.priceUsd) {
-                    const price = parseFloat(pair.priceUsd);
-                    const contractAddress = pair.baseToken.address.toLowerCase();
+              if (data.result && Array.isArray(data.result)) {
+                for (const tokenPrice of data.result) {
+                  if (tokenPrice.tokenAddress && tokenPrice.usdPrice > 0) {
+                    const price = parseFloat(tokenPrice.usdPrice);
+                    const contractAddress = tokenPrice.tokenAddress.toLowerCase();
                     
                     priceMap.set(contractAddress, price);
                     updatedCount++;
                     
-                    // Reduced logging frequency für weniger Console-Spam
-                    if (price > 0.01 || ['PLS', 'HEX', 'PLSX'].includes(pair.baseToken.symbol)) {
-                      console.log(`🟢 ${chainConfig.name.toUpperCase()}: ${pair.baseToken.symbol} = $${price.toFixed(6)}`);
+                    // Logging für wichtige Token
+                    if (price > 0.01 || ['PLS', 'HEX', 'PLSX'].includes(tokenPrice.tokenSymbol)) {
+                      console.log(`🔵 MORALIS ${chainConfig.name.toUpperCase()}: ${tokenPrice.tokenSymbol} = $${price.toFixed(6)}`);
                     }
                   }
                 }
               }
             }
           } catch (batchError) {
-            console.warn(`⚠️ DexScreener ${chainConfig.name} batch error:`, batchError.message);
+            console.warn(`⚠️ Moralis ${chainConfig.name} batch error:`, batchError.message);
           }
           
           // Rate limiting
           if (i + batchSize < contractAddresses.length) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 300)); // Moralis needs more time
           }
         }
       } catch (error) {
-        console.error(`💥 DexScreener ${chainConfig.name} API error:`, error);
+        console.error(`💥 Moralis ${chainConfig.name} API error:`, error);
       }
     }
 
-    // 🔵 PRIORITY 2: MORALIS_ENTERPRISE API für alle Chains (für fehlende Preise)
-    const allMissingTokens = [];
+    // Fallback für nicht gefundene Tokens
+    const stillMissingTokens = [];
     tokens.forEach(token => {
       if (token.contractAddress && !priceMap.has(token.contractAddress.toLowerCase())) {
-        allMissingTokens.push({
+        stillMissingTokens.push({
           contractAddress: token.contractAddress.toLowerCase(),
           chainId: token.chainId || 369,
           symbol: token.symbol
@@ -470,16 +468,13 @@ export class CentralDataService {
       }
     });
 
-    if (allMissingTokens.length > 0) {
-      console.log(`🔵 MORALIS_ENTERPRISE: Fetching ${allMissingTokens.length} missing prices from all chains`);
+    if (stillMissingTokens.length > 0) {
+      console.log(`🔵 MORALIS FALLBACK: Fetching ${stillMissingTokens.length} remaining prices individually`);
       
-      for (const tokenInfo of allMissingTokens.slice(0, 50)) { // Performance Limit
+      for (const tokenInfo of stillMissingTokens.slice(0, 50)) { // Performance Limit
         try {
-          const chainConfig = this.getChainConfig(tokenInfo.chainId);
-          const networkName = chainConfig.name.toLowerCase() === 'ethereum' ? 'eth' : 'pulsechain';
-          
           const response = await fetch(
-            `/api/moralis-prices?address=${tokenInfo.contractAddress}&chain=${tokenInfo.chainId}`
+            `/api/moralis-prices?endpoint=token-prices&addresses=${tokenInfo.contractAddress}&chain=${tokenInfo.chainId}`
           );
           
           apiCalls++;
@@ -487,17 +482,17 @@ export class CentralDataService {
           if (response.ok) {
             const data = await response.json();
             
-            if (data.data && data.data.attributes && data.data.attributes.price_usd) {
-              const price = parseFloat(data.data.attributes.price_usd);
+            if (data.result && data.result[0] && data.result[0].usdPrice > 0) {
+              const price = parseFloat(data.result[0].usdPrice);
               
               priceMap.set(tokenInfo.contractAddress, price);
               updatedCount++;
               
-              console.log(`🔵 MORALIS_ENTERPRISE ${chainConfig.name.toUpperCase()}: ${tokenInfo.symbol} = $${price}`);
+              console.log(`🔵 MORALIS FALLBACK: ${tokenInfo.symbol} = $${price.toFixed(6)}`);
             }
           }
         } catch (moralisError) {
-          // Silent fail für MORALIS_ENTERPRISE
+          // Silent fail für einzelne Token
         }
         
         // Rate limiting
@@ -518,12 +513,12 @@ export class CentralDataService {
       }
     }
 
-    console.log(`✅ LIVE PRICES COMPLETE: ${updatedCount} prices from ${apiCalls} API calls`);
+    console.log(`✅ MORALIS PRICES COMPLETE: ${updatedCount} prices from ${apiCalls} API calls`);
 
     return {
       priceMap,
       updatedCount,
-      source: 'live_prices_multi_api',
+      source: 'moralis_enterprise',
       apiCalls,
       timestamp: new Date().toISOString()
     };
@@ -546,10 +541,10 @@ export class CentralDataService {
       let price = 0;
       let priceSource = 'no_price';
       
-      // Priority 1: Live-Preise aus Price Map (DexScreener/MORALIS_ENTERPRISE)
+      // Priority 1: Live-Preise aus Price Map (Moralis Enterprise)
       if (priceMap.has(contractKey)) {
         price = priceMap.get(contractKey);
-        priceSource = 'live_api';
+        priceSource = 'moralis_live';
       }
       
       // ⚠️ STRIKTE VALIDIERUNG: Preis-Plausibilität prüfen (mit Whitelist)
@@ -591,7 +586,7 @@ export class CentralDataService {
         price: price,
         value: value,
         priceSource: priceSource,
-        hasReliablePrice: price > 0 && priceSource === 'live_api',
+        hasReliablePrice: price > 0 && priceSource === 'moralis_live',
         isIncludedInPortfolio: price > 0 && value >= 0.01, // Min $0.01 Wert
         
         // Zusätzliche Debug-Info
@@ -682,10 +677,10 @@ export class CentralDataService {
                 let price = 0;
                 let priceSource = 'no_price';
                 
-                // Priority 1: Live-Preise aus Price Map (DexScreener/MORALIS_ENTERPRISE)
+                // Priority 1: Live-Preise aus Price Map (Moralis Enterprise)
                 if (priceMap.has(contractKey)) {
                   price = priceMap.get(contractKey);
-                  priceSource = 'live_api';
+                  priceSource = 'moralis_live';
                   
                   // Plausibilitätsprüfung für ROI-Preise
                   if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(tx.tokenSymbol)) {
@@ -737,7 +732,7 @@ export class CentralDataService {
                   
                   // 🌐 DYNAMIC EXPLORER URLS
                   explorerUrl: `${chain.explorerBase}/tx/${tx.hash}`,
-                  dexScreenerUrl: this.getDexScreenerUrl(tx.contractAddress, chainId)
+                  tokenExplorerUrl: this.getExplorerUrl(tx.contractAddress, chainId)
                 };
                 
                 allTransactions.push(roiTx);
@@ -823,10 +818,10 @@ export class CentralDataService {
             let price = 0;
             let priceSource = 'no_price';
             
-            // Priority 1: Live-Preise aus Price Map
+            // Priority 1: Live-Preise aus Price Map (Moralis Enterprise)
             if (priceMap.has(contractKey)) {
               price = priceMap.get(contractKey);
-              priceSource = 'live_api';
+              priceSource = 'moralis_live';
               
               // Plausibilitätsprüfung
               if (price > 1000 && !['WETH', 'WBTC', 'BTC', 'ETH'].includes(tx.tokenSymbol)) {
@@ -881,7 +876,7 @@ export class CentralDataService {
               
               // 🌐 DYNAMIC EXPLORER URLS
               explorerUrl: `${chain.explorerBase}/tx/${tx.hash}`,
-              dexScreenerUrl: this.getDexScreenerUrl(tx.contractAddress, chainId),
+              tokenExplorerUrl: this.getExplorerUrl(tx.contractAddress, chainId),
               
               createdAt: new Date().toISOString()
             };

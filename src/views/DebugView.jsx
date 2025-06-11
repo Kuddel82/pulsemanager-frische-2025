@@ -72,17 +72,17 @@ const DebugView = () => {
         apiTests.pulsechain = { success: false, message: error.message };
       }
 
-      // Test DexScreener API
-      try {
-        const dsResponse = await fetch('/api/dexscreener-proxy?endpoint=tokens&addresses=0x2b591e99afe9f32eaa6214f7b7629768c40eeb39');
-        apiTests.dexscreener = {
-          success: dsResponse.ok,
-          status: dsResponse.status,
-          message: dsResponse.ok ? 'DexScreener API reachable' : 'DexScreener API error'
-        };
-      } catch (error) {
-        apiTests.dexscreener = { success: false, message: error.message };
-      }
+              // Test Moralis API
+        try {
+          const moralisResponse = await fetch('/api/moralis-prices?endpoint=token-prices&addresses=0x2b591e99afe9f32eaa6214f7b7629768c40eeb39&chain=369');
+          apiTests.moralis = {
+            success: moralisResponse.ok,
+            status: moralisResponse.status,
+            message: moralisResponse.ok ? 'Moralis API reachable' : 'Moralis API error'
+          };
+        } catch (error) {
+          apiTests.moralis = { success: false, message: error.message };
+        }
 
       results.apiTests = apiTests;
 
@@ -115,7 +115,7 @@ const DebugView = () => {
         };
         
         // Test real prices
-        const tokensWithRealPrices = portfolioData.tokens.filter(t => t.priceSource === 'dexscreener').length;
+                    const tokensWithRealPrices = portfolioData.tokens.filter(t => t.priceSource === 'moralis_live').length;
         dataQuality.realPrices = {
           success: tokensWithRealPrices > 0,
           count: tokensWithRealPrices,
@@ -302,7 +302,7 @@ const DebugView = () => {
                   <div className="flex items-center">
                     {getStatusIcon(
                       testResults.apiTests?.pulsechain?.success && 
-                      testResults.apiTests?.dexscreener?.success
+                      testResults.apiTests?.moralis?.success
                     )}
                     <span className="ml-2 font-bold">
                       {Object.values(testResults.apiTests || {}).filter(t => t.success).length}/
@@ -581,7 +581,7 @@ const DebugView = () => {
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline">#{index + 1}</Badge>
                         <span className="font-medium">{token.symbol}</span>
-                        <Badge variant={token.priceSource === 'dexscreener' ? 'default' : 
+                        <Badge variant={token.priceSource === 'moralis_live' ? 'default' : 
                                        token.priceSource === 'fallback' ? 'secondary' : 'destructive'}>
                           {token.priceSource}
                         </Badge>

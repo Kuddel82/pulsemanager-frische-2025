@@ -289,15 +289,15 @@ const PortfolioView = () => {
                       <Badge 
                         variant="outline"
                         className={`text-xs ${
-                          token.priceSource === 'dexscreener' ? 'border-green-400 text-green-400' : 
-                          token.priceSource === 'verified' ? 'border-blue-400 text-blue-400' :
-                          token.priceSource === 'blocked' ? 'border-red-400 text-red-400' :
+                          token.priceSource === 'moralis_live' ? 'border-green-400 text-green-400' : 
+                          token.priceSource === 'fallback_minimal' ? 'border-blue-400 text-blue-400' :
+                          token.priceSource?.includes('blocked') ? 'border-red-400 text-red-400' :
                           'border-gray-500 text-gray-500'
                         }`}
                       >
-                        {token.priceSource === 'dexscreener' ? '🟢 Live' : 
-                         token.priceSource === 'verified' ? '🔵 Verified' : 
-                         token.priceSource === 'blocked' ? '🔴 Blocked' :
+                        {token.priceSource === 'moralis_live' ? '🔵 Moralis' : 
+                         token.priceSource === 'fallback_minimal' ? '🟡 Fallback' : 
+                         token.priceSource?.includes('blocked') ? '🔴 Blocked' :
                          '⚪ Unknown'}
                       </Badge>
                     </td>
@@ -315,10 +315,11 @@ const PortfolioView = () => {
                         )}
                         {token.contractAddress && (
                           <a
-                            href={`https://dexscreener.com/pulsechain/${token.contractAddress}`}
+                            href={`https://scan.pulsechain.com/token/${token.contractAddress}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-green-400 hover:text-green-300"
+                            title="View on PulseChain Explorer"
                           >
                             <TrendingUp className="h-4 w-4" />
                           </a>

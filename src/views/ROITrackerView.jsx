@@ -404,9 +404,9 @@ const ROITrackerView = () => {
                         >
                           <ExternalLink className="h-3 w-3" />
                         </a>
-                        {tx.dexScreenerUrl && (
+                        {tx.tokenExplorerUrl && (
                           <a
-                            href={tx.dexScreenerUrl}
+                            href={tx.tokenExplorerUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-green-400 hover:text-green-300"
