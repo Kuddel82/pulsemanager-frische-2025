@@ -1,8 +1,8 @@
 // 🚀 MORALIS SDK INTEGRATION - Real Moralis SDK Objects  
 // Enterprise-grade APIs für PulseManager mit echtem Moralis SDK
 
-const Moralis = require("moralis").default;
-const { EvmChain } = require("@moralisweb3/common-evm-utils");
+import Moralis from "moralis";
+import { EvmChain } from "@moralisweb3/common-evm-utils";
 
 let moralisInitialized = false;
 
