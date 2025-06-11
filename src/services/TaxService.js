@@ -1,6 +1,7 @@
 /*
 📊 TAX SERVICE: Serverseitiges Caching + korrekte Steuerlogik
 Ziel: Unbegrenzte Transaktionen + DSGVO-konforme Steuerberichte
+FIXED: Nutzt jetzt korrekt vorhandene Moralis APIs
 */
 
 import { supabase } from "@/lib/supabaseClient";
@@ -8,9 +9,9 @@ import { supabase } from "@/lib/supabaseClient";
 export class TaxService {
   // 🔧 KONFIGURATION
   static CONFIG = {
-    MAX_TRANSACTIONS_PER_REQUEST: 10000,  // PulseChain API Limit
+    MAX_TRANSACTIONS_PER_REQUEST: 500,    // Moralis API Limit pro Request
     CACHE_EXPIRY_HOURS: 24,               // Cache-Gültigkeit
-    PAGINATION_SIZE: 1000,                // Batch-Größe für API-Aufrufe
+    PAGINATION_SIZE: 100,                 // Batch-Größe für API-Aufrufe
     MIN_TAX_VALUE_USD: 0.01               // Mindest-Wert für Steuerrelevanz
   };
 
@@ -26,15 +27,17 @@ export class TaxService {
       
       if (cachedData.isValid && cachedData.transactions.length > 0) {
         console.log(`✅ CACHE HIT: Found ${cachedData.transactions.length} cached transactions`);
-        return this.processTransactionsForTax(cachedData.transactions);
+        const taxData = this.processTransactionsForTax(cachedData.transactions);
+        taxData.fromCache = true; // Markiere als Cache-Hit
+        return taxData;
       }
       
-      console.log(`🔄 CACHE MISS: Loading fresh transaction data...`);
+      console.log(`🔄 CACHE MISS: Loading fresh transaction data via Moralis...`);
       
-      // 2. Lade ALLE Transaktionen von PulseChain API (paginiert)
-      const allTransactions = await this.loadAllTransactionsPaginated(wallets);
+      // 2. Lade ALLE Transaktionen von Moralis API (korrekt!)
+      const allTransactions = await this.loadAllTransactionsViaMoralis(wallets);
       
-      // 3. Preise für Transaktionen laden
+      // 3. Preise für Token laden (falls noch nicht vorhanden)
       const transactionsWithPrices = await this.enrichTransactionsWithPrices(allTransactions);
       
       // 4. In Supabase cachen
@@ -72,13 +75,44 @@ export class TaxService {
         return { isValid: false, transactions: [] };
       }
       
-      const transactions = data || [];
+      // Konvertiere Supabase Format zurück zu Standard Format
+      const transactions = (data || []).map(row => ({
+        walletId: row.wallet_id,
+        walletAddress: row.wallet_address,
+        txHash: row.tx_hash,
+        blockTimestamp: new Date(row.block_timestamp),
+        blockNumber: row.block_number,
+        
+        tokenSymbol: row.token_symbol,
+        tokenName: row.token_name,
+        contractAddress: row.contract_address,
+        tokenDecimal: row.token_decimal,
+        
+        from: row.from_address,
+        to: row.to_address,
+        
+        rawValue: row.raw_value,
+        amount: parseFloat(row.amount),
+        priceUSD: parseFloat(row.price_usd) || 0,
+        valueUSD: parseFloat(row.value_usd) || 0,
+        
+        isIncoming: row.is_incoming,
+        isROI: row.is_roi_transaction,
+        
+        gas: row.gas,
+        gasPrice: row.gas_price,
+        gasUsed: row.gas_used,
+        
+        source: row.source,
+        processedAt: new Date(row.processed_at)
+      }));
+      
       const isValid = transactions.length > 0;
       
       return {
         isValid,
         transactions,
-        cacheAge: isValid ? new Date() - new Date(transactions[0].created_at) : 0
+        cacheAge: isValid ? new Date() - new Date(data[0].created_at) : 0
       };
       
     } catch (error) {
@@ -88,89 +122,130 @@ export class TaxService {
   }
 
   /**
-   * 🔄 Lade ALLE Transaktionen paginiert (kein Limit!)
+   * 🔄 Lade ALLE Transaktionen via Moralis APIs (FIXED!)
    */
-  static async loadAllTransactionsPaginated(wallets) {
+  static async loadAllTransactionsViaMoralis(wallets) {
     const allTransactions = [];
     
     for (const wallet of wallets) {
-      console.log(`📡 Loading ALL transactions for wallet ${wallet.address}...`);
+      console.log(`📡 Loading transactions via Moralis for wallet ${wallet.address}...`);
       
-      let page = 1;
-      let hasMore = true;
-      let totalLoaded = 0;
-      
-      while (hasMore) {
-        try {
-          // PulseChain API mit Pagination
-          const response = await fetch(
-            `/api/pulsechain-proxy?address=${wallet.address}&action=tokentx&module=account&page=${page}&offset=${this.CONFIG.PAGINATION_SIZE}&sort=desc`
-          );
+      try {
+        // 🚀 Nutze MORALIS-TRANSACTIONS API (existiert!)
+        const response = await fetch(`/api/moralis-transactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: wallet.address,
+            chain: '0x171' // PulseChain hex
+          })
+        });
+        
+        if (!response.ok) {
+          console.warn(`⚠️ Moralis API Error for wallet ${wallet.address}: ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        
+        if (data.result && Array.isArray(data.result)) {
+          // Verarbeite Moralis Transaktionen zu Standard-Format
+          const processedTx = data.result.map(tx => ({
+            walletId: wallet.id,
+            walletAddress: wallet.address,
+            txHash: tx.hash,
+            blockTimestamp: new Date(tx.block_timestamp),
+            blockNumber: parseInt(tx.block_number),
+            
+            tokenSymbol: 'PLS', // Moralis-Transactions sind meist native
+            tokenName: 'PulseChain',
+            contractAddress: null, // Native token
+            tokenDecimal: 18,
+            
+            from: tx.from_address?.toLowerCase(),
+            to: tx.to_address?.toLowerCase(),
+            
+            // Native PLS Amount-Berechnung
+            rawValue: tx.value,
+            amount: this.calculateTokenAmount(tx.value, 18),
+            
+            // ROI-Erkennung für native PLS schwieriger
+            isIncoming: tx.to_address?.toLowerCase() === wallet.address.toLowerCase(),
+            isROI: false, // Für PLS schwer automatisch erkennbar
+            
+            gas: parseInt(tx.gas),
+            gasPrice: parseInt(tx.gas_price),
+            gasUsed: parseInt(tx.receipt_gas_used) || 0,
+            
+            // Preis-Daten später hinzufügen
+            priceUSD: 0,
+            valueUSD: 0,
+            
+            source: 'moralis_transactions',
+            processedAt: new Date()
+          }));
           
-          if (!response.ok) {
-            console.warn(`⚠️ API Error for wallet ${wallet.address} page ${page}: ${response.status}`);
-            break;
-          }
+          allTransactions.push(...processedTx);
+          console.log(`📊 Wallet ${wallet.address}: Loaded ${processedTx.length} native transactions`);
+        }
+        
+        // 🚀 Zusätzlich: TOKEN TRANSFERS laden
+        const tokenResponse = await fetch(`/api/moralis-token-transfers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: wallet.address,
+            chain: '0x171'
+          })
+        });
+        
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
           
-          const data = await response.json();
-          
-          if (data.status === '1' && Array.isArray(data.result) && data.result.length > 0) {
-            // Verarbeite Transaktionen
-            const processedTx = data.result.map(tx => ({
+          if (tokenData.result && Array.isArray(tokenData.result)) {
+            const tokenTransactions = tokenData.result.map(tx => ({
               walletId: wallet.id,
               walletAddress: wallet.address,
-              txHash: tx.hash,
-              blockTimestamp: new Date(parseInt(tx.timeStamp) * 1000),
-              blockNumber: parseInt(tx.blockNumber),
+              txHash: tx.transaction_hash,
+              blockTimestamp: new Date(tx.block_timestamp),
+              blockNumber: parseInt(tx.block_number),
               
-              tokenSymbol: tx.tokenSymbol || 'UNKNOWN',
-              tokenName: tx.tokenName || 'Unknown Token',
-              contractAddress: tx.contractAddress,
-              tokenDecimal: parseInt(tx.tokenDecimal) || 18,
+              tokenSymbol: tx.token_symbol || 'UNKNOWN',
+              tokenName: tx.token_name || 'Unknown Token',
+              contractAddress: tx.address,
+              tokenDecimal: parseInt(tx.token_decimals) || 18,
               
-              from: tx.from?.toLowerCase(),
-              to: tx.to?.toLowerCase(),
+              from: tx.from_address?.toLowerCase(),
+              to: tx.to_address?.toLowerCase(),
               
-              // Korrekte Amount-Berechnung
               rawValue: tx.value,
-              amount: this.calculateTokenAmount(tx.value, tx.tokenDecimal),
+              amount: this.calculateTokenAmount(tx.value, tx.token_decimals),
               
-              // ROI-Erkennung (Nulladresse = Minting)
-              isIncoming: tx.to?.toLowerCase() === wallet.address.toLowerCase(),
-              isROI: tx.from === '0x0000000000000000000000000000000000000000',
+              // ROI-Erkennung: Null-Adresse = Minting
+              isIncoming: tx.to_address?.toLowerCase() === wallet.address.toLowerCase(),
+              isROI: tx.from_address === '0x0000000000000000000000000000000000000000',
               
-              // Basis-Daten
-              gas: parseInt(tx.gas),
-              gasPrice: parseInt(tx.gasPrice),
-              gasUsed: parseInt(tx.gasUsed),
-              confirmations: parseInt(tx.confirmations),
+              gas: 0, // Token transfers haben eigene Gas-Kosten
+              gasPrice: 0,
+              gasUsed: 0,
               
-              // Verarbeitungsinfo
-              source: 'pulsechain_api',
+              priceUSD: 0,
+              valueUSD: 0,
+              
+              source: 'moralis_token_transfers',
               processedAt: new Date()
             }));
             
-            allTransactions.push(...processedTx);
-            totalLoaded += processedTx.length;
-            
-            console.log(`📊 Wallet ${wallet.address}: Page ${page} - ${processedTx.length} transactions (Total: ${totalLoaded})`);
-            
-            // Nächste Seite
-            page++;
-            
-            // Rate Limiting
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-          } else {
-            // Keine weiteren Transaktionen
-            hasMore = false;
-            console.log(`✅ Wallet ${wallet.address}: Completed - ${totalLoaded} total transactions`);
+            allTransactions.push(...tokenTransactions);
+            console.log(`📊 Wallet ${wallet.address}: Loaded ${tokenTransactions.length} token transfers`);
           }
-          
-        } catch (error) {
-          console.error(`💥 Error loading transactions for wallet ${wallet.address} page ${page}:`, error);
-          hasMore = false;
         }
+        
+        // Rate Limiting für Moralis
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (error) {
+        console.error(`💥 Error loading transactions for wallet ${wallet.address}:`, error);
       }
     }
     
@@ -179,36 +254,80 @@ export class TaxService {
   }
 
   /**
-   * 💰 Reichere Transaktionen mit Preisen an
+   * 💰 Reichere Transaktionen mit Preisen an (FIXED!)
    */
   static async enrichTransactionsWithPrices(transactions) {
     console.log(`💰 Enriching ${transactions.length} transactions with prices...`);
     
     // Gruppiere nach Contract-Adressen für effiziente Preis-Abfrage
-    const contractAddresses = [...new Set(transactions.map(tx => tx.contractAddress))];
+    const contractAddresses = [...new Set(
+      transactions
+        .filter(tx => tx.contractAddress) // nur Token, nicht native PLS
+        .map(tx => tx.contractAddress)
+    )];
+    
     const priceMap = new Map();
     
-    // Lade Preise für alle Contracts (vereinfacht)
-    for (const contractAddress of contractAddresses.slice(0, 100)) { // Limit für Performance
+    // 💰 Lade Preise via MORALIS-PRICES API (korrekte Parameter!)
+    if (contractAddresses.length > 0) {
       try {
-        const response = await fetch(
-                      `/api/moralis-prices?endpoint=token-prices&addresses=${contractAddress}&chain=369`
-        );
+        const response = await fetch(`/api/moralis-prices`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tokenAddresses: contractAddresses.slice(0, 25), // Batch-Limit
+            chain: '0x171'
+          })
+        });
         
         if (response.ok) {
           const data = await response.json();
-          if (data.pairs && data.pairs[0]?.priceUsd) {
-            priceMap.set(contractAddress.toLowerCase(), parseFloat(data.pairs[0].priceUsd));
+          if (data.success && data.prices) {
+            data.prices.forEach(priceData => {
+              if (priceData.tokenAddress && priceData.usdPrice) {
+                priceMap.set(priceData.tokenAddress.toLowerCase(), parseFloat(priceData.usdPrice));
+              }
+            });
           }
         }
       } catch (error) {
-        // Silent fail für Preise
+        console.warn('⚠️ Price loading failed:', error);
       }
+    }
+    
+    // Native PLS Preis separat laden
+    try {
+      const plsResponse = await fetch(`/api/moralis-prices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tokenAddresses: ['0x0000000000000000000000000000000000000000'], // Native
+          chain: '0x171'
+        })
+      });
+      
+      if (plsResponse.ok) {
+        const plsData = await plsResponse.json();
+        if (plsData.success && plsData.nativePrice) {
+          priceMap.set('native', parseFloat(plsData.nativePrice.usdPrice));
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ PLS price loading failed:', error);
     }
     
     // Berechne USD-Werte
     const enrichedTransactions = transactions.map(tx => {
-      const price = priceMap.get(tx.contractAddress?.toLowerCase()) || 0;
+      let price = 0;
+      
+      if (tx.contractAddress) {
+        // Token-Preis
+        price = priceMap.get(tx.contractAddress?.toLowerCase()) || 0;
+      } else {
+        // Native PLS
+        price = priceMap.get('native') || 0;
+      }
+      
       const valueUSD = price > 0 ? tx.amount * price : 0;
       
       return {
@@ -224,7 +343,7 @@ export class TaxService {
   }
 
   /**
-   * 💾 Cache Transaktionen in Supabase
+   * 💾 Cache Transaktionen in Supabase (FIXED Format!)
    */
   static async cacheTransactions(userId, transactions) {
     try {
@@ -237,11 +356,12 @@ export class TaxService {
         .eq("user_id", userId);
       
       // Batch-Insert neue Transaktionen
-      const batchSize = 1000;
+      const batchSize = 500; // Kleiner für Stabilität
       for (let i = 0; i < transactions.length; i += batchSize) {
         const batch = transactions.slice(i, i + batchSize).map(tx => ({
           user_id: userId,
           wallet_id: tx.walletId,
+          wallet_address: tx.walletAddress,
           tx_hash: tx.txHash,
           block_timestamp: tx.blockTimestamp.toISOString(),
           block_number: tx.blockNumber,
@@ -254,7 +374,7 @@ export class TaxService {
           from_address: tx.from,
           to_address: tx.to,
           
-          raw_value: tx.rawValue,
+          raw_value: tx.rawValue?.toString(),
           amount: tx.amount,
           price_usd: tx.priceUSD || 0,
           value_usd: tx.valueUSD || 0,
@@ -274,7 +394,7 @@ export class TaxService {
           .from("transactions_cache")
           .insert(batch);
         
-        if (error) {
+        if (error && error.code !== '23505') { // Ignoriere Duplikate
           console.warn(`⚠️ Cache batch ${i}-${i + batchSize} failed:`, error.code);
         }
       }

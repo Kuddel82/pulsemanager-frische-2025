@@ -41,7 +41,7 @@ const TaxReportView = () => {
   const [downloadingCSV, setDownloadingCSV] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
 
-  // 🚀 NEUER TAX SERVICE: Lade vollständige Transaktionshistorie
+  // 🚀 TAX SERVICE: Lade Wallets + vollständige Transaktionshistorie  
   const loadTaxData = async () => {
     if (!user?.id) return;
     
@@ -49,9 +49,9 @@ const TaxReportView = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 TAX REPORT: Loading with new TaxService...');
+      console.log('🔄 TAX REPORT: Loading with TaxService...');
       
-      // 1. Lade User-Wallets
+      // 1. Lade User-Wallets via CentralDataService (nur für Wallet-Liste)
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
       
       if (portfolioData.error) {
@@ -66,26 +66,29 @@ const TaxReportView = () => {
         return;
       }
       
-      // 2. NEUER TAX SERVICE: Unbegrenzte Transaktionen mit Caching
+      console.log(`📊 Loading tax data for ${wallets.length} wallets...`);
+      
+      // 2. TaxService für alle Transaction-Daten (mit Caching!)
       const fullTaxData = await TaxService.fetchFullTransactionHistory(user.id, wallets);
       
       setTaxData(fullTaxData);
       setLastUpdate(new Date());
       setCacheInfo({
-        totalLoaded: fullTaxData.allTransactions.length,
-        taxable: fullTaxData.taxableTransactions.length,
+        totalLoaded: fullTaxData.allTransactions?.length || 0,
+        taxable: fullTaxData.taxableTransactions?.length || 0,
         cacheHit: fullTaxData.fromCache || false
       });
       
-      console.log('✅ TAX REPORT: Full data loaded via TaxService', {
-        total: fullTaxData.allTransactions.length,
-        taxable: fullTaxData.taxableTransactions.length,
-        taxableIncomeUSD: fullTaxData.taxSummary.taxableIncomeUSD
+      console.log('✅ TAX REPORT: Data loaded successfully', {
+        total: fullTaxData.allTransactions?.length || 0,
+        taxable: fullTaxData.taxableTransactions?.length || 0,
+        taxableIncomeUSD: fullTaxData.taxSummary?.taxableIncomeUSD || '0.00',
+        fromCache: fullTaxData.fromCache
       });
       
     } catch (err) {
       console.error('💥 TAX REPORT ERROR:', err);
-      setError(err.message);
+      setError(`Fehler beim Laden der Steuerdaten: ${err.message}`);
     } finally {
       setLoading(false);
     }
