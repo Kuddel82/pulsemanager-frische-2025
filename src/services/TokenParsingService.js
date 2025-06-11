@@ -27,8 +27,8 @@ export class TokenParsingService {
       const contractAddress = token.contractAddress?.toLowerCase();
       const symbol = token.symbol?.toUpperCase();
       
-      // Raw Balance von Moralis (immer BigInt String)
-      const rawBalance = token.balance || '0';
+      // Raw Balance von Moralis (kann BigInt String oder bereits formatiert sein)
+      const rawBalance = token.balance || token.calculatedBalance || '0';
       
       // Decimals ermitteln
       let decimals = token.decimals || 18;
@@ -40,29 +40,56 @@ export class TokenParsingService {
         console.log(`🔧 KNOWN TOKEN: ${symbol} using ${decimals} decimals`);
       }
       
-      // 🔧 SICHERE Balance-Berechnung
-      const balanceBigInt = BigInt(rawBalance);
-      const divisor = BigInt(10 ** decimals);
-      const formattedBalance = Number(balanceBigInt) / Number(divisor);
+      // 🔧 SICHERE Balance-Berechnung - unterscheide zwischen BigInt String und bereits formatiert
+      let formattedBalance;
+      
+      if (typeof rawBalance === 'string' && rawBalance.includes('.')) {
+        // Bereits formatierte Dezimalzahl - direkt verwenden
+        formattedBalance = parseFloat(rawBalance);
+        console.log(`🔧 DECIMAL INPUT: ${symbol} using pre-formatted balance ${formattedBalance}`);
+      } else if (typeof rawBalance === 'number') {
+        // Bereits als Number - direkt verwenden
+        formattedBalance = rawBalance;
+        console.log(`🔧 NUMBER INPUT: ${symbol} using numeric balance ${formattedBalance}`);
+      } else {
+        // BigInt String - mit Decimals konvertieren
+        try {
+          const balanceBigInt = BigInt(rawBalance);
+          const divisor = BigInt(10 ** decimals);
+          formattedBalance = Number(balanceBigInt) / Number(divisor);
+          console.log(`🔧 BIGINT CONVERSION: ${symbol} converted from BigInt ${rawBalance} to ${formattedBalance}`);
+        } catch (bigIntError) {
+          // Fallback: Als Number parsen
+          formattedBalance = parseFloat(rawBalance) || 0;
+          console.warn(`⚠️ BIGINT FALLBACK: ${symbol} parsed as float: ${formattedBalance}`);
+        }
+      }
       
       // 🚨 SANITY CHECK: Extreme Werte abfangen (32k DAI Bug)
       if (formattedBalance > 1000000000) { // 1 Milliarde+
         console.warn(`⚠️ SUSPICIOUS BALANCE: ${symbol} has ${formattedBalance.toLocaleString()} tokens - likely parsing error`);
         
-        // Versuche alternative Decimals
-        const altDecimals = decimals + 6; // +6 Decimals versuchen
-        const altDivisor = BigInt(10 ** altDecimals);
-        const altBalance = Number(balanceBigInt) / Number(altDivisor);
+        // Versuche alternative Decimals nur bei BigInt Conversion
+        if (typeof rawBalance === 'string' && !rawBalance.includes('.')) {
+          try {
+            const altDecimals = decimals + 6; // +6 Decimals versuchen
+            const balanceBigInt = BigInt(rawBalance);
+            const altDivisor = BigInt(10 ** altDecimals);
+            const altBalance = Number(balanceBigInt) / Number(altDivisor);
         
-        if (altBalance < 1000000) {
-          console.log(`🔧 FIXED DECIMALS: ${symbol} corrected from ${formattedBalance} to ${altBalance} (${altDecimals} decimals)`);
-          return {
-            ...token,
-            balance: altBalance,
-            decimals: altDecimals,
-            _corrected: true,
-            _originalBalance: formattedBalance
-          };
+            if (altBalance < 1000000) {
+              console.log(`🔧 FIXED DECIMALS: ${symbol} corrected from ${formattedBalance} to ${altBalance} (${altDecimals} decimals)`);
+              return {
+                ...token,
+                balance: altBalance,
+                decimals: altDecimals,
+                _corrected: true,
+                _originalBalance: formattedBalance
+              };
+            }
+          } catch (altError) {
+            console.warn(`⚠️ ALT DECIMALS FAILED: ${symbol} could not fix with alternative decimals`);
+          }
         }
       }
       
