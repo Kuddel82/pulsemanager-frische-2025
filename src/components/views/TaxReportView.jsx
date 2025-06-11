@@ -173,7 +173,7 @@ const TaxReportView = () => {
               </tr>
             </thead>
             <tbody>
-              ${filteredTransactions.slice(0, 500).map(tx => `
+              ${filteredTransactions.map(tx => `
                 <tr>
                   <td>${formatDate(tx.blockTimestamp)}</td>
                   <td>${tx.tokenSymbol}</td>
@@ -491,7 +491,7 @@ const TaxReportView = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.slice(0, 100).map((tx, index) => (
+                  {filteredTransactions.map((tx, index) => (
                     <tr key={`${tx.txHash}-${index}`} className="border-b hover:bg-gray-50">
                       <td className="p-2 text-sm">
                         {formatDate(tx.blockTimestamp)}
