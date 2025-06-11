@@ -14,7 +14,6 @@ export async function GET(request) {
     const chain = searchParams.get('chain');
     const address = searchParams.get('address');
     const cursor = searchParams.get('cursor');
-    const limit = searchParams.get('limit');
 
     // 🔑 Moralis API Configuration
     const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
@@ -28,7 +27,7 @@ export async function GET(request) {
         result: [],
         total: 0,
         page: 0,
-        page_size: limit || 100,
+        page_size: 100,
         cursor: null,
         _fallback: {
           reason: 'moralis_api_key_not_configured',

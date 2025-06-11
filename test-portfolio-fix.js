@@ -5,7 +5,7 @@ const testWallet = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 
 console.log(`🔍 Testing wallet: ${testWallet}`);
 
-const testUrl = `https://kuddelmanager-git-main-pulse-manager-vip.vercel.app/api/moralis-tokens?endpoint=wallet-tokens&chain=0x1&address=${testWallet}&limit=5`;
+const testUrl = `https://kuddelmanager-git-main-pulse-manager-vip.vercel.app/api/moralis-tokens?endpoint=wallet-tokens&chain=0x1&address=${testWallet}`;
 
 fetch(testUrl)
   .then(response => {
