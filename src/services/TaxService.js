@@ -402,13 +402,7 @@ export class TaxService {
     try {
       console.log(`💾 Caching ${transactions.length} transactions for user ${userId}...`);
       
-      // Lösche alte Cache-Einträge
-      await supabase
-        .from("transactions_cache")
-        .delete()
-        .eq("user_id", userId);
-      
-      // Batch-Insert neue Transaktionen
+      // 🔧 FIXED: UPSERT statt DELETE + INSERT (vermeidet 409 Conflicts)
       const batchSize = 500; // Kleiner für Stabilität
       for (let i = 0; i < transactions.length; i += batchSize) {
         const batch = transactions.slice(i, i + batchSize).map(tx => ({
@@ -443,16 +437,22 @@ export class TaxService {
           processed_at: tx.processedAt.toISOString()
         }));
         
+        // 🔧 UPSERT statt INSERT - verhindert 409 Conflicts
         const { error } = await supabase
           .from("transactions_cache")
-          .insert(batch);
+          .upsert(batch, { 
+            onConflict: 'user_id,tx_hash',
+            ignoreDuplicates: false // Update bestehende Einträge
+          });
         
-        if (error && error.code !== '23505') { // Ignoriere Duplikate
-          console.warn(`⚠️ Cache batch ${i}-${i + batchSize} failed:`, error.code);
+        if (error) {
+          console.warn(`⚠️ Cache batch ${i}-${i + batchSize} failed:`, error.code, error.message);
+        } else {
+          console.log(`✅ Cache batch ${i}-${i + batchSize} saved successfully`);
         }
       }
       
-      console.log(`✅ Transaction caching complete`);
+      console.log(`✅ Transaction caching complete - 409 conflicts avoided!`);
       
     } catch (error) {
       console.warn('⚠️ Transaction caching failed:', error);

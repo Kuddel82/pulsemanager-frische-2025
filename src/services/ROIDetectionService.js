@@ -471,4 +471,47 @@ export class ROIDetectionService {
     if (defiResult.roiSources.length > 0) return 'conservative';
     return 'passive';
   }
+
+  /**
+   * 🎯 DETECT ROI SOURCES (Simplified wrapper for frontend compatibility)
+   * Wrapper um getCompleteROIAnalysis für einfachere ROI-Erkennung
+   */
+  static async detectROISources(address, chain = '1') {
+    try {
+      console.log(`🎯 Detecting ROI sources for ${address}`);
+      
+      const completeAnalysis = await this.getCompleteROIAnalysis(address, chain);
+      
+      if (!completeAnalysis.success) {
+        return {
+          success: false,
+          error: completeAnalysis.error,
+          sources: []
+        };
+      }
+      
+      // Extract ROI sources from complete analysis
+      const roiSources = completeAnalysis.roiAnalysis.defiROI.roiSources || [];
+      const activeSources = completeAnalysis.roiAnalysis.defiROI.activeSources || [];
+      
+      return {
+        success: true,
+        sources: roiSources,
+        activeSources: activeSources,
+        totalUnclaimedUSD: completeAnalysis.roiAnalysis.defiROI.totalUnclaimedUSD || 0,
+        totalDailyROI: completeAnalysis.roiAnalysis.defiROI.totalDailyROI || 0,
+        roiScore: completeAnalysis.roiScore || 0,
+        hasActiveROI: completeAnalysis.hasActiveROI || false,
+        source: 'roi_detection_wrapper'
+      };
+      
+    } catch (error) {
+      console.error('💥 detectROISources Error:', error);
+      return {
+        success: false,
+        error: error.message,
+        sources: []
+      };
+    }
+  }
 } 
