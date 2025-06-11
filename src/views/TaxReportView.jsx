@@ -586,7 +586,7 @@ const TaxReportView = () => {
         </div>
 
         {/* CSV Export Info */}
-        {portfolioData.taxTransactions?.length > 0 && (
+        {taxData?.taxableTransactions?.length > 0 && (
           <div className="pulse-card p-4 mt-6 border-l-4 border-green-400">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -594,7 +594,7 @@ const TaxReportView = () => {
                 <div className="text-sm">
                   <p className="font-medium pulse-text">CSV-Export verfügbar</p>
                   <p className="pulse-text-secondary">
-                    Alle {portfolioData.taxTransactions.length} Transaktionen können als CSV für die Steuererklärung exportiert werden.
+                    Alle {taxData.taxableTransactions.length} Transaktionen können als CSV für die Steuererklärung exportiert werden.
                   </p>
                 </div>
               </div>
