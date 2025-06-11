@@ -1,4 +1,4 @@
-// 🚀 MORALIS API PROXY - Professional Web3 Data Provider
+// 🚀 MORALIS API PROXY - Professional Web3 Data Provider (WITH FALLBACK)
 // Enterprise-grade APIs für PulseManager mit Rate Limiting & Fallbacks
 
 export default async function handler(req, res) {
@@ -22,13 +22,25 @@ export default async function handler(req, res) {
     const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
     const MORALIS_BASE_URL = process.env.MORALIS_BASE_URL || 'https://deep-index.moralis.io/api/v2.2';
 
+    // 🛡️ FALLBACK: If no Moralis API key, return empty results
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
-      console.warn('⚠️ MORALIS: API Key not configured, falling back to scan.pulsechain.com');
-      return res.status(503).json({ 
-        error: 'Moralis API not configured',
-        fallback: 'Use scan.pulsechain.com',
-        setup: 'Add MORALIS_API_KEY to .env file'
-      });
+      console.warn('⚠️ MORALIS TOKENS: API Key not configured - returning empty results');
+      
+      // Return empty results based on endpoint
+      const emptyResult = {
+        result: [],
+        total: 0,
+        page: 0,
+        page_size: limit || 100,
+        cursor: null,
+        _fallback: {
+          reason: 'moralis_api_key_not_configured',
+          message: 'Add MORALIS_API_KEY to environment for token data',
+          alternative: 'Use PulseChain Scanner API instead'
+        }
+      };
+      
+      return res.status(200).json(emptyResult);
     }
 
     // 🌐 Chain ID Mapping
@@ -124,15 +136,27 @@ export default async function handler(req, res) {
       }
 
       if (response.status === 401) {
-        return res.status(401).json({ 
-          error: 'Invalid API key',
-          message: 'Check your MORALIS_API_KEY in .env file'
+        // 🛡️ FALLBACK: Return empty result for auth errors
+        console.warn('⚠️ MORALIS AUTH ERROR - returning empty result');
+        return res.status(200).json({
+          result: [],
+          total: 0,
+          _fallback: {
+            reason: 'moralis_auth_error',
+            message: 'Check MORALIS_API_KEY configuration'
+          }
         });
       }
 
-      return res.status(response.status).json({ 
-        error: `Moralis API Error: ${response.status}`,
-        message: response.statusText 
+      // 🛡️ FALLBACK: For other errors, return empty result
+      return res.status(200).json({
+        result: [],
+        total: 0,
+        _error: {
+          status: response.status,
+          message: response.statusText,
+          fallback: 'Use alternative data source'
+        }
       });
     }
 
@@ -181,28 +205,16 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('💥 MORALIS PROXY ERROR:', error.message);
     
-    // Handle timeout errors
-    if (error.name === 'AbortError' || error.code === 'TIMEOUT') {
-      return res.status(408).json({ 
-        error: 'Request timeout',
-        message: 'Moralis API took too long to respond',
-        fallback: 'Try scan.pulsechain.com'
-      });
-    }
-
-    // Handle network errors
-    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      return res.status(503).json({ 
-        error: 'Service unavailable',
-        message: 'Moralis API is currently unavailable',
-        fallback: 'Use backup APIs'
-      });
-    }
-    
-    return res.status(500).json({ 
-      error: 'Proxy request failed',
-      message: error.message,
-      timestamp: new Date().toISOString()
+    // 🛡️ FALLBACK: Return empty result instead of errors
+    return res.status(200).json({
+      result: [],
+      total: 0,
+      _error: {
+        message: error.message,
+        endpoint: 'moralis-tokens',
+        timestamp: new Date().toISOString(),
+        fallback: 'Use alternative data source'
+      }
     });
   }
 } 
