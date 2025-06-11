@@ -111,6 +111,50 @@ export const useWalletConnect = () => {
     };
   };
 
+  // 🃏 Tangem Wallet Connection (NFC Hardware Cards)
+  const connectTangem = async () => {
+    // Check for Tangem SDK
+    if (!window.tangem) {
+      // Fallback: Manual address input for Tangem users
+      const address = prompt('Tangem Wallet-Adresse eingeben (nur read-only):');
+      if (address && address.startsWith('0x')) {
+        return {
+          address: address,
+          chainId: 369, // Default PulseChain
+          walletType: 'Tangem'
+        };
+      }
+      throw new Error('Tangem-Adresse ungültig oder nicht eingegeben.');
+    }
+    
+    try {
+      // Tangem SDK connection
+      const result = await window.tangem.scanCard();
+      
+      if (result.success && result.card?.wallets?.length > 0) {
+        // Use first wallet (usually Ethereum/EVM compatible)
+        const wallet = result.card.wallets.find(w => w.curve === 'secp256k1') || result.card.wallets[0];
+        
+        if (wallet?.publicKey) {
+          // Derive Ethereum address from public key
+          const address = wallet.address || `0x${wallet.publicKey.slice(-40)}`;
+          
+          return {
+            address: address,
+            chainId: 369, // Default PulseChain
+            walletType: 'Tangem'
+          };
+        }
+      }
+      
+      throw new Error('Tangem-Karte nicht gefunden oder ungültig');
+      
+    } catch (error) {
+      logger.error('💥 Tangem connection error:', error);
+      throw new Error(`Tangem-Verbindung fehlgeschlagen: ${error.message}`);
+    }
+  };
+
   // 📱 Generic Provider Detection (WalletConnect, Trust, etc.)
   const connectGenericProvider = async () => {
     // Try injected providers in order of preference
@@ -155,19 +199,22 @@ export const useWalletConnect = () => {
     try {
       let result;
       
-      switch (walletType.toLowerCase()) {
-        case 'metamask':
-          result = await connectMetaMask();
-          break;
-        case 'rabby':
-          result = await connectRabby();
-          break;
-        case 'trezor':
-          result = await connectTrezor();
-          break;
-        default:
-          result = await connectGenericProvider();
-      }
+             switch (walletType.toLowerCase()) {
+         case 'metamask':
+           result = await connectMetaMask();
+           break;
+         case 'rabby':
+           result = await connectRabby();
+           break;
+         case 'trezor':
+           result = await connectTrezor();
+           break;
+         case 'tangem':
+           result = await connectTangem();
+           break;
+         default:
+           result = await connectGenericProvider();
+       }
       
       if (result.address) {
         setConnectedAccount(result.address);
@@ -235,6 +282,10 @@ export const useWalletConnect = () => {
         return window.ethereum;
       case 'Rabby':
         return window.rabby;
+      case 'Tangem':
+        return window.tangem || window.ethereum; // Fallback to MetaMask if available
+      case 'Trezor':
+        return window.ethereum; // Trezor uses MetaMask provider usually
       case 'Trust':
         return window.trustwallet;
       case 'Coinbase':
@@ -252,6 +303,7 @@ export const useWalletConnect = () => {
   const supportedWallets = [
     { name: 'MetaMask', icon: '🦊', available: !!window.ethereum },
     { name: 'Rabby', icon: '🐰', available: !!window.rabby },
+    { name: 'Tangem', icon: '🃏', available: true }, // Always available (manual input + NFC)
     { name: 'Trezor', icon: '🔐', available: true }, // Always available (manual input)
     { name: 'Trust Wallet', icon: '📱', available: !!window.trustwallet },
     { name: 'Coinbase Wallet', icon: '🔵', available: !!window.coinbaseWalletExtension }
@@ -286,6 +338,6 @@ export const useWalletConnect = () => {
     
     // Security notice
     isReadOnly: true,
-    securityNotice: "🛡️ READ-ONLY: Nur Adresse lesen, keine Transaktionen möglich!"
+    securityNotice: "🛡️ READ-ONLY: Nur Adresse lesen, keine Transaktionen möglich! Unterstützt MetaMask🦊, Rabby🐰, Tangem🃏, Trezor🔐 und mehr!"
   };
 };
