@@ -1,7 +1,7 @@
 // 📊 PORTFOLIO VIEW - Zeigt Token-Holdings mit echten Preisen
 // Datum: 2025-01-08 - PHASE 3: ECHTE PREISE INTEGRATION
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import SmartLoadButton from '@/components/ui/SmartLoadButton';
 import { 
   RefreshCw, 
   DollarSign, 
@@ -21,122 +22,94 @@ import {
   EyeOff
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
-import CentralDataService from '@/services/CentralDataService';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePortfolioData } from '@/hooks/usePortfolioData';
 
 const PortfolioView = () => {
-  const { user } = useAuth();
-  const [portfolioData, setPortfolioData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  // 🚀 NEW: Smart Portfolio Hook mit Rate Limiting
+  const {
+    portfolioData,
+    loading,
+    error,
+    lastUpdate,
+    loadPortfolioData,
+    canRefresh,
+    remainingTime,
+    stats,
+    hasData,
+    isStale
+  } = usePortfolioData();
+
   const [showDebug, setShowDebug] = useState(false);
 
-  // Lade Portfolio-Daten
-  const loadPortfolio = async () => {
-    if (!user?.id) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('🔄 PORTFOLIO VIEW: Loading data...');
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
-      
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setPortfolioData(data);
-        setLastUpdate(new Date());
-        console.log('✅ PORTFOLIO VIEW: Data loaded', data);
-      }
-    } catch (err) {
-      console.error('💥 PORTFOLIO VIEW ERROR:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 🚀 SMART LOADING STATES - Zeige immer UI, auch beim ersten Load
+  const showEmptyState = !loading && !hasData;
+  const showErrorState = !loading && error && !hasData;
+  const showContent = hasData && portfolioData?.tokens?.length > 0;
 
-  // Initial load
-  useEffect(() => {
-    loadPortfolio();
-  }, [user?.id]);
-
-  // Auto-refresh every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(loadPortfolio, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="pulse-card p-8 text-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
-          <span className="text-lg pulse-text">Portfolio wird geladen...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
+  if (showErrorState) {
     return (
       <div className="min-h-screen bg-black p-6">
         <div className="pulse-card max-w-lg mx-auto p-6 text-center">
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden des Portfolios</h2>
-          <p className="pulse-text-secondary mb-4">{error}</p>
-          <Button onClick={loadPortfolio} className="bg-green-500 hover:bg-green-600">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Erneut versuchen
-          </Button>
+          <p className="pulse-text-secondary mb-6">{error}</p>
+          <SmartLoadButton
+            onLoad={loadPortfolioData}
+            loading={loading}
+            canRefresh={canRefresh}
+            remainingTime={remainingTime}
+            stats={stats}
+            buttonText="Erneut versuchen"
+          />
         </div>
       </div>
     );
   }
 
-  if (!portfolioData || portfolioData.tokens.length === 0) {
+  if (showEmptyState) {
     return (
       <div className="min-h-screen bg-black p-6">
         <div className="pulse-card max-w-lg mx-auto p-6 text-center">
           <Coins className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-          <h2 className="text-xl font-semibold mb-2 pulse-text">Keine Token gefunden</h2>
-          <p className="pulse-text-secondary mb-4">
-            {portfolioData?.wallets?.length === 0 
-              ? 'Fügen Sie zuerst Ihre Wallet-Adressen hinzu.'
-              : 'In Ihren Wallets wurden keine Token mit Wert gefunden.'
-            }
+          <h2 className="text-xl font-semibold mb-2 pulse-text">Portfolio noch nicht geladen</h2>
+          <p className="pulse-text-secondary mb-6">
+            Laden Sie Ihre Portfolio-Daten um Token-Holdings und Werte zu sehen.
           </p>
-          <Button onClick={loadPortfolio} className="bg-green-500 hover:bg-green-600">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Erneut laden
-          </Button>
+          <SmartLoadButton
+            onLoad={loadPortfolioData}
+            loading={loading}
+            canRefresh={canRefresh}
+            remainingTime={remainingTime}
+            stats={stats}
+            buttonText="Portfolio laden"
+            size="lg"
+          />
         </div>
       </div>
     );
   }
 
-  const stats = [
+  // 🛡️ SAFE STATS - Verhindere Crashes bei fehlenden Daten
+  const portfolioStats = portfolioData ? [
     {
       title: 'Gesamtwert',
-      value: formatCurrency(portfolioData.totalValue),
+      value: formatCurrency(portfolioData.totalValue || 0),
       icon: DollarSign,
       color: 'bg-green-500'
     },
     {
       title: 'Token',
-      value: portfolioData.tokenCount.toString(),
+      value: (portfolioData.tokenCount || 0).toString(),
       icon: Coins,
       color: 'bg-blue-500'
     },
     {
       title: 'Wallets',
-      value: portfolioData.walletCount.toString(),
+      value: (portfolioData.walletCount || 0).toString(),
       icon: TrendingUp,
       color: 'bg-purple-500'
     }
-  ];
+  ] : [];
 
   return (
     <div className="min-h-screen bg-black p-6">
@@ -146,11 +119,20 @@ const PortfolioView = () => {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold pulse-title">Portfolio Übersicht</h1>
-            <p className="pulse-text-secondary">
-              Echte PulseChain Token-Daten • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
-            </p>
+            <div className="flex items-center space-x-4 text-sm pulse-text-secondary">
+              <span>🚀 Smart Loading System</span>
+              {lastUpdate && (
+                <span>Letzte Aktualisierung: {lastUpdate.toLocaleTimeString('de-DE')}</span>
+              )}
+              {isStale && (
+                <Badge variant="outline" className="border-yellow-400 text-yellow-600">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Daten älter als 10 Min
+                </Badge>
+              )}
+            </div>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-3">
             <Button
               variant="outline"
               size="sm"
@@ -159,16 +141,25 @@ const PortfolioView = () => {
               {showDebug ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               Debug
             </Button>
-            <Button onClick={loadPortfolio} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Aktualisieren
-            </Button>
+            
+            {/* 🚀 NEW: Smart Load Button with Rate Limiting */}
+            <SmartLoadButton
+              onLoad={loadPortfolioData}
+              loading={loading}
+              canRefresh={canRefresh}
+              remainingTime={remainingTime}
+              lastUpdate={lastUpdate}
+              stats={stats}
+              buttonText="Aktualisieren"
+              showStats={true}
+            />
           </div>
         </div>
 
         {/* Portfolio Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {stats.map((stat, index) => (
+        {portfolioStats.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {portfolioStats.map((stat, index) => (
             <div key={index} className="pulse-card p-6">
               <div className="flex items-center">
                 <div className={`${stat.color} p-3 rounded-lg`}>
@@ -181,7 +172,8 @@ const PortfolioView = () => {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        )}
 
         {/* Debug Information */}
         {showDebug && portfolioData.debug && (
