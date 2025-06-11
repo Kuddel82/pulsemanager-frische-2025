@@ -110,7 +110,8 @@ export default async function handler(req, res) {
       
       const params = new URLSearchParams();
       params.append('chain', normalizedChain);
-      params.append('limit', Math.min(Math.max(parseInt(limit) || 100, 1), 100).toString());
+      // 🚀 VERCEL PRO: Erhöhe Limits für bessere Performance
+      params.append('limit', Math.min(Math.max(parseInt(limit) || 500, 1), 500).toString());
       
       if (cursor && typeof cursor === 'string' && cursor.length > 0) {
         params.append('cursor', cursor);
@@ -136,9 +137,9 @@ export default async function handler(req, res) {
     let responseText = '';
     
     try {
-      // Set a shorter timeout to prevent hanging
+      // 🚀 VERCEL PRO: Längerer Timeout für große Datenmengen
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 Sekunden für Pro
       
       response = await fetch(fullUrl, {
         method: 'GET',

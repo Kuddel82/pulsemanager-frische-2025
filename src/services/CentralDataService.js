@@ -640,6 +640,74 @@ export class CentralDataService {
   }
 
   /**
+   * 🚀 VERCEL PRO: Intelligent Batch Loading für große Wallets
+   */
+  static async loadLargeTransactionBatch(wallet, chain, limit = 5000, maxBatches = 5) {
+    const allTransfers = [];
+    let cursor = null;
+    let batchCount = 0;
+    
+    console.log(`🚀 VERCEL PRO BATCH: Loading up to ${limit * maxBatches} transfers for ${wallet.address}`);
+    
+    try {
+      while (batchCount < maxBatches) {
+        const requestBody = {
+          address: wallet.address,
+          chain: chain.moralisChainId || '0x171',
+          limit: limit
+        };
+        
+        if (cursor) {
+          requestBody.cursor = cursor;
+        }
+        
+        const apiResponse = await fetch('/api/moralis-token-transfers', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        let responseText = '';
+        let response = {};
+        try {
+          responseText = await apiResponse.text();
+          response = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`💥 BATCH ${batchCount + 1} PARSE ERROR:`, parseError.message);
+          break; // Stop loading more batches
+        }
+        
+        if (response.result && Array.isArray(response.result)) {
+          allTransfers.push(...response.result);
+          console.log(`✅ BATCH ${batchCount + 1}: Loaded ${response.result.length} transfers (Total: ${allTransfers.length})`);
+          
+          // Check if there are more results
+          if (response.cursor && response.result.length === limit) {
+            cursor = response.cursor;
+            batchCount++;
+          } else {
+            console.log(`🏁 BATCH COMPLETE: No more data available after ${batchCount + 1} batches`);
+            break;
+          }
+        } else {
+          console.log(`⚠️ BATCH ${batchCount + 1}: No results, stopping`);
+          break;
+        }
+        
+        // Small delay between batches to prevent overwhelming
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    } catch (error) {
+      console.error(`💥 BATCH LOADING ERROR:`, error.message);
+    }
+    
+    console.log(`🎯 VERCEL PRO BATCH COMPLETE: ${allTransfers.length} total transfers loaded`);
+    return allTransfers;
+  }
+
+  /**
    * 📊 100% MORALIS ENTERPRISE: ROI-Transaktionen von Moralis APIs (ENTERPRISE MODE)
    */
   static async loadROITransactionsMoralisOnly(wallets, priceMap) {
@@ -660,30 +728,49 @@ export class CentralDataService {
         // 🚀 100% MORALIS ENTERPRISE API
         console.log(`💎 USING MORALIS TRANSACTIONS API for ${chain.name}`);
         
-        // 🛡️ SAFE API CALL: Handle all possible errors
-        const apiResponse = await fetch('/api/moralis-token-transfers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            address: wallet.address,
-            chain: chain.moralisChainId || '0x171',
-            limit: 500
-          })
-        });
+        // 🚀 VERCEL PRO: Use intelligent batch loading for large wallets
+        console.log(`🔍 Trying batch loading for wallet ${wallet.address}...`);
+        
+        const batchedTransfers = await this.loadLargeTransactionBatch(wallet, chain, 2000, 3); // Max 6000 transfers
+        
+        // Transform batched results to expected format
+        if (batchedTransfers && batchedTransfers.length > 0) {
+          response = {
+            status: '1',
+            result: batchedTransfers.map(tx => ({
+              hash: tx.transaction_hash,
+              from: tx.from_address,
+              to: tx.to_address,
+              value: tx.value,
+              tokenSymbol: tx.token_symbol,
+              tokenName: tx.token_name,
+              contractAddress: tx.address,
+              blockNumber: tx.block_number,
+              timeStamp: Math.floor(new Date(tx.block_timestamp).getTime() / 1000).toString()
+            }))
+          };
+        } else {
+          // Fallback to simple API call
+          const apiResponse = await fetch('/api/moralis-token-transfers', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              address: wallet.address,
+              chain: chain.moralisChainId || '0x171',
+              limit: 2000
+            })
+          });
 
-        // 🔒 SAFE RESPONSE PARSING: Handle malformed JSON
-        let responseText = '';
-        try {
-          responseText = await apiResponse.text();
-          response = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error(`💥 MORALIS API RESPONSE PARSE ERROR for ${wallet.address}:`, parseError.message);
-          console.error(`💥 RAW RESPONSE (first 200 chars):`, responseText.slice(0, 200));
-          
-          // Continue with empty result - don't crash the entire portfolio loading
-          response = { success: false, result: [] };
+          let responseText = '';
+          try {
+            responseText = await apiResponse.text();
+            response = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error(`💥 MORALIS API RESPONSE PARSE ERROR for ${wallet.address}:`, parseError.message);
+            response = { success: false, result: [] };
+          }
         }
         
         // Transform Moralis response to match expected format
@@ -788,7 +875,7 @@ export class CentralDataService {
           body: JSON.stringify({
             address: wallet.address,
             chain: chain.moralisChainId || '0x171',
-            limit: 2000  // Higher limit for tax reporting
+            limit: 5000  // 🚀 VERCEL PRO: Noch mehr für Tax Reporting
           })
         });
 
