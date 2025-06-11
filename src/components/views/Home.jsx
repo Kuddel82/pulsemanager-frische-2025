@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { TrendingUp, Activity, Users, ExternalLink, RefreshCw, Download, FileText, Crown } from 'lucide-react';
+import { TrendingUp, Activity, Users, ExternalLink, RefreshCw, Download, FileText, Crown, Wallet } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
 import WalletManualInput from '@/components/WalletManualInput';
@@ -166,6 +166,22 @@ const Home = () => {
           });
           
           if (data.success || data.isLoaded) {
+            console.log('🎯 FRONTEND DEBUG: Portfolio data received:', {
+              success: data.success,
+              isLoaded: data.isLoaded,
+              totalValue: data.totalValue,
+              tokenCount: data.tokenCount,
+              walletCount: data.walletCount,
+              hasTokens: !!(data.tokens && data.tokens.length > 0),
+              hasWallets: !!(data.wallets && data.wallets.length > 0),
+              tokensWithBalance: data.tokens ? data.tokens.filter(t => t.balance > 0).length : 0,
+              firstToken: data.tokens && data.tokens[0] ? {
+                symbol: data.tokens[0].symbol,
+                balance: data.tokens[0].balance,
+                value: data.tokens[0].value
+              } : null
+            });
+            
             setPortfolioData(data);
             setLastUpdate(new Date());
             setLastRefresh(Date.now());
@@ -174,6 +190,11 @@ const Home = () => {
               console.log('✅ DASHBOARD AUTO-LOAD: Portfolio loaded from CACHE - 0 API calls used!');
             } else {
               console.log(`✅ DASHBOARD AUTO-LOAD: Portfolio loaded from APIs - ${data.apiCalls || 0} API calls used`);
+            }
+            
+            // 🚨 FRONTEND ALERT: Check if data is empty despite successful load
+            if ((data.totalValue === 0 || !data.tokenCount || data.tokenCount === 0) && (data.success || data.isLoaded)) {
+              console.warn('🚨 FRONTEND ALERT: Portfolio loaded successfully but has 0 value/tokens! Check token parsing.');
             }
           } else {
             console.warn('⚠️ DASHBOARD AUTO-LOAD: Portfolio could not be loaded:', data.error);
@@ -245,6 +266,48 @@ const Home = () => {
     } catch (error) {
       logger.error('Home: Error during logout:', error);
       
+    }
+  };
+
+  /**
+   * 🚨 EMERGENCY: Force Cache Clear + Fresh Load
+   */
+  const handleEmergencyCacheClear = async () => {
+    console.log('🚨 EMERGENCY CACHE CLEAR: Starting...');
+    setDashboardLoading(true);
+    
+    try {
+      // Clear all caches
+      await CentralDataService.clearAllCaches();
+      
+      // Clear local state
+      setPortfolioData(null);
+      setLastUpdate(null);
+      setLastRefresh(0);
+      
+      console.log('🧹 All caches cleared - loading fresh data...');
+      
+      // Force fresh load
+      const freshData = await CentralDataService.getPortfolioData(true, true); // forceRefresh = true, bypassCache = true
+      
+      if (freshData.success || freshData.isLoaded) {
+        console.log('✅ EMERGENCY RELOAD SUCCESS:', {
+          totalValue: freshData.totalValue,
+          tokenCount: freshData.tokenCount,
+          apiCalls: freshData.apiCalls
+        });
+        
+        setPortfolioData(freshData);
+        setLastUpdate(new Date());
+        setLastRefresh(Date.now());
+      } else {
+        console.error('❌ EMERGENCY RELOAD FAILED:', freshData.error);
+      }
+      
+    } catch (error) {
+      console.error('💥 EMERGENCY CACHE CLEAR ERROR:', error);
+    } finally {
+      setDashboardLoading(false);
     }
   };
 
@@ -347,7 +410,7 @@ const Home = () => {
       </div>
 
       {/* 🔄 Refresh Button mit Rate Limiting */}
-      <div className="flex justify-center mb-6">
+      <div className="flex justify-center items-center gap-4 mb-6">
         <button
           onClick={() => loadDashboardData()}
           disabled={dashboardLoading || refreshCooldown > 0}
@@ -358,8 +421,19 @@ const Home = () => {
            refreshCooldown > 0 ? `Warten (${refreshCooldown}s)` : 
            'Portfolio Aktualisieren'}
         </button>
+        
+        {/* 🚨 EMERGENCY CACHE CLEAR BUTTON */}
+        <button
+          onClick={handleEmergencyCacheClear}
+          disabled={dashboardLoading}
+          className="flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Notfall: Cache leeren + frische Daten laden"
+        >
+          🚨 Cache Clear
+        </button>
+        
         {refreshCooldown > 0 && (
-          <div className="ml-4 flex items-center text-sm text-orange-400">
+          <div className="flex items-center text-sm text-orange-400">
             ⏱️ Rate Limit: {refreshCooldown}s
           </div>
         )}

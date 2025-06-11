@@ -65,8 +65,8 @@ export class TokenParsingService {
         }
       }
       
-      // 🚨 EXTREME VALUE PROTECTION: Aggressivere Limits gegen Parsing-Fehler
-      if (formattedBalance > 100000000) { // 100 Million+ (deutlich niedrigeres Limit)
+      // 🚨 EXTREME VALUE PROTECTION: Schützt vor echten Parsing-Fehlern aber erlaubt hohe Supply Tokens
+      if (formattedBalance > 10000000000000) { // 10 Billionen+ (erlaubt mehr legitime high-supply Tokens)
         console.warn(`⚠️ SUSPICIOUS BALANCE: ${symbol} has ${formattedBalance.toLocaleString()} tokens - likely parsing error`);
         
         // Versuche alternative Decimals nur bei BigInt Conversion
@@ -150,17 +150,39 @@ export class TokenParsingService {
    static processPortfolioTokens(tokens) {
      const processedTokens = [];
      let corrections = 0;
+     let extremeValueZeroed = 0;
+     let totalOriginalValue = 0;
+     let totalProcessedValue = 0;
+     
+     console.log(`🔧 TOKEN PROCESSING START: Processing ${tokens.length} tokens`);
      
      for (const token of tokens) {
        try {
          // Parse Balance korrekt
          const parsedToken = this.parseTokenBalance(token);
          
+         // Track values for debugging
+         const originalBalance = token.balance || 0;
+         const processedBalance = parsedToken.balance || 0;
+         
+         totalOriginalValue += parseFloat(originalBalance) || 0;
+         totalProcessedValue += parseFloat(processedBalance) || 0;
+         
          processedTokens.push(parsedToken);
          
          if (parsedToken._corrected) {
            corrections++;
-           console.log(`🔧 CORRECTED: ${token.symbol} balance fixed from ${parsedToken._originalBalance} to ${parsedToken.balance}`);
+           if (parsedToken._correction?.includes('zeroed')) {
+             extremeValueZeroed++;
+             console.warn(`🚨 ZEROED TOKEN: ${token.symbol} was zeroed (${parsedToken._correction}), original: ${parsedToken._originalBalance}`);
+           } else {
+             console.log(`🔧 CORRECTED: ${token.symbol} balance fixed from ${parsedToken._originalBalance} to ${parsedToken.balance}`);
+           }
+         }
+         
+         // Log tokens with 0 balance for debugging
+         if (parsedToken.balance === 0 && originalBalance > 0) {
+           console.warn(`⚠️ ZERO BALANCE: ${token.symbol} went from ${originalBalance} to 0`);
          }
          
        } catch (error) {
@@ -176,14 +198,32 @@ export class TokenParsingService {
        }
      }
      
-     console.log(`🔧 TOKEN PROCESSING COMPLETE: ${processedTokens.length} tokens, ${corrections} corrections applied`);
+     console.log(`🔧 TOKEN PROCESSING COMPLETE:`, {
+       processed: processedTokens.length,
+       corrections: corrections,
+       extremeValueZeroed: extremeValueZeroed,
+       totalOriginalValue: totalOriginalValue.toLocaleString(),
+       totalProcessedValue: totalProcessedValue.toLocaleString(),
+       valueRetained: totalOriginalValue > 0 ? 
+         ((totalProcessedValue / totalOriginalValue) * 100).toFixed(1) + '%' : '0%',
+       tokensWithBalance: processedTokens.filter(t => t.balance > 0).length,
+       tokensZeroed: processedTokens.filter(t => t.balance === 0).length
+     });
+     
+     // 🚨 ALERT if too many tokens were zeroed
+     if (extremeValueZeroed > processedTokens.length * 0.5) {
+       console.error(`🚨 ALERT: ${extremeValueZeroed}/${processedTokens.length} tokens were zeroed! Token parsing might be too aggressive!`);
+     }
      
      return {
        tokens: processedTokens,
        corrections: corrections,
        stats: {
          processed: processedTokens.length,
-         corrected: corrections
+         corrected: corrections,
+         zeroed: extremeValueZeroed,
+         valueRetained: totalOriginalValue > 0 ? 
+           ((totalProcessedValue / totalOriginalValue) * 100).toFixed(1) + '%' : '0%'
        }
      };
    }

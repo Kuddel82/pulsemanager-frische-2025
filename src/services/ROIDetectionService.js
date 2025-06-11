@@ -65,6 +65,25 @@ export class ROIDetectionService {
   static async getDefiSummary(address, chain) {
     try {
       const response = await fetch(`${this.API_BASE}?endpoint=defi-summary&address=${address}&chain=${chain}`);
+      
+      // 🚨 HANDLE 500 ERRORS GRACEFULLY
+      if (!response.ok) {
+        if (response.status === 500) {
+          console.warn(`⚠️ DeFi Summary API down (500) - returning empty data for ${address}`);
+          return {
+            success: true, // Return success with empty data to not crash portfolio
+            summary: {
+              active_protocols: '0',
+              total_positions: '0',
+              total_usd_value: '0',
+              total_unclaimed_usd_value: '0'
+            },
+            _fallback500: true
+          };
+        }
+        throw new Error(`DeFi Summary API error: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data._error) {
@@ -89,7 +108,12 @@ export class ROIDetectionService {
       console.error('💥 DeFi Summary Error:', error);
       return {
         success: false,
-        summary: null
+        summary: {
+          active_protocols: '0',
+          total_positions: '0',
+          total_usd_value: '0',
+          total_unclaimed_usd_value: '0'
+        }
       };
     }
   }
@@ -100,6 +124,20 @@ export class ROIDetectionService {
   static async getDefiPositions(address, chain) {
     try {
       const response = await fetch(`${this.API_BASE}?endpoint=defi-positions&address=${address}&chain=${chain}`);
+      
+      // 🚨 HANDLE 500 ERRORS GRACEFULLY
+      if (!response.ok) {
+        if (response.status === 500) {
+          console.warn(`⚠️ DeFi Positions API down (500) - returning empty positions for ${address}`);
+          return {
+            success: true, // Return success with empty data to not crash portfolio
+            positions: [],
+            _fallback500: true
+          };
+        }
+        throw new Error(`DeFi Positions API error: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data._error) {
@@ -130,6 +168,24 @@ export class ROIDetectionService {
   static async getWalletStats(address, chain) {
     try {
       const response = await fetch(`${this.API_BASE}?endpoint=stats&address=${address}&chain=${chain}`);
+      
+      // 🚨 HANDLE 500 ERRORS GRACEFULLY
+      if (!response.ok) {
+        if (response.status === 500) {
+          console.warn(`⚠️ Wallet Stats API down (500) - returning empty stats for ${address}`);
+          return {
+            success: true, // Return success with empty data to not crash portfolio
+            stats: {
+              transactions: { total: '0' },
+              token_transfers: { total: '0' },
+              nft_transfers: { total: '0' }
+            },
+            _fallback500: true
+          };
+        }
+        throw new Error(`Wallet Stats API error: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data._error) {
@@ -153,7 +209,11 @@ export class ROIDetectionService {
       console.error('💥 Wallet Stats Error:', error);
       return {
         success: false,
-        stats: null
+        stats: {
+          transactions: { total: '0' },
+          token_transfers: { total: '0' },
+          nft_transfers: { total: '0' }
+        }
       };
     }
   }

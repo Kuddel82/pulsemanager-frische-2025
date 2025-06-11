@@ -495,7 +495,7 @@ export class CentralDataService {
         console.log(`🔧 DEBUG PATCH: Moralis response validation - ${moralisValid ? 'VALID' : 'INVALID'}`);
         
         if (!moralisValid) {
-          console.warn(`⚠️ DEBUG PATCH: Moralis response failed validation for wallet ${wallet.address}`);
+          console.warn(`⚠️ DEBUG PATCH: Moralis response failed validation for wallet ${wallet.address} - CONTINUING ANYWAY`);
         }
         
         // 🎉 BREAKTHROUGH: Handle REAL Moralis SDK Response Structure
