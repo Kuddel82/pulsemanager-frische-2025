@@ -248,6 +248,9 @@ export class CentralDataService {
       
       console.log(`🔍 ENTERPRISE: Loading tokens for wallet ${wallet.address} on ${chain.name}`);
       
+      // 🔍 PRE-FLIGHT DEBUG: Test API connectivity
+      console.log(`🧪 MORALIS API TEST: Testing connectivity for ${wallet.address.slice(0, 8)}...`);
+      
       try {
         let response;
         
