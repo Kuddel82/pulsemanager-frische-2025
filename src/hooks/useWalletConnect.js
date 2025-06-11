@@ -1,10 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { APP_TRANSLATIONS } from '@/config/appConfig'; 
 import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 // 🛡️ READ-ONLY WALLET CONNECTION - Nur Adresse lesen, KEINE Transaktionen!
 export const useWalletConnect = () => {
   logger.info("🛡️ READ-ONLY: useWalletConnect hook - Multi-Wallet Support aktiviert");
+  
+  const { user } = useAuth(); // Get current user for database operations
   
   const [language] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -36,6 +40,83 @@ export const useWalletConnect = () => {
     
     checkExistingConnections();
   }, []);
+
+  // 💾 Save wallet to Supabase database
+  const saveWalletToDatabase = async (address, walletType, chainId) => {
+    if (!user?.id) {
+      logger.warn('⚠️ No user logged in, skipping database save');
+      return;
+    }
+
+    try {
+      logger.info(`💾 Saving wallet to database: ${address.slice(0, 8)}... (${walletType})`);
+      
+      // Check if wallet already exists
+      const { data: existingWallet } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('address', address.toLowerCase())
+        .single();
+
+      if (existingWallet) {
+        // Update existing wallet
+        const { error } = await supabase
+          .from('wallets')
+          .update({
+            wallet_type: walletType,
+            chain_id: chainId,
+            is_active: true,
+            last_connected: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingWallet.id);
+
+        if (error) throw error;
+        logger.info(`✅ Updated existing wallet in database`);
+      } else {
+        // Insert new wallet
+        const { error } = await supabase
+          .from('wallets')
+          .insert({
+            user_id: user.id,
+            address: address.toLowerCase(),
+            wallet_type: walletType,
+            chain_id: chainId,
+            is_active: true,
+            last_connected: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+        logger.info(`✅ Saved new wallet to database`);
+      }
+    } catch (error) {
+      logger.error('💥 Error saving wallet to database:', error);
+      // Don't throw - wallet connection should still work
+    }
+  };
+
+  // 🗑️ Remove wallet from database
+  const removeWalletFromDatabase = async (address) => {
+    if (!user?.id || !address) return;
+
+    try {
+      logger.info(`🗑️ Removing wallet from database: ${address.slice(0, 8)}...`);
+      
+      const { error } = await supabase
+        .from('wallets')
+        .update({ is_active: false })
+        .eq('user_id', user.id)
+        .eq('address', address.toLowerCase());
+
+      if (error) throw error;
+      logger.info(`✅ Wallet removed from database`);
+    } catch (error) {
+      logger.error('💥 Error removing wallet from database:', error);
+    }
+  };
 
   // 🦊 MetaMask Connection
   const connectMetaMask = async () => {
@@ -199,22 +280,22 @@ export const useWalletConnect = () => {
     try {
       let result;
       
-             switch (walletType.toLowerCase()) {
-         case 'metamask':
-           result = await connectMetaMask();
-           break;
-         case 'rabby':
-           result = await connectRabby();
-           break;
-         case 'trezor':
-           result = await connectTrezor();
-           break;
-         case 'tangem':
-           result = await connectTangem();
-           break;
-         default:
-           result = await connectGenericProvider();
-       }
+      switch (walletType.toLowerCase()) {
+        case 'metamask':
+          result = await connectMetaMask();
+          break;
+        case 'rabby':
+          result = await connectRabby();
+          break;
+        case 'trezor':
+          result = await connectTrezor();
+          break;
+        case 'tangem':
+          result = await connectTangem();
+          break;
+        default:
+          result = await connectGenericProvider();
+      }
       
       if (result.address) {
         setConnectedAccount(result.address);
@@ -224,6 +305,9 @@ export const useWalletConnect = () => {
         // Save to localStorage for persistence
         localStorage.setItem('connectedWallet', result.walletType);
         localStorage.setItem('connectedAddress', result.address);
+        
+        // 💾 CRITICAL: Save to database for CentralDataService
+        await saveWalletToDatabase(result.address, result.walletType, result.chainId);
         
         setStatusMessage(`${result.walletType} verbunden! (Read-Only)`);
         
@@ -253,11 +337,16 @@ export const useWalletConnect = () => {
     } finally {
       setIsConnecting(false);
     }
-  }, [t]);
+  }, [t, user]);
 
   // 🔌 Disconnect Function
   const disconnectWallet = useCallback(async (showToast = true) => {
     logger.info("🔌 READ-ONLY: Disconnecting wallet...");
+    
+    // Remove from database
+    if (connectedAccount) {
+      await removeWalletFromDatabase(connectedAccount);
+    }
     
     setConnectedAccount(null);
     setWalletType(null);
@@ -273,7 +362,7 @@ export const useWalletConnect = () => {
     }
     
     logger.info("✅ READ-ONLY: Wallet disconnected successfully");
-  }, [t]);
+  }, [t, connectedAccount]);
 
   // 🔧 Get Provider (for reading data only)
   const getProvider = useCallback(() => {
