@@ -2,7 +2,7 @@
 // Simple REST API calls instead of expensive SDK
 // Datum: 2025-01-11 - COST REDUCTION: Pro Plan Compatible
 
-import fetch from 'node-fetch';
+// Note: Using native fetch API (available on Vercel/Node 18+)
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
