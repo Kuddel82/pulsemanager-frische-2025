@@ -85,6 +85,7 @@ const Sidebar = () => {
     subscriptionStatus,
     daysRemaining,
     allPublicViews: publicViewsConfig.map(v => ({ id: v.id, translationKey: v.translationKey, isSidebarLink: v.isSidebarLink })),
+    allProtectedViews: protectedViewsConfig.map(v => ({ id: v.id, translationKey: v.translationKey, isSidebarLink: v.isSidebarLink })),
     wgepTranslationExists: !!t.wgepViewTitle,
     wgepTranslationValue: t.wgepViewTitle,
     currentLanguage: language || 'unknown'
@@ -101,6 +102,13 @@ const Sidebar = () => {
         console.log(`ℹ️ SIDEBAR: View '${id}' excluded (isSidebarLink: false)`);
         return null;
       }
+      
+      // 🔥 FORCE WGEP ALWAYS VISIBLE!
+      if (id === 'wgep') {
+        console.log('🔥 FORCING WGEP TO BE VISIBLE!', view);
+        return view;
+      }
+      
       return view;
     })
     .filter(Boolean);
