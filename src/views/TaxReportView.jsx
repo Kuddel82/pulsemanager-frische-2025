@@ -23,7 +23,8 @@ import {
   EyeOff,
   Filter,
   Database,
-  Clock
+  Clock,
+  Globe
 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
@@ -40,6 +41,17 @@ const TaxReportView = () => {
   const [filterCategory, setFilterCategory] = useState('all'); // all, taxable, purchases, sales
   const [downloadingCSV, setDownloadingCSV] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
+  
+  // 🚀 NEW: Moralis + DEXScreener Integration
+  const [moralisLoading, setMoralisLoading] = useState(false);
+  const [moralisData, setMoralisData] = useState(null);
+  const [ungepaarteTokens, setUngepaarteTokens] = useState([]);
+  const [lastMoralisUpdate, setLastMoralisUpdate] = useState(null);
+  const [editingToken, setEditingToken] = useState(null);
+  
+  // 🛡️ Rate Limiting für Moralis/DEXScreener calls
+  const [canLoadMoralis, setCanLoadMoralis] = useState(true);
+  const [remainingTime, setRemainingTime] = useState(0);
 
   // 🚀 TAX SERVICE: Lade Wallets + vollständige Transaktionshistorie  
   const loadTaxData = async () => {
@@ -105,6 +117,94 @@ const TaxReportView = () => {
       setError(`Fehler beim Laden der Steuerdaten: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🚀 NEUE FUNKTION: Moralis + DEXScreener Integration
+  const loadMoralisData = async () => {
+    if (!user?.id || !canLoadMoralis) return;
+    
+    try {
+      setMoralisLoading(true);
+      setError(null);
+      
+      console.log('🔄 TAX REPORT: Loading Moralis + DEXScreener data...');
+      
+      // 1. Lade User-Wallets
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
+      const wallets = portfolioData?.wallets || [];
+      
+      if (wallets.length === 0) {
+        setError('Keine Wallets gefunden für Moralis-Preisfindung');
+        return;
+      }
+      
+      // 2. Verwende erste PulseChain-Wallet für Tax Report
+      const pulseWallet = wallets.find(w => w.chain_id === 369) || wallets[0];
+      
+      console.log(`📊 Loading Moralis tax data for wallet: ${pulseWallet.address}`);
+      
+      // 3. Rufe neue Tax Report API auf
+      const response = await fetch(`/api/tax-report?wallet=${pulseWallet.address}&chain=pulsechain&limit=200`);
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Tax Report API Fehler');
+      }
+      
+      setMoralisData(data);
+      setUngepaarteTokens(data.ungepaarteTokens || []);
+      setLastMoralisUpdate(new Date());
+      
+      console.log('✅ MORALIS TAX DATA:', {
+        transactions: data.transactionCount,
+        ungepaarteTokens: data.ungepaarteCount,
+        apiCalls: data.apiUsage?.totalCalls || 0,
+        steuerpflichtig: data.statistics?.steuerpflichtigeTransaktionen || 0
+      });
+      
+      // Rate limiting - 5 Minuten zwischen calls
+      setCanLoadMoralis(false);
+      setRemainingTime(300); // 5 Minuten
+      
+      const timer = setInterval(() => {
+        setRemainingTime(prev => {
+          if (prev <= 1) {
+            setCanLoadMoralis(true);
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+    } catch (err) {
+      console.error('💥 MORALIS TAX ERROR:', err);
+      setError(`Moralis-Fehler: ${err.message}`);
+    } finally {
+      setMoralisLoading(false);
+    }
+  };
+
+  // 💰 Manual Price Update for ungepaarte tokens
+  const updateTokenPrice = async (tokenIndex, manualPrice) => {
+    if (!ungepaarteTokens[tokenIndex] || !manualPrice) return;
+    
+    try {
+      const updatedTokens = [...ungepaarteTokens];
+      updatedTokens[tokenIndex] = {
+        ...updatedTokens[tokenIndex],
+        manualPrice: parseFloat(manualPrice),
+        valueEUR: updatedTokens[tokenIndex].amount * parseFloat(manualPrice) * 0.92, // EUR conversion
+        source: 'manual_user_input'
+      };
+      
+      setUngepaarteTokens(updatedTokens);
+      setEditingToken(null);
+      
+      console.log(`✅ Manual price updated for ${updatedTokens[tokenIndex].token}: $${manualPrice}`);
+    } catch (error) {
+      console.error('💥 Manual price update error:', error);
     }
   };
 
@@ -299,6 +399,17 @@ const TaxReportView = () => {
               <Download className={`h-4 w-4 mr-2 ${downloadingCSV ? 'animate-spin' : ''}`} />
               CSV Export
             </Button>
+            <Button 
+              onClick={loadMoralisData} 
+              disabled={moralisLoading || !canLoadMoralis}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              <Globe className={`h-4 w-4 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
+              {moralisLoading ? 'Lade Preise...' : 'Moralis Preise'}
+              {!canLoadMoralis && (
+                <span className="ml-2 text-xs">({Math.floor(remainingTime / 60)}:{(remainingTime % 60).toString().padStart(2, '0')})</span>
+              )}
+            </Button>
             <Button onClick={loadTaxData} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Aktualisieren
@@ -335,15 +446,59 @@ const TaxReportView = () => {
               Klicken Sie hier um Ihre Transaktionshistorie für die Steuerberechnung zu laden.<br/>
               <span className="text-green-400">✅ Kostenoptimiert - nur bei Bedarf</span>
             </p>
-            <Button 
-              onClick={loadTaxData} 
-              className="bg-green-500 hover:bg-green-600"
-              size="lg"
-              disabled={loading}
-            >
-              <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Steuerdaten jetzt laden
-            </Button>
+            <div className="flex gap-4 justify-center">
+              <Button 
+                onClick={loadTaxData} 
+                className="bg-green-500 hover:bg-green-600"
+                size="lg"
+                disabled={loading}
+              >
+                <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Steuerdaten laden
+              </Button>
+              <Button 
+                onClick={loadMoralisData} 
+                className="bg-blue-500 hover:bg-blue-600"
+                size="lg"
+                disabled={moralisLoading || !canLoadMoralis}
+              >
+                <Globe className={`h-5 w-5 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
+                Mit Moralis Preisen
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 💰 MORALIS DATA SUMMARY */}
+        {moralisData && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-blue-500">
+            <h3 className="text-lg font-bold pulse-text mb-4 flex items-center">
+              <Globe className="h-5 w-5 mr-2 text-blue-400" />
+              Moralis + DEXScreener Analyse
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">{moralisData.transactionCount}</div>
+                <div className="text-sm pulse-text-secondary">Transaktionen</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">{moralisData.statistics?.steuerpflichtigeTransaktionen || 0}</div>
+                <div className="text-sm pulse-text-secondary">Steuerpflichtig</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-400">{moralisData.ungepaarteCount}</div>
+                <div className="text-sm pulse-text-secondary">Ungepaarte Tokens</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-400">{moralisData.apiUsage?.totalCalls || 0}</div>
+                <div className="text-sm pulse-text-secondary">API Calls</div>
+              </div>
+            </div>
+            {lastMoralisUpdate && (
+              <div className="text-xs pulse-text-secondary mt-2">
+                Letzte Aktualisierung: {lastMoralisUpdate.toLocaleString('de-DE')}
+              </div>
+            )}
           </div>
         )}
 
@@ -608,6 +763,129 @@ const TaxReportView = () => {
               </div>
             )}
         </div>
+
+        {/* 🚫 UNGEPAARTE TOKENS - SEPARATE SPALTE */}
+        {ungepaarteTokens.length > 0 && (
+          <div className="pulse-card p-6 mt-6">
+            <h3 className="text-lg font-bold pulse-text mb-4 flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-orange-400" />
+              Ungepaarte Tokens ({ungepaarteTokens.length})
+              <Badge className="ml-2 bg-orange-500">Preise manuell vervollständigen</Badge>
+            </h3>
+            <p className="pulse-text-secondary mb-4">
+              Diese Tokens wurden nicht in Moralis oder DEXScreener gefunden. 
+              Geben Sie manuell Preise ein oder nutzen Sie andere Quellen.
+            </p>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="text-left py-3 px-2 pulse-text-secondary">Token</th>
+                    <th className="text-right py-3 px-2 pulse-text-secondary">Menge</th>
+                    <th className="text-left py-3 px-2 pulse-text-secondary">Datum</th>
+                    <th className="text-center py-3 px-2 pulse-text-secondary">Typ</th>
+                    <th className="text-right py-3 px-2 pulse-text-secondary">Preis (USD)</th>
+                    <th className="text-right py-3 px-2 pulse-text-secondary">Wert (EUR)</th>
+                    <th className="text-center py-3 px-2 pulse-text-secondary">Steuerpflichtig</th>
+                    <th className="text-center py-3 px-2 pulse-text-secondary">Aktion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ungepaarteTokens.map((token, index) => (
+                    <tr key={index} className="border-b border-white/5 hover:bg-white/5">
+                      <td className="py-3 px-2">
+                        <div>
+                          <div className="font-medium pulse-text">{token.token}</div>
+                          <div className="text-xs pulse-text-secondary font-mono">
+                            {token.tokenAddress?.slice(0, 8)}...{token.tokenAddress?.slice(-6)}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        <div className="font-mono pulse-text">
+                          {token.amount.toFixed(6)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-2">
+                        <div className="text-sm pulse-text">
+                          {new Date(token.date).toLocaleDateString('de-DE')}
+                        </div>
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        <Badge 
+                          variant={token.type === 'ROI' ? 'default' : 
+                                  token.type === 'Verkauf' ? 'destructive' : 'secondary'}
+                        >
+                          {token.type}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        {editingToken === index ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              step="0.000001"
+                              placeholder="0.00"
+                              className="w-24 px-2 py-1 bg-white/10 border border-white/20 rounded text-sm pulse-text"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  updateTokenPrice(index, e.target.value);
+                                } else if (e.key === 'Escape') {
+                                  setEditingToken(null);
+                                }
+                              }}
+                              autoFocus
+                            />
+                          </div>
+                        ) : (
+                          <div className="font-mono">
+                            {token.manualPrice ? 
+                              `$${token.manualPrice.toFixed(6)}` : 
+                              <span className="text-red-400">Kein Preis</span>
+                            }
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        <div className="font-bold">
+                          {token.valueEUR > 0 ? 
+                            `€${token.valueEUR.toFixed(2)}` : 
+                            <span className="text-gray-500">-</span>
+                          }
+                        </div>
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        <Badge variant={token.steuerpflichtig ? 'destructive' : 'secondary'}>
+                          {token.steuerpflichtig ? 'Ja' : 'Nein'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingToken(editingToken === index ? null : index)}
+                        >
+                          {editingToken === index ? 'Abbrechen' : 'Preis eingeben'}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-400/20 rounded-lg">
+              <h4 className="font-medium pulse-text mb-2">💡 Preisfindung-Tipps:</h4>
+              <ul className="text-sm pulse-text-secondary space-y-1">
+                <li>• <strong>CoinGecko/CoinMarketCap:</strong> Für etablierte Tokens</li>
+                <li>• <strong>DEXTools/DexScreener:</strong> Für neue PulseChain-Tokens</li>
+                <li>• <strong>PulseX/9mm:</strong> Für lokale PulseChain-Preise</li>
+                <li>• <strong>0 eingeben:</strong> Für wertlose/Spam-Tokens</li>
+              </ul>
+            </div>
+          </div>
+        )}
 
         {/* CSV Export Info */}
         {taxData?.taxableTransactions?.length > 0 && (
