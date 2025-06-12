@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle, Eye, EyeOff, Printer } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/contexts/AuthContext';
@@ -159,7 +159,17 @@ const Sidebar = () => {
   publicViewsConfig.forEach(v => allViewsMap.set(v.id, v));
   protectedViewsConfig.forEach(v => allViewsMap.set(v.id, v));
 
-  // 🎯 SIMPLIFIED: Main menu items in correct order - KORRIGIERT FÜR NEUES BUSINESS MODEL
+  // 🚨 EMERGENCY FIX: WGEP BUTTON EXPLIZIT HINZUFÜGEN
+  // Da die View-Config Logic eventuell Probleme macht, fügen wir WGEP direkt hinzu
+  const EMERGENCY_WGEP_ITEM = {
+    id: 'wgep',
+    icon: Printer,
+    translationKey: 'wgepViewTitle',
+    name: 'WGEP',
+    isSidebarLink: true
+  };
+
+  // 🎯 SIMPLIFIED: Main menu items in correct order - KORRIGIERT FÜR NEUES BUSINESS MODEL + EMERGENCY WGEP
   const mainMenuItems = [
     'dashboard',     // Portfolio - 3-TAGE TRIAL → Premium
     'wallets',       // Wallets - 3-TAGE TRIAL → Premium
@@ -167,7 +177,7 @@ const Sidebar = () => {
     'taxReport',     // Tax Report - PREMIUM ONLY
     'tokenTrade',    // Token Trade - 3-TAGE TRIAL → Premium
     'bridge',        // Bridge - 3-TAGE TRIAL → Premium
-    'wgep',          // WGEP - 3-TAGE TRIAL → Premium
+    'wgep',          // WGEP - 3-TAGE TRIAL → Premium ⚠️ PROBLEM HIER!
     'settings'       // Settings - 3-TAGE TRIAL → Premium
   ];
 
@@ -176,6 +186,8 @@ const Sidebar = () => {
     subscriptionStatus,
     daysRemaining,
     totalViews: allViewsMap.size,
+    wgepInMap: allViewsMap.has('wgep'),
+    wgepView: allViewsMap.get('wgep')
   });
 
   const sidebarViewConfigs = mainMenuItems
@@ -183,15 +195,31 @@ const Sidebar = () => {
       const view = allViewsMap.get(id);
       if (!view) {
         console.warn(`⚠️ SIDEBAR: View '${id}' not found in config`);
+        
+        // 🚨 EMERGENCY: Wenn WGEP nicht gefunden wird, füge es manuell hinzu
+        if (id === 'wgep') {
+          console.log('🚨 EMERGENCY: Adding WGEP manually');
+          return EMERGENCY_WGEP_ITEM;
+        }
+        
         return null;
       }
       return view;
     })
     .filter(Boolean);
 
-  console.log('✅ SIDEBAR: Final sidebar views:', sidebarViewConfigs.map(v => ({ id: v.id, translationKey: v.translationKey })));
+  console.log('✅ SIDEBAR: Final sidebar views:', sidebarViewConfigs.map(v => ({ id: v.id, translationKey: v.translationKey, name: v.name })));
+
+  // 🚨 EMERGENCY CHECK: Stelle sicher dass WGEP in der Liste ist
+  const hasWGEP = sidebarViewConfigs.some(v => v.id === 'wgep');
+  if (!hasWGEP) {
+    console.error('🚨 CRITICAL: WGEP still missing, adding manually!');
+    sidebarViewConfigs.splice(6, 0, EMERGENCY_WGEP_ITEM); // Füge an Position 6 ein
+  }
 
   const displayableSidebarItems = sidebarViewConfigs;
+
+  console.log('🚨 FINAL SIDEBAR ITEMS:', displayableSidebarItems.map(v => v.id));
 
   return (
     <div className="flex">
