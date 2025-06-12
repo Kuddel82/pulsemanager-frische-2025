@@ -81,15 +81,65 @@ const Sidebar = () => {
     t
   } = useAppContext();
 
-  // 🎯 BUSINESS LOGIC - Feature Access Check
-  const checkFeatureAccess = (featureId) => {
-    return getFeatureAccess(featureId, user, subscriptionStatus, daysRemaining);
+  // 🎯 KORRIGIERTE FEATURE ACCESS CHECK - KEIN FREE FOREVER!
+  const getFeatureStatus = (viewId) => {
+    const access = getFeatureAccess(viewId, user, subscriptionStatus, daysRemaining);
+    
+    if (!user) {
+      return {
+        ...access,
+        iconClass: 'text-red-500',
+        badge: '🔐 Registrierung',
+        disabled: true
+      };
+    }
+
+    if (access.access) {
+      if (access.reason === 'premium') {
+        return {
+          ...access,
+          iconClass: 'text-green-500',
+          badge: '👑 Premium',
+          disabled: false
+        };
+      } else if (access.reason === 'trial') {
+        return {
+          ...access,
+          iconClass: 'text-blue-500',
+          badge: `⏰ ${access.daysLeft} Tag${access.daysLeft !== 1 ? 'e' : ''} verbleibend`,
+          disabled: false
+        };
+      }
+    } else {
+      if (access.reason === 'premium_required') {
+        return {
+          ...access,
+          iconClass: 'text-red-500',
+          badge: '🔒 Premium Only',
+          disabled: true
+        };
+      } else if (access.reason === 'trial_expired') {
+        return {
+          ...access,
+          iconClass: 'text-red-500',
+          badge: '🔒 Trial abgelaufen',
+          disabled: true
+        };
+      }
+    }
+
+    return {
+      ...access,
+      iconClass: 'text-gray-500',
+      badge: '🔒 Gesperrt',
+      disabled: true
+    };
   };
 
   const handleNavClick = (viewId) => {
-    const accessResult = checkFeatureAccess(viewId);
+    const accessResult = getFeatureStatus(viewId);
     
-    if (!accessResult.access) {
+    if (accessResult.disabled) {
       // Show appropriate modal/message based on reason
       if (accessResult.reason === 'registration_required') {
         // Redirect to registration or show message
@@ -109,16 +159,16 @@ const Sidebar = () => {
   publicViewsConfig.forEach(v => allViewsMap.set(v.id, v));
   protectedViewsConfig.forEach(v => allViewsMap.set(v.id, v));
 
-  // 🎯 SIMPLIFIED: Main menu items in correct order
+  // 🎯 SIMPLIFIED: Main menu items in correct order - KORRIGIERT FÜR NEUES BUSINESS MODEL
   const mainMenuItems = [
-    'dashboard',  // Portfolio - FREE
-    'wallets',    // Wallets - TRIAL
-    'roiTracker', // ROI Tracker - PREMIUM ONLY
-    'taxReport',  // Tax Report - PREMIUM ONLY
-    'tokenTrade', // Token Trade - TRIAL
-    'bridge',     // Bridge - TRIAL
-    'wgep',       // WGEP - FREE
-    'settings'    // Settings - TRIAL
+    'dashboard',     // Portfolio - 3-TAGE TRIAL → Premium
+    'wallets',       // Wallets - 3-TAGE TRIAL → Premium
+    'roiTracker',    // ROI Tracker - PREMIUM ONLY
+    'taxReport',     // Tax Report - PREMIUM ONLY
+    'tokenTrade',    // Token Trade - 3-TAGE TRIAL → Premium
+    'bridge',        // Bridge - 3-TAGE TRIAL → Premium
+    'wgep',          // WGEP - 3-TAGE TRIAL → Premium
+    'settings'       // Settings - 3-TAGE TRIAL → Premium
   ];
 
   console.log('🔍 SIDEBAR DEBUG:', {
@@ -158,7 +208,7 @@ const Sidebar = () => {
           }
           
           // 🎯 BUSINESS LOGIC CHECK
-          const accessResult = checkFeatureAccess(view.id);
+          const accessResult = getFeatureStatus(view.id);
           
           let labelText = view.translationKey;
           if (t && t[view.translationKey]) {
@@ -179,7 +229,7 @@ const Sidebar = () => {
                 isSidebarOpen={isSidebarOpen}
               />
               
-              {/* 🎯 FEATURE STATUS ANZEIGE */}
+              {/* 🎯 FEATURE STATUS ANZEIGE - KORRIGIERT */}
               {isSidebarOpen && (
                 <div className="px-3 pb-2">
                   <div className="flex items-center justify-between">
@@ -189,7 +239,7 @@ const Sidebar = () => {
                   </div>
                   
                   {/* 🔴 LOCKED MESSAGE */}
-                  {!accessResult.access && (
+                  {accessResult.disabled && (
                     <p className="text-xs text-red-500 mt-1 flex items-center">
                       <Lock className="h-3 w-3 mr-1" />
                       {accessResult.message}
@@ -204,13 +254,7 @@ const Sidebar = () => {
                     </p>
                   )}
                   
-                  {/* 🟢 FREE MESSAGE */}
-                  {accessResult.access && accessResult.reason === 'free' && (
-                    <p className="text-xs text-green-600 mt-1 flex items-center">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Kostenlos verfügbar
-                    </p>
-                  )}
+                  {/* 🚫 FREE MESSAGE - ENTFERNT! Keine kostenlosen Features mehr! */}
                   
                   {/* 👑 PREMIUM MESSAGE */}
                   {accessResult.access && accessResult.reason === 'premium' && (
@@ -235,29 +279,34 @@ const Sidebar = () => {
               </span>
             </div>
             
-            {/* 🎯 STATUS ANZEIGE */}
+            {/* 🎯 STATUS ANZEIGE - KORRIGIERT FÜR NEUES MODEL */}
             <div className="text-xs space-y-1">
               {!user && (
                 <p className="text-gray-600">
-                  🔐 Melden Sie sich an für Trial-Zugang
+                  🔐 Registrierung für 3-Tage Trial erforderlich
                 </p>
               )}
               
               {user && subscriptionStatus === 'active' && (
                 <p className="text-blue-600">
-                  👑 Premium Nutzer - Vollzugriff
+                  👑 Premium Nutzer - Vollzugriff auf alle Features
                 </p>
               )}
               
               {user && subscriptionStatus === 'trial' && daysRemaining > 0 && (
-                <p className="text-yellow-600">
-                  ⏰ Trial: {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''} verbleibend
-                </p>
+                <div className="space-y-1">
+                  <p className="text-yellow-600">
+                    ⏰ Trial: {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''} verbleibend
+                  </p>
+                  <p className="text-orange-600">
+                    ⚠️ Danach: Alle Features erfordern Premium
+                  </p>
+                </div>
               )}
               
               {user && (subscriptionStatus === 'inactive' || daysRemaining <= 0) && (
                 <p className="text-red-600">
-                  ❌ Trial abgelaufen - Premium erforderlich
+                  ❌ Trial abgelaufen - Alle Features gesperrt
                 </p>
               )}
             </div>

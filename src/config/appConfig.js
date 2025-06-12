@@ -14,14 +14,16 @@ export const APP_TRANSLATIONS = {
   de: translationsDe,
 };
 
-// 🎯 NEUE BUSINESS MODEL STRUKTUR (KORRIGIERT)
+// 🎯 KORRIGIERTES BUSINESS MODEL - KEIN FREE FOREVER!
 export const FREE_VIEWS = [
-  'dashboard',      // Portfolio - Free Forever  
-  'wgep',           // WGEP - Free Forever
-  'pulseChainInfo'  // PulseChain Info - Free Forever
+  // 🚫 KEINE FREE FOREVER FEATURES!
+  // Alles wird nach 3-Tage Trial gesperrt
 ];
 
 export const TRIAL_VIEWS = [
+  'dashboard',      // Portfolio - 3 Tage Trial → Premium
+  'wgep',           // WGEP - 3 Tage Trial → Premium
+  'pulseChainInfo', // PulseChain Info - 3 Tage Trial → Premium
   'wallets',        // Wallets - 3 Tage Trial → Premium
   'tokenTrade',     // Token Trade - 3 Tage Trial → Premium  
   'bridge',         // Bridge - 3 Tage Trial → Premium
@@ -70,12 +72,12 @@ export const FOOTER_NAVIGATION_CONFIG = [
 ];
 
 /**
- * 📊 BUSINESS MODEL - Access Descriptions (KORRIGIERT)
+ * 📊 BUSINESS MODEL - Access Descriptions (KORRIGIERT - KEIN FREE FOREVER)
  */
 export const BUSINESS_MODEL = {
   getAccessDescription: (viewId) => {
     if (FREE_VIEWS.includes(viewId)) {
-      return 'Kostenlos für immer verfügbar';
+      return 'Kostenlos für immer verfügbar'; // 🚫 WIRD NICHT VERWENDET
     }
     if (TRIAL_VIEWS.includes(viewId)) {
       return '3-Tage Trial, dann Premium erforderlich';
@@ -87,7 +89,7 @@ export const BUSINESS_MODEL = {
   },
 
   getFeatureType: (viewId) => {
-    if (FREE_VIEWS.includes(viewId)) return 'free';
+    if (FREE_VIEWS.includes(viewId)) return 'free'; // 🚫 WIRD NICHT VERWENDET
     if (TRIAL_VIEWS.includes(viewId)) return 'trial';
     if (PREMIUM_ONLY_VIEWS.includes(viewId)) return 'premium_only';
     return 'unknown';
@@ -95,7 +97,7 @@ export const BUSINESS_MODEL = {
 };
 
 /**
- * 🎯 FEATURE ACCESS LOGIC (KORRIGIERT)
+ * 🎯 KORRIGIERTE FEATURE ACCESS LOGIC - KEIN FREE FOREVER!
  * @param {string} featureId - ID der zu prüfenden Funktion
  * @param {object} user - User object (null wenn nicht eingeloggt)
  * @param {string} subscriptionStatus - 'active', 'trial', 'inactive'
@@ -103,22 +105,12 @@ export const BUSINESS_MODEL = {
  * @returns {object} {access: boolean, reason: string, message: string, daysLeft: number}
  */
 export function getFeatureAccess(featureId, user, subscriptionStatus, daysRemaining) {
-  // 🟢 FREE FEATURES - Immer verfügbar
-  if (FREE_VIEWS.includes(featureId)) {
-    return {
-      access: true,
-      reason: 'free',
-      message: 'Kostenlos verfügbar',
-      daysLeft: null
-    };
-  }
-
-  // 🔐 Nicht eingeloggt = kein Zugriff auf Premium/Trial Features
+  // 🔐 Nicht eingeloggt = kein Zugriff auf IRGENDWAS
   if (!user) {
     return {
       access: false,
       reason: 'registration_required',
-      message: 'Registrierung erforderlich',
+      message: 'Registrierung für 3-Tage Trial erforderlich',
       daysLeft: null
     };
   }
@@ -143,7 +135,7 @@ export function getFeatureAccess(featureId, user, subscriptionStatus, daysRemain
     };
   }
 
-  // 🔄 TRIAL FEATURES - 3 Tage verfügbar
+  // 🔄 TRIAL FEATURES - 3 Tage verfügbar, dann ALLES gesperrt
   if (TRIAL_VIEWS.includes(featureId)) {
     if (daysRemaining > 0) {
       return {
@@ -156,7 +148,7 @@ export function getFeatureAccess(featureId, user, subscriptionStatus, daysRemain
       return {
         access: false,
         reason: 'trial_expired',
-        message: 'Trial abgelaufen - Premium erforderlich',
+        message: 'Trial abgelaufen - Premium für alle Features erforderlich',
         daysLeft: 0
       };
     }
