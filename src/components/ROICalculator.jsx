@@ -15,12 +15,12 @@ export default function ROICalculator() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load wallets and calculate portfolio
-  useEffect(() => {
-    if (user?.id) {
-      loadPortfolioData();
-    }
-  }, [user?.id]);
+  // ❌ EMERGENCY DISABLED: Auto-loading komplett deaktiviert für Kostenreduktion
+  // useEffect(() => {
+  //   if (user?.id) {
+  //     loadPortfolioData();
+  //   }
+  // }, [user?.id]);
 
   const loadPortfolioData = async () => {
     try {
