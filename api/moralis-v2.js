@@ -280,6 +280,56 @@ export default async function handler(req, res) {
       });
     }
 
+    // 🚫 DEFI SUMMARY (STUB - to prevent 400 errors)
+    if (endpoint === 'defi-summary') {
+      console.log(`⚠️ DeFi Summary: STUB endpoint - DeFi not available in Moralis Pro`);
+      
+      return res.status(200).json({
+        address,
+        chain: chainId,
+        result: {
+          active_protocols: '0',
+          total_positions: '0', 
+          total_usd_value: '0',
+          total_unclaimed_usd_value: '0'
+        },
+        _source: 'moralis_v2_pro_stub',
+        _disabled_reason: 'DeFi features require Enterprise plan'
+      });
+    }
+
+    // 🚫 DEFI POSITIONS (STUB - to prevent 400 errors)
+    if (endpoint === 'defi-positions') {
+      console.log(`⚠️ DeFi Positions: STUB endpoint - DeFi not available in Moralis Pro`);
+      
+      return res.status(200).json({
+        address,
+        chain: chainId,
+        result: [],
+        positions: [],
+        _source: 'moralis_v2_pro_stub',
+        _disabled_reason: 'DeFi features require Enterprise plan'
+      });
+    }
+
+    // 🚫 WALLET STATS (STUB - to prevent 400 errors)
+    if (endpoint === 'stats') {
+      console.log(`⚠️ Wallet Stats: STUB endpoint - Stats not available in Moralis Pro`);
+      
+      return res.status(200).json({
+        address,
+        chain: chainId,
+        result: {
+          total_tokens: '0',
+          total_transactions: '0',
+          first_transaction: null,
+          last_transaction: null
+        },
+        _source: 'moralis_v2_pro_stub',
+        _disabled_reason: 'Stats features require Enterprise plan'
+      });
+    }
+
     // Invalid endpoint
     return res.status(400).json({ 
       error: `Unsupported endpoint: ${endpoint}`,
@@ -291,9 +341,13 @@ export default async function handler(req, res) {
         'nft',
         'wallet-nfts',
         'erc20',
-        'token-price'
+        'token-price',
+        'defi-summary',      // STUB: Returns empty data
+        'defi-positions',    // STUB: Returns empty data  
+        'stats'              // STUB: Returns empty data
       ],
-      _pro_compatible: true
+      _pro_compatible: true,
+      _note: 'DeFi and Stats endpoints return stub data (Pro Plan limitation)'
     });
 
   } catch (error) {
