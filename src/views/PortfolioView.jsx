@@ -58,10 +58,23 @@ const PortfolioView = () => {
     });
   };
 
-  // 🚀 SMART LOADING STATES - Zeige immer UI, auch beim ersten Load
-  const showEmptyState = !loading && !hasData;
-  const showErrorState = !loading && error && !hasData;
-  const showContent = hasData && portfolioData?.tokens?.length > 0;
+  // 🚀 FIXED: Smart loading states - Berücksichtige Cache-Daten
+  const showEmptyState = !loading && !portfolioData;
+  const showErrorState = !loading && error && !portfolioData;
+  const showContent = portfolioData && portfolioData.tokens && portfolioData.tokens.length > 0;
+
+  // 🔍 DEBUG: Log states for troubleshooting
+  console.log('🔍 PORTFOLIO VIEW STATES:', {
+    loading,
+    hasData,
+    portfolioData: !!portfolioData,
+    tokensCount: portfolioData?.tokens?.length || 0,
+    showEmptyState,
+    showErrorState,
+    showContent,
+    isCached,
+    lastUpdate
+  });
 
   if (showErrorState) {
     return (
