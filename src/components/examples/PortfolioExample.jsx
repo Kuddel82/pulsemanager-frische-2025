@@ -51,12 +51,13 @@ export default function PortfolioExample() {
     await loadPortfolio(true);
   };
 
-  // Initial load
-  useEffect(() => {
-    if (user?.id && user?.wallet_address) {
-      loadPortfolio();
-    }
-  }, [user]);
+  // ❌ AUTOMATISCHES LADEN DEAKTIVIERT FÜR KOSTENOPTIMIERUNG
+  // ✅ Nur noch manuelles Laden via Button erlaubt!
+  // useEffect(() => {
+  //   if (user?.id && user?.wallet_address) {
+  //     loadPortfolio();
+  //   }
+  // }, [user]);
 
   return (
     <div className="space-y-6">

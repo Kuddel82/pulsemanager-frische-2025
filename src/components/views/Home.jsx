@@ -147,105 +147,22 @@ const Home = () => {
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const RATE_LIMIT_MS = 2 * 60 * 1000; // 2 Minuten Rate Limit
 
-  // Initiales Laden (EINMALIG beim Login) - BYPASS RATE LIMITING für Auto-Load
-  useEffect(() => {
-    if (user?.id && lastRefresh === 0) {
-      console.log('🚀 INITIAL LOAD: Portfolio wird beim Login geladen...');
-      
-      // BYPASS Rate Limiting für Auto-Load beim Login
-      setDashboardLoading(true);
-      CentralDataService.loadCompletePortfolio(user.id)
-        .then(data => {
-          console.log('📊 DASHBOARD: Portfolio response:', {
-            success: data.success,
-            isLoaded: data.isLoaded,
-            fromCache: data.fromCache,
-            totalValue: data.totalValue,
-            tokenCount: data.tokenCount,
-            apiCalls: data.apiCalls || 'N/A'
-          });
-          
-          if (data.success || data.isLoaded) {
-            console.log('🎯 FRONTEND DEBUG: Portfolio data received:', {
-              success: data.success,
-              isLoaded: data.isLoaded,
-              totalValue: data.totalValue,
-              tokenCount: data.tokenCount,
-              walletCount: data.walletCount,
-              hasTokens: !!(data.tokens && data.tokens.length > 0),
-              hasWallets: !!(data.wallets && data.wallets.length > 0),
-              tokensWithBalance: data.tokens ? data.tokens.filter(t => t.balance > 0).length : 0,
-              firstToken: data.tokens && data.tokens[0] ? {
-                symbol: data.tokens[0].symbol,
-                balance: data.tokens[0].balance,
-                value: data.tokens[0].value
-              } : null
-            });
-            
-            setPortfolioData(data);
-            setLastUpdate(new Date());
-            setLastRefresh(Date.now());
-            
-            if (data.fromCache) {
-              console.log('✅ DASHBOARD AUTO-LOAD: Portfolio loaded from CACHE - 0 API calls used!');
-            } else {
-              console.log(`✅ DASHBOARD AUTO-LOAD: Portfolio loaded from APIs - ${data.apiCalls || 0} API calls used`);
-            }
-            
-            // 🚨 FRONTEND ALERT: Check if data is empty despite successful load
-            if ((data.totalValue === 0 || !data.tokenCount || data.tokenCount === 0) && (data.success || data.isLoaded)) {
-              console.warn('🚨 FRONTEND ALERT: Portfolio loaded successfully but has 0 value/tokens! Check token parsing.');
-            }
-          } else {
-            console.warn('⚠️ DASHBOARD AUTO-LOAD: Portfolio could not be loaded:', data.error);
-            
-            // 🔥 EMERGENCY: If error mentions cache, try force refresh once
-            if (data.error && data.error.includes('Cache wurde geleert')) {
-              console.log('🔥 EMERGENCY RETRY: Cache was cleared, trying fresh load...');
-              setTimeout(() => {
-                console.log('🔄 RETRY: Loading portfolio after cache clear...');
-                CentralDataService.loadCompletePortfolio(user.id)
-                  .then(retryData => {
-                    if (retryData.success || retryData.isLoaded) {
-                      console.log('✅ RETRY SUCCESS: Portfolio loaded after cache clear!');
-                      setPortfolioData(retryData);
-                      setLastUpdate(new Date());
-                    }
-                  })
-                  .catch(retryError => {
-                    console.error('💥 RETRY FAILED:', retryError);
-                  });
-              }, 2000); // Wait 2 seconds before retry
-            }
-            
-            setPortfolioData({
-              success: false,
-              totalValue: 0,
-              tokens: [],
-              wallets: [],
-              tokenCount: 0,
-              walletCount: 0,
-              error: data.error
-            });
-          }
-        })
-        .catch(error => {
-          console.error('💥 DASHBOARD AUTO-LOAD: Error loading portfolio:', error);
-          setPortfolioData({
-            success: false,
-            totalValue: 0,
-            tokens: [],
-            wallets: [],
-            tokenCount: 0,
-            walletCount: 0,
-            error: error.message
-          });
-        })
-        .finally(() => {
-          setDashboardLoading(false);
-        });
-    }
-  }, [user?.id]);
+  // ❌ AUTOMATISCHES PORTFOLIO-LADEN DEAKTIVIERT FÜR KOSTENOPTIMIERUNG
+  // ✅ Nur noch manuelles Laden via Button erlaubt!
+  // 
+  // VORHER: Automatisches Laden beim Login = API-Calls ohne Kontrolle
+  // JETZT: Benutzer entscheidet bewusst wann Portfolio geladen wird
+  // 
+  // useEffect(() => {
+  //   if (user?.id && lastRefresh === 0) {
+  //     console.log('🚀 INITIAL LOAD: Portfolio wird beim Login geladen...');
+  //     setDashboardLoading(true);
+  //     CentralDataService.loadCompletePortfolio(user.id)
+  //       .then(data => {
+  //         // ... automatisches Portfolio-Laden entfernt
+  //       });
+  //   }
+  // }, [user?.id]);
 
   // 🔄 COOLDOWN TIMER
   useEffect(() => {

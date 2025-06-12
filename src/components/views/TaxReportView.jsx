@@ -222,10 +222,11 @@ const TaxReportView = () => {
     }
   };
 
-  // Initiales Laden
-  useEffect(() => {
-    loadTaxData();
-  }, [user?.id]);
+  // ❌ AUTOMATISCHES LADEN DEAKTIVIERT FÜR KOSTENOPTIMIERUNG
+  // ✅ Nur noch manuelles Laden via Button erlaubt!
+  // useEffect(() => {
+  //   loadTaxData();
+  // }, [user?.id]);
 
   // Format Funktionen
   const formatCurrency = (value) => {
