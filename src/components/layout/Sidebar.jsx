@@ -69,8 +69,6 @@ const Sidebar = () => {
   ];
 
   const allViewsMap = new Map();
-  console.log('🔍 PUBLIC VIEWS:', publicViewsConfig);
-  console.log('🔍 PROTECTED VIEWS:', protectedViewsConfig);
   publicViewsConfig.forEach(v => allViewsMap.set(v.id, v));
   protectedViewsConfig.forEach(v => allViewsMap.set(v.id, v));
 
@@ -87,11 +85,7 @@ const Sidebar = () => {
   ];
 
   const sidebarViewConfigs = customOrderedItems
-    .map(id => {
-      const view = allViewsMap.get(id);
-      console.log(`🔍 SIDEBAR DEBUG: ${id} ->`, view);
-      return view;
-    })
+    .map(id => allViewsMap.get(id))
     .filter(view => view && (view.isSidebarLink === undefined || view.isSidebarLink === true));
 
   const dashboardConfig = publicViewsConfig.find(v => v.id === 'dashboard');
@@ -99,9 +93,7 @@ const Sidebar = () => {
   const displayableSidebarItems = [
     dashboardConfig, 
     ...sidebarViewConfigs,
-  ].filter(Boolean);
-  
-  console.log('🔍 FINAL SIDEBAR ITEMS:', displayableSidebarItems); 
+  ].filter(Boolean); 
 
   const menuItems = [
     {
