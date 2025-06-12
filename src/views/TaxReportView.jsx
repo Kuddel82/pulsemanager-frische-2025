@@ -33,7 +33,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const TaxReportView = () => {
   const { user } = useAuth();
   const [taxData, setTaxData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // MORALIS PRO: Start without loading
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
@@ -136,27 +136,36 @@ const TaxReportView = () => {
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    loadTaxData();
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: No auto-loading to save API calls
+  // Initial load removed - only manual loading via button
+  // useEffect(() => {
+  //   loadTaxData();
+  // }, [user?.id]);
 
-  // Auto-refresh every 10 minutes (less frequent for tax data)
-  useEffect(() => {
-    const interval = setInterval(loadTaxData, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: Auto-refresh removed to save costs
+  // useEffect(() => {
+  //   const interval = setInterval(loadTaxData, 10 * 60 * 1000);
+  //   return () => clearInterval(interval);
+  // }, [user?.id]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="pulse-card p-8 text-center">
           <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
-          <span className="text-lg pulse-text">Steuerdaten werden geladen...</span>
+          <div className="space-y-2">
+            <span className="text-lg pulse-text">💰 MORALIS PRO: Lade Steuerdaten...</span>
+            <p className="text-sm pulse-text-secondary">Manual Load Mode • Kostenkontrolle aktiv</p>
+            <p className="text-xs pulse-text-secondary text-green-400">
+              ✅ Kein Auto-Refresh • API-Calls nur bei manueller Anfrage
+            </p>
+          </div>
         </div>
       </div>
     );
   }
+
+  // ❌ REMOVED: Manual loading screen - show normal UI instead
 
   if (error) {
     return (
@@ -174,23 +183,7 @@ const TaxReportView = () => {
     );
   }
 
-  if (!taxData) {
-    return (
-      <div className="min-h-screen bg-black p-6">
-        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
-          <FileText className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-          <h2 className="text-xl font-semibold mb-2 pulse-text">Keine Steuerdaten verfügbar</h2>
-          <p className="pulse-text-secondary mb-4">
-            Fügen Sie zuerst Ihre Wallet-Adressen hinzu um Transaktionsdaten zu laden.
-          </p>
-          <Button onClick={loadTaxData} className="bg-green-500 hover:bg-green-600">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Erneut laden
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // ❌ REMOVED: Show normal UI even without data - let user navigate freely
 
   // 🎯 Filter transactions by category (NEUES FORMAT)
   const getFilteredTransactions = () => {
@@ -243,35 +236,38 @@ const TaxReportView = () => {
   // SAFETY: Get filtered transactions and stats with guards
   const filteredTransactions = getFilteredTransactions();
   const taxStats = getTaxStats();
+  
+  // Show empty state info when no data loaded
+  const showEmptyState = !loading && !taxData && !error;
 
   const statsCards = [
     {
       title: 'Gesamte Transaktionen',
-      value: taxStats.totalTransactions.toString(),
-      subtitle: cacheInfo ? `${cacheInfo.totalLoaded} geladen` : '',
+      value: showEmptyState ? '-' : taxStats.totalTransactions.toString(),
+      subtitle: showEmptyState ? 'Nicht geladen' : (cacheInfo ? `${cacheInfo.totalLoaded} geladen` : ''),
       icon: FileText,
       color: 'bg-blue-500'
     },
     {
       title: 'Steuerpflichtige',
-      value: taxStats.taxableTransactions.toString(),
-      subtitle: 'ROI/Minting',
+      value: showEmptyState ? '-' : taxStats.taxableTransactions.toString(),
+      subtitle: showEmptyState ? 'Nicht geladen' : 'ROI/Minting',
       icon: AlertCircle,
       color: 'bg-orange-500'
     },
     {
       title: 'Steuerpflichtiges Einkommen',
-      value: formatCurrency(taxStats.taxableIncome),
-      subtitle: '§ 22 EStG',
+      value: showEmptyState ? '-' : formatCurrency(taxStats.taxableIncome),
+      subtitle: showEmptyState ? 'Nicht geladen' : '§ 22 EStG',
       icon: DollarSign,
       color: 'bg-green-500'
     },
     {
-      title: 'Cache Status',
-      value: cacheInfo?.cacheHit ? 'Cache Hit' : 'Fresh Load',
-      subtitle: cacheInfo ? `${cacheInfo.totalLoaded} Transaktionen` : '',
-      icon: cacheInfo?.cacheHit ? Database : Clock,
-      color: cacheInfo?.cacheHit ? 'bg-purple-500' : 'bg-yellow-500'
+      title: 'Status',
+      value: showEmptyState ? 'Bereit zum Laden' : (cacheInfo?.cacheHit ? 'Cache Hit' : 'Fresh Load'),
+      subtitle: showEmptyState ? 'MORALIS PRO' : (cacheInfo ? `${cacheInfo.totalLoaded} Transaktionen` : ''),
+      icon: showEmptyState ? RefreshCw : (cacheInfo?.cacheHit ? Database : Clock),
+      color: showEmptyState ? 'bg-green-500' : (cacheInfo?.cacheHit ? 'bg-purple-500' : 'bg-yellow-500')
     }
   ];
 
@@ -329,6 +325,27 @@ const TaxReportView = () => {
             </div>
           ))}
         </div>
+
+        {/* 🚀 MORALIS PRO: Prominent Load Button when no data */}
+        {showEmptyState && (
+          <div className="pulse-card p-8 mb-6 text-center border-2 border-green-500/20">
+            <FileText className="h-16 w-16 mx-auto mb-4 text-green-400" />
+            <h3 className="text-xl font-bold pulse-text mb-2">💰 MORALIS PRO: Steuerdaten laden</h3>
+            <p className="pulse-text-secondary mb-6">
+              Klicken Sie hier um Ihre Transaktionshistorie für die Steuerberechnung zu laden.<br/>
+              <span className="text-green-400">✅ Kostenoptimiert - nur bei Bedarf</span>
+            </p>
+            <Button 
+              onClick={loadTaxData} 
+              className="bg-green-500 hover:bg-green-600"
+              size="lg"
+              disabled={loading}
+            >
+              <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Steuerdaten jetzt laden
+            </Button>
+          </div>
+        )}
 
         {/* Debug Information */}
         {showDebug && taxData && (

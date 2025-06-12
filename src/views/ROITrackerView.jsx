@@ -38,7 +38,7 @@ const ROITrackerView = () => {
   const [portfolioData, setPortfolioData] = useState(null);
   const [defiData, setDefiData] = useState(null);
   const [roiDetectionData, setROIDetectionData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // MORALIS PRO: Start without loading
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [timeFrame, setTimeFrame] = useState('monthly');
@@ -293,16 +293,17 @@ const ROITrackerView = () => {
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    loadAllROIData();
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: No auto-loading to save API calls
+  // Initial load removed - only manual loading via button
+  // useEffect(() => {
+  //   loadAllROIData();
+  // }, [user?.id]);
 
-  // Auto-refresh every 10 minutes
-  useEffect(() => {
-    const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: Auto-refresh removed to save costs
+  // useEffect(() => {
+  //   const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
+  //   return () => clearInterval(interval);
+  // }, [user?.id]);
 
   if (loading) {
     return (
@@ -310,16 +311,18 @@ const ROITrackerView = () => {
         <div className="pulse-card p-8 text-center">
           <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
           <div className="space-y-2">
-            <span className="text-lg pulse-text">🚀 Smart Cache Loading...</span>
-            <p className="text-sm pulse-text-secondary">Checking Cache • Portfolio • ROI Analysis</p>
-            <p className="text-xs pulse-text-secondary text-orange-400">
-              Cache Hit = 0 API calls | Fresh Data = Normal API usage
+            <span className="text-lg pulse-text">💰 MORALIS PRO: Lade ROI-Daten...</span>
+            <p className="text-sm pulse-text-secondary">Manual Load Mode • Kostenkontrolle aktiv</p>
+            <p className="text-xs pulse-text-secondary text-green-400">
+              ✅ Kein Auto-Refresh • API-Calls nur bei manueller Anfrage
             </p>
           </div>
         </div>
       </div>
     );
   }
+
+  // ❌ REMOVED: Manual loading screen - show normal UI instead
 
   if (error) {
     return (
@@ -384,6 +387,9 @@ const ROITrackerView = () => {
     return totalValue > 0 ? (currentROI / totalValue) * 100 : 0;
   };
 
+  // Show empty state info when no data loaded
+  const showEmptyState = !loading && !portfolioData && !error;
+
   const tabs = [
     { id: 'overview', label: 'Überblick', icon: PieChart },
     { id: 'defi', label: 'DeFi Positionen', icon: Target },
@@ -419,37 +425,61 @@ const ROITrackerView = () => {
           </div>
         </div>
 
-        {/* 🔥 SMART CACHE STATUS */}
-        <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Target className="h-5 w-5 mr-2 text-green-400" />
-              <div>
-                <span className="pulse-text font-medium">
-                  🚀 Smart Cache Status: {portfolioData?.fromCache ? 'CACHE HIT' : 'FRESH DATA'}
-                </span>
-                <p className="pulse-text-secondary text-sm">
-                  Portfolio: {portfolioData ? '✅' : '❌'} • 
-                  Source: {portfolioData?.fromCache ? '📦 Cache' : '🔄 API'} • 
-                  API Calls: {portfolioData?.fromCache ? '0' : (portfolioData?.apiCalls || 'N/A')} • 
-                  Value: ${(portfolioData?.totalValue || 0).toFixed(0)}
-                </p>
-              </div>
-            </div>
-            {portfolioData?.fromCache ? (
-              <Badge variant="outline" className="text-orange-400 border-orange-400">
-                📦 CACHED
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-cyan-400 border-cyan-400">
-                🔄 FRESH
-              </Badge>
-            )}
+        {/* 🚀 MORALIS PRO: Prominent Load Button when no data */}
+        {showEmptyState && (
+          <div className="pulse-card p-8 mb-6 text-center border-2 border-green-500/20">
+            <TrendingUp className="h-16 w-16 mx-auto mb-4 text-green-400" />
+            <h3 className="text-xl font-bold pulse-text mb-2">💰 MORALIS PRO: ROI-Daten laden</h3>
+            <p className="pulse-text-secondary mb-6">
+              Klicken Sie hier um Ihre Portfolio- und ROI-Daten zu laden.<br/>
+              <span className="text-green-400">✅ Kostenoptimiert - nur bei Bedarf</span>
+            </p>
+            <Button 
+              onClick={loadAllROIData} 
+              className="bg-green-500 hover:bg-green-600"
+              size="lg"
+              disabled={loading}
+            >
+              <TrendingUp className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              ROI-Daten jetzt laden
+            </Button>
           </div>
-        </div>
+        )}
+
+        {/* 🔥 SMART CACHE STATUS */}
+        {portfolioData && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Target className="h-5 w-5 mr-2 text-green-400" />
+                <div>
+                  <span className="pulse-text font-medium">
+                    🚀 Smart Cache Status: {portfolioData?.fromCache ? 'CACHE HIT' : 'FRESH DATA'}
+                  </span>
+                  <p className="pulse-text-secondary text-sm">
+                    Portfolio: {portfolioData ? '✅' : '❌'} • 
+                    Source: {portfolioData?.fromCache ? '📦 Cache' : '🔄 API'} • 
+                    API Calls: {portfolioData?.fromCache ? '0' : (portfolioData?.apiCalls || 'N/A')} • 
+                    Value: ${(portfolioData?.totalValue || 0).toFixed(0)}
+                  </p>
+                </div>
+              </div>
+              {portfolioData?.fromCache ? (
+                <Badge variant="outline" className="text-orange-400 border-orange-400">
+                  📦 CACHED
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-cyan-400 border-cyan-400">
+                  🔄 FRESH
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* MORALIS STATUS INDICATORS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {!showEmptyState && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="pulse-card p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -510,46 +540,54 @@ const ROITrackerView = () => {
             </div>
           </div>
         </div>
+        )}
 
         {/* Time Frame Selector */}
-        <div className="flex justify-center mb-6">
-          <div className="pulse-card p-1 flex">
-            {['daily', 'weekly', 'monthly'].map((tf) => (
-              <button
-                key={tf}
-                onClick={() => setTimeFrame(tf)}
-                className={`px-4 py-2 rounded-lg transition-all ${
-                  timeFrame === tf 
-                    ? 'bg-green-500 text-white' 
-                    : 'pulse-text hover:bg-white/5'
-                }`}
-              >
-                {tf === 'daily' ? 'Täglich' : tf === 'weekly' ? 'Wöchentlich' : 'Monatlich'}
-              </button>
-            ))}
+        {!showEmptyState && (
+          <div className="flex justify-center mb-6">
+            <div className="pulse-card p-1 flex">
+              {['daily', 'weekly', 'monthly'].map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeFrame(tf)}
+                  className={`px-4 py-2 rounded-lg transition-all ${
+                    timeFrame === tf 
+                      ? 'bg-green-500 text-white' 
+                      : 'pulse-text hover:bg-white/5'
+                  }`}
+                >
+                  {tf === 'daily' ? 'Täglich' : tf === 'weekly' ? 'Wöchentlich' : 'Monatlich'}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tab Navigation */}
-        <div className="flex justify-center mb-6">
-          <div className="pulse-card p-1 flex">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                  activeTab === tab.id 
-                    ? 'bg-blue-500 text-white' 
-                    : 'pulse-text hover:bg-white/5'
-                }`}
-              >
-                <tab.icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
+        {!showEmptyState && (
+          <div className="flex justify-center mb-6">
+            <div className="pulse-card p-1 flex">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+                    activeTab === tab.id 
+                      ? 'bg-blue-500 text-white' 
+                      : 'pulse-text hover:bg-white/5'
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
+        {/* TAB CONTENT - Only show when data is loaded */}
+        {!showEmptyState && (
+          <>
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
@@ -869,6 +907,8 @@ const ROITrackerView = () => {
               </div>
             </div>
           </div>
+        )}
+        </>
         )}
 
       </div>

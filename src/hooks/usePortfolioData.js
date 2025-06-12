@@ -14,7 +14,7 @@ export const usePortfolioData = () => {
   
   // 🛡️ RATE LIMITING: Verhindert Spam-Requests
   const lastLoadTime = useRef(0);
-  const RATE_LIMIT_MS = 2 * 60 * 1000; // 2 Minuten zwischen Loads
+  const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 Minuten zwischen Loads (MORALIS PRO)
   
   // 📊 STATS für User Feedback
   const [stats, setStats] = useState({

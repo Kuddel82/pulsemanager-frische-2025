@@ -1,6 +1,6 @@
-// 🎯 CENTRAL DATA SERVICE - MORALIS PRO COST OPTIMIZED
+// 🎯 CENTRAL DATA SERVICE - MORALIS PRO COST OPTIMIZED  
 // REST API calls statt teurer SDK calls für Kostenoptimierung
-// Datum: 2025-01-11 - PRO PLAN (Enterprise disabled for cost reduction)
+// Datum: 2025-01-15 - PRO PLAN mit MANUELLER STEUERUNG (Auto-Refresh komplett deaktiviert)
 
 import { supabase } from '@/lib/supabaseClient';
 
@@ -153,11 +153,22 @@ export class CentralDataService {
         const response = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=wallet-tokens-prices`);
         const data = await response.json();
 
-        if (data.tokens && Array.isArray(data.tokens)) {
+        if (response.ok && data.tokens && Array.isArray(data.tokens)) {
           console.log(`✅ PRO: ${data.tokens.length} tokens loaded for ${wallet.address.slice(0, 8)}`);
           
           const processedTokens = data.tokens.map(token => ({
-            ...token,
+            // Map Moralis V2 response format to expected format
+            symbol: token.symbol,
+            name: token.name,
+            contractAddress: token.address,
+            decimals: token.decimals,
+            balance: token.balance,
+            price: token.usd_price || 0,
+            total_usd: token.total_usd || 0,
+            value: token.total_usd || 0,
+            hasReliablePrice: (token.usd_price || 0) > 0,
+            priceSource: token._source || 'moralis_pro',
+            isIncludedInPortfolio: (token.total_usd || 0) > 0.01,
             walletAddress: wallet.address,
             chainId: chainId,
             source: 'moralis_pro'
@@ -165,14 +176,27 @@ export class CentralDataService {
           
           allTokens.push(...processedTokens);
           totalValue += data.total_value_usd || 0;
+        } else {
+          console.error(`⚠️ PRO: Invalid response for ${wallet.address}: ${data.error || 'Unknown error'}`);
         }
       } catch (error) {
         console.error(`⚠️ PRO: Token load failed for ${wallet.address}:`, error.message);
       }
     }
 
+    // 📊 Calculate portfolio statistics
+    const sortedTokens = allTokens.sort((a, b) => (b.value || 0) - (a.value || 0));
+    
+    // Add ranking and percentage
+    sortedTokens.forEach((token, index) => {
+      token.holdingRank = index + 1;
+      token.percentageOfPortfolio = totalValue > 0 ? (token.value / totalValue) * 100 : 0;
+    });
+
+    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}`);
+
     return {
-      tokens: allTokens,
+      tokens: sortedTokens,
       totalValue: totalValue,
       source: 'moralis_pro_api'
     };
