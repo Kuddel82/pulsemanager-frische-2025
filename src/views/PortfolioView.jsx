@@ -204,18 +204,20 @@ const PortfolioView = () => {
           </div>
         )}
 
-        {/* MORALIS PRO STATUS & PORTFOLIO VALUE WARNING */}
+        {/* MORALIS PRO STATUS & COST SAVING INFO */}
         <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <DollarSign className="h-5 w-5 mr-2 text-green-400" />
               <div>
-                <span className="pulse-text font-medium">💰 MORALIS PRO: Kostenkontrolle aktiv</span>
-                <p className="text-sm pulse-text-secondary">Kein Auto-Refresh • API-Calls nur bei manueller Anfrage</p>
+                <span className="pulse-text font-medium">💰 MORALIS PRO: Auto-Loading gestoppt!</span>
+                <p className="text-sm pulse-text-secondary">
+                  Alle versteckten API-Calls deaktiviert • 5-Min Rate-Limit • Nur manuelle Anfragen
+                </p>
               </div>
             </div>
             <Badge variant="outline" className="text-green-400 border-green-400">
-              PRO MODE
+              COST OPTIMIZED
             </Badge>
           </div>
           {portfolioData?.totalValue && portfolioData.totalValue < 20000 && (
