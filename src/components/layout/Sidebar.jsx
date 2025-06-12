@@ -42,8 +42,9 @@ const Sidebar = () => {
     subscriptionStatus, 
     daysRemaining, 
     t, 
+    language,
     protectedViewsConfig,
-    publicViewsConfig 
+    publicViewsConfig
   } = useAppContext();
 
   const handleNavClick = (viewId) => {
@@ -82,7 +83,11 @@ const Sidebar = () => {
     wgepConfig: allViewsMap.get('wgep'),
     customOrderedItems,
     subscriptionStatus,
-    daysRemaining
+    daysRemaining,
+    allPublicViews: publicViewsConfig.map(v => ({ id: v.id, translationKey: v.translationKey, isSidebarLink: v.isSidebarLink })),
+    wgepTranslationExists: !!t.wgepViewTitle,
+    wgepTranslationValue: t.wgepViewTitle,
+    currentLanguage: language || 'unknown'
   });
 
   const sidebarViewConfigs = customOrderedItems
