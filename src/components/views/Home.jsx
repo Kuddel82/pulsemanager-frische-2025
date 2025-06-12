@@ -2,23 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { TrendingUp, Activity, Users, ExternalLink, RefreshCw, Download, FileText, Crown, Wallet } from 'lucide-react';
+import { TrendingUp, Activity, FileText, Crown } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
 import WalletManualInput from '@/components/WalletManualInput';
 import ROICalculator from '@/components/ROICalculator';
-import CentralDataService from '@/services/CentralDataService';
-import { GlobalRateLimiter } from '@/services/GlobalRateLimiter';
 
 const Home = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
   const { t, language, subscriptionStatus } = useAppContext();
-
-  // 💎 Portfolio Dashboard State
-  const [portfolioData, setPortfolioData] = useState(null);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(null);
 
   const safeT = (key, fallback) => {
     if (typeof t === 'function') {
@@ -26,153 +19,6 @@ const Home = () => {
     }
     return fallback;
   };
-
-  // 💎 Portfolio-Daten laden (V2: Mit Smart Caching + Rate Limiting)
-  const loadDashboardData = async (forceRefresh = false) => {
-    if (!user?.id) return;
-    
-    // 🛡️ RATE LIMITING CHECK
-    const now = Date.now();
-    const timeSinceLastRefresh = now - lastRefresh;
-    
-    if (!forceRefresh && timeSinceLastRefresh < RATE_LIMIT_MS) {
-      const remainingSeconds = Math.ceil((RATE_LIMIT_MS - timeSinceLastRefresh) / 1000);
-      console.log(`🛡️ RATE LIMITED: Please wait ${remainingSeconds} seconds before refreshing again`);
-      setRefreshCooldown(remainingSeconds);
-      return;
-    }
-    
-    setDashboardLoading(true);
-    try {
-      console.log('🏠 DASHBOARD V2: Loading portfolio data with smart caching...');
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
-      
-      console.log('📊 DASHBOARD: Portfolio response:', {
-        success: data.success,
-        isLoaded: data.isLoaded,
-        fromCache: data.fromCache,
-        totalValue: data.totalValue,
-        tokenCount: data.tokenCount,
-        apiCalls: data.apiCalls || 'N/A',
-        cacheInfo: data.cacheOptimization
-      });
-      
-      if (data.success || data.isLoaded) {
-        setPortfolioData(data);
-        setLastUpdate(new Date());
-        setLastRefresh(now);
-        
-        if (data.fromCache) {
-          console.log('✅ DASHBOARD: Portfolio loaded from CACHE - 0 API calls used!');
-        } else {
-          console.log(`✅ DASHBOARD: Portfolio loaded from APIs - ${data.apiCalls || 0} API calls used, next request will use cache`);
-        }
-      } else {
-        console.warn('⚠️ DASHBOARD: Portfolio could not be loaded:', data.error);
-        setPortfolioData({
-          success: false,
-          totalValue: 0,
-          tokens: [],
-          wallets: [],
-          tokenCount: 0,
-          walletCount: 0,
-          error: data.error
-        });
-      }
-    } catch (error) {
-      console.error('💥 DASHBOARD: Error loading portfolio:', error);
-      setPortfolioData({
-        success: false,
-        totalValue: 0,
-        tokens: [],
-        wallets: [],
-        tokenCount: 0,
-        walletCount: 0,
-        error: error.message
-      });
-    } finally {
-      setDashboardLoading(false);
-    }
-  };
-
-  // 📊 Format-Funktionen
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value || 0);
-  };
-
-  // 💾 CSV Export Funktion
-  const exportToCSV = () => {
-    if (!portfolioData?.tokens) {
-      alert('❌ Keine Portfolio-Daten zum Exportieren verfügbar');
-      return;
-    }
-
-    try {
-      const csvData = (portfolioData?.tokens || []).map(token => ({
-        Symbol: token.symbol,
-        Name: token.name || 'Unknown',
-        Balance: token.balance,
-        Preis_USD: token.price,
-        Wert_USD: token.value,
-        Anteil_Prozent: token.percentageOfPortfolio?.toFixed(2) || '0',
-        Contract_Address: token.contractAddress || 'Native'
-      }));
-
-      const headers = Object.keys(csvData[0]).join(',');
-      const rows = csvData.map(row => Object.values(row).join(','));
-      const csv = [headers, ...rows].join('\n');
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `PulseManager_Portfolio_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-
-      console.log('✅ DASHBOARD: CSV Export successful');
-    } catch (error) {
-      console.error('💥 DASHBOARD: CSV Export failed:', error);
-      alert('❌ CSV Export fehlgeschlagen');
-    }
-  };
-
-  // 🛡️ RATE LIMITING STATE
-  const [lastRefresh, setLastRefresh] = useState(0);
-  const [refreshCooldown, setRefreshCooldown] = useState(0);
-  const RATE_LIMIT_MS = 2 * 60 * 1000; // 2 Minuten Rate Limit
-
-  // ❌ AUTOMATISCHES PORTFOLIO-LADEN DEAKTIVIERT FÜR KOSTENOPTIMIERUNG
-  // ✅ Nur noch manuelles Laden via Button erlaubt!
-  // 
-  // VORHER: Automatisches Laden beim Login = API-Calls ohne Kontrolle
-  // JETZT: Benutzer entscheidet bewusst wann Portfolio geladen wird
-  // 
-  // useEffect(() => {
-  //   if (user?.id && lastRefresh === 0) {
-  //     console.log('🚀 INITIAL LOAD: Portfolio wird beim Login geladen...');
-  //     setDashboardLoading(true);
-  //     CentralDataService.loadCompletePortfolio(user.id)
-  //       .then(data => {
-  //         // ... automatisches Portfolio-Laden entfernt
-  //       });
-  //   }
-  // }, [user?.id]);
-
-  // 🔄 COOLDOWN TIMER
-  useEffect(() => {
-    if (refreshCooldown > 0) {
-      const timer = setInterval(() => {
-        setRefreshCooldown(prev => Math.max(0, prev - 1));
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [refreshCooldown]);
   
   const handleLogout = async () => {
     logger.info('Home: Attempting logout.');
@@ -186,47 +32,7 @@ const Home = () => {
     }
   };
 
-  /**
-   * 🚨 EMERGENCY: Force Cache Clear + Fresh Load
-   */
-  const handleEmergencyCacheClear = async () => {
-    console.log('🚨 EMERGENCY CACHE CLEAR: Starting...');
-    setDashboardLoading(true);
-    
-    try {
-      // Clear all caches
-      await CentralDataService.clearAllCaches();
-      
-      // Clear local state
-      setPortfolioData(null);
-      setLastUpdate(null);
-      setLastRefresh(0);
-      
-      console.log('🧹 All caches cleared - loading fresh data...');
-      
-      // Force fresh load
-      const freshData = await CentralDataService.getPortfolioData(true, true); // forceRefresh = true, bypassCache = true
-      
-      if (freshData.success || freshData.isLoaded) {
-        console.log('✅ EMERGENCY RELOAD SUCCESS:', {
-          totalValue: freshData.totalValue,
-          tokenCount: freshData.tokenCount,
-          apiCalls: freshData.apiCalls
-        });
-        
-        setPortfolioData(freshData);
-        setLastUpdate(new Date());
-        setLastRefresh(Date.now());
-      } else {
-        console.error('❌ EMERGENCY RELOAD FAILED:', freshData.error);
-      }
-      
-    } catch (error) {
-      console.error('💥 EMERGENCY CACHE CLEAR ERROR:', error);
-    } finally {
-      setDashboardLoading(false);
-    }
-  };
+
 
   if (authLoading) {
     return (
@@ -285,126 +91,52 @@ const Home = () => {
         <ROICalculator />
       </div>
 
-      {/* 📈 Recent Activity & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Portfolio Status */}
-        <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="flex items-center gap-3 mb-4">
-            <Activity className="h-6 w-6 text-green-400" />
-            <h2 className="text-xl font-bold pulse-text">Portfolio Status</h2>
-          </div>
-          
-          {(portfolioData?.success || portfolioData?.isLoaded) ? (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-green-500/10 rounded-lg">
-                <span className="text-sm pulse-text-secondary">
-                  ✅ Portfolio geladen {portfolioData.fromCache ? '📦' : '🔄'}
-                </span>
-                <span className="text-sm text-green-400 font-medium">{portfolioData.tokenCount || 0} Tokens</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-blue-500/10 rounded-lg">
-                <span className="text-sm pulse-text-secondary">💼 Wallets verbunden</span>
-                <span className="text-sm text-blue-400 font-medium">{portfolioData.walletCount || 0} Wallets</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-purple-500/10 rounded-lg">
-                <span className="text-sm pulse-text-secondary">💰 Gesamtwert</span>
-                <span className="text-sm text-purple-400 font-medium">{formatCurrency(portfolioData.totalValue || 0)}</span>
-              </div>
-              {portfolioData.fromCache ? (
-                <div className="flex justify-between items-center p-3 bg-orange-500/10 rounded-lg">
-                  <span className="text-sm pulse-text-secondary">📦 Cache Hit</span>
-                  <span className="text-sm text-orange-400 font-medium">0 API calls</span>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center p-3 bg-cyan-500/10 rounded-lg">
-                  <span className="text-sm pulse-text-secondary">🔄 Fresh Data</span>
-                  <span className="text-sm text-cyan-400 font-medium">{portfolioData.apiCalls || 0} API calls</span>
-                </div>
-              )}
-              {lastUpdate && (
-                <div className="text-xs pulse-text-secondary text-center mt-3">
-                  Update: {lastUpdate.toLocaleString()}
-                  {portfolioData.fromCache && <span className="text-orange-400 ml-2">(From Cache)</span>}
-                </div>
-              )}
-              <div className="text-xs pulse-text-secondary text-center mt-2 p-2 bg-blue-500/10 rounded">
-                🛡️ Rate Limit: Refresh alle 2 Minuten möglich (schützt vor API-Überlastung)
-                <br />
-                📊 Global: {GlobalRateLimiter.getStats().activeUsers} User aktiv, {GlobalRateLimiter.getStats().cacheHitRate}% Cache Hit Rate
-              </div>
+      {/* 📈 Quick Navigation Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Tax Report Navigation */}
+        <button
+          onClick={() => navigate('/tax-report')}
+          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <FileText className="h-8 w-8 text-red-400" />
+            <div>
+              <div className="text-lg font-bold pulse-text">Tax Report</div>
+              <div className="text-sm pulse-text-secondary">Steuer-Export für Deutschland</div>
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="pulse-text-secondary">
-                {portfolioData?.error ? `Fehler: ${portfolioData.error}` : 'Keine Portfolio-Daten geladen'}
-              </p>
-              <p className="text-sm pulse-text-secondary mt-2">Klicke "Portfolio Aktualisieren" für Live-Daten</p>
+          </div>
+          <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
+        </button>
+
+        {/* ROI Tracker Navigation */}
+        <button
+          onClick={() => navigate('/roi-tracker')}
+          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <TrendingUp className="h-8 w-8 text-green-400" />
+            <div>
+              <div className="text-lg font-bold pulse-text">ROI Tracker</div>
+              <div className="text-sm pulse-text-secondary">Performance Analyse</div>
             </div>
-          )}
-        </div>
-
-        {/* Quick Actions & Exports */}
-        <div className="pulse-card p-6" style={{outline: 'none', boxShadow: 'none', border: '1px solid rgba(255, 255, 255, 0.1)'}}>
-          <div className="flex items-center gap-3 mb-4">
-            <FileText className="h-6 w-6 text-orange-400" />
-            <h2 className="text-xl font-bold pulse-text">Quick Actions</h2>
           </div>
-          
-          <div className="space-y-3">
-            {/* Portfolio CSV Export */}
-            <button
-              onClick={exportToCSV}
-              disabled={!portfolioData?.tokens}
-              className="w-full flex items-center justify-between p-4 bg-orange-500/10 rounded-lg hover:bg-orange-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="flex items-center gap-3">
-                <Download className="h-5 w-5 text-orange-400" />
-                <div className="text-left">
-                  <div className="font-medium pulse-text">Portfolio CSV Export</div>
-                  <div className="text-sm pulse-text-secondary">Alle Token-Holdings als CSV</div>
-                </div>
-              </div>
-              <div className="text-sm text-orange-400 font-medium">
-                {portfolioData?.tokens?.length || 0} Tokens
-              </div>
-            </button>
+          <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
+        </button>
 
-            {/* Tax Report Navigation */}
-            <button
-              onClick={() => navigate('/tax-report')}
-              className="w-full flex items-center justify-between p-4 bg-red-500/10 rounded-lg hover:bg-red-500/20 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-red-400" />
-                <div className="text-left">
-                  <div className="font-medium pulse-text">Tax Report</div>
-                  <div className="text-sm pulse-text-secondary">Steuer-Export (CSV/PDF)</div>
-                </div>
-              </div>
-              <div className="text-sm text-red-400 font-medium">
-                →
-              </div>
-            </button>
-
-            {/* ROI Tracker Navigation */}
-            <button
-              onClick={() => navigate('/roi-tracker')}
-              className="w-full flex items-center justify-between p-4 bg-green-500/10 rounded-lg hover:bg-green-500/20 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-5 w-5 text-green-400" />
-                <div className="text-left">
-                  <div className="font-medium pulse-text">ROI Tracker</div>
-                  <div className="text-sm pulse-text-secondary">Performance Analyse</div>
-                </div>
-              </div>
-              <div className="text-sm text-green-400 font-medium">
-                →
-              </div>
-            </button>
+        {/* Portfolio Navigation */}
+        <button
+          onClick={() => navigate('/portfolio')}
+          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <Activity className="h-8 w-8 text-blue-400" />
+            <div>
+              <div className="text-lg font-bold pulse-text">Portfolio</div>
+              <div className="text-sm pulse-text-secondary">Token Holdings anzeigen</div>
+            </div>
           </div>
-        </div>
+          <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
+        </button>
       </div>
 
 
