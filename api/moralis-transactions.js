@@ -74,8 +74,8 @@ export default async function handler(req, res) {
   try {
     console.log(`🚀 Loading native transactions for ${address} on chain ${normalizedChain}`);
 
-    // 🚀 Get native transactions via Moralis
-    const endpoint = `/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 500)}`;
+    // ✅ KORRIGIERTER MORALIS V2 ENDPUNKT FÜR NATIVE TRANSAKTIONEN
+    const endpoint = `/wallets/${address}/transactions?chain=${normalizedChain}&limit=${Math.min(limit, 500)}`;
     const data = await moralisFetch(endpoint);
     
     if (!data?.result) {

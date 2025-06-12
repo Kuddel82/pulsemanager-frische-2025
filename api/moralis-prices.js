@@ -81,14 +81,14 @@ export default async function handler(req, res) {
     if (tokenAddresses.includes('native')) {
       try {
         const nativeSymbol = normalizedChain === '0x171' ? 'pls' : 'eth';
-        const nativeData = await moralisFetch(`/erc20/prices?chain=${normalizedChain}&tokens=${JSON.stringify([{token_address: 'native'}])}`);
+        const nativeData = await moralisFetch(`/market-data/erc20s/0x0000000000000000000000000000000000000000/price?chain=${normalizedChain}`);
         
-        if (nativeData && nativeData.length > 0) {
+        if (nativeData && nativeData.usdPrice) {
           nativePrice = {
             tokenAddress: 'native',
             tokenSymbol: nativeSymbol.toUpperCase(),
             tokenName: normalizedChain === '0x171' ? 'PulseChain' : 'Ethereum',
-            usdPrice: nativeData[0].usdPrice || '0',
+            usdPrice: nativeData.usdPrice || '0',
             verifiedContract: true,
             possibleSpam: false
           };
