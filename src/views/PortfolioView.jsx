@@ -113,26 +113,6 @@ const PortfolioView = () => {
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
-        {/* 🚀 INLINE LOAD PANEL: Nicht blockierend, nur informativ */}
-        {showEmptyState && (
-          <div className="pulse-card p-6 mb-6 text-center border-2 border-blue-500/20">
-            <Coins className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-            <h3 className="text-lg font-bold pulse-text mb-2">Portfolio-Daten laden</h3>
-            <p className="pulse-text-secondary mb-4">
-              Laden Sie Ihre Token-Holdings um Ihr Portfolio zu sehen.
-            </p>
-            <SmartLoadButton
-              onLoad={loadPortfolioData}
-              loading={loading}
-              canRefresh={canRefresh}
-              remainingTime={remainingTime}
-              stats={stats}
-              buttonText="Portfolio laden"
-              size="default"
-            />
-          </div>
-        )}
-
         {/* ERROR NOTICE: Nicht blockierend, nur informativ */}
         {error && (
           <div className="pulse-card p-4 mb-6 border-l-4 border-red-500">

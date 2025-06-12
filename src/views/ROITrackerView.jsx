@@ -361,13 +361,18 @@ const ROITrackerView = () => {
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
-        {/* Header */}
+        {/* Header mit Portfolio-Status */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold pulse-title">ROI Tracker V2</h1>
-            <p className="pulse-text-secondary">
-              Enterprise DeFi Analytics • Portfolio: {portfolioLastUpdate?.toLocaleTimeString('de-DE')} • DeFi: {lastDefiUpdate?.toLocaleTimeString('de-DE')}
-            </p>
+            <h1 className="text-3xl font-bold pulse-title">ROI Tracker</h1>
+            <div className="flex items-center space-x-4 text-sm pulse-text-secondary">
+              <span>💰 MORALIS PRO MODUS</span>
+              <span className="text-green-400">✅ Globaler Portfolio-State</span>
+              {hasPortfolioData && <span>Portfolio geladen: {portfolioData?.tokenCount || 0} Tokens</span>}
+              {remainingTime > 0 && (
+                <span className="text-yellow-400">⏱️ Nächstes Update in {remainingTime}s</span>
+              )}
+            </div>
           </div>
           <div className="flex space-x-2">
             <Button
@@ -405,90 +410,41 @@ const ROITrackerView = () => {
               </Button>
               {/* 🚀 COMBINED LOAD BUTTON for convenience */}
               <Button 
-                onClick={async () => {
-                  console.log('🚀 COMBINED LOAD: Starting Portfolio + DeFi loading sequence...');
-                  if (canRefresh) {
-                    await loadPortfolioData();
-                    // Short delay then load DeFi data
-                    setTimeout(() => {
-                      console.log('🚀 COMBINED LOAD: Portfolio loaded, now loading DeFi...');
-                      loadDefiData();
-                    }, 1000);
-                  }
-                }}
-                disabled={!canRefresh || portfolioLoading || defiLoading}
+                onClick={loadCompleteROI}
+                disabled={portfolioLoading || defiLoading || !canRefresh}
                 variant="default"
                 size="sm"
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-500 hover:bg-green-600"
               >
                 <TrendingUp className={`h-4 w-4 mr-2 ${(portfolioLoading || defiLoading) ? 'animate-spin' : ''}`} />
-                Alles laden
+                Komplett laden
               </Button>
-              {/* 🚀 FORCE UPDATE BUTTONS - Ignore Rate Limits for Debugging */}
-              {showDebug && (
-                <>
-                  <Button 
-                    onClick={() => {
-                      console.log('🚨 FORCE UPDATE: Ignoring rate limits for debug...');
-                      // Force portfolio update by calling the function with forceLoad=true
-                      loadPortfolioData(true); // 🚀 FIXED: Pass true to bypass rate limits
-                    }}
-                    disabled={portfolioLoading}
-                    variant="destructive"
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    <AlertCircle className={`h-4 w-4 mr-2 ${portfolioLoading ? 'animate-spin' : ''}`} />
-                    Force Portfolio
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      console.log('🚨 FORCE DeFi UPDATE: Loading DeFi regardless of portfolio state...');
-                      // Force DeFi data load even without portfolio data
-                      if (!portfolioData) {
-                        console.log('🚨 WARNING: Loading DeFi without portfolio data - this may cause errors');
-                      }
-                      loadDefiData();
-                    }}
-                    disabled={defiLoading}
-                    variant="destructive"
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    <AlertCircle className={`h-4 w-4 mr-2 ${defiLoading ? 'animate-spin' : ''}`} />
-                    Force DeFi
-                  </Button>
-                </>
-              )}
             </div>
           </div>
         </div>
 
-        {/* 🚀 MORALIS PRO: Prominent Load Button when no data */}
-        {showEmptyState && (
-          <div className="pulse-card p-8 mb-6 text-center border-2 border-green-500/20">
-            <TrendingUp className="h-16 w-16 mx-auto mb-4 text-green-400" />
-            <h3 className="text-xl font-bold pulse-text mb-2">💰 MORALIS PRO: Portfolio-Daten laden</h3>
-            <p className="pulse-text-secondary mb-6">
-              Laden Sie zuerst Ihre Portfolio-Daten, dann können DeFi-Analysen durchgeführt werden.<br/>
-              <span className="text-green-400">✅ Globaler State - Daten werden zwischen Seiten geteilt</span>
-            </p>
-            <Button 
-              onClick={loadPortfolioData} 
-              className="bg-green-500 hover:bg-green-600"
-              size="lg"
-              disabled={portfolioLoading || !canRefresh}
-            >
-              <TrendingUp className={`h-5 w-5 mr-2 ${portfolioLoading ? 'animate-spin' : ''}`} />
-              Portfolio-Daten jetzt laden
-            </Button>
-            {remainingTime > 0 && (
-              <p className="text-sm text-yellow-400 mt-2">
-                ⏱️ Nächstes Update in {remainingTime} Sekunden möglich
-              </p>
-            )}
+        {/* ERROR NOTICES: Nicht blockierend */}
+        {portfolioError && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-red-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-red-400" />
+              <span className="pulse-text font-medium">Portfolio-Fehler (nicht blockierend)</span>
+            </div>
+            <p className="pulse-text-secondary text-sm mt-1">{portfolioError}</p>
           </div>
         )}
+
+        {defiError && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-orange-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-orange-400" />
+              <span className="pulse-text font-medium">DeFi-Fehler (nicht blockierend)</span>
+            </div>
+            <p className="pulse-text-secondary text-sm mt-1">{defiError}</p>
+          </div>
+        )}
+
+        {/* 🚫 REMOVED: Hässlicher "Portfolio-Daten laden" Kasten entfernt wie gewünscht */}
 
         {/* ROI DEBUG: Zeige warum keine ROI-Daten sichtbar */}
         {hasPortfolioData && !defiData && !defiLoading && !showEmptyState && (
@@ -720,9 +676,8 @@ const ROITrackerView = () => {
           </div>
         )}
 
-        {/* MORALIS STATUS INDICATORS */}
-        {!showEmptyState && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* Portfolio & DeFi Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="pulse-card p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -783,7 +738,6 @@ const ROITrackerView = () => {
             </div>
           </div>
         </div>
-        )}
 
         {/* Time Frame Selector */}
         {!showEmptyState && (

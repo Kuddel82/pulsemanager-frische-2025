@@ -35,21 +35,26 @@ export const PREMIUM_ONLY_VIEWS = [
   'taxReport'       // Tax Report - PREMIUM ONLY (kein Trial!)
 ];
 
-// 🆓 TRIAL FEATURES (3 Tage kostenlos für registrierte User)
+// 🆓 TRIAL FEATURES (3 Tage kostenlos für registrierte User) - KORRIGIERT
 export const TRIAL_VIEWS_OBJECT = [
-  { id: 'wallets', icon: Wallet, translationKey: 'walletViewTitle' },
-  { id: 'roiTracker', icon: BarChart2, translationKey: 'roiTrackerTitle' },
-  { id: 'market', icon: BarChartHorizontalBig, translationKey: 'marketViewTitle' },
-  { id: 'tokenTrade', icon: Repeat, translationKey: 'swapViewTitle' },
-  { id: 'bridge', icon: Zap, translationKey: 'bridgeViewTitle' },
-  { id: 'settings', icon: SettingsIcon, translationKey: 'settingsViewTitle' }
-];
-
-// ✅ KOMPLETT FREI (auch unregistrierte User)
-export const FREE_VIEWS_OBJECT = [
   { id: 'dashboard', icon: Home, translationKey: 'dashboardViewTitle', isDefault: true, isSidebarLink: true },
   { id: 'wgep', icon: Printer, translationKey: 'wgepViewTitle', isSidebarLink: true },
-  { id: 'pulseChainInfo', icon: Info, translationKey: 'pulseChainInfoTitle', isSidebarLink: true }
+  { id: 'pulseChainInfo', icon: Info, translationKey: 'pulseChainInfoTitle', isSidebarLink: true },
+  { id: 'wallets', icon: Wallet, translationKey: 'walletViewTitle', isSidebarLink: true },
+  { id: 'tokenTrade', icon: Repeat, translationKey: 'swapViewTitle', isSidebarLink: true },
+  { id: 'bridge', icon: Zap, translationKey: 'bridgeViewTitle', isSidebarLink: true },
+  { id: 'settings', icon: SettingsIcon, translationKey: 'settingsViewTitle', isSidebarLink: true }
+];
+
+// 💎 PREMIUM ONLY FEATURES
+export const PREMIUM_VIEWS_OBJECT = [
+  { id: 'roiTracker', icon: BarChart2, translationKey: 'roiTrackerTitle', isSidebarLink: true },
+  { id: 'taxReport', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true }
+];
+
+// 🚫 LEER - Keine kostenlosen Features mehr
+export const FREE_VIEWS_OBJECT = [
+  // KOMPLETT LEER! Keine Free Forever Features
 ];
 
 // 🔗 FOOTER LINKS (immer frei)
@@ -59,9 +64,9 @@ export const FOOTER_VIEWS = [
   { id: 'disclaimer', icon: AlertTriangle, translationKey: 'disclaimer', isFooterLink: true, isSidebarLink: false }
 ];
 
-// ⚠️ BACKWARD COMPATIBILITY (wird schrittweise entfernt)
-export const PROTECTED_VIEWS_CONFIG = PREMIUM_ONLY_VIEWS;
-export const PUBLIC_VIEWS_CONFIG = [...FREE_VIEWS_OBJECT, ...FOOTER_VIEWS];
+// ⚠️ BACKWARD COMPATIBILITY (wird schrittweise entfernt) - KORRIGIERT
+export const PROTECTED_VIEWS_CONFIG = PREMIUM_VIEWS_OBJECT;
+export const PUBLIC_VIEWS_CONFIG = [...TRIAL_VIEWS_OBJECT, ...FOOTER_VIEWS];
 
 export const FOOTER_NAVIGATION_CONFIG = [
   { id: 'termsOfService', translationKey: 'termsOfService', path: '/termsOfService', icon: FileText },
