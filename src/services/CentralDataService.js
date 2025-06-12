@@ -75,6 +75,24 @@ export class CentralDataService {
     return this.CHAINS.PULSECHAIN;
   }
 
+  // 💎 PREIS-QUELLE DISPLAY MAPPING
+  static getPriceSourceDisplay(apiSource, priceValue) {
+    // If no price, show as blocked
+    if (!priceValue || priceValue <= 0) {
+      return 'moralis_blocked';
+    }
+    
+    // Map API sources to display names
+    const sourceMap = {
+      'moralis_pro_rest': 'moralis_live',
+      'moralis_pro_rest_no_price': 'moralis_blocked',
+      'moralis_v2_pro': 'moralis_live',
+      'moralis_v2_pro_price': 'moralis_realtime'
+    };
+    
+    return sourceMap[apiSource] || 'moralis_live';
+  }
+
   // 🎯 MAIN PORTFOLIO LOADING (PRO OPTIMIZED)
   static async loadCompletePortfolio(userId) {
     console.log(`🎯 PRO PORTFOLIO: Loading for user ${userId}`);
@@ -167,7 +185,7 @@ export class CentralDataService {
             total_usd: token.total_usd || 0,
             value: token.total_usd || 0,
             hasReliablePrice: (token.usd_price || 0) > 0,
-            priceSource: token._source || 'moralis_pro',
+            priceSource: this.getPriceSourceDisplay(token._source, token.usd_price),
             isIncludedInPortfolio: (token.total_usd || 0) > 0.01,
             walletAddress: wallet.address,
             chainId: chainId,
