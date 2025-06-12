@@ -105,7 +105,11 @@ export const BUSINESS_MODEL = {
 const EMERGENCY_PREMIUM_EMAILS = ['dkuddel@web.de'];
 
 const isEmergencyPremiumUser = (user) => {
-  return user?.email && EMERGENCY_PREMIUM_EMAILS.includes(user.email);
+  const isEmergency = user?.email && EMERGENCY_PREMIUM_EMAILS.includes(user.email);
+  if (isEmergency) {
+    console.log('🚨🚨🚨 EMERGENCY PREMIUM USER DETECTED:', user.email);
+  }
+  return isEmergency;
 };
 
 /**
@@ -124,12 +128,13 @@ export const getFeatureAccess = (viewId, user, subscriptionStatus, daysRemaining
     daysRemaining
   });
 
-  // 🚨 EMERGENCY OVERRIDE
+  // 🚨🚨🚨 EMERGENCY OVERRIDE - ABSOLUTE PRIORITY
   if (isEmergencyPremiumUser(user)) {
-    console.log('🚨 EMERGENCY PREMIUM OVERRIDE for', user.email);
+    console.log('🚨🚨🚨 EMERGENCY PREMIUM OVERRIDE ACTIVE for', user.email);
+    console.log('🚨🚨🚨 GRANTING FULL ACCESS TO:', viewId);
     return {
       access: true,
-      reason: 'premium',
+      reason: 'emergency_premium',
       message: `🚨 Emergency Premium Access for ${user.email}`,
       daysLeft: 999
     };
