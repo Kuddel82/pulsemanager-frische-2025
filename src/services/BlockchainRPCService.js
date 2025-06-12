@@ -1,12 +1,11 @@
 /**
- * ⛓️ BLOCKCHAIN RPC SERVICE - MULTI-PROVIDER MANAGEMENT
+ * 🔗 BLOCKCHAIN RPC SERVICE - UPDATED 2025
  * 
- * Strukturelle Lösung für RPC-Verbindungen mit:
- * - Multi-Provider Pools mit automatischem Failover
- * - Health Monitoring und Provider-Ranking
- * - Load Balancing zwischen verfügbaren RPCs
- * - Circuit Breaker für defekte Endpoints
- * - Real-time Provider-Switching
+ * Multi-chain RPC management with failover support
+ * - PulseChain: Updated to working mainnet RPCs
+ * - Ethereum: Multiple provider fallbacks
+ * - Health monitoring and automatic switching
+ * - Circuit breaker pattern for failed RPCs
  */
 
 import { ExternalAPIService } from './core/ExternalAPIService.js';
@@ -15,91 +14,81 @@ import errorMonitor from './core/ErrorMonitoringService.js';
 export class BlockchainRPCService extends ExternalAPIService {
   constructor() {
     super('BlockchainRPCService', {
-      // RPC-specific configuration
-      cacheTimeout: 30000,       // 30 seconds cache for RPC calls
-      requestTimeout: 20000,     // 20 second timeout
-      failureThreshold: 5,       // Open circuit after 5 failures
-      recoveryTimeout: 180000,   // 3 minute recovery
-      rateLimit: 100            // 100 requests per minute per RPC
+      cacheTimeout: 30000,      // 30 second cache
+      requestTimeout: 10000,    // 10 second timeout
+      failureThreshold: 3,      // Open circuit after 3 failures
+      recoveryTimeout: 60000,   // 1 minute recovery
+      rateLimit: 60            // 60 requests per minute
     });
     
-    // RPC Provider Pools
+    // RPC Provider Pools - UPDATED WITH WORKING ENDPOINTS
     this.rpcPools = {
-      pulsechain: {
-        mainnet: [
-          {
-            name: 'pulsechain-official',
-            url: 'https://rpc.pulsechain.com',
-            priority: 1,
-            chainId: '0x171', // 369
-            features: ['archive', 'trace']
-          },
-          {
-            name: 'pulsechain-g4mm4',
-            url: 'https://rpc-pulsechain.g4mm4.io',
-            priority: 2,
-            chainId: '0x171',
-            features: ['standard']
-          },
-          {
-            name: 'pulsechain-publicnode',
-            url: 'https://pulsechain.publicnode.com',
-            priority: 3,
-            chainId: '0x171',
-            features: ['standard']
-          }
-        ],
-        testnet: [
-          {
-            name: 'pulsechain-testnet-v4',
-            url: 'https://rpc.v4.testnet.pulsechain.com',
-            priority: 1,
-            chainId: '0x3AF', // 943
-            features: ['standard']
-          }
-        ]
-      },
-      
-      ethereum: {
-        mainnet: [
-          {
-            name: 'ethereum-llamarpc',
-            url: 'https://eth.llamarpc.com',
-            priority: 1,
-            chainId: '0x1',
-            features: ['archive', 'trace']
-          },
-          {
-            name: 'ethereum-publicnode',
-            url: 'https://ethereum.publicnode.com',
-            priority: 2,
-            chainId: '0x1',
-            features: ['standard']
-          },
-          {
-            name: 'ethereum-ankr',
-            url: 'https://rpc.ankr.com/eth',
-            priority: 3,
-            chainId: '0x1',
-            features: ['standard']
-          }
-        ],
-        sepolia: [
-          {
-            name: 'sepolia-tenderly',
-            url: 'https://sepolia.gateway.tenderly.co',
-            priority: 1,
-            chainId: '0xaa36a7',
-            features: ['standard']
-          }
-        ]
-      }
+      pulsechain: [
+        {
+          name: 'PulseChain Official',
+          url: 'https://rpc.pulsechain.com',
+          priority: 1,
+          chainId: '0x171', // 369
+          timeout: 8000
+        },
+        {
+          name: 'PulseChain G4MM4',
+          url: 'https://rpc-pulsechain.g4mm4.io',
+          priority: 2,
+          chainId: '0x171',
+          timeout: 10000
+        },
+        {
+          name: 'PulseChain PublicNode',
+          url: 'https://pulsechain.publicnode.com',
+          priority: 3,
+          chainId: '0x171',
+          timeout: 10000
+        }
+        // ❌ ENTFERNT: Defekte Sepolia Testnet URLs
+        // {
+        //   name: 'PulseChain Testnet',
+        //   url: 'https://rpc.sepolia.v4.testnet.pulsechain.com',
+        //   priority: 4,
+        //   chainId: '0x171',
+        //   timeout: 10000
+        // }
+      ],
+      ethereum: [
+        {
+          name: 'Ethereum LlamaRPC',
+          url: 'https://eth.llamarpc.com',
+          priority: 1,
+          chainId: '0x1',
+          timeout: 8000
+        },
+        {
+          name: 'Ethereum PublicNode',
+          url: 'https://ethereum.publicnode.com',
+          priority: 2,
+          chainId: '0x1',
+          timeout: 10000
+        },
+        {
+          name: 'Ethereum Ankr',
+          url: 'https://rpc.ankr.com/eth',
+          priority: 3,
+          chainId: '0x1',
+          timeout: 10000
+        },
+        {
+          name: 'Ethereum CloudFlare',
+          url: 'https://cloudflare-eth.com',
+          priority: 4,
+          chainId: '0x1',
+          timeout: 12000
+        }
+      ]
     };
     
-    // Provider Health Tracking
+    // Provider health tracking
     this.providerHealth = new Map();
-    this.activeProviders = new Map();
-    this.providerStats = new Map();
+    this.currentProviders = new Map();
     
     // Load Balancing
     this.lastUsedProvider = new Map();
@@ -110,69 +99,304 @@ export class BlockchainRPCService extends ExternalAPIService {
   }
 
   /**
-   * Get working RPC provider for chain/network
+   * Get working RPC provider for chain
    */
-  async getWorkingProvider(chain, network = 'mainnet', requiredFeatures = []) {
-    const cacheKey = `provider-${chain}-${network}`;
-    
+  async getWorkingProvider(chain = 'pulsechain') {
     try {
-      return await this.callWithFallbacks(
-        cacheKey,
-        () => this.findBestProvider(chain, network, requiredFeatures),
-        [
-          () => this.findAnyWorkingProvider(chain, network),
-          () => this.getLastKnownGoodProvider(chain, network),
-          () => this.getFallbackProvider(chain, network)
-        ]
-      );
+      const chainLower = chain.toLowerCase();
+      const providers = this.rpcPools[chainLower];
+      
+      if (!providers || providers.length === 0) {
+        throw new Error(`No RPC providers configured for chain: ${chain}`);
+      }
+      
+      // Check if we have a cached working provider
+      const cachedProvider = this.currentProviders.get(chainLower);
+      if (cachedProvider && await this.isProviderHealthy(cachedProvider)) {
+        console.log(`[BlockchainRPC] Using cached provider: ${cachedProvider.name}`);
+        return cachedProvider;
+      }
+      
+      // Find working provider by priority
+      const sortedProviders = providers.sort((a, b) => a.priority - b.priority);
+      
+      for (const provider of sortedProviders) {
+        try {
+          console.log(`[BlockchainRPC] Testing provider: ${provider.name} (${provider.url})`);
+          
+          if (await this.testProvider(provider)) {
+            console.log(`[BlockchainRPC] ✅ Provider working: ${provider.name}`);
+            this.currentProviders.set(chainLower, provider);
+            this.recordProviderHealth(provider, true);
+            return provider;
+          }
+          
+        } catch (error) {
+          console.warn(`[BlockchainRPC] ❌ Provider failed: ${provider.name} - ${error.message}`);
+          this.recordProviderHealth(provider, false);
+        }
+      }
+      
+      throw new Error(`No working RPC providers found for ${chain}`);
+      
     } catch (error) {
-      errorMonitor.recordError('BlockchainRPCService', error, {
-        chain,
-        network,
-        method: 'getWorkingProvider',
-        isCritical: true
-      });
+      console.error(`[BlockchainRPC] 💥 Failed to get provider for ${chain}:`, error.message);
       throw error;
     }
   }
 
   /**
-   * Find best provider based on health and features
+   * Test if RPC provider is working
    */
-  async findBestProvider(chain, network, requiredFeatures = []) {
-    const providers = this.getRPCPool(chain, network);
-    if (!providers || providers.length === 0) {
-      throw new Error(`No RPC providers configured for ${chain}/${network}`);
+  async testProvider(provider) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), provider.timeout);
+      
+      const response = await fetch(provider.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_chainId',
+          params: [],
+          id: 1
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(`RPC Error: ${data.error.message}`);
+      }
+      
+      // Verify chain ID matches
+      if (data.result && data.result !== provider.chainId) {
+        console.warn(`[BlockchainRPC] Chain ID mismatch: expected ${provider.chainId}, got ${data.result}`);
+      }
+      
+      return true;
+      
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error(`Timeout after ${provider.timeout}ms`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Check if provider is healthy
+   */
+  async isProviderHealthy(provider) {
+    try {
+      const health = this.providerHealth.get(provider.url);
+      if (!health) return false;
+      
+      // Consider provider unhealthy if last failure was recent
+      const timeSinceLastFailure = Date.now() - (health.lastFailure || 0);
+      if (timeSinceLastFailure < 60000) { // 1 minute
+        return false;
+      }
+      
+      // Quick health check
+      return await this.testProvider(provider);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Record provider health status
+   */
+  recordProviderHealth(provider, isHealthy) {
+    const health = this.providerHealth.get(provider.url) || {
+      successCount: 0,
+      failureCount: 0,
+      lastSuccess: null,
+      lastFailure: null
+    };
+    
+    if (isHealthy) {
+      health.successCount++;
+      health.lastSuccess = Date.now();
+    } else {
+      health.failureCount++;
+      health.lastFailure = Date.now();
     }
     
-    console.log(`[BlockchainRPCService] Finding best provider for ${chain}/${network}`);
+    this.providerHealth.set(provider.url, health);
+  }
+
+  /**
+   * Get RPC URL for chain
+   */
+  async getRPCUrl(chain = 'pulsechain') {
+    try {
+      const provider = await this.getWorkingProvider(chain);
+      return provider.url;
+    } catch (error) {
+      console.error(`[BlockchainRPC] Failed to get RPC URL for ${chain}:`, error.message);
+      
+      // Emergency fallback URLs
+      const fallbacks = {
+        pulsechain: 'https://rpc.pulsechain.com',
+        ethereum: 'https://eth.llamarpc.com'
+      };
+      
+      const fallbackUrl = fallbacks[chain.toLowerCase()];
+      if (fallbackUrl) {
+        console.warn(`[BlockchainRPC] Using emergency fallback: ${fallbackUrl}`);
+        return fallbackUrl;
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Get chain ID for chain
+   */
+  getChainId(chain = 'pulsechain') {
+    const chainMap = {
+      pulsechain: '0x171',
+      pls: '0x171',
+      ethereum: '0x1',
+      eth: '0x1'
+    };
     
-    // Filter providers by required features
-    const compatibleProviders = providers.filter(provider => 
-      requiredFeatures.every(feature => provider.features.includes(feature))
-    );
+    return chainMap[chain.toLowerCase()] || '0x171';
+  }
+
+  /**
+   * Make RPC call
+   */
+  async makeRPCCall(method, params = [], chain = 'pulsechain') {
+    try {
+      const provider = await this.getWorkingProvider(chain);
+      
+      const response = await fetch(provider.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method,
+          params,
+          id: Date.now()
+        }),
+        signal: AbortSignal.timeout(provider.timeout)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`RPC HTTP Error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(`RPC Method Error: ${data.error.message}`);
+      }
+      
+      return data.result;
+      
+    } catch (error) {
+      console.error(`[BlockchainRPC] RPC call failed: ${method}`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get provider health status
+   */
+  getProviderHealthStatus() {
+    const status = {};
     
-    const candidateProviders = compatibleProviders.length > 0 ? compatibleProviders : providers;
+    Object.entries(this.rpcPools).forEach(([chain, providers]) => {
+      status[chain] = providers.map(provider => {
+        const health = this.providerHealth.get(provider.url) || {};
+        const current = this.currentProviders.get(chain);
+        
+        return {
+          name: provider.name,
+          url: provider.url,
+          isCurrent: current?.url === provider.url,
+          successCount: health.successCount || 0,
+          failureCount: health.failureCount || 0,
+          lastSuccess: health.lastSuccess,
+          lastFailure: health.lastFailure,
+          priority: provider.priority
+        };
+      });
+    });
     
-    // Sort by health and priority
-    const rankedProviders = this.rankProviders(candidateProviders);
+    return status;
+  }
+
+  /**
+   * Force refresh provider health
+   */
+  async refreshProviderHealth() {
+    console.log('[BlockchainRPC] Refreshing provider health...');
     
-    // Test providers in order until we find a working one
-    for (const provider of rankedProviders) {
-      try {
-        const isHealthy = await this.testProviderHealth(provider);
-        if (isHealthy) {
-          console.log(`[BlockchainRPCService] Selected provider: ${provider.name}`);
-          this.recordProviderSuccess(provider);
-          return this.createProviderInstance(provider);
+    const promises = [];
+    
+    Object.entries(this.rpcPools).forEach(([chain, providers]) => {
+      providers.forEach(provider => {
+        promises.push(
+          this.testProvider(provider)
+            .then(() => this.recordProviderHealth(provider, true))
+            .catch(() => this.recordProviderHealth(provider, false))
+        );
+      });
+    });
+    
+    await Promise.allSettled(promises);
+    console.log('[BlockchainRPC] Provider health refresh complete');
+  }
+
+  /**
+   * Initialize health monitoring
+   */
+  initializeHealthMonitoring() {
+    // Run health checks every 5 minutes
+    setInterval(() => {
+      this.runHealthCheckCycle();
+    }, 300000);
+    
+    // Initial health check
+    setTimeout(() => this.runHealthCheckCycle(), 5000);
+  }
+
+  /**
+   * Run health check cycle for all providers
+   */
+  async runHealthCheckCycle() {
+    console.log('[BlockchainRPCService] Running health check cycle...');
+    
+    for (const [chain, networks] of Object.entries(this.rpcPools)) {
+      for (const [network, providers] of Object.entries(networks)) {
+        for (const provider of providers) {
+          try {
+            await this.testProviderHealth(provider);
+          } catch (error) {
+            // Health check failures are already logged
+          }
         }
-      } catch (error) {
-        console.warn(`[BlockchainRPCService] Provider ${provider.name} failed health check:`, error.message);
-        this.recordProviderFailure(provider, error);
       }
     }
-    
-    throw new Error(`No healthy RPC providers found for ${chain}/${network}`);
   }
 
   /**
@@ -436,75 +660,6 @@ export class BlockchainRPCService extends ExternalAPIService {
     }
     
     throw new Error(`No fallback provider for ${chain}/${network}`);
-  }
-
-  /**
-   * Initialize health monitoring
-   */
-  initializeHealthMonitoring() {
-    // Run health checks every 5 minutes
-    setInterval(() => {
-      this.runHealthCheckCycle();
-    }, 300000);
-    
-    // Initial health check
-    setTimeout(() => this.runHealthCheckCycle(), 5000);
-  }
-
-  /**
-   * Run health check cycle for all providers
-   */
-  async runHealthCheckCycle() {
-    console.log('[BlockchainRPCService] Running health check cycle...');
-    
-    for (const [chain, networks] of Object.entries(this.rpcPools)) {
-      for (const [network, providers] of Object.entries(networks)) {
-        for (const provider of providers) {
-          try {
-            await this.testProviderHealth(provider);
-          } catch (error) {
-            // Health check failures are already logged
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Get provider health status
-   */
-  getProviderHealthStatus() {
-    const status = {
-      timestamp: Date.now(),
-      providers: {},
-      summary: { healthy: 0, unhealthy: 0, total: 0 }
-    };
-    
-    for (const [healthKey, health] of this.providerHealth) {
-      const providerName = healthKey.replace('-health', '');
-      status.providers[providerName] = {
-        healthy: health.healthy,
-        responseTime: health.responseTime,
-        lastChecked: health.timestamp,
-        lastError: health.lastError
-      };
-      
-      status.summary.total++;
-      if (health.healthy) {
-        status.summary.healthy++;
-      } else {
-        status.summary.unhealthy++;
-      }
-    }
-    
-    return status;
-  }
-
-  /**
-   * Get provider statistics
-   */
-  getProviderStats() {
-    return Object.fromEntries(this.providerStats);
   }
 }
 

@@ -12,6 +12,33 @@ export class ROIDetectionService {
   static MAX_ROI_SOURCES = 50;
   static CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
   
+  // 🎯 ROI TRANSACTION PATTERNS - Pro Plan kompatibel
+  static ROI_PATTERNS = {
+    // Bekannte Mint/Reward Contract Adressen
+    KNOWN_MINTERS: [
+      '0x0000000000000000000000000000000000000000', // Null address (Mint)
+      '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX Contract
+      '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC Contract (example)
+    ],
+    
+    // ROI-charakteristische Token-Symbole
+    ROI_TOKENS: ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP'],
+    
+    // Wert-Bereiche für ROI-Transaktionen
+    VALUE_RANGES: [
+      { min: 0.001, max: 100, type: 'daily_rewards', confidence: 0.8 },
+      { min: 100, max: 1000, type: 'weekly_rewards', confidence: 0.7 },
+      { min: 1000, max: 10000, type: 'monthly_rewards', confidence: 0.6 }
+    ],
+    
+    // Zeit-Pattern für ROI (regelmäßige Intervalle)
+    TIME_PATTERNS: {
+      DAILY: 86400,     // 1 Tag in Sekunden
+      WEEKLY: 604800,   // 1 Woche
+      MONTHLY: 2592000  // 30 Tage
+    }
+  };
+  
   /**
    * 🏆 COMPLETE ROI ANALYSIS
    * Kombiniert alle ROI-Quellen: DeFi Positions, Transaction History, Portfolio Analysis
@@ -67,9 +94,9 @@ export class ROIDetectionService {
   }
   
   /**
-   * 🎯 MAIN: Detect ROI sources from wallet
+   * 🎯 MAIN: Detect ROI sources from wallet using transaction analysis
    */
-  static async detectROISources(walletAddress, chain = 'eth') {
+  static async detectROISources(walletAddress, chain = 'pulsechain') {
     if (!walletAddress || !this.VALID_CHAINS.includes(chain)) {
       logger.warn('ROI Detection: Invalid wallet or chain', { walletAddress, chain });
       return { sources: [], count: 0, status: 'invalid_input' };
@@ -78,21 +105,45 @@ export class ROIDetectionService {
     try {
       logger.info(`🎯 ROI Detection started for ${walletAddress} (${chain})`);
       
-      // Für jetzt: Leere ROI Sources zurückgeben
-      // TODO: ROI-Erkennung implementieren wenn gewünscht
+      // 1. Lade Transaktionshistorie über moralis-transactions API
+      const transactions = await this.loadTransactionHistory(walletAddress, chain);
+      
+      if (!transactions || transactions.length === 0) {
+        console.log('⚠️ No transactions found for ROI analysis');
+        return {
+          sources: [],
+          count: 0,
+          status: 'no_transactions',
+          chain,
+          wallet: walletAddress,
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+      // 2. Analysiere Transaktionen für ROI-Pattern
+      const roiSources = this.analyzeTransactionsForROI(transactions, walletAddress);
+      
+      // 3. Berechne ROI-Metriken
+      const roiMetrics = this.calculateROIMetrics(roiSources);
       
       const result = {
-        sources: [],
-        count: 0,
-        status: 'no_sources_detected',
+        sources: roiSources,
+        count: roiSources.length,
+        status: roiSources.length > 0 ? 'sources_detected' : 'no_sources_detected',
         chain,
         wallet: walletAddress,
         timestamp: new Date().toISOString(),
+        metrics: roiMetrics,
         performance: {
-          total_gain_loss: 0,
-          roi_percentage: 0,
-          best_performer: null,
-          worst_performer: null
+          total_gain_loss: roiMetrics.totalValue,
+          roi_percentage: roiMetrics.estimatedAnnualROI,
+          best_performer: roiMetrics.bestSource,
+          worst_performer: null // Für ROI immer positiv
+        },
+        transactionAnalysis: {
+          totalTransactions: transactions.length,
+          roiTransactions: roiSources.length,
+          roiRatio: transactions.length > 0 ? (roiSources.length / transactions.length * 100).toFixed(2) : '0'
         }
       };
 
@@ -105,8 +156,345 @@ export class ROIDetectionService {
         sources: [],
         count: 0,
         status: 'error',
-        error: error.message
+        error: error.message,
+        chain,
+        wallet: walletAddress
       };
+    }
+  }
+  
+  /**
+   * 📥 Lade Transaktionshistorie
+   */
+  static async loadTransactionHistory(address, chain, limit = 100) {
+    try {
+      console.log(`📥 Loading transaction history for ${address} on ${chain}`);
+      
+      const response = await fetch(this.API_BASE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          address,
+          chain,
+          limit
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Transaction API failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data._error) {
+        throw new Error(`Transaction API error: ${data._error}`);
+      }
+      
+      const transactions = data.result || [];
+      console.log(`✅ Loaded ${transactions.length} transactions for ROI analysis`);
+      
+      return transactions;
+      
+    } catch (error) {
+      console.error('Failed to load transaction history:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * 🔍 Analysiere Transaktionen für ROI-Pattern
+   */
+  static analyzeTransactionsForROI(transactions, walletAddress) {
+    if (!transactions || transactions.length === 0) return [];
+    
+    const roiSources = [];
+    const tokenSummary = new Map();
+    
+    // Gruppiere Transaktionen nach Token und analysiere Pattern
+    transactions.forEach(tx => {
+      if (this.isROITransaction(tx, walletAddress)) {
+        const tokenAddress = tx.contract_address || tx.token_address || 'native';
+        const tokenSymbol = tx.token_symbol || tx.symbol || 'ETH';
+        const value = parseFloat(tx.value || '0');
+        const valueFormatted = parseFloat(tx.value_formatted || tx.value || '0');
+        const timestamp = new Date(tx.block_timestamp);
+        
+        // ROI-Klassifikation
+        const roiType = this.classifyROIType(tx, value);
+        const confidence = this.calculateConfidence(tx, value, roiType);
+        
+        // Sammle alle ROI-Transaktionen pro Token
+        if (!tokenSummary.has(tokenAddress)) {
+          tokenSummary.set(tokenAddress, {
+            tokenAddress,
+            tokenSymbol,
+            transactions: [],
+            totalValue: 0,
+            totalCount: 0,
+            roiType,
+            confidence
+          });
+        }
+        
+        const tokenData = tokenSummary.get(tokenAddress);
+        tokenData.transactions.push({
+          hash: tx.transaction_hash || tx.hash,
+          value: valueFormatted,
+          timestamp,
+          roiType,
+          confidence
+        });
+        tokenData.totalValue += valueFormatted;
+        tokenData.totalCount++;
+      }
+    });
+    
+    // Konvertiere zu ROI Sources
+    tokenSummary.forEach((tokenData, tokenAddress) => {
+      if (tokenData.totalCount > 0) {
+        // Berechne ROI-Metriken
+        const avgTransaction = tokenData.totalValue / tokenData.totalCount;
+        const timespan = this.calculateTimespan(tokenData.transactions);
+        const frequency = this.calculateFrequency(tokenData.transactions, timespan);
+        
+        roiSources.push({
+          id: `roi_${tokenAddress}`,
+          type: 'transaction_based_roi',
+          tokenAddress,
+          tokenSymbol: tokenData.tokenSymbol,
+          
+          // ROI-Metriken
+          totalValue: tokenData.totalValue,
+          transactionCount: tokenData.totalCount,
+          averageValue: avgTransaction,
+          
+          // Pattern-Analyse
+          roiType: tokenData.roiType,
+          frequency,
+          confidence: tokenData.confidence,
+          
+          // Zeit-Analyse
+          timespan,
+          estimatedDailyROI: this.estimateDailyROI(tokenData.totalValue, timespan),
+          estimatedMonthlyROI: this.estimateMonthlyROI(tokenData.totalValue, timespan),
+          
+          // Details
+          transactions: tokenData.transactions.slice(0, 10), // Maximal 10 für Performance
+          lastTransaction: tokenData.transactions[tokenData.transactions.length - 1],
+          
+          // UI
+          description: `${tokenData.tokenSymbol} ROI from ${tokenData.totalCount} transactions`,
+          status: 'active'
+        });
+      }
+    });
+    
+    // Sortiere nach Wert
+    return roiSources.sort((a, b) => b.totalValue - a.totalValue).slice(0, this.MAX_ROI_SOURCES);
+  }
+  
+  /**
+   * ✅ Prüfe ob Transaktion ROI ist
+   */
+  static isROITransaction(tx, walletAddress) {
+    // Nur eingehende Transaktionen
+    const toAddress = (tx.to_address || tx.to || '').toLowerCase();
+    if (toAddress !== walletAddress.toLowerCase()) {
+      return false;
+    }
+    
+    // 1. Von bekanntem Minter-Contract
+    const fromAddress = (tx.from_address || tx.from || '').toLowerCase();
+    if (this.ROI_PATTERNS.KNOWN_MINTERS.includes(fromAddress)) {
+      return true;
+    }
+    
+    // 2. Bekanntes ROI-Token
+    const tokenSymbol = tx.token_symbol || tx.symbol || '';
+    if (this.ROI_PATTERNS.ROI_TOKENS.includes(tokenSymbol)) {
+      return true;
+    }
+    
+    // 3. Wert-Pattern (kleine regelmäßige Beträge)
+    const value = parseFloat(tx.value_formatted || tx.value || '0');
+    const matchesValuePattern = this.ROI_PATTERNS.VALUE_RANGES.some(range => 
+      value >= range.min && value <= range.max
+    );
+    
+    if (matchesValuePattern && value > 0) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * 🏷️ Klassifiziere ROI-Typ
+   */
+  static classifyROIType(tx, value) {
+    // Basierend auf Wert-Bereich
+    for (const range of this.ROI_PATTERNS.VALUE_RANGES) {
+      if (value >= range.min && value <= range.max) {
+        return range.type;
+      }
+    }
+    
+    // Basierend auf Token-Typ
+    const tokenSymbol = tx.token_symbol || tx.symbol || '';
+    if (tokenSymbol === 'HEX') return 'staking_rewards';
+    if (tokenSymbol === 'INC') return 'yield_farming';
+    if (tokenSymbol === 'PLSX') return 'dex_rewards';
+    
+    return 'unknown_roi';
+  }
+  
+  /**
+   * 📊 Berechne Konfidenz-Score
+   */
+  static calculateConfidence(tx, value, roiType) {
+    let confidence = 0.5; // Base confidence
+    
+    // Von Null-Address = höchste Konfidenz
+    const fromAddress = (tx.from_address || tx.from || '').toLowerCase();
+    if (fromAddress === '0x0000000000000000000000000000000000000000') {
+      confidence = 0.95;
+    }
+    
+    // Bekanntes ROI-Token
+    const tokenSymbol = tx.token_symbol || tx.symbol || '';
+    if (this.ROI_PATTERNS.ROI_TOKENS.includes(tokenSymbol)) {
+      confidence += 0.3;
+    }
+    
+    // Wert-Pattern
+    const matchingRange = this.ROI_PATTERNS.VALUE_RANGES.find(range => 
+      value >= range.min && value <= range.max
+    );
+    if (matchingRange) {
+      confidence += matchingRange.confidence * 0.2;
+    }
+    
+    return Math.min(confidence, 1.0);
+  }
+  
+  /**
+   * ⏱️ Berechne Zeitspanne
+   */
+  static calculateTimespan(transactions) {
+    if (transactions.length < 2) return 0;
+    
+    const timestamps = transactions.map(tx => tx.timestamp.getTime()).sort();
+    const start = timestamps[0];
+    const end = timestamps[timestamps.length - 1];
+    
+    return Math.max(1, Math.floor((end - start) / (1000 * 60 * 60 * 24))); // Tage
+  }
+  
+  /**
+   * 📈 Berechne Häufigkeit
+   */
+  static calculateFrequency(transactions, timespanDays) {
+    if (timespanDays === 0 || transactions.length === 0) return 'unknown';
+    
+    const transactionsPerDay = transactions.length / timespanDays;
+    
+    if (transactionsPerDay >= 0.8) return 'daily';
+    if (transactionsPerDay >= 0.1) return 'weekly';
+    if (transactionsPerDay >= 0.03) return 'monthly';
+    return 'irregular';
+  }
+  
+  /**
+   * 💰 Schätze täglichen ROI
+   */
+  static estimateDailyROI(totalValue, timespanDays) {
+    if (timespanDays === 0) return 0;
+    return totalValue / timespanDays;
+  }
+  
+  /**
+   * 📊 Schätze monatlichen ROI
+   */
+  static estimateMonthlyROI(totalValue, timespanDays) {
+    if (timespanDays === 0) return totalValue;
+    const dailyROI = totalValue / timespanDays;
+    return dailyROI * 30;
+  }
+  
+  /**
+   * 📈 Berechne ROI-Metriken
+   */
+  static calculateROIMetrics(roiSources) {
+    if (roiSources.length === 0) {
+      return {
+        totalValue: 0,
+        totalSources: 0,
+        estimatedDailyROI: 0,
+        estimatedMonthlyROI: 0,
+        estimatedAnnualROI: 0,
+        bestSource: null,
+        averageConfidence: 0
+      };
+    }
+    
+    const totalValue = roiSources.reduce((sum, source) => sum + source.totalValue, 0);
+    const totalDailyROI = roiSources.reduce((sum, source) => sum + source.estimatedDailyROI, 0);
+    const totalMonthlyROI = roiSources.reduce((sum, source) => sum + source.estimatedMonthlyROI, 0);
+    const bestSource = roiSources[0]; // Already sorted by value
+    const avgConfidence = roiSources.reduce((sum, source) => sum + source.confidence, 0) / roiSources.length;
+    
+    return {
+      totalValue,
+      totalSources: roiSources.length,
+      estimatedDailyROI: totalDailyROI,
+      estimatedMonthlyROI: totalMonthlyROI,
+      estimatedAnnualROI: totalMonthlyROI * 12,
+      bestSource: bestSource ? {
+        token: bestSource.tokenSymbol,
+        value: bestSource.totalValue,
+        type: bestSource.roiType
+      } : null,
+      averageConfidence: avgConfidence
+    };
+  }
+  
+  /**
+   * 🔄 Cache Management
+   */
+  static getCacheKey(address, chain) {
+    return `roi_detection_${address}_${chain}`;
+  }
+  
+  static getCachedResult(address, chain) {
+    const key = this.getCacheKey(address, chain);
+    const cached = localStorage.getItem(key);
+    
+    if (cached) {
+      const data = JSON.parse(cached);
+      const age = Date.now() - data.timestamp;
+      
+      if (age < this.CACHE_DURATION) {
+        console.log('📋 Using cached ROI detection result');
+        return data.result;
+      }
+    }
+    
+    return null;
+  }
+  
+  static setCachedResult(address, chain, result) {
+    const key = this.getCacheKey(address, chain);
+    const data = {
+      result,
+      timestamp: Date.now()
+    };
+    
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.warn('Failed to cache ROI detection result:', error);
     }
   }
   
@@ -383,16 +771,6 @@ export class ROIDetectionService {
     if (apy > 20) return 'high';
     if (apy > 5) return 'medium';
     return 'low';
-  }
-  
-  static classifyROIType(position) {
-    const label = position.label?.toLowerCase() || '';
-    const isDebt = position.position_details?.is_debt || false;
-    
-    if (isDebt) return 'lending';
-    if (label.includes('liquidity')) return 'liquidity_mining';
-    if (label.includes('staking')) return 'staking';
-    return 'other';
   }
   
   static assessROIQuality(roiSources, totalUnclaimed) {
