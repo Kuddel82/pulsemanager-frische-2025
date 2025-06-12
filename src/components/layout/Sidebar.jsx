@@ -91,11 +91,25 @@ const Sidebar = () => {
     originalStatus: subscriptionStatus,
     effectiveStatus: effectiveSubscriptionStatus,
     originalDays: daysRemaining,
-    effectiveDays: effectiveDaysRemaining
+    effectiveDays: effectiveDaysRemaining,
+    forceWGEP: isEmergencyPremiumUser
   });
 
-  // 🎯 KORRIGIERTE FEATURE ACCESS CHECK - KEIN FREE FOREVER!
+  // 🎯 KORRIGIERTE FEATURE ACCESS CHECK - EMERGENCY OVERRIDE FIRST!
   const getFeatureStatus = (viewId) => {
+    // 🚨 EMERGENCY OVERRIDE - BYPASSES ALL CHECKS
+    if (isEmergencyPremiumUser) {
+      console.log(`🚨 EMERGENCY ACCESS GRANTED for ${viewId} to ${user.email}`);
+      return {
+        access: true,
+        reason: 'emergency_premium',
+        message: `🚨 Emergency Premium Access`,
+        disabled: false,
+        iconClass: 'text-green-500',
+        badge: '🚨 Emergency Premium'
+      };
+    }
+    
     const access = getFeatureAccess(viewId, user, effectiveSubscriptionStatus, effectiveDaysRemaining);
     
     if (!user) {
@@ -230,9 +244,16 @@ const Sidebar = () => {
     sidebarViewConfigs.splice(6, 0, EMERGENCY_WGEP_ITEM); // Füge an Position 6 ein
   }
 
+  // 🚨 FORCE WGEP for Emergency Users
+  if (isEmergencyPremiumUser && !hasWGEP) {
+    console.error('🚨 EMERGENCY USER: Force-adding WGEP for dkuddel@web.de');
+    sidebarViewConfigs.push(EMERGENCY_WGEP_ITEM);
+  }
+
   const displayableSidebarItems = sidebarViewConfigs;
 
   console.log('🚨 FINAL SIDEBAR ITEMS:', displayableSidebarItems.map(v => v.id));
+  console.log('🚨 WGEP IN FINAL LIST:', displayableSidebarItems.some(v => v.id === 'wgep'));
 
   return (
     <div className="flex">

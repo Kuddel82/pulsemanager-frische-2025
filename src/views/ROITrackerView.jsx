@@ -410,7 +410,14 @@ const ROITrackerView = () => {
               </Button>
               {/* 🚀 COMBINED LOAD BUTTON for convenience */}
               <Button 
-                onClick={loadCompleteROI}
+                onClick={() => {
+                  // Combined load: Portfolio first, then DeFi
+                  loadPortfolioData().then(() => {
+                    if (hasPortfolioData) {
+                      loadDefiData();
+                    }
+                  });
+                }}
                 disabled={portfolioLoading || defiLoading || !canRefresh}
                 variant="default"
                 size="sm"
