@@ -1,22 +1,12 @@
 // 🔇 ERROR SUPPRESSION - Muss vor allem anderen geladen werden
 import './lib/errorSuppression.js';
 
-// 🏗️ STRUCTURAL SERVICES - Console spam reduction + Circuit breakers
-import { initializeStructuralServices } from './services/index.js';
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import MainApp from './MainApp';
 import ErrorBoundary from '@/components/ErrorBoundary'; 
 import { logger } from '@/lib/logger'; // Assuming logger is initialized elsewhere
 import '@/index.css';
-
-// Initialize structural services for immediate error reduction
-const structuralServices = initializeStructuralServices();
-console.log('🎯 Structural Services active - Console errors will be reduced by 90%+');
-
-// Make services available globally for debugging
-window.structuralServices = structuralServices;
 
 // The main App component now includes Router and all Providers
 // So we can simplify main.jsx significantly.
