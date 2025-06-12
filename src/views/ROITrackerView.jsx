@@ -520,6 +520,131 @@ const ROITrackerView = () => {
           </div>
         )}
 
+        {/* 🔍 PRO PLAN ROI DEBUG INFORMATION */}
+        {showDebug && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-purple-500">
+            <h3 className="flex items-center text-lg font-bold pulse-text mb-4">
+              <Activity className="h-5 w-5 mr-2 text-purple-400" />
+              🔍 ROI Tracker Pro Debug
+            </h3>
+            
+            {/* CU TRACKING FOR ROI */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
+              <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
+                <span className="font-medium text-green-400">💰 Portfolio CUs:</span>
+                <p className="text-white font-mono text-lg">
+                  {portfolioData?.apiCalls || 0} CUs
+                </p>
+                <p className="text-xs text-green-400">
+                  {portfolioLastUpdate ? 'Portfolio geladen' : 'Nicht geladen'}
+                </p>
+              </div>
+              
+              <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+                <span className="font-medium text-blue-400">🎯 DeFi CUs:</span>
+                <p className="text-white font-mono text-lg">
+                  0 CUs
+                </p>
+                <p className="text-xs text-blue-400">
+                  Enterprise deaktiviert
+                </p>
+              </div>
+              
+              <div className="p-3 bg-purple-500/10 border border-purple-400/20 rounded">
+                <span className="font-medium text-purple-400">📅 Letzter ROI Cache:</span>
+                <p className="text-white font-mono">
+                  {lastDefiUpdate ? lastDefiUpdate.toLocaleTimeString('de-DE') : 'Nie'}
+                </p>
+                <p className="text-xs text-purple-400">
+                  {defiData ? 'DeFi analysiert' : 'Keine DeFi-Daten'}
+                </p>
+              </div>
+              
+              <div className="p-3 bg-orange-500/10 border border-orange-400/20 rounded">
+                <span className="font-medium text-orange-400">🎯 ROI Herkunft:</span>
+                <p className="text-white">
+                  {portfolioData?.roiTransactions?.length > 0 ? '📊 Transaktionen' : '❌ Keine ROI'}
+                </p>
+                <p className="text-xs text-orange-400">
+                  Transaction-based ROI
+                </p>
+              </div>
+            </div>
+            
+            {/* ENTERPRISE FEATURES DISABLED INFO */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+              <div className="p-3 bg-red-500/10 border border-red-400/20 rounded">
+                <span className="font-medium text-red-400">❌ Enterprise Features deaktiviert:</span>
+                <ul className="text-xs text-red-400 mt-2 space-y-1">
+                  <li>• defi-summary (0 CUs gespart)</li>
+                  <li>• defi-positions (0 CUs gespart)</li>
+                  <li>• wallet-stats (0 CUs gespart)</li>
+                </ul>
+              </div>
+              
+              <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
+                <span className="font-medium text-green-400">✅ Pro Plan ROI Detection:</span>
+                <ul className="text-xs text-green-400 mt-2 space-y-1">
+                  <li>• Transaction-based Analysis</li>
+                  <li>• Known Minter Detection</li>
+                  <li>• Transfer Pattern Recognition</li>
+                </ul>
+              </div>
+            </div>
+            
+            {/* ROI STATS DEBUG */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+              <div>
+                <span className="font-medium pulse-text-secondary">Portfolio ROI ({timeFrame}):</span>
+                <p className="pulse-text font-mono text-green-400">{formatCurrency(roiStats.portfolioROI[timeFrame])}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">DeFi ROI ({timeFrame}):</span>
+                <p className="pulse-text font-mono text-blue-400">{formatCurrency(roiStats.defiROI[timeFrame])}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Gesamt ROI ({timeFrame}):</span>
+                <p className="pulse-text font-mono text-purple-400">{formatCurrency(getCurrentROI())}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">ROI Percentage:</span>
+                <p className="pulse-text font-mono text-orange-400">{formatPercentage(getROIPercentage())}</p>
+              </div>
+            </div>
+            
+            {/* RAW DATA BUTTONS */}
+            <div className="flex justify-between items-center pt-4 border-t border-white/10">
+              <div className="text-xs text-gray-400">
+                💡 ROI Debug: Enterprise-Features deaktiviert für Pro Plan Cost Reduction
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    console.log('🔍 PORTFOLIO ROI DATA:', portfolioData);
+                    alert('Portfolio ROI-Daten in Konsole geloggt (F12 → Console)');
+                  }}
+                  className="text-xs"
+                >
+                  📊 Portfolio Raw
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    console.log('🔍 DEFI ROI DATA:', defiData);
+                    alert('DeFi ROI-Daten in Konsole geloggt (F12 → Console)');
+                  }}
+                  className="text-xs"
+                >
+                  🎯 DeFi Raw
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MORALIS STATUS INDICATORS */}
         {!showEmptyState && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

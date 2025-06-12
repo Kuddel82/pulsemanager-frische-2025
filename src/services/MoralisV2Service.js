@@ -295,188 +295,59 @@ export class MoralisV2Service {
   }
   
   /**
-   * 🏆 DEFI SUMMARY - ROI Detection Goldmine
-   * Ersetzt: Manuelle ROI-Detection durch echte DeFi-Daten
+   * ❌ DEFI SUMMARY REMOVED - Enterprise feature not available in Pro Plan
+   * Ersetzt durch: Transaction-based ROI analysis
    */
   static async getDefiSummary(address, chain = '1') {
-    try {
-      console.log(`🚀 V2 DEFI: Loading DeFi summary for ${address}`);
-      
-      const response = await fetch(`/api/moralis-v2?endpoint=defi-summary&address=${address}&chain=${chain}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      // 🔧 BETTER 500 ERROR HANDLING
-      if (!response.ok) {
-        if (response.status === 500) {
-          console.warn(`⚠️ DeFi Summary not available: [C0006] Request failed, Internal Server Error(500): Unknown error occurred. Please try again or contact support.`);
-          return {
-            success: true, // Return success with empty data instead of failing
-            defiSummary: {
-              active_protocols: 0,
-              total_usd_value: 0,
-              total_unclaimed_usd_value: 0,
-              total_positions: 0
-            },
-            roiAnalysis: {
-              hasActivePositions: false,
-              hasUnclaimedRewards: false,
-              totalValue: 0,
-              unclaimedValue: 0,
-              activeProtocols: 0,
-              roiPotential: 'none'
-            },
-            _fallback500: true,
-            source: 'moralis_v2_defi_summary_fallback'
-          };
-        }
-        throw new Error(`DeFi Summary API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data._error) {
-        console.warn('⚠️ V2 DeFi Summary Error:', data._error.message);
-        return { 
-          success: false, 
-          error: data._error.message,
-          defiSummary: null
-        };
-      }
-      
-      const summary = data.result;
-      console.log(`✅ V2 DEFI: ${summary.active_protocols} protocols, $${summary.total_usd_value} value, $${summary.total_unclaimed_usd_value} unclaimed`);
-      
-      return {
-        success: true,
-        defiSummary: summary,
-        roiAnalysis: {
-          hasActivePositions: parseInt(summary.total_positions) > 0,
-          hasUnclaimedRewards: parseFloat(summary.total_unclaimed_usd_value) > 0,
-          totalValue: parseFloat(summary.total_usd_value) || 0,
-          unclaimedValue: parseFloat(summary.total_unclaimed_usd_value) || 0,
-          activeProtocols: parseInt(summary.active_protocols) || 0,
-          roiPotential: parseFloat(summary.total_unclaimed_usd_value) > 0 ? 'high' : 'low'
-        },
-        source: 'moralis_v2_defi_summary'
-      };
-      
-    } catch (error) {
-      console.error('💥 V2 DeFi Summary Error:', error);
-      return { 
-        success: false, 
-        error: error.message,
-        defiSummary: null
-      };
-    }
+    console.log(`🚨 DEFI SUMMARY DISABLED: Enterprise feature removed for Pro Plan cost reduction`);
+    
+    // Return empty DeFi data to prevent breaking existing code
+    return {
+      success: true,
+      defiSummary: {
+        active_protocols: 0,
+        total_usd_value: 0,
+        total_unclaimed_usd_value: 0,
+        total_positions: 0
+      },
+      roiAnalysis: {
+        hasActivePositions: false,
+        hasUnclaimedRewards: false,
+        totalValue: 0,
+        unclaimedValue: 0,
+        activeProtocols: 0,
+        roiPotential: 'none'
+      },
+      _enterprise_disabled: true,
+      source: 'moralis_v2_defi_disabled',
+      _note: 'Use transaction-based ROI analysis instead'
+    };
   }
   
   /**
-   * 🎯 DEFI POSITIONS - Complete ROI Source Detection
-   * Ersetzt: Vermutungen durch echte Position-Daten
+   * ❌ DEFI POSITIONS REMOVED - Enterprise feature not available in Pro Plan
+   * Ersetzt durch: Transaction-based position tracking
    */
   static async getDefiPositions(address, chain = '1') {
-    try {
-      console.log(`🚀 V2 DEFI POSITIONS: Loading positions for ${address}`);
-      
-      const response = await fetch(`/api/moralis-v2?endpoint=defi-positions&address=${address}&chain=${chain}`, {
-        method: 'GET'
-      });
-      
-      // 🔧 BETTER 500 ERROR HANDLING
-      if (!response.ok) {
-        if (response.status === 500) {
-          console.warn(`⚠️ DeFi Positions not available: [C0006] Request failed, Internal Server Error(500): Unknown error occurred. Please try again or contact support.`);
-          return {
-            success: true, // Return success with empty data instead of failing
-            positions: [],
-            roiSources: [],
-            roiAnalysis: {
-              totalPositions: 0,
-              roiSourcesCount: 0,
-              totalROIValue: 0,
-              totalDailyROI: 0,
-              estimatedMonthlyROI: 0,
-              hasActiveROI: false
-            },
-            _fallback500: true,
-            source: 'moralis_v2_defi_positions_fallback'
-          };
-        }
-        throw new Error(`DeFi Positions API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data._error) {
-        console.warn('⚠️ V2 DeFi Positions Error:', data._error.message);
-        return { 
-          success: false, 
-          error: data._error.message,
-          positions: []
-        };
-      }
-      
-      const positions = Array.isArray(data.result) ? data.result : [];
-      
-      // ROI Analysis for each position
-      const roiPositions = positions.map(position => {
-        const balanceUsd = parseFloat(position.balance_usd) || 0;
-        const unclaimedUsd = parseFloat(position.total_unclaimed_usd_value) || 0;
-        const apy = position.position_details?.apy || 0;
-        
-        return {
-          protocol: position.protocol_name || 'Unknown',
-          protocolId: position.protocol_id || 'unknown',
-          label: position.label || 'position',
-          balanceUsd: balanceUsd,
-          unclaimedUsd: unclaimedUsd,
-          apy: apy,
-          isROISource: unclaimedUsd > 0 || apy > 0,
-          roiType: position.position_details?.is_debt ? 'lending' : 'liquidity',
-          estimatedDailyROI: apy > 0 ? (apy * balanceUsd / 365 / 100) : 0,
-          
-          tokens: position.tokens?.map(token => ({
-            symbol: token.symbol,
-            name: token.name,
-            balanceFormatted: token.balance_formatted,
-            usdValue: token.usd_value
-          })) || []
-        };
-      });
-      
-      const roiSources = roiPositions.filter(pos => pos.isROISource);
-      const totalROIValue = roiSources.reduce((sum, pos) => sum + pos.unclaimedUsd, 0);
-      const totalDailyROI = roiSources.reduce((sum, pos) => sum + pos.estimatedDailyROI, 0);
-      
-      console.log(`✅ V2 DEFI POSITIONS: ${positions.length} positions, ${roiSources.length} ROI sources, $${totalROIValue.toFixed(2)} unclaimed`);
-      
-      return {
-        success: true,
-        positions: roiPositions,
-        roiSources: roiSources,
-        roiAnalysis: {
-          totalPositions: positions.length,
-          roiSourcesCount: roiSources.length,
-          totalROIValue: totalROIValue,
-          totalDailyROI: totalDailyROI,
-          estimatedMonthlyROI: totalDailyROI * 30,
-          hasActiveROI: roiSources.length > 0
-        },
-        source: 'moralis_v2_defi_positions'
-      };
-      
-    } catch (error) {
-      console.error('💥 V2 DeFi Positions Error:', error);
-      return { 
-        success: false, 
-        error: error.message,
-        positions: []
-      };
-    }
+    console.log(`🚨 DEFI POSITIONS DISABLED: Enterprise feature removed for Pro Plan cost reduction`);
+    
+    // Return empty positions data to prevent breaking existing code
+    return {
+      success: true,
+      positions: [],
+      roiSources: [],
+      roiAnalysis: {
+        totalPositions: 0,
+        roiSourcesCount: 0,
+        totalROIValue: 0,
+        totalDailyROI: 0,
+        estimatedMonthlyROI: 0,
+        hasActiveROI: false
+      },
+      _enterprise_disabled: true,
+      source: 'moralis_v2_positions_disabled',
+      _note: 'Use transaction analysis for position tracking instead'
+    };
   }
   
   /**

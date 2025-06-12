@@ -211,30 +211,93 @@ const PortfolioView = () => {
           </div>
         )}
 
-        {/* Debug Information */}
-        {showDebug && portfolioData.debug && (
-          <div className="pulse-card p-6 mb-6">
+        {/* 🔍 PRO PLAN DEBUG INFORMATION */}
+        {showDebug && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-blue-500">
             <h3 className="flex items-center text-lg font-bold pulse-text mb-4">
               <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
-              Debug Information
+              🔍 Pro Plan Debug Information
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="font-medium pulse-text-secondary">Preise aktualisiert:</span>
-                <p className="pulse-text">{portfolioData.debug.pricesUpdated}</p>
+            
+            {/* CU TRACKING */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
+              <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
+                <span className="font-medium text-green-400">💰 CU Verbrauch (letzter Load):</span>
+                <p className="text-white font-mono text-lg">
+                  {portfolioData?.apiCalls || portfolioData?.debug?.apiCalls || 0} CUs
+                </p>
+                <p className="text-xs text-green-400">
+                  {portfolioData?.dataSource === 'moralis_pro_separate_basic' ? 'Separate API Calls' : 'Optimiert'}
+                </p>
               </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Preis-Quelle:</span>
-                <p className="pulse-text">{portfolioData.debug.priceSource}</p>
+              
+              <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+                <span className="font-medium text-blue-400">📅 Letzter erfolgreicher Cache:</span>
+                <p className="text-white font-mono">
+                  {lastUpdate ? lastUpdate.toLocaleTimeString('de-DE') : 'Nicht geladen'}
+                </p>
+                <p className="text-xs text-blue-400">
+                  {isCached ? '💾 Aus Cache' : '🌐 Fresh Load'}
+                </p>
               </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">API-Aufrufe:</span>
-                <p className="pulse-text">{portfolioData.debug.apiCalls}</p>
+              
+              <div className="p-3 bg-purple-500/10 border border-purple-400/20 rounded">
+                <span className="font-medium text-purple-400">🎯 Datenherkunft:</span>
+                <p className="text-white">
+                  {portfolioData?.dataSource?.includes('moralis') ? '🔵 Moralis Pro' : '🟡 Fallback'}
+                </p>
+                <p className="text-xs text-purple-400">
+                  {portfolioData?.dataSource || 'Unbekannt'}
+                </p>
               </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Letzte Preis-Update:</span>
-                <p className="pulse-text">{new Date(portfolioData.debug.lastPriceUpdate).toLocaleTimeString('de-DE')}</p>
+              
+              <div className="p-3 bg-orange-500/10 border border-orange-400/20 rounded">
+                <span className="font-medium text-orange-400">⚡ Enterprise Features:</span>
+                <p className="text-white">❌ Deaktiviert</p>
+                <p className="text-xs text-orange-400">
+                  Pro Plan - Kostenoptimiert
+                </p>
               </div>
+            </div>
+            
+            {/* DETAILED DEBUG INFO */}
+            {portfolioData?.debug && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                <div>
+                  <span className="font-medium pulse-text-secondary">Preise aktualisiert:</span>
+                  <p className="pulse-text">{portfolioData.debug.pricesUpdated}</p>
+                </div>
+                <div>
+                  <span className="font-medium pulse-text-secondary">Preis-Quelle:</span>
+                  <p className="pulse-text">{portfolioData.debug.priceSource}</p>
+                </div>
+                <div>
+                  <span className="font-medium pulse-text-secondary">Moralis API-Aufrufe:</span>
+                  <p className="pulse-text font-mono text-green-400">{portfolioData.debug.apiCalls}</p>
+                </div>
+                <div>
+                  <span className="font-medium pulse-text-secondary">Letzte Preis-Update:</span>
+                  <p className="pulse-text">{new Date(portfolioData.debug.lastPriceUpdate).toLocaleTimeString('de-DE')}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* RAW DATA BUTTON */}
+            <div className="flex justify-between items-center pt-4 border-t border-white/10">
+              <div className="text-xs text-gray-400">
+                💡 Debug-Modus: Zeigt CU-Verbrauch und API-Quellen für Kostenoptimierung
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  console.log('🔍 PORTFOLIO RAW DATA:', portfolioData);
+                  alert('API-Rohdaten wurden in die Browser-Konsole geloggt (F12 → Console)');
+                }}
+                className="text-xs"
+              >
+                📊 Log API-Rohdaten
+              </Button>
             </div>
           </div>
         )}

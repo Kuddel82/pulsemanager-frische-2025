@@ -11,7 +11,8 @@ export class CentralDataService {
     try {
       console.log('🔍 MORALIS PRO: Testing API access...');
       
-      const response = await fetch('/api/moralis-v2?endpoint=wallet-tokens-prices&chain=pulsechain&address=0x0000000000000000000000000000000000000000');
+      // Test with simple erc20 endpoint instead of enterprise endpoint
+      const response = await fetch('/api/moralis-v2?endpoint=erc20&chain=pulsechain&address=0x0000000000000000000000000000000000000000');
       const data = await response.json();
       
       if (response.ok && !data.error) {
@@ -151,10 +152,18 @@ export class CentralDataService {
         taxTransactions: taxData.transactions || [],
         
         // Metadata
-        dataSource: includeROI || includeTax ? 'moralis_pro_api_complete' : 'moralis_pro_api_basic',
+        dataSource: includeROI || includeTax ? 'moralis_pro_separate_complete' : 'moralis_pro_separate_basic',
         lastUpdated: new Date().toISOString(),
         fromCache: false,
-        apiCalls: (roiData.totalApiCalls || 0) + (taxData.totalApiCalls || 0),
+        apiCalls: (tokenData.apiCallsUsed || 0) + (roiData.totalApiCalls || 0) + (taxData.totalApiCalls || 0),
+        
+        // Debug Information for CU tracking
+        debug: tokenData.debug || {
+          pricesUpdated: new Date().toLocaleTimeString('de-DE'),
+          priceSource: 'moralis_pro_separate_calls',
+          apiCalls: tokenData.apiCallsUsed || 0,
+          lastPriceUpdate: new Date().toISOString()
+        },
         
         // Summary stats
         summary: {
@@ -193,48 +202,100 @@ export class CentralDataService {
     }
   }
 
-  // 🪙 Pro token loading with cost optimization
+  // 🪙 Pro token loading with separate API calls (cost optimized for Pro Plan)
   static async loadTokenBalancesPro(wallets) {
-    console.log(`🪙 PRO: Loading tokens for ${wallets.length} wallets`);
+    console.log(`🪙 PRO: Loading tokens for ${wallets.length} wallets (separate API strategy)`);
     
     const allTokens = [];
     let totalValue = 0;
+    let apiCallsUsed = 0;
+    const debug = {
+      pricesUpdated: new Date().toLocaleTimeString('de-DE'),
+      priceSource: 'moralis_pro_separate_calls',
+      apiCalls: 0,
+      lastPriceUpdate: new Date().toISOString()
+    };
 
     for (const wallet of wallets) {
       try {
         const chainId = wallet.chain_id || 369;
         const chain = this.getChainConfig(chainId);
         
-        // Use Pro-optimized V2 API
-        const response = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=wallet-tokens-prices`);
-        const data = await response.json();
-
-        if (response.ok && data.tokens && Array.isArray(data.tokens)) {
-          console.log(`✅ PRO: ${data.tokens.length} tokens loaded for ${wallet.address.slice(0, 8)}`);
-          
-          const processedTokens = data.tokens.map(token => ({
-            // Map Moralis V2 response format to expected format
-            symbol: token.symbol,
-            name: token.name,
-            contractAddress: token.address,
-            decimals: token.decimals,
-            balance: token.balance,
-            price: token.usd_price || 0,
-            total_usd: token.total_usd || 0,
-            value: token.total_usd || 0,
-            hasReliablePrice: (token.usd_price || 0) > 0,
-            priceSource: this.getPriceSourceDisplay(token._source, token.usd_price),
-            isIncludedInPortfolio: (token.total_usd || 0) > 0.01,
-            walletAddress: wallet.address,
-            chainId: chainId,
-            source: 'moralis_pro'
-          }));
-          
-          allTokens.push(...processedTokens);
-          totalValue += data.total_value_usd || 0;
-        } else {
-          console.error(`⚠️ PRO: Invalid response for ${wallet.address}: ${data.error || 'Unknown error'}`);
+        // Step 1: Get token balances (1 API call per wallet)
+        const tokensResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=erc20`);
+        apiCallsUsed++;
+        
+        if (!tokensResponse.ok) {
+          console.error(`⚠️ PRO: Token fetch failed for ${wallet.address}: ${tokensResponse.status}`);
+          continue;
         }
+        
+        const tokensData = await tokensResponse.json();
+        const rawTokens = tokensData.result || [];
+        
+        console.log(`✅ PRO: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)}`);
+        
+        // Step 2: Get prices for each token (1 API call per token)
+        const processedTokens = await Promise.all(
+          rawTokens.map(async (token) => {
+            try {
+              // Get price for this specific token
+              const priceResponse = await fetch(`/api/moralis-v2?address=${token.token_address}&chain=${chain.name.toLowerCase()}&endpoint=token-price`);
+              apiCallsUsed++;
+              
+              let usdPrice = 0;
+              if (priceResponse.ok) {
+                const priceData = await priceResponse.json();
+                usdPrice = priceData.usdPrice || 0;
+              }
+              
+              // Calculate readable balance
+              const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+              const totalUsd = balanceReadable * usdPrice;
+              
+              return {
+                symbol: token.symbol,
+                name: token.name,
+                contractAddress: token.token_address,
+                decimals: token.decimals,
+                balance: balanceReadable,
+                price: usdPrice,
+                total_usd: totalUsd,
+                value: totalUsd,
+                hasReliablePrice: usdPrice > 0,
+                priceSource: this.getPriceSourceDisplay('moralis_pro_separate', usdPrice),
+                isIncludedInPortfolio: totalUsd > 0.01,
+                walletAddress: wallet.address,
+                chainId: chainId,
+                source: 'moralis_pro_separate'
+              };
+            } catch (priceError) {
+              console.warn(`⚠️ PRO: Price failed for ${token.symbol}:`, priceError.message);
+              const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+              
+              return {
+                symbol: token.symbol,
+                name: token.name,
+                contractAddress: token.token_address,
+                decimals: token.decimals,
+                balance: balanceReadable,
+                price: 0,
+                total_usd: 0,
+                value: 0,
+                hasReliablePrice: false,
+                priceSource: 'moralis_pro_no_price',
+                isIncludedInPortfolio: false,
+                walletAddress: wallet.address,
+                chainId: chainId,
+                source: 'moralis_pro_separate'
+              };
+            }
+          })
+        );
+        
+        allTokens.push(...processedTokens);
+        totalValue += processedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
+        
       } catch (error) {
         console.error(`⚠️ PRO: Token load failed for ${wallet.address}:`, error.message);
       }
@@ -249,12 +310,16 @@ export class CentralDataService {
       token.percentageOfPortfolio = totalValue > 0 ? (token.value / totalValue) * 100 : 0;
     });
 
-    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}`);
+    debug.apiCalls = apiCallsUsed;
+    
+    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed}`);
 
     return {
       tokens: sortedTokens,
       totalValue: totalValue,
-      source: 'moralis_pro_api'
+      source: 'moralis_pro_separate_calls',
+      debug: debug,
+      apiCallsUsed: apiCallsUsed
     };
   }
 

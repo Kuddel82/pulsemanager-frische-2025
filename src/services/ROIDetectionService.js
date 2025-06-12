@@ -60,162 +60,60 @@ export class ROIDetectionService {
   }
   
   /**
-   * 🎯 DEFI SUMMARY - ROI Potential Detection
+   * ❌ DEFI SUMMARY REMOVED - Enterprise feature disabled for Pro Plan
+   * ROI Detection now uses transaction-based analysis
    */
   static async getDefiSummary(address, chain) {
-    try {
-      const response = await fetch(`${this.API_BASE}?endpoint=defi-summary&address=${address}&chain=${chain}`);
-      
-      // 🚨 HANDLE 500 ERRORS GRACEFULLY
-      if (!response.ok) {
-        if (response.status === 500) {
-          console.warn(`⚠️ DeFi Summary API down (500) - returning empty data for ${address}`);
-          return {
-            success: true, // Return success with empty data to not crash portfolio
-            summary: {
-              active_protocols: '0',
-              total_positions: '0',
-              total_usd_value: '0',
-              total_unclaimed_usd_value: '0'
-            },
-            _error_handled: true
-          };
-        }
-        throw new Error(`DeFi Summary API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data._error) {
-        console.warn('⚠️ DeFi Summary not available:', data._error.message);
-        return {
-          success: false,
-          summary: {
-            active_protocols: '0',
-            total_positions: '0',
-            total_usd_value: '0',
-            total_unclaimed_usd_value: '0'
-          }
-        };
-      }
-      
-      return {
-        success: true,
-        summary: data.result
-      };
-      
-    } catch (error) {
-      console.error('💥 DeFi Summary Error:', error);
-      return {
-        success: false,
-        summary: {
-          active_protocols: '0',
-          total_positions: '0',
-          total_usd_value: '0',
-          total_unclaimed_usd_value: '0'
-        }
-      };
-    }
+    console.log(`🚨 ROI DETECTION: DeFi Summary disabled, using transaction-based ROI analysis instead`);
+    
+    // Return empty DeFi data (Enterprise feature removed)
+    return {
+      success: true,
+      summary: {
+        active_protocols: '0',
+        total_positions: '0',
+        total_usd_value: '0',
+        total_unclaimed_usd_value: '0'
+      },
+      _enterprise_disabled: true,
+      _note: 'Use transaction-based ROI detection instead'
+    };
   }
   
   /**
-   * 🏅 DEFI POSITIONS - Detailed ROI Sources
+   * ❌ DEFI POSITIONS REMOVED - Enterprise feature disabled for Pro Plan  
+   * ROI Sources now detected from transaction patterns
    */
   static async getDefiPositions(address, chain) {
-    try {
-      const response = await fetch(`${this.API_BASE}?endpoint=defi-positions&address=${address}&chain=${chain}`);
-      
-      // 🚨 HANDLE 500 ERRORS GRACEFULLY
-      if (!response.ok) {
-        if (response.status === 500) {
-          console.warn(`⚠️ DeFi Positions API down (500) - returning empty positions for ${address}`);
-          return {
-            success: true, // Return success with empty data to not crash portfolio
-            positions: [],
-            _error_handled: true
-          };
-        }
-        throw new Error(`DeFi Positions API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data._error) {
-        console.warn('⚠️ DeFi Positions not available:', data._error.message);
-        return {
-          success: false,
-          positions: []
-        };
-      }
-      
-      return {
-        success: true,
-        positions: Array.isArray(data.result) ? data.result : []
-      };
-      
-    } catch (error) {
-      console.error('💥 DeFi Positions Error:', error);
-      return {
-        success: false,
-        positions: []
-      };
-    }
+    console.log(`🚨 ROI DETECTION: DeFi Positions disabled, using transaction-based position tracking instead`);
+    
+    // Return empty positions data (Enterprise feature removed)
+    return {
+      success: true,
+      positions: [],
+      _enterprise_disabled: true,
+      _note: 'Use transaction analysis for position tracking instead'
+    };
   }
   
   /**
-   * 📊 WALLET STATS - Activity Indicators
+   * ❌ WALLET STATS REMOVED - Enterprise feature disabled for Pro Plan
+   * Activity analysis now uses transaction transfers
    */
   static async getWalletStats(address, chain) {
-    try {
-      const response = await fetch(`${this.API_BASE}?endpoint=stats&address=${address}&chain=${chain}`);
-      
-      // 🚨 HANDLE 500 ERRORS GRACEFULLY
-      if (!response.ok) {
-        if (response.status === 500) {
-          console.warn(`⚠️ Wallet Stats API down (500) - returning empty stats for ${address}`);
-          return {
-            success: true, // Return success with empty data to not crash portfolio
-            stats: {
-              transactions: { total: '0' },
-              token_transfers: { total: '0' },
-              nft_transfers: { total: '0' }
-            },
-            _error_handled: true
-          };
-        }
-        throw new Error(`Wallet Stats API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data._error) {
-        console.warn('⚠️ Wallet Stats not available:', data._error.message);
-        return {
-          success: false,
-          stats: {
-            transactions: { total: '0' },
-            token_transfers: { total: '0' },
-            nft_transfers: { total: '0' }
-          }
-        };
-      }
-      
-      return {
-        success: true,
-        stats: data.result
-      };
-      
-    } catch (error) {
-      console.error('💥 Wallet Stats Error:', error);
-      return {
-        success: false,
-        stats: {
-          transactions: { total: '0' },
-          token_transfers: { total: '0' },
-          nft_transfers: { total: '0' }
-        }
-      };
-    }
+    console.log(`🚨 ROI DETECTION: Wallet Stats disabled, using transfer-based activity analysis instead`);
+    
+    // Return empty stats data (Enterprise feature removed)
+    return {
+      success: true,
+      stats: {
+        transactions: { total: '0' },
+        token_transfers: { total: '0' },
+        nft_transfers: { total: '0' }
+      },
+      _enterprise_disabled: true,
+      _note: 'Use wallet-token-transfers for activity analysis instead'
+    };
   }
   
   /**

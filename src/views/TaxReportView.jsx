@@ -617,35 +617,137 @@ const TaxReportView = () => {
           </div>
         )}
 
-        {/* Debug Information */}
+        {/* 🔍 PRO PLAN TAX DEBUG INFORMATION */}
         {showDebug && (
           <div className="space-y-6 mb-6">
+            {/* CU TRACKING FOR TAX */}
+            <div className="pulse-card p-6 border-l-4 border-orange-500">
+              <h3 className="flex items-center text-lg font-bold pulse-text mb-4">
+                <FileText className="h-5 w-5 mr-2 text-orange-400" />
+                🔍 Tax Report Pro Debug
+              </h3>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
+                <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
+                  <span className="font-medium text-green-400">💰 Basic Tax CUs:</span>
+                  <p className="text-white font-mono text-lg">
+                    {taxData?.apiCalls || 0} CUs
+                  </p>
+                  <p className="text-xs text-green-400">
+                    {lastUpdate ? 'Tax Data geladen' : 'Nicht geladen'}
+                  </p>
+                </div>
+                
+                <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+                  <span className="font-medium text-blue-400">🌐 Moralis CUs:</span>
+                  <p className="text-white font-mono text-lg">
+                    {moralisData?.apiUsage?.totalCalls || 0} CUs
+                  </p>
+                  <p className="text-xs text-blue-400">
+                    {lastMoralisUpdate ? 'Moralis geladen' : 'Nicht geladen'}
+                  </p>
+                </div>
+                
+                <div className="p-3 bg-purple-500/10 border border-purple-400/20 rounded">
+                  <span className="font-medium text-purple-400">📅 Letzter Tax Cache:</span>
+                  <p className="text-white font-mono">
+                    {lastUpdate ? lastUpdate.toLocaleTimeString('de-DE') : 'Nie'}
+                  </p>
+                  <p className="text-xs text-purple-400">
+                    {cacheInfo?.cacheHit ? '💾 Cache Hit' : '🌐 Fresh Load'}
+                  </p>
+                </div>
+                
+                <div className="p-3 bg-orange-500/10 border border-orange-400/20 rounded">
+                  <span className="font-medium text-orange-400">📊 Steuer Herkunft:</span>
+                  <p className="text-white">
+                    {taxData ? '📄 TaxService' : '❌ Keine Daten'}
+                  </p>
+                  <p className="text-xs text-orange-400">
+                    Transaction-based Tax
+                  </p>
+                </div>
+              </div>
+              
+              {/* ENTERPRISE FEATURES STATUS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+                <div className="p-3 bg-red-500/10 border border-red-400/20 rounded">
+                  <span className="font-medium text-red-400">❌ Enterprise entfernt (CUs gespart):</span>
+                  <ul className="text-xs text-red-400 mt-2 space-y-1">
+                    <li>• wallet-tokens-prices (Auto-Preisfindung)</li>
+                    <li>• defi-summary (DeFi Tax Detection)</li>
+                    <li>• global-portfolio (Enterprise Analytics)</li>
+                  </ul>
+                </div>
+                
+                <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
+                  <span className="font-medium text-green-400">✅ Pro Plan Tax Features:</span>
+                  <ul className="text-xs text-green-400 mt-2 space-y-1">
+                    <li>• Manual Refresh Controls</li>
+                    <li>• Transfer-based Tax Analysis</li>
+                    <li>• ROI Detection via Patterns</li>
+                  </ul>
+                </div>
+              </div>
+              
+              {/* RAW DATA BUTTONS */}
+              <div className="flex justify-between items-center pt-4 border-t border-white/10">
+                <div className="text-xs text-gray-400">
+                  💡 Tax Debug: Enterprise-APIs entfernt für Pro Plan Kostenreduktion
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('🔍 TAX DATA RAW:', taxData);
+                      alert('Tax-Rohdaten in Konsole geloggt (F12 → Console)');
+                    }}
+                    className="text-xs"
+                  >
+                    📄 Tax Raw
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('🔍 MORALIS TAX DATA:', moralisData);
+                      alert('Moralis Tax-Daten in Konsole geloggt (F12 → Console)');
+                    }}
+                    className="text-xs"
+                  >
+                    🌐 Moralis Raw
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             {/* Wallet Debug Info - ALWAYS show in debug mode */}
             <WalletDebugInfo />
             
-            {/* Tax Data Debug - only when tax data loaded */}
+            {/* Detailed Tax Data Debug - only when tax data loaded */}
             {taxData && (
               <div className="pulse-card p-6">
                 <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
                   <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
-                  TAX SERVICE Debug Information
+                  Detaillierte Tax Service Debug Information
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="font-medium pulse-text-secondary">Alle Transaktionen:</span>
-                    <p className="pulse-text">{taxData.allTransactions?.length || 0}</p>
+                    <p className="pulse-text font-mono text-green-400">{taxData.allTransactions?.length || 0}</p>
                   </div>
                   <div>
                     <span className="font-medium pulse-text-secondary">Steuerpflichtig (ROI):</span>
-                    <p className="pulse-text">{taxData.taxableTransactions?.length || 0}</p>
+                    <p className="pulse-text font-mono text-orange-400">{taxData.taxableTransactions?.length || 0}</p>
                   </div>
                   <div>
                     <span className="font-medium pulse-text-secondary">Käufe:</span>
-                    <p className="pulse-text">{taxData.purchases?.length || 0}</p>
+                    <p className="pulse-text font-mono text-blue-400">{taxData.purchases?.length || 0}</p>
                   </div>
                   <div>
                     <span className="font-medium pulse-text-secondary">Verkäufe:</span>
-                    <p className="pulse-text">{taxData.sales?.length || 0}</p>
+                    <p className="pulse-text font-mono text-purple-400">{taxData.sales?.length || 0}</p>
                   </div>
                   <div>
                     <span className="font-medium pulse-text-secondary">Cache Hit:</span>
@@ -661,7 +763,7 @@ const TaxReportView = () => {
                   </div>
                   <div>
                     <span className="font-medium pulse-text-secondary">Steuerpflichtiges Einkommen:</span>
-                    <p className="pulse-text">{formatCurrency(taxStats.taxableIncome)}</p>
+                    <p className="pulse-text font-mono text-red-400">{formatCurrency(taxStats.taxableIncome)}</p>
                   </div>
                 </div>
               </div>

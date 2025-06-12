@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   if (!address || !endpoint) {
     return res.status(400).json({ 
       error: 'Missing address or endpoint param.',
-      available_endpoints: ['wallet-tokens-prices', 'wallet-token-transfers', 'erc20', 'nft', 'balance']
+      available_endpoints: ['wallet-token-transfers', 'erc20', 'token-price', 'nft', 'balance']
     });
   }
 
@@ -82,74 +82,15 @@ export default async function handler(req, res) {
   console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
 
   try {
-    // 🎯 MAIN ENDPOINT: Wallet tokens with prices (Pro-optimized)
+    // ❌ REMOVED: wallet-tokens-prices (Enterprise feature - not available in Pro Plan)
     if (endpoint === 'wallet-tokens-prices') {
-      console.log(`🚀 PRO TOKENS+PRICES: Loading for ${address} on ${chainId}`);
+      console.log(`🚨 ENTERPRISE ENDPOINT REMOVED: wallet-tokens-prices not available in Pro Plan`);
       
-      // Step 1: Get tokens (single API call)
-      const tokens = await moralisFetch(`${address}/erc20`, { 
-        chain: chainId,
-        limit: Math.min(limit, 100)
-      });
-      
-      if (!tokens) {
-        return res.status(500).json({ 
-          error: 'Failed to fetch tokens.',
-          _pro_mode: true 
-        });
-      }
-
-      console.log(`📊 PRO: Found ${tokens.length} tokens, getting prices...`);
-
-      // Step 2: Get prices for tokens (batch where possible)
-      const enriched = await Promise.all(tokens.map(async (token) => {
-        try {
-          const price = await moralisFetch(`erc20/${token.token_address}/price`, { 
-            chain: chainId 
-          });
-          const priceUsd = price?.usdPrice || 0;
-          const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-          
-          return {
-            symbol: token.symbol,
-            name: token.name,
-            address: token.token_address,
-            decimals: token.decimals,
-            balance: balanceReadable,
-            balance_raw: token.balance,
-            usd_price: priceUsd,
-            total_usd: balanceReadable * priceUsd,
-            _source: 'moralis_pro_rest'
-          };
-        } catch (priceError) {
-          console.warn(`⚠️ Price failed for ${token.symbol}:`, priceError.message);
-          const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-          return {
-            symbol: token.symbol,
-            name: token.name,
-            address: token.token_address,
-            decimals: token.decimals,
-            balance: balanceReadable,
-            balance_raw: token.balance,
-            usd_price: 0,
-            total_usd: 0,
-            _source: 'moralis_pro_rest_no_price'
-          };
-        }
-      }));
-
-      const totalValue = enriched.reduce((sum, token) => sum + (token.total_usd || 0), 0);
-
-      console.log(`✅ PRO SUCCESS: ${enriched.length} tokens, total value: $${totalValue.toFixed(2)}`);
-
-      return res.status(200).json({ 
-        address, 
-        chain: chainId, 
-        tokens: enriched,
-        total_count: tokens.length,
-        total_value_usd: totalValue,
-        _source: 'moralis_v2_pro',
-        _cost_optimized: true
+      return res.status(400).json({
+        error: 'wallet-tokens-prices endpoint removed - use separate erc20 and token-price calls instead',
+        _enterprise_feature: true,
+        _pro_alternative: 'Use: 1) GET /erc20 for tokens, 2) GET /token-price for each token',
+        suggested_endpoints: ['erc20', 'token-price']
       });
     }
 
@@ -280,53 +221,19 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🚫 DEFI SUMMARY (STUB - to prevent 400 errors)
-    if (endpoint === 'defi-summary') {
-      console.log(`⚠️ DeFi Summary: STUB endpoint - DeFi not available in Moralis Pro`);
+    // ❌ ENTERPRISE ENDPOINTS COMPLETELY REMOVED (to prevent CU consumption)
+    if (endpoint === 'defi-summary' || endpoint === 'defi-positions' || endpoint === 'stats') {
+      console.log(`🚨 ENTERPRISE ENDPOINT BLOCKED: ${endpoint} not supported in Pro Plan`);
       
-      return res.status(200).json({
-        address,
-        chain: chainId,
-        result: {
-          active_protocols: '0',
-          total_positions: '0', 
-          total_usd_value: '0',
-          total_unclaimed_usd_value: '0'
-        },
-        _source: 'moralis_v2_pro_stub',
-        _disabled_reason: 'DeFi features require Enterprise plan'
-      });
-    }
-
-    // 🚫 DEFI POSITIONS (STUB - to prevent 400 errors)
-    if (endpoint === 'defi-positions') {
-      console.log(`⚠️ DeFi Positions: STUB endpoint - DeFi not available in Moralis Pro`);
-      
-      return res.status(200).json({
-        address,
-        chain: chainId,
-        result: [],
-        positions: [],
-        _source: 'moralis_v2_pro_stub',
-        _disabled_reason: 'DeFi features require Enterprise plan'
-      });
-    }
-
-    // 🚫 WALLET STATS (STUB - to prevent 400 errors)
-    if (endpoint === 'stats') {
-      console.log(`⚠️ Wallet Stats: STUB endpoint - Stats not available in Moralis Pro`);
-      
-      return res.status(200).json({
-        address,
-        chain: chainId,
-        result: {
-          total_tokens: '0',
-          total_transactions: '0',
-          first_transaction: null,
-          last_transaction: null
-        },
-        _source: 'moralis_v2_pro_stub',
-        _disabled_reason: 'Stats features require Enterprise plan'
+      return res.status(400).json({
+        error: `Enterprise endpoint '${endpoint}' removed to prevent CU waste`,
+        _enterprise_feature: true,
+        _removed_reason: 'These endpoints consume CUs but return empty data in Pro Plan',
+        _alternatives: {
+          'defi-summary': 'Use transaction-based ROI detection instead',
+          'defi-positions': 'Use transaction analysis for position tracking',
+          'stats': 'Use wallet activity analysis from transfers'
+        }
       });
     }
 
@@ -334,20 +241,22 @@ export default async function handler(req, res) {
     return res.status(400).json({ 
       error: `Unsupported endpoint: ${endpoint}`,
       available_endpoints: [
-        'wallet-tokens-prices',
         'wallet-token-transfers', 
         'balance',
         'native-balance',
         'nft',
         'wallet-nfts',
         'erc20',
-        'token-price',
-        'defi-summary',      // STUB: Returns empty data
-        'defi-positions',    // STUB: Returns empty data  
-        'stats'              // STUB: Returns empty data
+        'token-price'
       ],
       _pro_compatible: true,
-      _note: 'DeFi and Stats endpoints return stub data (Pro Plan limitation)'
+      _enterprise_removed: [
+        'wallet-tokens-prices',  // Use erc20 + token-price instead
+        'defi-summary',          // Use transaction analysis instead
+        'defi-positions',        // Use transaction analysis instead  
+        'stats'                  // Use activity analysis instead
+      ],
+      _note: 'Enterprise endpoints removed to prevent CU waste in Pro Plan'
     });
 
   } catch (error) {
