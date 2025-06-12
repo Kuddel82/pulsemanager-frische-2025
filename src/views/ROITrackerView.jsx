@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
+import CUMonitor from '@/components/ui/CUMonitor';
 import { MoralisV2Service } from '@/services/MoralisV2Service';
 import { ROIDetectionService } from '@/services/ROIDetectionService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -486,6 +487,80 @@ const ROITrackerView = () => {
                 ⏱️ Nächstes Update in {remainingTime} Sekunden möglich
               </p>
             )}
+          </div>
+        )}
+
+        {/* ROI DEBUG: Zeige warum keine ROI-Daten sichtbar */}
+        {hasPortfolioData && !defiData && !defiLoading && !showEmptyState && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-yellow-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-yellow-400" />
+              <h3 className="text-lg font-bold pulse-text">⚠️ ROI-Daten Debug</h3>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Portfolio geladen:</span>
+                <span className="text-green-400">✅ {portfolioData?.tokenCount || 0} Tokens</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">DeFi-Daten geladen:</span>
+                <span className="text-red-400">❌ Noch nicht geladen</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Transaktionen verfügbar:</span>
+                <span className="text-gray-400">❓ Unbekannt (DeFi-Load erforderlich)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">ROI-Sources erkannt:</span>
+                <span className="text-gray-400">❓ Unbekannt (DeFi-Load erforderlich)</span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+              <p className="text-blue-400 text-sm">
+                💡 <strong>Grund:</strong> Klicken Sie auf "DeFi" oder "Alles laden" um ROI-Analysen zu starten.
+                Ohne DeFi-Daten können keine ROI-Quellen erkannt werden.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* DeFi LOADED BUT NO ROI DEBUG */}
+        {hasPortfolioData && defiData && (!roiDetectionData?.sources || roiDetectionData.sources.length === 0) && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-orange-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-orange-400" />
+              <h3 className="text-lg font-bold pulse-text">📊 ROI-Detection Debug</h3>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">DeFi Summary Erfolg:</span>
+                <span className={defiData?.summary?.success ? "text-green-400" : "text-red-400"}>
+                  {defiData?.summary?.success ? "✅ Ja" : "❌ Nein"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">DeFi Positionen:</span>
+                <span className="text-blue-400">{defiData?.positions?.positions?.length || 0} gefunden</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">ROI-Quellen erkannt:</span>
+                <span className="text-yellow-400">{roiDetectionData?.sources?.length || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Wallet getestet:</span>
+                <span className="text-purple-400">{defiData?.wallet?.slice(0, 8)}... ({defiData?.originalChain})</span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-orange-500/10 border border-orange-400/20 rounded">
+              <p className="text-orange-400 text-sm">
+                💡 <strong>Grund für leere ROI:</strong> {
+                  !defiData?.summary?.success ? "DeFi Summary API-Fehler" :
+                  defiData?.positions?.positions?.length === 0 ? "Keine DeFi-Positionen gefunden" :
+                  !roiDetectionData?.sources ? "ROI-Detection nicht ausgeführt" :
+                  "Keine ROI-Quellen in DeFi-Positionen erkannt"
+                }
+              </p>
+            </div>
           </div>
         )}
 
@@ -1080,6 +1155,30 @@ const ROITrackerView = () => {
         )}
 
       </div>
+
+      {/* CU Monitor */}
+      <CUMonitor 
+        viewName="ROI Tracker"
+        apiCalls={[
+          ...(portfolioData?.debug?.apiCalls ? [{
+            endpoint: 'portfolio-defi',
+            responseCount: portfolioData?.tokenCount || 0,
+            estimatedCUs: portfolioData?.debug?.apiCalls || 0
+          }] : []),
+          ...(defiData ? [{
+            endpoint: 'moralis-defi-summary',
+            responseCount: defiData?.positions?.positions?.length || 0,
+            estimatedCUs: defiData?.summary?.success ? 30 : 0
+          }] : []),
+          ...(roiDetectionData ? [{
+            endpoint: 'roi-detection',
+            responseCount: roiDetectionData?.sources?.length || 0,
+            estimatedCUs: roiDetectionData?.success ? 20 : 0
+          }] : [])
+        ]}
+        totalCUs={(portfolioData?.debug?.apiCalls || 0) + (defiData ? 30 : 0) + (roiDetectionData ? 20 : 0)}
+        showByDefault={showDebug}
+      />
     </div>
   );
 };

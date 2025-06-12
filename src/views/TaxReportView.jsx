@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
+import CUMonitor from '@/components/ui/CUMonitor';
 import { TaxService } from '@/services/TaxService';
 import { useAuth } from '@/contexts/AuthContext';
 import WalletDebugInfo from '@/components/ui/WalletDebugInfo';
@@ -412,6 +413,14 @@ const TaxReportView = () => {
   
   // Show empty state info when no data loaded
   const showEmptyState = !loading && !taxData && !error;
+  
+  // Debug: Check for transfer loading issues
+  const debugTransferLoading = () => {
+    if (!taxData || !taxData.allTransactions) return "Keine Tax-Daten geladen";
+    if (taxData.allTransactions.length === 0) return "Keine Transaktionen gefunden - möglicherweise /erc20/transfers nicht aufgerufen";
+    if (taxData.taxableTransactions?.length === 0) return "Transaktionen geladen aber keine als steuerpflichtig erkannt";
+    return "Transaktionen erfolgreich geladen";
+  };
 
   const statsCards = [
     {
@@ -447,6 +456,120 @@ const TaxReportView = () => {
   return (
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
+        
+        {/* TAX DEBUG: Zeige warum keine Tax-Daten sichtbar */}
+        {showEmptyState && (
+          <div className="pulse-card p-8 mb-6 text-center border-2 border-yellow-500/20">
+            <FileText className="h-16 w-16 mx-auto mb-4 text-yellow-400" />
+            <h3 className="text-xl font-bold pulse-text mb-2">📄 Steuer-Daten noch nicht geladen</h3>
+            <p className="pulse-text-secondary mb-6">
+              Laden Sie Ihre Steuer-Daten um Transaktionen und steuerpflichtige Einkünfte zu analysieren.<br/>
+              <span className="text-yellow-400">⚠️ Debug: {debugTransferLoading()}</span>
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6">
+              <Button 
+                onClick={loadTaxData} 
+                className="bg-blue-600 hover:bg-blue-700"
+                size="lg"
+                disabled={loading}
+              >
+                <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Basis Steuerdaten laden
+              </Button>
+              <Button 
+                onClick={loadMoralisData} 
+                className="bg-green-600 hover:bg-green-700"
+                size="lg"
+                disabled={moralisLoading || !canLoadMoralis}
+              >
+                <Globe className={`h-5 w-5 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
+                Moralis + Preise laden
+                {remainingTime > 0 && (
+                  <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
+                )}
+              </Button>
+            </div>
+            <div className="text-xs pulse-text-secondary mt-4 p-3 bg-yellow-500/10 border border-yellow-400/20 rounded">
+              💡 <strong>Debug-Info:</strong> Falls CU = 0 angezeigt wird, wurden noch keine /erc20/transfers API-Calls ausgeführt.
+              Das Basis-Laden lädt Wallets und cached Transaktionen. Moralis-Laden holt aktuelle Preise.
+            </div>
+          </div>
+        )}
+
+        {/* TAX LOADED BUT NO TRANSFERS DEBUG */}
+        {!showEmptyState && taxData && (!taxData.allTransactions || taxData.allTransactions.length === 0) && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-red-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-red-400" />
+              <h3 className="text-lg font-bold pulse-text">🔴 Transfer-Loading Debug</h3>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Tax Service aufgerufen:</span>
+                <span className="text-green-400">✅ Ja</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Transaktionen geladen:</span>
+                <span className="text-red-400">❌ {taxData?.allTransactions?.length || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">/erc20/transfers aufgerufen:</span>
+                <span className="text-red-400">❓ Möglicherweise nicht</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Cache verwendet:</span>
+                <span className={cacheInfo?.cacheHit ? "text-blue-400" : "text-orange-400"}>
+                  {cacheInfo?.cacheHit ? "💾 Cache Hit" : "🌐 Fresh Call"}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-red-500/10 border border-red-400/20 rounded">
+              <p className="text-red-400 text-sm">
+                💡 <strong>Problem:</strong> TaxService wurde aufgerufen aber hat keine Transaktionen zurückgegeben.
+                Dies deutet darauf hin, dass der /erc20/transfers Endpoint nicht funktioniert oder leer zurückgibt.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* TRANSFERS LOADED BUT NO TAXABLE DEBUG */}
+        {!showEmptyState && taxData && taxData.allTransactions && taxData.allTransactions.length > 0 && 
+         (!taxData.taxableTransactions || taxData.taxableTransactions.length === 0) && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-orange-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-orange-400" />
+              <h3 className="text-lg font-bold pulse-text">🟠 Steuer-Analyse Debug</h3>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Transaktionen geladen:</span>
+                <span className="text-green-400">✅ {taxData.allTransactions.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Steuerpflichtige erkannt:</span>
+                <span className="text-orange-400">⚠️ {taxData.taxableTransactions?.length || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">ROI-Transaktionen:</span>
+                <span className="text-blue-400">
+                  {taxData.allTransactions.filter(tx => tx.isROI || tx.is_roi_transaction).length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Eingehende Transaktionen:</span>
+                <span className="text-purple-400">
+                  {taxData.allTransactions.filter(tx => tx.isIncoming || tx.is_incoming).length}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-orange-500/10 border border-orange-400/20 rounded">
+              <p className="text-orange-400 text-sm">
+                💡 <strong>Analyse:</strong> Transaktionen wurden geladen aber keine als steuerpflichtig klassifiziert.
+                Dies kann bedeuten, dass keine ROI-Aktivitäten (HEX-Minting, INC-Rewards, etc.) erkannt wurden.
+              </p>
+            </div>
+          </div>
+        )}
         
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -1134,6 +1257,25 @@ const TaxReportView = () => {
         )}
 
       </div>
+
+      {/* CU Monitor */}
+      <CUMonitor 
+        viewName="Tax Report"
+        apiCalls={[
+          ...(taxData ? [{
+            endpoint: 'tax-service-load',
+            responseCount: taxData.allTransactions?.length || 0,
+            estimatedCUs: taxData.fromCache ? 0 : 50
+          }] : []),
+          ...(moralisData ? [{
+            endpoint: 'moralis-tax-prices',
+            responseCount: moralisData.transactionCount || 0,
+            estimatedCUs: moralisData.success ? 60 : 0
+          }] : [])
+        ]}
+        totalCUs={(taxData && !taxData.fromCache ? 50 : 0) + (moralisData?.success ? 60 : 0)}
+        showByDefault={showDebug}
+      />
     </div>
   );
 };

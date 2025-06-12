@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
+import CUMonitor from '@/components/ui/CUMonitor';
 
 const PortfolioView = () => {
   // 🚀 GLOBAL: Portfolio Context mit Caching & State-Sharing
@@ -58,11 +59,15 @@ const PortfolioView = () => {
     });
   };
 
-  // 🚀 FIXED: Smart loading states - Prüfe direkt auf Daten
+  // 🚀 FIXED: Smart loading states - Niemals blockieren, immer navigierbar
   const hasPortfolioData = portfolioData && portfolioData.tokens && portfolioData.tokens.length > 0;
-  const showEmptyState = !loading && !hasPortfolioData;
-  const showErrorState = !loading && error && !hasPortfolioData;
-  const showContent = hasPortfolioData;
+  const hasCacheData = isCached && portfolioData && portfolioData.totalValue > 0;
+  const hasAnyData = portfolioData && (portfolioData.isLoaded || portfolioData.success);
+  
+  // WICHTIG: Niemals blockieren - auch bei Fehlern navigierbar bleiben
+  const showEmptyState = !loading && !hasPortfolioData && !hasCacheData;
+  const showErrorState = false; // DEAKTIVIERT: Keine blockierenden Error-States mehr
+  const showContent = hasPortfolioData || hasCacheData || hasAnyData;
 
   // 🔍 DEBUG: Detaillierte State-Ausgabe
   console.log('🔍 PORTFOLIO VIEW STATES:', {
@@ -80,48 +85,7 @@ const PortfolioView = () => {
     lastUpdate
   });
 
-  if (showErrorState) {
-    return (
-      <div className="min-h-screen bg-black p-6">
-        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
-          <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden des Portfolios</h2>
-          <p className="pulse-text-secondary mb-6">{error}</p>
-          <SmartLoadButton
-            onLoad={loadPortfolioData}
-            loading={loading}
-            canRefresh={canRefresh}
-            remainingTime={remainingTime}
-            stats={stats}
-            buttonText="Erneut versuchen"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (showEmptyState) {
-    return (
-      <div className="min-h-screen bg-black p-6">
-        <div className="pulse-card max-w-lg mx-auto p-6 text-center">
-          <Coins className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-          <h2 className="text-xl font-semibold mb-2 pulse-text">Portfolio noch nicht geladen</h2>
-          <p className="pulse-text-secondary mb-6">
-            Laden Sie Ihre Portfolio-Daten um Token-Holdings und Werte zu sehen.
-          </p>
-          <SmartLoadButton
-            onLoad={loadPortfolioData}
-            loading={loading}
-            canRefresh={canRefresh}
-            remainingTime={remainingTime}
-            stats={stats}
-            buttonText="Portfolio laden"
-            size="lg"
-          />
-        </div>
-      </div>
-    );
-  }
+  // 🚫 BLOCKIERENDE STATES ENTFERNT: Keine return statements mehr - always show main UI
 
   // 🛡️ SAFE STATS - Verhindere Crashes bei fehlenden Daten
   const portfolioStats = portfolioData ? [
@@ -149,6 +113,48 @@ const PortfolioView = () => {
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
+        {/* 🚀 INLINE LOAD PANEL: Nicht blockierend, nur informativ */}
+        {showEmptyState && (
+          <div className="pulse-card p-6 mb-6 text-center border-2 border-blue-500/20">
+            <Coins className="h-12 w-12 mx-auto mb-4 text-blue-400" />
+            <h3 className="text-lg font-bold pulse-text mb-2">Portfolio-Daten laden</h3>
+            <p className="pulse-text-secondary mb-4">
+              Laden Sie Ihre Token-Holdings um Ihr Portfolio zu sehen.
+            </p>
+            <SmartLoadButton
+              onLoad={loadPortfolioData}
+              loading={loading}
+              canRefresh={canRefresh}
+              remainingTime={remainingTime}
+              stats={stats}
+              buttonText="Portfolio laden"
+              size="default"
+            />
+          </div>
+        )}
+
+        {/* ERROR NOTICE: Nicht blockierend, nur informativ */}
+        {error && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-red-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-red-400" />
+              <span className="pulse-text font-medium">Portfolio-Ladefehler (nicht blockierend)</span>
+            </div>
+            <p className="pulse-text-secondary text-sm mt-1">{error}</p>
+            <div className="mt-3">
+              <SmartLoadButton
+                onLoad={loadPortfolioData}
+                loading={loading}
+                canRefresh={canRefresh}
+                remainingTime={remainingTime}
+                stats={stats}
+                buttonText="Erneut versuchen"
+                size="sm"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -557,6 +563,33 @@ const PortfolioView = () => {
         )}
 
       </div>
+
+      {/* CU Monitor */}
+      <CUMonitor 
+        viewName="Portfolio"
+        apiCalls={[
+          // Echte API-Calls tracking
+          ...(portfolioData ? [{
+            endpoint: portfolioData.dataSource || 'portfolio-load',
+            responseCount: portfolioData.tokenCount || 0,
+            estimatedCUs: portfolioData.apiCalls || portfolioData.debug?.apiCalls || 0
+          }] : []),
+          // Error calls auch tracken
+          ...(error ? [{
+            endpoint: 'portfolio-error',
+            responseCount: 0,
+            estimatedCUs: 1
+          }] : []),
+          // Loading calls
+          ...(loading ? [{
+            endpoint: 'portfolio-loading',
+            responseCount: 0,
+            estimatedCUs: 0
+          }] : [])
+        ]}
+        totalCUs={(portfolioData?.apiCalls || portfolioData?.debug?.apiCalls || 0) + (error ? 1 : 0)}
+        showByDefault={showDebug}
+      />
     </div>
   );
 };

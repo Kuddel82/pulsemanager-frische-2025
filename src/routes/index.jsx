@@ -18,7 +18,7 @@ import Home from '@/components/views/Home';
 import PortfolioView from '@/views/PortfolioView';
 import ROITrackerView from '@/views/ROITrackerView';
 import TaxReportView from '@/views/TaxReportView';
-import WgepView from '@/components/views/WgepView';
+import WgepView from '@/views/WGEPView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
 import DebugView from '@/views/DebugView'; // Debug Monitor für PHASE 3
