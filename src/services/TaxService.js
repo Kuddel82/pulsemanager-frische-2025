@@ -7,12 +7,13 @@ FIXED: Nutzt jetzt korrekt vorhandene Moralis APIs
 import { supabase } from "@/lib/supabaseClient";
 
 export class TaxService {
-  // 🔧 KONFIGURATION - UNLIMITED für TAX REPORT
+  // 🛡️ ENHANCED CONFIGURATION for better ROI detection
   static CONFIG = {
-    MAX_TRANSACTIONS_PER_REQUEST: 999999,  // User-Wunsch: ALLE verfügbaren Daten
-    CACHE_EXPIRY_HOURS: 24,               // Cache-Gültigkeit
-    PAGINATION_SIZE: 1000,                // Größere Batches für bessere Performance
-    MIN_TAX_VALUE_USD: 0.001              // Sehr niedrig für komplette Daten
+    MAX_TRANSACTIONS: 999999,    // User-Wunsch: ALLE verfügbaren Daten
+    MAX_API_CALLS: 9999,         // Hoher Limit für Enterprise
+    BATCH_SIZE: 1000,           // Große Batches für Performance
+    MIN_TAX_VALUE_USD: 0.001,   // 🚀 REDUCED: Capture smaller ROI transactions  
+    CACHE_DURATION_MS: 30 * 60 * 1000 // 30 Minuten Cache
   };
 
   /**
@@ -61,7 +62,7 @@ export class TaxService {
   static async getCachedTransactions(userId) {
     try {
       const cacheExpiry = new Date();
-      cacheExpiry.setHours(cacheExpiry.getHours() - this.CONFIG.CACHE_EXPIRY_HOURS);
+      cacheExpiry.setMilliseconds(cacheExpiry.getMilliseconds() - this.CONFIG.CACHE_DURATION_MS);
       
       const { data, error } = await supabase
         .from("transactions_cache")
@@ -680,10 +681,15 @@ export class TaxService {
   static isROITransaction(transfer) {
     const fromAddress = transfer.from_address?.toLowerCase();
     const toAddress = transfer.to_address?.toLowerCase();
+    const tokenSymbol = transfer.token_symbol || '';
+    const tokenName = transfer.token_name || '';
+    const amount = parseFloat(transfer.value_formatted) || 0;
+    
+    console.log(`🔍 ROI CHECK: ${tokenSymbol} ${amount.toFixed(4)} from ${fromAddress?.slice(0, 8)} to ${toAddress?.slice(0, 8)}`);
     
     // 1. Minting von Null-Adresse (klassisches ROI)
     if (fromAddress === '0x0000000000000000000000000000000000000000') {
-      console.log(`🎯 ROI DETECTED: Minting from null address for ${transfer.token_symbol}`);
+      console.log(`🎯 ROI DETECTED: Minting from null address for ${tokenSymbol}`);
       return true;
     }
     
@@ -695,28 +701,59 @@ export class TaxService {
     ];
     
     if (KNOWN_MINTERS.includes(fromAddress)) {
-      console.log(`🎯 ROI DETECTED: From known minter ${fromAddress.slice(0, 8)} for ${transfer.token_symbol}`);
+      console.log(`🎯 ROI DETECTED: From known minter ${fromAddress.slice(0, 8)} for ${tokenSymbol}`);
       return true;
     }
     
-    // 3. Spezielle ROI-Keywords im Token-Namen
-    const tokenName = (transfer.token_name || '').toLowerCase();
-    const tokenSymbol = (transfer.token_symbol || '').toLowerCase();
-    
-    const roiKeywords = ['stake', 'reward', 'yield', 'farm', 'mint', 'claim'];
-    
-    if (roiKeywords.some(keyword => tokenName.includes(keyword) || tokenSymbol.includes(keyword))) {
-      console.log(`🎯 ROI DETECTED: ROI keyword in ${transfer.token_symbol} (${transfer.token_name})`);
+    // 3. 🚀 EXPANDED: Bekannte ROI Token-Symbole (auch normale Transfers können ROI sein!)
+    const ROI_TOKENS = ['hex', 'inc', 'plsx', 'loan', 'flex', 'prate', 'pdai', 'usdc', 'usdt'];
+    if (ROI_TOKENS.includes(tokenSymbol.toLowerCase())) {
+      console.log(`🎯 ROI DETECTED: Known ROI token ${tokenSymbol}`);
       return true;
     }
     
-    // 4. Große Token-Mengen ohne offensichtliche Zahlung (potentielle Airdrops)
-    const amount = parseFloat(transfer.value_formatted) || 0;
+    // 4. 🚀 EXPANDED: Spezielle ROI-Keywords im Token-Namen
+    const tokenNameLower = tokenName.toLowerCase();
+    const tokenSymbolLower = tokenSymbol.toLowerCase();
+    
+    const roiKeywords = ['stake', 'reward', 'yield', 'farm', 'mint', 'claim', 'dividend', 'interest', 'bonus'];
+    
+    if (roiKeywords.some(keyword => tokenNameLower.includes(keyword) || tokenSymbolLower.includes(keyword))) {
+      console.log(`🎯 ROI DETECTED: ROI keyword in ${tokenSymbol} (${tokenName})`);
+      return true;
+    }
+    
+    // 5. 🚀 NEW: Regelmäßige kleine Beträge (typisch für tägliche ROI)
+    if (amount > 0 && amount < 10000) { // Unter 10K tokens
+      // Prüfe ob es ein eingehender Transfer ist
+      if (transfer.is_incoming) {
+        console.log(`🎯 ROI DETECTED: Small regular amount ${amount} ${tokenSymbol} (incoming)`);
+        return true;
+      }
+    }
+    
+    // 6. 🚀 NEW: Sehr kleine regelmäßige Beträge (Micro-ROI)
+    if (amount > 0 && amount < 100) { // Unter 100 tokens
+      console.log(`🎯 ROI DETECTED: Micro ROI ${amount} ${tokenSymbol}`);
+      return true;
+    }
+    
+    // 7. Große Token-Mengen ohne offensichtliche Zahlung (potentielle Airdrops)
     if (amount > 1000000 && transfer.is_incoming) { // > 1M tokens
-      console.log(`🎯 ROI DETECTED: Large airdrop amount ${amount} for ${transfer.token_symbol}`);
+      console.log(`🎯 ROI DETECTED: Large airdrop amount ${amount} for ${tokenSymbol}`);
       return true;
     }
     
+    // 8. 🚀 NEW: Contract-zu-Contract Transfers (oft ROI/Rewards)
+    if (fromAddress && fromAddress !== toAddress && fromAddress.length === 42 && toAddress?.length === 42) {
+      // Wenn beide Adressen Contract-ähnlich sind (42 chars) und es eingehend ist
+      if (transfer.is_incoming) {
+        console.log(`🎯 ROI DETECTED: Contract-to-wallet transfer ${tokenSymbol}`);
+        return true;
+      }
+    }
+    
+    console.log(`❌ NOT ROI: ${tokenSymbol} ${amount} - no criteria matched`);
     return false; // Standard-Transaktion (Kauf/Verkauf)
   }
 

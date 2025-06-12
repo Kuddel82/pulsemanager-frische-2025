@@ -134,11 +134,11 @@ const TaxReportView = () => {
       
       console.log('🔄 TAX REPORT: Loading Moralis + DEXScreener data via TaxService...');
       
-              // 1. Lade User-Wallets (BASIC - TaxService macht den Rest)
-        const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
-          includeTax: false, // TaxService macht das besser mit UNLIMITED
-          includeROI: false
-        });
+      // 1. Lade User-Wallets (BASIC - TaxService macht den Rest)
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeTax: false, // TaxService macht das besser mit UNLIMITED
+        includeROI: false
+      });
       const wallets = portfolioData?.wallets || [];
       
       if (wallets.length === 0) {
@@ -147,6 +147,7 @@ const TaxReportView = () => {
       }
       
       console.log(`📊 Loading Moralis tax data for ${wallets.length} wallets...`);
+      console.log('📊 WALLET DEBUG:', wallets.map(w => ({ address: w.address?.slice(0, 8) + '...', chain: w.chain })));
       
       // 2. 🚀 FIXED: Use TaxService instead of direct API call
       const fullTaxData = await TaxService.fetchFullTransactionHistory(user.id, wallets);
@@ -154,6 +155,44 @@ const TaxReportView = () => {
       if (!fullTaxData) {
         throw new Error('Fehler beim Laden der Transaktionshistorie via TaxService');
       }
+      
+      // 🚀 ENHANCED DEBUG: Log transaction analysis
+      console.log('🔍 TAX DEBUG ANALYSIS:');
+      console.log('📊 All Transactions:', fullTaxData.allTransactions?.length || 0);
+      console.log('💰 Taxable Transactions:', fullTaxData.taxableTransactions?.length || 0);
+      console.log('🛒 Purchases:', fullTaxData.purchases?.length || 0);
+      console.log('💸 Sales:', fullTaxData.sales?.length || 0);
+      
+      // 🚀 SAMPLE TRANSACTION ANALYSIS
+      if (fullTaxData.allTransactions && fullTaxData.allTransactions.length > 0) {
+        const sampleSize = Math.min(10, fullTaxData.allTransactions.length);
+        console.log(`🔍 SAMPLE ANALYSIS (first ${sampleSize} transactions):`);
+        
+        for (let i = 0; i < sampleSize; i++) {
+          const tx = fullTaxData.allTransactions[i];
+          console.log(`📄 TX ${i+1}:`, {
+            token: tx.tokenSymbol || tx.token_symbol,
+            amount: tx.amount || 'N/A',
+            isIncoming: tx.isIncoming || tx.is_incoming,
+            isROI: tx.isROI || tx.is_roi_transaction,
+            valueUSD: tx.valueUSD || tx.value_usd || 0,
+            from: (tx.from || tx.from_address)?.slice(0, 8) + '...',
+            to: (tx.to || tx.to_address)?.slice(0, 8) + '...',
+            reason: `incoming: ${tx.isIncoming || tx.is_incoming}, roi: ${tx.isROI || tx.is_roi_transaction}, value: $${tx.valueUSD || tx.value_usd || 0}`
+          });
+        }
+      }
+      
+      // 🚀 ROI DETECTION STATISTICS
+      const incomingCount = fullTaxData.allTransactions?.filter(tx => tx.isIncoming || tx.is_incoming).length || 0;
+      const roiCount = fullTaxData.allTransactions?.filter(tx => tx.isROI || tx.is_roi_transaction).length || 0;
+      const valuedCount = fullTaxData.allTransactions?.filter(tx => (tx.valueUSD || tx.value_usd || 0) > 0).length || 0;
+      
+      console.log('🎯 ROI DETECTION STATS:');
+      console.log(`📈 Incoming transactions: ${incomingCount}`);
+      console.log(`🎯 ROI detected: ${roiCount}`);
+      console.log(`💰 With USD values: ${valuedCount}`);
+      console.log(`📊 ROI Detection Rate: ${incomingCount > 0 ? (roiCount / incomingCount * 100).toFixed(1) : '0'}%`);
       
       // 3. Set the tax data (compatible with TaxService format)
       setTaxData(fullTaxData);
@@ -167,7 +206,11 @@ const TaxReportView = () => {
         ungepaarteCount: 0, // TaxService handles prices differently
         statistics: {
           steuerpflichtigeTransaktionen: fullTaxData.taxableTransactions?.length || 0,
-          gesamtwertSteuerpflichtig: fullTaxData.taxSummary?.taxableIncomeUSD || 0
+          gesamtwertSteuerpflichtig: fullTaxData.taxSummary?.taxableIncomeUSD || 0,
+          incomingTransactions: incomingCount,
+          roiTransactions: roiCount,
+          valuedTransactions: valuedCount,
+          roiDetectionRate: incomingCount > 0 ? (roiCount / incomingCount * 100).toFixed(1) : '0'
         },
         apiUsage: {
           totalCalls: 'Handled by TaxService',
@@ -189,7 +232,8 @@ const TaxReportView = () => {
         total: fullTaxData.allTransactions?.length || 0,
         taxable: fullTaxData.taxableTransactions?.length || 0,
         taxableIncomeUSD: fullTaxData.taxSummary?.taxableIncomeUSD || '0.00',
-        fromCache: fullTaxData.fromCache
+        fromCache: fullTaxData.fromCache,
+        roiDetectionRate: moralisDisplayData.statistics.roiDetectionRate + '%'
       });
       
       // Rate limiting - 5 Minuten zwischen calls
@@ -412,7 +456,37 @@ const TaxReportView = () => {
               DSGVO-konforme Steuerdaten • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
             </p>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={loadTaxData}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Steuer Daten laden
+            </Button>
+            
+            <Button
+              onClick={loadMoralisData}
+              disabled={moralisLoading || !canLoadMoralis}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Globe className={`h-4 w-4 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
+              Moralis + Preise
+              {remainingTime > 0 && (
+                <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
+              )}
+            </Button>
+            
+            <Button
+              onClick={downloadCSV}
+              disabled={!taxData?.taxableTransactions || downloadingCSV}
+              variant="outline"
+            >
+              <Download className={`h-4 w-4 mr-2 ${downloadingCSV ? 'animate-spin' : ''}`} />
+              CSV Export
+            </Button>
+            
             <Button
               variant="outline"
               size="sm"
@@ -421,28 +495,40 @@ const TaxReportView = () => {
               {showDebug ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               Debug
             </Button>
-            <Button
-              onClick={downloadCSV}
-              disabled={downloadingCSV || !taxData?.taxableTransactions?.length}
-            >
-              <Download className={`h-4 w-4 mr-2 ${downloadingCSV ? 'animate-spin' : ''}`} />
-              CSV Export
-            </Button>
-            <Button 
-              onClick={loadMoralisData} 
-              disabled={moralisLoading || !canLoadMoralis}
-              className="bg-blue-500 hover:bg-blue-600"
-            >
-              <Globe className={`h-4 w-4 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
-              {moralisLoading ? 'Lade Preise...' : 'Moralis Preise'}
-              {!canLoadMoralis && (
-                <span className="ml-2 text-xs">({Math.floor(remainingTime / 60)}:{(remainingTime % 60).toString().padStart(2, '0')})</span>
-              )}
-            </Button>
-            <Button onClick={loadTaxData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Aktualisieren
-            </Button>
+            
+            {/* 🚀 FORCE UPDATE BUTTONS - Ignore Rate Limits for Debugging */}
+            {showDebug && (
+              <>
+                <Button 
+                  onClick={() => {
+                    console.log('🚨 FORCE TAX UPDATE: Ignoring rate limits...');
+                    setCanLoadMoralis(true);
+                    setRemainingTime(0);
+                    loadMoralisData();
+                  }}
+                  disabled={moralisLoading}
+                  variant="destructive"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <AlertCircle className={`h-4 w-4 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
+                  Force Moralis
+                </Button>
+                <Button 
+                  onClick={() => {
+                    console.log('🚨 FORCE BASIC TAX: Loading basic tax data...');
+                    loadTaxData();
+                  }}
+                  disabled={loading}
+                  variant="destructive"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <AlertCircle className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Force Basic
+                </Button>
+              </>
+            )}
           </div>
         </div>
 

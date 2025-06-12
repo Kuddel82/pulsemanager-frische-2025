@@ -423,6 +423,38 @@ const ROITrackerView = () => {
                 <TrendingUp className={`h-4 w-4 mr-2 ${(portfolioLoading || defiLoading) ? 'animate-spin' : ''}`} />
                 Alles laden
               </Button>
+              {/* 🚀 FORCE UPDATE BUTTONS - Ignore Rate Limits for Debugging */}
+              {showDebug && (
+                <>
+                  <Button 
+                    onClick={() => {
+                      console.log('🚨 FORCE UPDATE: Ignoring rate limits for debug...');
+                      // Force portfolio update by calling the function directly
+                      loadPortfolioData();
+                    }}
+                    disabled={portfolioLoading}
+                    variant="destructive"
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    <AlertCircle className={`h-4 w-4 mr-2 ${portfolioLoading ? 'animate-spin' : ''}`} />
+                    Force Portfolio
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      console.log('🚨 FORCE DeFi UPDATE: Loading DeFi regardless of portfolio state...');
+                      loadDefiData();
+                    }}
+                    disabled={defiLoading}
+                    variant="destructive"
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    <AlertCircle className={`h-4 w-4 mr-2 ${defiLoading ? 'animate-spin' : ''}`} />
+                    Force DeFi
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
