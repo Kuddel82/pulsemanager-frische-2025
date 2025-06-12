@@ -22,12 +22,12 @@ export const PROTECTED_VIEWS_CONFIG = [
   { id: 'tokenTrade', icon: Repeat, translationKey: 'swapViewTitle' },
   { id: 'bridge', icon: Zap, translationKey: 'bridgeViewTitle' },
   { id: 'taxReport', icon: FileSpreadsheet, translationKey: 'taxReportViewTitle' },
+  { id: 'wgep', icon: Printer, translationKey: 'wgepViewTitle', isSidebarLink: true },
   { id: 'settings', icon: SettingsIcon, translationKey: 'settingsViewTitle' }, 
 ];
 
 export const PUBLIC_VIEWS_CONFIG = [
   { id: 'dashboard', icon: Home, translationKey: 'dashboardViewTitle', isDefault: true, isSidebarLink: true },
-  { id: 'wgep', icon: Printer, translationKey: 'wgepViewTitle', isSidebarLink: true },
   { id: 'pulseChainInfo', icon: Info, translationKey: 'pulseChainInfoTitle', isSidebarLink: true },
   { id: 'termsOfService', icon: FileText, translationKey: 'termsOfService', isFooterLink: true, isSidebarLink: false },
   { id: 'privacyPolicy', icon: ShieldCheck, translationKey: 'privacyPolicy', isFooterLink: true, isSidebarLink: false },

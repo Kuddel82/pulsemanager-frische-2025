@@ -58,17 +58,21 @@ const PortfolioView = () => {
     });
   };
 
-  // 🚀 FIXED: Smart loading states - Berücksichtige Cache-Daten
-  const showEmptyState = !loading && !portfolioData;
-  const showErrorState = !loading && error && !portfolioData;
-  const showContent = portfolioData && portfolioData.tokens && portfolioData.tokens.length > 0;
+  // 🚀 FIXED: Smart loading states - Prüfe direkt auf Daten
+  const hasPortfolioData = portfolioData && portfolioData.tokens && portfolioData.tokens.length > 0;
+  const showEmptyState = !loading && !hasPortfolioData;
+  const showErrorState = !loading && error && !hasPortfolioData;
+  const showContent = hasPortfolioData;
 
-  // 🔍 DEBUG: Log states for troubleshooting
+  // 🔍 DEBUG: Detaillierte State-Ausgabe
   console.log('🔍 PORTFOLIO VIEW STATES:', {
     loading,
     hasData,
     portfolioData: !!portfolioData,
+    tokensExists: !!(portfolioData?.tokens),
     tokensCount: portfolioData?.tokens?.length || 0,
+    totalValue: portfolioData?.totalValue || 0,
+    hasPortfolioData,
     showEmptyState,
     showErrorState,
     showContent,
