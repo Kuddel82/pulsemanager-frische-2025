@@ -416,10 +416,10 @@ const TaxReportView = () => {
             </h3>
             <div className="space-y-2">
               {[
-                { key: 'all', label: 'Alle Transaktionen', count: taxData.allTransactions?.length || 0 },
-                { key: 'taxable', label: 'Steuerpflichtig (ROI)', count: taxData.taxableTransactions?.length || 0 },
-                { key: 'purchases', label: 'Käufe', count: taxData.purchases?.length || 0 },
-                { key: 'sales', label: 'Verkäufe', count: taxData.sales?.length || 0 }
+                { key: 'all', label: 'Alle Transaktionen', count: taxData?.allTransactions?.length || 0 },
+                { key: 'taxable', label: 'Steuerpflichtig (ROI)', count: taxData?.taxableTransactions?.length || 0 },
+                { key: 'purchases', label: 'Käufe', count: taxData?.purchases?.length || 0 },
+                { key: 'sales', label: 'Verkäufe', count: taxData?.sales?.length || 0 }
               ].map(filter => (
                 <Button
                   key={filter.key}
@@ -470,7 +470,7 @@ const TaxReportView = () => {
                 <div className="flex justify-between items-center text-lg">
                   <div>
                     <span className="font-bold pulse-text">Steuerpflichtiges Einkommen</span>
-                    <p className="text-xs pulse-text-secondary">{taxData?.taxSummary?.taxNote}</p>
+                    <p className="text-xs pulse-text-secondary">{taxData?.taxSummary?.taxNote || 'Basierend auf § 22 EStG'}</p>
                   </div>
                   <span className="font-bold text-red-400">{formatCurrency(taxStats.taxableIncome)}</span>
                 </div>
@@ -478,7 +478,7 @@ const TaxReportView = () => {
               
               {/* Steuerhinweis */}
               <div className="text-xs pulse-text-secondary p-2 bg-yellow-500/10 border border-yellow-400/20 rounded">
-                ⚖️ {taxData?.taxSummary?.disclaimerNote}
+                ⚖️ {taxData?.taxSummary?.disclaimerNote || 'Steuerrechtliche Beratung durch einen Experten empfohlen'}
               </div>
             </div>
           </div>
@@ -618,7 +618,7 @@ const TaxReportView = () => {
                 <div className="text-sm">
                   <p className="font-medium pulse-text">CSV-Export verfügbar</p>
                   <p className="pulse-text-secondary">
-                    Alle {taxData.taxableTransactions.length} Transaktionen können als CSV für die Steuererklärung exportiert werden.
+                    Alle {taxData?.taxableTransactions?.length || 0} Transaktionen können als CSV für die Steuererklärung exportiert werden.
                   </p>
                 </div>
               </div>
