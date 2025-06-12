@@ -38,7 +38,7 @@ const ROITrackerV2View = () => {
   const [portfolioData, setPortfolioData] = useState(null);
   const [defiData, setDefiData] = useState(null);
   const [roiDetectionData, setROIDetectionData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // MORALIS PRO: Start without loading
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [timeFrame, setTimeFrame] = useState('monthly');
@@ -103,16 +103,17 @@ const ROITrackerV2View = () => {
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    loadAllROIData();
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: No auto-loading to save API calls
+  // Initial load removed - only manual loading via button
+  // useEffect(() => {
+  //   loadAllROIData();
+  // }, [user?.id]);
 
-  // Auto-refresh every 10 minutes
-  useEffect(() => {
-    const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: Auto-refresh removed to save costs
+  // useEffect(() => {
+  //   const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
+  //   return () => clearInterval(interval);
+  // }, [user?.id]);
 
   if (loading) {
     return (
