@@ -14,7 +14,8 @@ import {
   TrendingUp,
   AlertCircle,
   EyeOff,
-  Eye
+  Eye,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import CentralDataService from '@/services/CentralDataService';
@@ -31,8 +32,21 @@ const PortfolioView = () => {
   const [hiddenTokens, setHiddenTokens] = useState([]);
   const [showHidden, setShowHidden] = useState(false);
 
+  // 🚀 IMPROVED: Allow direct navigation to Portfolio view
+  // Show empty state with load button if no data, don't force loading
+  const showEmptyState = !loading && !portfolioData && !error;
+  const showLoadButton = !loading && !portfolioData;
+  
+  // 🚀 FORCE UPDATE for debugging
+  const [forceUpdateCount, setForceUpdateCount] = useState(0);
+  const handleForceUpdate = () => {
+    console.log('🚨 PORTFOLIO: Force update requested');
+    setForceUpdateCount(prev => prev + 1);
+    loadPortfolioData(true); // Force load bypassing rate limits
+  };
+
   // Portfolio laden
-  const loadPortfolioData = async () => {
+  const loadPortfolioData = async (force = false) => {
     if (!user?.id) return;
     
     setLoading(true);
@@ -174,15 +188,68 @@ const PortfolioView = () => {
     return hiddenTokens.includes(tokenId);
   };
 
-  // Fallback für leere Daten
-  if (!user?.id) {
+  if (showEmptyState) {
     return (
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Portfolio</h1>
+            <p className="text-gray-600">Ihr Krypto-Portfolio Überblick</p>
+          </div>
+          <div className="flex space-x-2">
+            <Button 
+              onClick={() => loadPortfolioData()} 
+              disabled={!showLoadButton}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Portfolio laden
+            </Button>
+            {/* 🚀 FORCE BUTTON for debugging */}
+            <Button 
+              onClick={handleForceUpdate}
+              variant="destructive"
+              size="sm"
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Force Load
+            </Button>
+          </div>
+        </div>
+
         <Card>
-          <CardContent className="p-6 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Anmeldung erforderlich</h3>
-            <p className="text-gray-600">Bitte melden Sie sich an, um Ihr Portfolio zu verwalten.</p>
+          <CardContent className="p-12 text-center">
+            <Wallet className="h-16 w-16 mx-auto text-gray-300 mb-6" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-4">Portfolio bereit zum Laden</h3>
+            <p className="text-gray-500 mb-6">
+              Klicken Sie auf "Portfolio laden", um Ihre Wallet-Daten und Token-Holdings zu laden.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500">
+              <div>
+                <strong>✅ Sofortige Navigation</strong><br/>
+                Wechseln Sie direkt zum Portfolio ohne Wartezeit
+              </div>
+              <div>
+                <strong>💰 Kostenoptimiert</strong><br/>
+                Daten werden nur auf Anfrage geladen
+              </div>
+              <div>
+                <strong>🚀 Smart Caching</strong><br/>
+                Einmal geladene Daten werden 10 Minuten gecacht
+              </div>
+            </div>
+            <div className="mt-6">
+              <Button 
+                onClick={() => loadPortfolioData()} 
+                disabled={!showLoadButton}
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <TrendingUp className="h-5 w-5 mr-2" />
+                Portfolio jetzt laden
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -577,22 +644,6 @@ const PortfolioView = () => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Empty State - Kein Portfolio geladen */}
-      {!portfolioData && !loading && !error && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Coins className="h-16 w-16 mx-auto text-gray-300 mb-6" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-4">Portfolio bereit</h3>
-            <p className="text-gray-500 mb-6">
-              Klicken Sie auf "Aktualisieren", um Ihr Portfolio zu laden.
-            </p>
-            <Button onClick={loadPortfolioData}>
-              Portfolio laden
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

@@ -13,5 +13,13 @@ export const translationsDe = {
   useCases: "Anwendungsfälle",
   useCaseOffsetting: "Ausgleich des CO2-Fußabdrucks von Krypto-Transaktionen.",
   useCaseProof: "Nachweis der nachhaltigen Energienutzung für Projekte.",
-  wgepViewTitle: "WGEP Informationen" 
+  wgepViewTitle: "WGEP Informationen",
+  
+  // 🚀 ADDITIONAL TRANSLATIONS for better sidebar integration
+  wgepTradeButton: "WGEP handeln",
+  wgepAbout: "Über WGEP",
+  wgepAlertTitle: "Warnung",
+  wgepAlertDescription: "Trading mit Kryptowährungen birgt Verlustrisiken. Investieren Sie nur, was Sie sich leisten können zu verlieren.",
+  wgepDirectViewNotAvailable: "Direkte WGEP-Ansicht nicht verfügbar",
+  wgepTradeDisclaimer: "Trading erfolgt über externe Plattformen. PulseManager ist nicht für externe Transaktionen verantwortlich."
 };

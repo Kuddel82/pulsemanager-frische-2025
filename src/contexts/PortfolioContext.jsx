@@ -57,19 +57,13 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, [user?.id, CACHE_KEY]);
 
-  // ❌ AUTO-LOADING DEAKTIVIERT - User-Wunsch: NUR PER BUTTON!
-  // Portfolio soll nicht automatisch laden, nur manuell per Button
+  // ❌ DISABLED: Auto-loading removed for cost control
+  // Portfolio data ONLY loads on manual user action
   // useEffect(() => {
-  //   if (!user?.id || portfolioData) return;
-  //   const cached = localStorage.getItem(CACHE_KEY);
-  //   if (!cached) {
-  //     console.log('💾 NO CACHE: Auto-loading portfolio data for better UX');
-  //     const timer = setTimeout(() => {
-  //       loadPortfolioData(true);
-  //     }, 1000);
-  //     return () => clearTimeout(timer);
+  //   if (user?.id) {
+  //     loadPortfolioData();
   //   }
-  // }, [user?.id, portfolioData, CACHE_KEY]);
+  // }, [user?.id]);
 
   // 🚀 LOAD PORTFOLIO DATA
   const loadPortfolioData = useCallback(async (forceLoad = false) => {
@@ -188,28 +182,45 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, [user, clearData]);
 
+  // 🚀 FIXED: Allow navigation without loading data first
+  // User can navigate to Portfolio view and see empty state with load button
+  const canNavigateToPortfolio = true; // Always allow navigation
+  
+  const contextValue = {
+    // Portfolio Data
+    portfolioData,
+    loading,
+    error,
+    lastUpdate,
+    
+    // Navigation & Control  
+    canNavigateToPortfolio, // 🚀 NEW: Always allow navigation
+    canRefresh,
+    remainingTime: getRemainingTime(),
+    hasData: !!portfolioData,
+    isCached: stats.fromCache,
+    
+    // Methods
+    loadPortfolioData,
+    clearPortfolioData: () => {
+      setPortfolioData(null);
+      setError(null);
+      setLastUpdate(null);
+      console.log('🗑️ Portfolio data cleared');
+    },
+    
+    // Helper
+    refreshPortfolioData: () => {
+      console.log('🔄 Manual portfolio refresh requested');
+      loadPortfolioData();
+    },
+    
+    // Status
+    stats
+  };
+
   return (
-    <PortfolioContext.Provider value={{
-      // Data
-      portfolioData,
-      loading,
-      error,
-      lastUpdate,
-      
-      // Actions
-      loadPortfolioData,
-      clearData,
-      
-      // Status
-      canRefresh: canRefresh(),
-      remainingTime: getRemainingTime(),
-      stats,
-      
-      // Helpers
-      hasData: !!portfolioData,
-      isStale: lastUpdate && (Date.now() - lastUpdate.getTime()) > 10 * 60 * 1000,
-      isCached: stats.fromCache
-    }}>
+    <PortfolioContext.Provider value={contextValue}>
       {children}
     </PortfolioContext.Provider>
   );

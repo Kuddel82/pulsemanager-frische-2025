@@ -429,8 +429,8 @@ const ROITrackerView = () => {
                   <Button 
                     onClick={() => {
                       console.log('🚨 FORCE UPDATE: Ignoring rate limits for debug...');
-                      // Force portfolio update by calling the function directly
-                      loadPortfolioData();
+                      // Force portfolio update by calling the function with forceLoad=true
+                      loadPortfolioData(true); // 🚀 FIXED: Pass true to bypass rate limits
                     }}
                     disabled={portfolioLoading}
                     variant="destructive"
@@ -443,6 +443,10 @@ const ROITrackerView = () => {
                   <Button 
                     onClick={() => {
                       console.log('🚨 FORCE DeFi UPDATE: Loading DeFi regardless of portfolio state...');
+                      // Force DeFi data load even without portfolio data
+                      if (!portfolioData) {
+                        console.log('🚨 WARNING: Loading DeFi without portfolio data - this may cause errors');
+                      }
                       loadDefiData();
                     }}
                     disabled={defiLoading}
