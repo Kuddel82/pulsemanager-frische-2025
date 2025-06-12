@@ -101,71 +101,97 @@ export const BUSINESS_MODEL = {
   }
 };
 
+// 🚨 EMERGENCY OVERRIDE for dkuddel@web.de
+const EMERGENCY_PREMIUM_EMAILS = ['dkuddel@web.de'];
+
+const isEmergencyPremiumUser = (user) => {
+  return user?.email && EMERGENCY_PREMIUM_EMAILS.includes(user.email);
+};
+
 /**
- * 🎯 KORRIGIERTE FEATURE ACCESS LOGIC - KEIN FREE FOREVER!
- * @param {string} featureId - ID der zu prüfenden Funktion
- * @param {object} user - User object (null wenn nicht eingeloggt)
- * @param {string} subscriptionStatus - 'active', 'trial', 'inactive'
+ * 🎯 HAUPTFUNKTION: Feature Access Check
+ * @param {string} viewId - ID des Views (z.B. 'dashboard', 'roiTracker')
+ * @param {Object} user - User-Objekt von Supabase
+ * @param {string} subscriptionStatus - Status: 'inactive', 'trial', 'active'
  * @param {number} daysRemaining - Verbleibende Trial-Tage
- * @returns {object} {access: boolean, reason: string, message: string, daysLeft: number}
+ * @returns {Object} { access: boolean, reason: string, message: string, daysLeft?: number }
  */
-export function getFeatureAccess(featureId, user, subscriptionStatus, daysRemaining) {
-  // 🔐 Nicht eingeloggt = kein Zugriff auf IRGENDWAS
+export const getFeatureAccess = (viewId, user, subscriptionStatus, daysRemaining) => {
+  console.log(`🔍 FEATURE ACCESS CHECK: ${viewId}`, {
+    hasUser: !!user,
+    userEmail: user?.email,
+    subscriptionStatus,
+    daysRemaining
+  });
+
+  // 🚨 EMERGENCY OVERRIDE
+  if (isEmergencyPremiumUser(user)) {
+    console.log('🚨 EMERGENCY PREMIUM OVERRIDE for', user.email);
+    return {
+      access: true,
+      reason: 'premium',
+      message: `🚨 Emergency Premium Access for ${user.email}`,
+      daysLeft: 999
+    };
+  }
+
+  // Schritt 1: User-Check
   if (!user) {
     return {
       access: false,
       reason: 'registration_required',
-      message: 'Registrierung für 3-Tage Trial erforderlich',
-      daysLeft: null
+      message: 'Registrierung erforderlich'
     };
   }
 
-  // 👑 PREMIUM USER - Vollzugriff auf alles
-  if (subscriptionStatus === 'active') {
-    return {
-      access: true,
-      reason: 'premium',
-      message: 'Premium Zugriff',
-      daysLeft: null
-    };
+  // Schritt 2: Premium-Only Features (ROI Tracker & Tax Report)
+  if (PREMIUM_ONLY_VIEWS.includes(viewId)) {
+    if (subscriptionStatus === 'active') {
+      return {
+        access: true,
+        reason: 'premium',
+        message: 'Premium Feature verfügbar'
+      };
+    } else {
+      return {
+        access: false,
+        reason: 'premium_required',
+        message: 'Premium-Abonnement erforderlich'
+      };
+    }
   }
 
-  // 🚨 PREMIUM ONLY FEATURES - Kein Trial!
-  if (PREMIUM_ONLY_VIEWS.includes(featureId)) {
-    return {
-      access: false,
-      reason: 'premium_required',
-      message: 'Premium erforderlich - kein Trial verfügbar',
-      daysLeft: null
-    };
-  }
-
-  // 🔄 TRIAL FEATURES - 3 Tage verfügbar, dann ALLES gesperrt
-  if (TRIAL_VIEWS.includes(featureId)) {
-    if (daysRemaining > 0) {
+  // Schritt 3: Trial-Views (alle anderen Features)
+  if (TRIAL_VIEWS.includes(viewId)) {
+    if (subscriptionStatus === 'active') {
+      return {
+        access: true,
+        reason: 'premium',
+        message: 'Premium Vollzugriff'
+      };
+    } else if (subscriptionStatus === 'trial' && daysRemaining > 0) {
       return {
         access: true,
         reason: 'trial',
-        message: `Trial läuft noch ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''}`,
+        message: `Trial-Zugang: ${daysRemaining} Tag${daysRemaining !== 1 ? 'e' : ''} verbleibend`,
         daysLeft: daysRemaining
       };
     } else {
       return {
         access: false,
         reason: 'trial_expired',
-        message: 'Trial abgelaufen - Premium für alle Features erforderlich',
-        daysLeft: 0
+        message: 'Trial abgelaufen - Premium erforderlich'
       };
     }
   }
 
-  // 🚫 Unbekannte Features = kein Zugriff
+  // Fallback: Unbekannter View
+  console.warn(`⚠️ UNKNOWN VIEW: ${viewId} - Defaulting to no access`);
   return {
     access: false,
-    reason: 'unknown_feature',
-    message: 'Feature nicht konfiguriert',
-    daysLeft: null
+    reason: 'unknown_view',
+    message: 'Feature nicht verfügbar'
   };
-}
+};
 
 // No default export

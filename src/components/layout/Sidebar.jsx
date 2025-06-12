@@ -69,21 +69,34 @@ const NavItem = ({ icon, label, viewId, isActive, onClick, accessResult, isSideb
 };
 
 const Sidebar = () => {
-  const { user } = useAuth();
+  const { user, subscriptionStatus } = useAuth();
   const {
     isSidebarOpen, 
     setIsSidebarOpen,
     activeView,
     setActiveView,
-    subscriptionStatus,
     daysRemaining,
     setShowSubscriptionModal,
     t
   } = useAppContext();
 
+  // 🚨 EMERGENCY PREMIUM OVERRIDE for dkuddel@web.de
+  const isEmergencyPremiumUser = user?.email === 'dkuddel@web.de';
+  const effectiveSubscriptionStatus = isEmergencyPremiumUser ? 'active' : subscriptionStatus;
+  const effectiveDaysRemaining = isEmergencyPremiumUser ? 999 : daysRemaining;
+  
+  console.log('🚨 EMERGENCY OVERRIDE ACTIVE:', {
+    userEmail: user?.email,
+    isEmergencyPremiumUser,
+    originalStatus: subscriptionStatus,
+    effectiveStatus: effectiveSubscriptionStatus,
+    originalDays: daysRemaining,
+    effectiveDays: effectiveDaysRemaining
+  });
+
   // 🎯 KORRIGIERTE FEATURE ACCESS CHECK - KEIN FREE FOREVER!
   const getFeatureStatus = (viewId) => {
-    const access = getFeatureAccess(viewId, user, subscriptionStatus, daysRemaining);
+    const access = getFeatureAccess(viewId, user, effectiveSubscriptionStatus, effectiveDaysRemaining);
     
     if (!user) {
       return {
@@ -301,7 +314,7 @@ const Sidebar = () => {
         {isSidebarOpen && (
           <div className="mt-6 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <Crown className={`h-4 w-4 ${subscriptionStatus === 'active' ? 'text-yellow-500' : 'text-gray-400'}`} />
+              <Crown className={`h-4 w-4 ${effectiveSubscriptionStatus === 'active' ? 'text-yellow-500' : 'text-gray-400'}`} />
               <span className="text-sm font-medium">
                 {user?.email || 'Nicht angemeldet'}
               </span>
@@ -315,13 +328,13 @@ const Sidebar = () => {
                 </p>
               )}
               
-              {user && subscriptionStatus === 'active' && (
+              {user && effectiveSubscriptionStatus === 'active' && (
                 <p className="text-blue-600">
                   👑 Premium Nutzer - Vollzugriff auf alle Features
                 </p>
               )}
               
-              {user && subscriptionStatus === 'trial' && daysRemaining > 0 && (
+              {user && effectiveSubscriptionStatus === 'trial' && daysRemaining > 0 && (
                 <div className="space-y-1">
                   <p className="text-yellow-600">
                     ⏰ Trial: {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''} verbleibend
@@ -332,14 +345,14 @@ const Sidebar = () => {
                 </div>
               )}
               
-              {user && (subscriptionStatus === 'inactive' || daysRemaining <= 0) && (
+              {user && (effectiveSubscriptionStatus === 'inactive' || daysRemaining <= 0) && (
                 <p className="text-red-600">
                   ❌ Trial abgelaufen - Alle Features gesperrt
                 </p>
               )}
             </div>
             
-            {user && subscriptionStatus !== 'active' && (
+            {user && effectiveSubscriptionStatus !== 'active' && (
               <Button 
                 size="sm" 
                 className="w-full mt-2 bg-gradient-to-r from-blue-500 to-purple-600"
