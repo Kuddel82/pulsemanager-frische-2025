@@ -92,7 +92,7 @@ const Home = () => {
       </div>
 
       {/* 📈 Quick Navigation Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Tax Report Navigation */}
         <button
           onClick={() => navigate('/tax-report')}
@@ -122,7 +122,10 @@ const Home = () => {
           </div>
           <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
         </button>
+      </div>
 
+      {/* Portfolio & PulseX Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Portfolio Navigation */}
         <button
           onClick={() => navigate('/portfolio')}
@@ -137,6 +140,53 @@ const Home = () => {
           </div>
           <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
         </button>
+
+        {/* PulseX DEX Navigation */}
+        <button
+          onClick={() => window.open('https://pulsex.mypinata.cloud/ipfs/bafybeiajyhfbf6evh4mdabassmbtsy73ci2gmcgh4ffmjkrgsea35vqxba/#/?chain=pulsechain', '_blank')}
+          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-8 w-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+              PX
+            </div>
+            <div>
+              <div className="text-lg font-bold pulse-text">PulseX</div>
+              <div className="text-sm pulse-text-secondary">Dezentrale Börse (DEX)</div>
+            </div>
+          </div>
+          <div className="text-xs pulse-text-secondary">→ Externe Seite öffnen</div>
+        </button>
+      </div>
+
+      {/* 🚀 PulseX DEX Embedded Interface */}
+      <div className="pulse-card p-6 mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-6 w-6 bg-gradient-to-r from-purple-400 to-pink-400 rounded flex items-center justify-center text-white font-bold text-xs">
+            PX
+          </div>
+          <h2 className="text-xl font-bold pulse-text">Token Kauf/Verkauf über PulseX</h2>
+        </div>
+        
+        <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-400/20 rounded-lg">
+          <p className="text-yellow-400 text-sm">
+            ⚠️ <strong>Bitte beachten:</strong> Sie interagieren direkt mit PulseX. PulseManager wickelt keine Transaktionen direkt ab, sondern stellt eine komfortable Oberfläche bereit.
+          </p>
+        </div>
+
+        <div className="bg-black/20 rounded-lg p-4 border border-purple-500/20">
+          <iframe
+            src="https://pulsex.mypinata.cloud/ipfs/bafybeiajyhfbf6evh4mdabassmbtsy73ci2gmcgh4ffmjkrgsea35vqxba/#/?chain=pulsechain"
+            className="w-full h-[600px] rounded-lg border-0"
+            title="PulseX DEX Interface"
+            allowFullScreen
+          />
+        </div>
+        
+        <div className="mt-4 text-xs pulse-text-secondary text-center">
+          💡 <strong>PulseX Kauf/Verkauf-Schnittstelle:</strong><br />
+          Nutzen Sie die untenstehende Fenster, um Token direkt auf PulseX zu kaufen oder zu verkaufen.
+        </div>
       </div>
 
 
