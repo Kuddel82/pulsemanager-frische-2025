@@ -57,43 +57,52 @@ const Sidebar = () => {
     }
   };
   
-  const orderedSidebarItemsDefault = [
-    'wallets',
-    'roiTracker',
-    'tokenTrade',
-    'bridge',
-    // 'nftPortfolio', // Removed
-    'taxReport',
-    'pulseChainInfo', 
-    'settings',       
-  ];
-
   const allViewsMap = new Map();
   publicViewsConfig.forEach(v => allViewsMap.set(v.id, v));
   protectedViewsConfig.forEach(v => allViewsMap.set(v.id, v));
 
-  // 🎯 CUSTOM ORDER: Dashboard, then protected views, then WGEP, then other public views
+  // 🎯 FIXED: Use all needed views in correct order
   const customOrderedItems = [
+    'dashboard',  // Dashboard first
     'wallets',
     'roiTracker', 
     'tokenTrade',
     'bridge',
     'taxReport',
-    'wgep',  // WGEP directly after Tax Report
+    'wgep',  // WGEP after Tax Report
     'pulseChainInfo',
     'settings'
   ];
 
-  const sidebarViewConfigs = customOrderedItems
-    .map(id => allViewsMap.get(id))
-    .filter(view => view && (view.isSidebarLink === undefined || view.isSidebarLink === true));
+  console.log('🔍 SIDEBAR DEBUG:', {
+    publicViewsCount: publicViewsConfig.length,
+    protectedViewsCount: protectedViewsConfig.length,
+    totalViewsInMap: allViewsMap.size,
+    wgepExists: allViewsMap.has('wgep'),
+    wgepConfig: allViewsMap.get('wgep'),
+    customOrderedItems,
+    subscriptionStatus,
+    daysRemaining
+  });
 
-  const dashboardConfig = publicViewsConfig.find(v => v.id === 'dashboard');
+  const sidebarViewConfigs = customOrderedItems
+    .map(id => {
+      const view = allViewsMap.get(id);
+      if (!view) {
+        console.warn(`⚠️ SIDEBAR: View '${id}' not found in config`);
+        return null;
+      }
+      if (view.isSidebarLink === false) {
+        console.log(`ℹ️ SIDEBAR: View '${id}' excluded (isSidebarLink: false)`);
+        return null;
+      }
+      return view;
+    })
+    .filter(Boolean);
+
+  console.log('✅ SIDEBAR: Final sidebar views:', sidebarViewConfigs.map(v => ({ id: v.id, translationKey: v.translationKey })));
     
-  const displayableSidebarItems = [
-    dashboardConfig, 
-    ...sidebarViewConfigs,
-  ].filter(Boolean); 
+  const displayableSidebarItems = sidebarViewConfigs;
 
   const menuItems = [
     {

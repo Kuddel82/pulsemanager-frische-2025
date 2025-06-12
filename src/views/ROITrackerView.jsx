@@ -378,13 +378,50 @@ const ROITrackerView = () => {
               Debug
             </Button>
             <div className="flex space-x-2">
-              <Button onClick={loadPortfolioData} disabled={portfolioLoading || !canRefresh}>
+              <Button 
+                onClick={loadPortfolioData} 
+                disabled={portfolioLoading || !canRefresh}
+                variant="default"
+                size="sm"
+              >
                 <RefreshCw className={`h-4 w-4 mr-2 ${portfolioLoading ? 'animate-spin' : ''}`} />
-                Portfolio laden
+                Portfolio
+                {remainingTime > 0 && (
+                  <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
+                )}
               </Button>
-              <Button onClick={loadDefiData} disabled={defiLoading || !hasPortfolioData}>
+              <Button 
+                onClick={loadDefiData} 
+                disabled={defiLoading || !hasPortfolioData}
+                variant="outline"
+                size="sm"
+              >
                 <RefreshCw className={`h-4 w-4 mr-2 ${defiLoading ? 'animate-spin' : ''}`} />
-                DeFi laden
+                DeFi
+                {!hasPortfolioData && (
+                  <span className="ml-1 text-xs text-red-400">(Portfolio zuerst)</span>
+                )}
+              </Button>
+              {/* 🚀 COMBINED LOAD BUTTON for convenience */}
+              <Button 
+                onClick={async () => {
+                  console.log('🚀 COMBINED LOAD: Starting Portfolio + DeFi loading sequence...');
+                  if (canRefresh) {
+                    await loadPortfolioData();
+                    // Short delay then load DeFi data
+                    setTimeout(() => {
+                      console.log('🚀 COMBINED LOAD: Portfolio loaded, now loading DeFi...');
+                      loadDefiData();
+                    }, 1000);
+                  }
+                }}
+                disabled={!canRefresh || portfolioLoading || defiLoading}
+                variant="default"
+                size="sm"
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <TrendingUp className={`h-4 w-4 mr-2 ${(portfolioLoading || defiLoading) ? 'animate-spin' : ''}`} />
+                Alles laden
               </Button>
             </div>
           </div>
