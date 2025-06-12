@@ -1,3 +1,6 @@
+// 🔇 ERROR SUPPRESSION - Muss vor allem anderen geladen werden
+import './lib/errorSuppression.js';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import MainApp from './MainApp';
