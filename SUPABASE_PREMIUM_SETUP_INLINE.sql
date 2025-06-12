@@ -79,9 +79,40 @@ BEGIN
     
     RAISE NOTICE '=== PREMIUM SETUP COMPLETE FOR dkuddel@web.de ===';
     
+    -- FINAL VERIFICATION QUERIES
+    RAISE NOTICE '=== FINAL VERIFICATION ===';
+    
+    -- Show user_profiles status
+    FOR existing_subscription_id IN
+        SELECT 
+            CASE 
+                WHEN up.subscription_status = 'active' THEN 'user_profiles: PREMIUM ACTIVE ✅'
+                ELSE 'user_profiles: NOT ACTIVE ❌'
+            END as status_info
+        FROM auth.users u
+        LEFT JOIN user_profiles up ON u.id = up.id
+        WHERE u.email = 'dkuddel@web.de'
+    LOOP
+        RAISE NOTICE '%', existing_subscription_id.status_info;
+    END LOOP;
+    
+    -- Show subscriptions status
+    FOR existing_subscription_id IN
+        SELECT 
+            CASE 
+                WHEN s.status = 'active' AND s.end_date > NOW() THEN 'subscriptions: PREMIUM ACTIVE ✅'
+                ELSE 'subscriptions: NOT ACTIVE ❌'
+            END as status_info
+        FROM auth.users u
+        LEFT JOIN subscriptions s ON u.id = s.user_id
+        WHERE u.email = 'dkuddel@web.de'
+    LOOP
+        RAISE NOTICE '%', existing_subscription_id.status_info;
+    END LOOP;
+    
 END $$;
 
--- Verification Query
+-- Separate Verification Query (runs outside DO block)
 SELECT 
     'FINAL STATUS' as info,
     u.email,
