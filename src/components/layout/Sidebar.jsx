@@ -64,6 +64,7 @@ const Sidebar = () => {
     'bridge',
     // 'nftPortfolio', // Removed
     'taxReport',
+    'wgep',
     'pulseChainInfo', 
     'settings',       
   ];

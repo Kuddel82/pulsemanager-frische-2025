@@ -18,6 +18,7 @@ import Home from '@/components/views/Home';
 import PortfolioView from '@/views/PortfolioView';
 import ROITrackerView from '@/views/ROITrackerView';
 import TaxReportView from '@/views/TaxReportView';
+import WgepView from '@/components/views/WgepView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
 import DebugView from '@/views/DebugView'; // Debug Monitor für PHASE 3
@@ -90,6 +91,7 @@ const AppRoutes = () => {
         <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/roi-tracker" element={<ROITrackerView />} />
         <Route path="/tax-report" element={<TaxReportView />} />
+        <Route path="/wgep" element={<WgepView />} />
         
         {/* 🐛 DEBUG MONITOR - PHASE 3 */}
         <Route path="/debug" element={<DebugView />} />

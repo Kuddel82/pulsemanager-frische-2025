@@ -17,6 +17,7 @@ import { translationsDe as walletDe } from './de/wallet';
 import { translationsDe as bridgeDe } from './de/bridge';
 import { translationsDe as yieldOptimizerDe } from './de/yieldOptimizer';
 import { translationsDe as marketDe } from './de/market';
+import { translationsDe as wgepDe } from './de/wgep';
 
 
 export const translationsDe = {
@@ -39,4 +40,5 @@ export const translationsDe = {
   ...bridgeDe,
   ...yieldOptimizerDe,
   ...marketDe,
+  ...wgepDe,
 };
