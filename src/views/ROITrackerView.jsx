@@ -174,10 +174,10 @@ const ROITrackerView = () => {
             defiPositionsSuccess: defiPositions.success,
             roiDetectionSuccess: roiDetection.success,
             portfolioData: {
-              totalValue: portfolioResponse.totalValue,
-              monthlyROI: portfolioResponse.monthlyROI,
-              dailyROI: portfolioResponse.dailyROI,
-              weeklyROI: portfolioResponse.weeklyROI
+              totalValue: portfolioData?.totalValue || 0,
+              monthlyROI: portfolioData?.monthlyROI || 0,
+              dailyROI: portfolioData?.dailyROI || 0,
+              weeklyROI: portfolioData?.weeklyROI || 0
             }
           });
         } catch (apiError) {

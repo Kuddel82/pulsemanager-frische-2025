@@ -30,6 +30,7 @@ import { formatCurrency, formatNumber } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
 import { TaxService } from '@/services/TaxService';
 import { useAuth } from '@/contexts/AuthContext';
+import WalletDebugInfo from '@/components/ui/WalletDebugInfo';
 
 const TaxReportView = () => {
   const { user } = useAuth();
@@ -63,8 +64,11 @@ const TaxReportView = () => {
       
       console.log('🔄 TAX REPORT V2: Loading with smart caching...');
       
-      // 1. 📦 Lade User-Wallets via Smart Cache System (nur für Wallet-Liste)
-      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
+      // 1. 📦 Lade User-Wallets via Smart Cache System (COST OPTIMIZED - only wallets)
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeROI: false,
+        includeTax: false // TaxService handles this separately
+      });
       
       console.log('📊 TAX REPORT: Portfolio Cache Response:', {
         success: portfolioData.success,
@@ -120,7 +124,7 @@ const TaxReportView = () => {
     }
   };
 
-  // 🚀 NEUE FUNKTION: Moralis + DEXScreener Integration
+  // 🚀 REPAIRED: Moralis + DEXScreener Integration (NOW COMPATIBLE WITH TAXSERVICE)
   const loadMoralisData = async () => {
     if (!user?.id || !canLoadMoralis) return;
     
@@ -128,10 +132,13 @@ const TaxReportView = () => {
       setMoralisLoading(true);
       setError(null);
       
-      console.log('🔄 TAX REPORT: Loading Moralis + DEXScreener data...');
+      console.log('🔄 TAX REPORT: Loading Moralis + DEXScreener data via TaxService...');
       
-      // 1. Lade User-Wallets
-      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
+              // 1. Lade User-Wallets (BASIC - TaxService macht den Rest)
+        const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
+          includeTax: false, // TaxService macht das besser mit UNLIMITED
+          includeROI: false
+        });
       const wallets = portfolioData?.wallets || [];
       
       if (wallets.length === 0) {
@@ -139,28 +146,50 @@ const TaxReportView = () => {
         return;
       }
       
-      // 2. Verwende erste PulseChain-Wallet für Tax Report
-      const pulseWallet = wallets.find(w => w.chain_id === 369) || wallets[0];
+      console.log(`📊 Loading Moralis tax data for ${wallets.length} wallets...`);
       
-      console.log(`📊 Loading Moralis tax data for wallet: ${pulseWallet.address}`);
+      // 2. 🚀 FIXED: Use TaxService instead of direct API call
+      const fullTaxData = await TaxService.fetchFullTransactionHistory(user.id, wallets);
       
-      // 3. Rufe neue Tax Report API auf
-      const response = await fetch(`/api/tax-report?wallet=${pulseWallet.address}&chain=pulsechain&limit=200`);
-      const data = await response.json();
-      
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Tax Report API Fehler');
+      if (!fullTaxData) {
+        throw new Error('Fehler beim Laden der Transaktionshistorie via TaxService');
       }
       
-      setMoralisData(data);
-      setUngepaarteTokens(data.ungepaarteTokens || []);
+      // 3. Set the tax data (compatible with TaxService format)
+      setTaxData(fullTaxData);
+      setLastUpdate(new Date());
       setLastMoralisUpdate(new Date());
       
-      console.log('✅ MORALIS TAX DATA:', {
-        transactions: data.transactionCount,
-        ungepaarteTokens: data.ungepaarteCount,
-        apiCalls: data.apiUsage?.totalCalls || 0,
-        steuerpflichtig: data.statistics?.steuerpflichtigeTransaktionen || 0
+      // 4. Extract additional info for Moralis display
+      const moralisDisplayData = {
+        success: true,
+        transactionCount: fullTaxData.allTransactions?.length || 0,
+        ungepaarteCount: 0, // TaxService handles prices differently
+        statistics: {
+          steuerpflichtigeTransaktionen: fullTaxData.taxableTransactions?.length || 0,
+          gesamtwertSteuerpflichtig: fullTaxData.taxSummary?.taxableIncomeUSD || 0
+        },
+        apiUsage: {
+          totalCalls: 'Handled by TaxService',
+          moralisCallsUsed: 'Optimized via caching'
+        }
+      };
+      
+      setMoralisData(moralisDisplayData);
+      setUngepaarteTokens([]); // TaxService handles missing prices internally
+      
+      // 5. Update cache info
+      setCacheInfo({
+        totalLoaded: fullTaxData.allTransactions?.length || 0,
+        taxable: fullTaxData.taxableTransactions?.length || 0,
+        cacheHit: fullTaxData.fromCache || false
+      });
+      
+      console.log('✅ MORALIS TAX DATA (via TaxService):', {
+        total: fullTaxData.allTransactions?.length || 0,
+        taxable: fullTaxData.taxableTransactions?.length || 0,
+        taxableIncomeUSD: fullTaxData.taxSummary?.taxableIncomeUSD || '0.00',
+        fromCache: fullTaxData.fromCache
       });
       
       // Rate limiting - 5 Minuten zwischen calls
@@ -503,46 +532,54 @@ const TaxReportView = () => {
         )}
 
         {/* Debug Information */}
-        {showDebug && taxData && (
-          <div className="pulse-card p-6 mb-6">
-            <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
-              <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
-              TAX SERVICE Debug Information
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <span className="font-medium pulse-text-secondary">Alle Transaktionen:</span>
-                <p className="pulse-text">{taxData.allTransactions?.length || 0}</p>
+        {showDebug && (
+          <div className="space-y-6 mb-6">
+            {/* Wallet Debug Info - ALWAYS show in debug mode */}
+            <WalletDebugInfo />
+            
+            {/* Tax Data Debug - only when tax data loaded */}
+            {taxData && (
+              <div className="pulse-card p-6">
+                <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
+                  <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
+                  TAX SERVICE Debug Information
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Alle Transaktionen:</span>
+                    <p className="pulse-text">{taxData.allTransactions?.length || 0}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Steuerpflichtig (ROI):</span>
+                    <p className="pulse-text">{taxData.taxableTransactions?.length || 0}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Käufe:</span>
+                    <p className="pulse-text">{taxData.purchases?.length || 0}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Verkäufe:</span>
+                    <p className="pulse-text">{taxData.sales?.length || 0}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Cache Hit:</span>
+                    <p className="pulse-text">{cacheInfo?.cacheHit ? '✅ Ja' : '❌ Nein'}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Geladen:</span>
+                    <p className="pulse-text">{cacheInfo?.totalLoaded || 0}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Gefiltert ({filterCategory}):</span>
+                    <p className="pulse-text">{filteredTransactions.length}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium pulse-text-secondary">Steuerpflichtiges Einkommen:</span>
+                    <p className="pulse-text">{formatCurrency(taxStats.taxableIncome)}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Steuerpflichtig (ROI):</span>
-                <p className="pulse-text">{taxData.taxableTransactions?.length || 0}</p>
-              </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Käufe:</span>
-                <p className="pulse-text">{taxData.purchases?.length || 0}</p>
-              </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Verkäufe:</span>
-                <p className="pulse-text">{taxData.sales?.length || 0}</p>
-              </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Cache Hit:</span>
-                <p className="pulse-text">{cacheInfo?.cacheHit ? '✅ Ja' : '❌ Nein'}</p>
-              </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Geladen:</span>
-                <p className="pulse-text">{cacheInfo?.totalLoaded || 0}</p>
-              </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Gefiltert ({filterCategory}):</span>
-                <p className="pulse-text">{filteredTransactions.length}</p>
-              </div>
-              <div>
-                <span className="font-medium pulse-text-secondary">Steuerpflichtiges Einkommen:</span>
-                <p className="pulse-text">{formatCurrency(taxStats.taxableIncome)}</p>
-              </div>
-            </div>
+            )}
           </div>
         )}
 

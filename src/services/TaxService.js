@@ -7,12 +7,12 @@ FIXED: Nutzt jetzt korrekt vorhandene Moralis APIs
 import { supabase } from "@/lib/supabaseClient";
 
 export class TaxService {
-  // 🔧 KONFIGURATION
+  // 🔧 KONFIGURATION - UNLIMITED für TAX REPORT
   static CONFIG = {
-    MAX_TRANSACTIONS_PER_REQUEST: 500,    // Moralis API Limit pro Request
+    MAX_TRANSACTIONS_PER_REQUEST: 999999,  // User-Wunsch: ALLE verfügbaren Daten
     CACHE_EXPIRY_HOURS: 24,               // Cache-Gültigkeit
-    PAGINATION_SIZE: 100,                 // Batch-Größe für API-Aufrufe
-    MIN_TAX_VALUE_USD: 0.01               // Mindest-Wert für Steuerrelevanz
+    PAGINATION_SIZE: 1000,                // Größere Batches für bessere Performance
+    MIN_TAX_VALUE_USD: 0.001              // Sehr niedrig für komplette Daten
   };
 
   /**
@@ -140,14 +140,14 @@ export class TaxService {
         try {
           console.log(`⛓️ Processing ${chain.name} (${chain.id}) for wallet ${wallet.address.slice(0, 8)}...`);
           
-          // 🚀 1. NATIVE TRANSACTIONS (PLS/ETH)
+          // 🚀 1. NATIVE TRANSACTIONS (PLS/ETH) - UNLIMITED
           const nativeResponse = await fetch(`/api/moralis-transactions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               address: wallet.address,
               chain: chain.id,
-              limit: 100
+              limit: 9999 // User-Wunsch: ALLE verfügbaren Daten
             })
           });
           
@@ -195,14 +195,14 @@ export class TaxService {
             }
           }
           
-          // 🚀 2. TOKEN TRANSFERS (ERC-20)
+          // 🚀 2. TOKEN TRANSFERS (ERC-20) - UNLIMITED
           const tokenResponse = await fetch(`/api/moralis-token-transfers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               address: wallet.address,
               chain: chain.id,
-              limit: 100
+              limit: 9999 // User-Wunsch: ALLE verfügbaren Daten
             })
           });
           
@@ -230,7 +230,7 @@ export class TaxService {
                 
                 // 🎯 ROI-ERKENNUNG: Kritisch für deutsche Steuerberechnung!
                 isIncoming: transfer.is_incoming,
-                isROI: transfer.is_roi_mint, // Minting von Null-Adresse = ROI!
+                isROI: this.isROITransaction(transfer), // FIXED: Proper ROI detection
                 
                 gas: 0, // Token transfers haben separate Gas-Kosten
                 gasPrice: 0,
@@ -591,6 +591,52 @@ export class TaxService {
       'TX Hash': tx.txHash || tx.tx_hash,
       'Contract Address': tx.contractAddress || tx.contract_address
     };
+  }
+
+  /**
+   * 🎯 ROI-ERKENNUNG: Identifiziere ROI/Minting Transaktionen
+   */
+  static isROITransaction(transfer) {
+    const fromAddress = transfer.from_address?.toLowerCase();
+    const toAddress = transfer.to_address?.toLowerCase();
+    
+    // 1. Minting von Null-Adresse (klassisches ROI)
+    if (fromAddress === '0x0000000000000000000000000000000000000000') {
+      console.log(`🎯 ROI DETECTED: Minting from null address for ${transfer.token_symbol}`);
+      return true;
+    }
+    
+    // 2. Bekannte Minter-Adressen (HEX, INC, PLSX)
+    const KNOWN_MINTERS = [
+      '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
+      '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC  
+      '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1'  // PLSX
+    ];
+    
+    if (KNOWN_MINTERS.includes(fromAddress)) {
+      console.log(`🎯 ROI DETECTED: From known minter ${fromAddress.slice(0, 8)} for ${transfer.token_symbol}`);
+      return true;
+    }
+    
+    // 3. Spezielle ROI-Keywords im Token-Namen
+    const tokenName = (transfer.token_name || '').toLowerCase();
+    const tokenSymbol = (transfer.token_symbol || '').toLowerCase();
+    
+    const roiKeywords = ['stake', 'reward', 'yield', 'farm', 'mint', 'claim'];
+    
+    if (roiKeywords.some(keyword => tokenName.includes(keyword) || tokenSymbol.includes(keyword))) {
+      console.log(`🎯 ROI DETECTED: ROI keyword in ${transfer.token_symbol} (${transfer.token_name})`);
+      return true;
+    }
+    
+    // 4. Große Token-Mengen ohne offensichtliche Zahlung (potentielle Airdrops)
+    const amount = parseFloat(transfer.value_formatted) || 0;
+    if (amount > 1000000 && transfer.is_incoming) { // > 1M tokens
+      console.log(`🎯 ROI DETECTED: Large airdrop amount ${amount} for ${transfer.token_symbol}`);
+      return true;
+    }
+    
+    return false; // Standard-Transaktion (Kauf/Verkauf)
   }
 
   /**

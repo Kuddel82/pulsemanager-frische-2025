@@ -57,17 +57,16 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, [user?.id, CACHE_KEY]);
 
-  // ❌ EMERGENCY DISABLED: Auto-loading komplett deaktiviert für Kostenreduktion
+  // ❌ AUTO-LOADING DEAKTIVIERT - User-Wunsch: NUR PER BUTTON!
+  // Portfolio soll nicht automatisch laden, nur manuell per Button
   // useEffect(() => {
-  //   if (!user?.id || portfolioData) return; // Don't load if already have data
-  //   
+  //   if (!user?.id || portfolioData) return;
   //   const cached = localStorage.getItem(CACHE_KEY);
   //   if (!cached) {
   //     console.log('💾 NO CACHE: Auto-loading portfolio data for better UX');
   //     const timer = setTimeout(() => {
-  //       loadPortfolioData(true); // Force load to bypass rate limiting on login
-  //     }, 1000); // Small delay to avoid race conditions
-  //     
+  //       loadPortfolioData(true);
+  //     }, 1000);
   //     return () => clearTimeout(timer);
   //   }
   // }, [user?.id, portfolioData, CACHE_KEY]);
@@ -104,7 +103,11 @@ export const PortfolioProvider = ({ children }) => {
       const startTime = Date.now();
       console.log('🔄 GLOBAL PORTFOLIO LOAD: Loading fresh data...');
       
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      // 🚨 COST OPTIMIZED: Only load basic portfolio data (no ROI/Tax)
+    const data = await CentralDataService.loadCompletePortfolio(user.id, { 
+      includeROI: false,
+      includeTax: false 
+    });
       
       if (!data.success && !data.isLoaded && data.error) {
         setError(data.error);

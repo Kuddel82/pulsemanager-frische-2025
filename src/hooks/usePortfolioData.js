@@ -58,7 +58,11 @@ export const usePortfolioData = () => {
       const startTime = Date.now();
       console.log('🔄 SMART LOAD V2: Loading portfolio with smart caching...');
       
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      // 🚨 COST OPTIMIZED: Only load basic portfolio data (no ROI/Tax)
+      const data = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeROI: false,
+        includeTax: false 
+      });
       
       if (!data.success && !data.isLoaded && data.error) {
         setError(data.error);

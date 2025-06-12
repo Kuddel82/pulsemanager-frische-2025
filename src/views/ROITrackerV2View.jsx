@@ -56,10 +56,10 @@ const ROITrackerV2View = () => {
       console.log('🔄 ROI TRACKER V2: Loading comprehensive ROI data...');
       
       // 1. Standard Portfolio-Daten (lokale ROI-Transaktionen)
-      const portfolioResponse = await CentralDataService.loadCompletePortfolio(user.id);
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
       
       // 2. Lade erste Wallet-Adresse für Moralis DeFi-Daten
-      const wallets = portfolioResponse.wallets || [];
+      const wallets = portfolioData.wallets || [];
       const primaryWallet = wallets.find(w => w.chain === 'ethereum') || wallets[0];
       
       let defiResponse = null;
@@ -84,13 +84,13 @@ const ROITrackerV2View = () => {
         roiDetectionResponse = roiDetection;
       }
       
-      setPortfolioData(portfolioResponse);
+      setPortfolioData(portfolioData);
       setDefiData(defiResponse);
       setROIDetectionData(roiDetectionResponse);
       setLastUpdate(new Date());
       
       console.log('✅ ROI TRACKER V2: All data loaded', {
-        portfolioROI: portfolioResponse.monthlyROI || 0,
+        portfolioROI: portfolioData.monthlyROI || 0,
         defiPositions: defiResponse?.positions?.positions?.length || 0,
         roiSources: roiDetectionResponse?.sources?.length || 0
       });

@@ -93,9 +93,12 @@ export class CentralDataService {
     return sourceMap[apiSource] || 'moralis_live';
   }
 
-  // 🎯 MAIN PORTFOLIO LOADING (PRO OPTIMIZED)
-  static async loadCompletePortfolio(userId) {
+  // 🎯 MAIN PORTFOLIO LOADING (PRO OPTIMIZED) - COST REDUCED!
+  static async loadCompletePortfolio(userId, options = {}) {
     console.log(`🎯 PRO PORTFOLIO: Loading for user ${userId}`);
+    
+    // 🚨 COST REDUCTION: Don't load ROI/Tax by default (40k CUs saved!)
+    const { includeROI = false, includeTax = false } = options;
     
     try {
       // API Key check
@@ -113,7 +116,21 @@ export class CentralDataService {
       // Load tokens with Pro API
       const tokenData = await this.loadTokenBalancesPro(wallets);
       
-      // Basic portfolio response
+      // 🚨 COST REDUCTION: Only load ROI/Tax when explicitly requested
+      let roiData = { transactions: [], dailyROI: 0, weeklyROI: 0, monthlyROI: 0, totalApiCalls: 0 };
+      let taxData = { transactions: [], totalApiCalls: 0 };
+      
+      if (includeROI) {
+        console.log('🚀 LOADING ROI DATA (explicitly requested)...');
+        roiData = await this.loadROITransactionsMoralisOnly(wallets, {});
+      }
+      
+      if (includeTax) {
+        console.log('🚀 LOADING TAX DATA (explicitly requested)...');
+        taxData = await this.loadTaxTransactionsMoralisOnly(wallets, {});
+      }
+      
+      // Portfolio response with optional ROI/Tax data
       const portfolioResponse = {
         success: true,
         isLoaded: true,
@@ -123,12 +140,33 @@ export class CentralDataService {
         tokenCount: tokenData.tokens?.length || 0,
         wallets: wallets,
         walletCount: wallets.length,
-        roiTransactions: [],
-        taxTransactions: [],
-        dataSource: 'moralis_pro_api',
+        
+        // ROI Data (empty unless requested)
+        roiTransactions: roiData.transactions || [],
+        dailyROI: roiData.dailyROI || 0,
+        weeklyROI: roiData.weeklyROI || 0,
+        monthlyROI: roiData.monthlyROI || 0,
+        
+        // Tax Data (empty unless requested)
+        taxTransactions: taxData.transactions || [],
+        
+        // Metadata
+        dataSource: includeROI || includeTax ? 'moralis_pro_api_complete' : 'moralis_pro_api_basic',
         lastUpdated: new Date().toISOString(),
-        fromCache: false
+        fromCache: false,
+        apiCalls: (roiData.totalApiCalls || 0) + (taxData.totalApiCalls || 0),
+        
+        // Summary stats
+        summary: {
+          totalTokens: tokenData.tokens?.length || 0,
+          totalValue: tokenData.totalValue || 0,
+          roiTransactions: roiData.transactions?.length || 0,
+          taxTransactions: taxData.transactions?.length || 0,
+          monthlyROI: roiData.monthlyROI || 0
+        }
       };
+      
+      console.log(`✅ PRO PORTFOLIO: Basic load complete (ROI: ${includeROI}, Tax: ${includeTax}, CUs: ${portfolioResponse.apiCalls})`);
       
       return portfolioResponse;
 
@@ -273,13 +311,109 @@ export class CentralDataService {
     return { operational: false, status: 'enterprise_disabled', error: 'Disabled for cost reduction' };
   }
 
-  // 🎯 ROI/Tax stubs for compatibility
+  // 🎯 ROI/Tax REAL IMPLEMENTATIONS for Tax & ROI Views
   static async loadROITransactionsMoralisOnly(wallets, priceMap) {
-    return { transactions: [], dailyROI: 0, weeklyROI: 0, monthlyROI: 0, source: 'pro_mode_basic' };
+    console.log(`🚀 ROI: Loading ROI transactions for ${wallets.length} wallets (CURRENT MONTH ONLY)`);
+    
+    const allROITransactions = [];
+    let totalApiCalls = 0;
+    
+    // 📅 NUR LAUFENDER MONAT - User-Wunsch
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    for (const wallet of wallets) {
+      try {
+        const chainId = wallet.chain_id || 369;
+        const chain = this.getChainConfig(chainId);
+        
+        // Call ROI cache API mit Monat-Filter
+        const response = await fetch(`/api/roi-cache?wallet=${wallet.address}&chain=${chain.name.toLowerCase()}&from=${currentMonthStart.toISOString()}`);
+        totalApiCalls++;
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.roiTransactions) {
+            // Zusätzlich client-seitig filtern für laufenden Monat
+            const monthlyROITransactions = data.roiTransactions.filter(tx => {
+              const txDate = new Date(tx.timestamp);
+              return txDate >= currentMonthStart;
+            });
+            allROITransactions.push(...monthlyROITransactions);
+          }
+        }
+      } catch (error) {
+        console.error(`⚠️ ROI load failed for ${wallet.address}:`, error.message);
+      }
+    }
+    
+    // Calculate ROI stats für LAUFENDEN MONAT
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    
+    const dailyTransactions = allROITransactions.filter(tx => 
+      new Date(tx.timestamp).getTime() > (now - dayMs)
+    );
+    const weeklyTransactions = allROITransactions.filter(tx => 
+      new Date(tx.timestamp).getTime() > (now - 7 * dayMs)
+    );
+    const monthlyTransactions = allROITransactions; // Bereits auf Monat gefiltert
+    
+    const dailyROI = dailyTransactions.reduce((sum, tx) => sum + (tx.value || 0), 0);
+    const weeklyROI = weeklyTransactions.reduce((sum, tx) => sum + (tx.value || 0), 0);
+    const monthlyROI = monthlyTransactions.reduce((sum, tx) => sum + (tx.value || 0), 0);
+    
+    console.log(`✅ ROI CURRENT MONTH: ${allROITransactions.length} transactions, $${monthlyROI.toFixed(2)} monthly`);
+    
+    return { 
+      transactions: allROITransactions, 
+      dailyROI, 
+      weeklyROI, 
+      monthlyROI, 
+      source: 'roi_cache_api_current_month',
+      totalApiCalls,
+      currentMonth: now.getMonth() + 1,
+      currentYear: now.getFullYear()
+    };
   }
 
   static async loadTaxTransactionsMoralisOnly(wallets, priceMap) {
-    return { transactions: [], source: 'pro_mode_basic' };
+    console.log(`🚀 TAX: Loading tax transactions for ${wallets.length} wallets`);
+    
+    const allTaxTransactions = [];
+    let totalApiCalls = 0;
+    
+    for (const wallet of wallets) {
+      try {
+        const chainId = wallet.chain_id || 369;
+        const chain = this.getChainConfig(chainId);
+        
+        // Call tax-report API
+        const response = await fetch(`/api/tax-report?wallet=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=200`);
+        totalApiCalls++;
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.transactions) {
+            allTaxTransactions.push(...data.transactions.map(tx => ({
+              ...tx,
+              walletAddress: wallet.address,
+              chainId: chainId
+            })));
+          }
+        }
+      } catch (error) {
+        console.error(`⚠️ TAX load failed for ${wallet.address}:`, error.message);
+      }
+    }
+    
+    console.log(`✅ TAX: ${allTaxTransactions.length} transactions loaded`);
+    
+    return { 
+      transactions: allTaxTransactions, 
+      source: 'tax_report_api',
+      totalApiCalls
+    };
   }
 
   // 📊 Stats helpers

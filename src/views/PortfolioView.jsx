@@ -41,6 +41,22 @@ const PortfolioView = () => {
   } = usePortfolioContext();
 
   const [showDebug, setShowDebug] = useState(false);
+  
+  // 👁️ TOKEN VISIBILITY STATE - User kann Shit Coins ausblenden
+  const [hiddenTokens, setHiddenTokens] = useState(new Set());
+  
+  // Toggle Token Visibility
+  const toggleTokenVisibility = (tokenAddress) => {
+    setHiddenTokens(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tokenAddress)) {
+        newSet.delete(tokenAddress);
+      } else {
+        newSet.add(tokenAddress);
+      }
+      return newSet;
+    });
+  };
 
   // 🚀 SMART LOADING STATES - Zeige immer UI, auch beim ersten Load
   const showEmptyState = !loading && !hasData;
@@ -248,13 +264,68 @@ const PortfolioView = () => {
           </div>
         )}
 
+        {/* Hidden Tokens Panel */}
+        {hiddenTokens.size > 0 && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-gray-500">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <EyeOff className="h-5 w-5 mr-2 text-gray-400" />
+                <span className="pulse-text font-medium">
+                  {hiddenTokens.size} versteckte Token{hiddenTokens.size !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setHiddenTokens(new Set())}
+                className="text-xs"
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Alle einblenden
+              </Button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(portfolioData?.tokens || [])
+                .filter(token => hiddenTokens.has(token.contractAddress))
+                .map((token, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleTokenVisibility(token.contractAddress)}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    {token.symbol}
+                  </Button>
+                ))}
+            </div>
+          </div>
+        )}
+
         {/* Token Holdings */}
         <div className="pulse-card p-6">
-          <h3 className="text-lg font-bold pulse-text mb-4">Token Holdings ({portfolioData?.tokens?.length || 0})</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold pulse-text">
+              Token Holdings ({(portfolioData?.tokens || []).filter(token => !hiddenTokens.has(token.contractAddress)).length}/{portfolioData?.tokens?.length || 0})
+            </h3>
+            {hiddenTokens.size > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setHiddenTokens(new Set())}
+                className="text-xs"
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Alle anzeigen
+              </Button>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10">
+                  <th className="text-center py-3 px-2 pulse-text-secondary">👁️</th>
                   <th className="text-left py-3 px-2 pulse-text-secondary">Rang</th>
                   <th className="text-left py-3 px-2 pulse-text-secondary">Token</th>
                   <th className="text-right py-3 px-2 pulse-text-secondary">Anzahl</th>
@@ -266,8 +337,21 @@ const PortfolioView = () => {
                 </tr>
               </thead>
               <tbody>
-                {(portfolioData?.tokens || []).map((token, index) => (
+                {(portfolioData?.tokens || [])
+                  .filter(token => !hiddenTokens.has(token.contractAddress))
+                  .map((token, index) => (
                   <tr key={index} className={`border-b border-white/5 hover:bg-white/5 ${!token.hasReliablePrice ? 'opacity-60' : ''}`}>
+                    <td className="py-3 px-2 text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleTokenVisibility(token.contractAddress)}
+                        className="h-8 w-8 p-0"
+                        title="Token verstecken/anzeigen"
+                      >
+                        <Eye className="h-4 w-4 text-blue-400 hover:text-blue-300" />
+                      </Button>
+                    </td>
                     <td className="py-3 px-2">
                       <Badge variant="outline" className={`text-xs ${token.isIncludedInPortfolio ? 'border-green-400 text-green-400' : 'border-gray-500 text-gray-500'}`}>
                         #{token.holdingRank || '?'}
@@ -362,11 +446,14 @@ const PortfolioView = () => {
         </div>
 
         {/* Portfolio Distribution */}
-        {(portfolioData?.tokens || []).filter(t => t.isIncludedInPortfolio).length > 0 && (
+        {(portfolioData?.tokens || []).filter(t => t.isIncludedInPortfolio && !hiddenTokens.has(t.contractAddress)).length > 0 && (
           <div className="pulse-card p-6 mt-6">
-            <h3 className="text-lg font-bold pulse-text mb-4">Portfolio Verteilung (nur Tokens mit verlässlichen Preisen)</h3>
+            <h3 className="text-lg font-bold pulse-text mb-4">Portfolio Verteilung (nur sichtbare Tokens mit verlässlichen Preisen)</h3>
             <div className="space-y-3">
-              {(portfolioData?.tokens || []).filter(t => t.isIncludedInPortfolio).slice(0, 10).map((token, index) => (
+              {(portfolioData?.tokens || [])
+                .filter(t => t.isIncludedInPortfolio && !hiddenTokens.has(t.contractAddress))
+                .slice(0, 10)
+                .map((token, index) => (
                 <div key={index} className="flex items-center">
                   <div className="w-20 text-sm font-medium pulse-text">{token.symbol}</div>
                   <div className="flex-1 mx-3">
