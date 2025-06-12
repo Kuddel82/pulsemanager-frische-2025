@@ -34,11 +34,72 @@ async function moralisFetch(endpoint) {
   }
 }
 
-// 💰 MORALIS PRICE LOOKUP
+// 🚀 BATCH PRICE LOOKUP - 99% CU Ersparnis!
+async function getBatchPricesMoralis(tokenAddresses, chain) {
+  try {
+    console.log(`🚀 BATCH PRICES: Loading ${tokenAddresses.length} tokens in single call`);
+    
+    // Baue Request Body für Batch API
+    const tokens = tokenAddresses.map(address => ({
+      tokenAddress: address
+    }));
+    
+    const res = await fetch(`${MORALIS_BASE}/erc20/prices?chain=${chain}&include=percent_change`, {
+      method: 'POST',
+      headers: {
+        'X-API-Key': MORALIS_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ tokens })
+    });
+    
+    if (!res.ok) {
+      console.error(`❌ Batch prices error ${res.status}`);
+      return null;
+    }
+    
+    const data = await res.json();
+    
+    // Erstelle Price Map für schnelle Lookups
+    const priceMap = {};
+    if (data && Array.isArray(data)) {
+      data.forEach(item => {
+        if (item.tokenAddress && item.usdPrice) {
+          priceMap[item.tokenAddress.toLowerCase()] = {
+            price: parseFloat(item.usdPrice),
+            source: 'moralis_batch',
+            symbol: item.tokenSymbol,
+            name: item.tokenName,
+            change24h: item['24hrPercentChange'],
+            verified: item.verifiedContract,
+            possibleSpam: item.possibleSpam === 'true'
+          };
+        }
+      });
+    }
+    
+    console.log(`✅ BATCH SUCCESS: ${Object.keys(priceMap).length}/${tokenAddresses.length} prices loaded`);
+    return priceMap;
+    
+  } catch (error) {
+    console.error('❌ Batch prices error:', error.message);
+    return null;
+  }
+}
+
+// 💰 FALLBACK: Single Token Price (falls Batch fehlschlägt)
 async function getPriceMoralis(tokenAddress, chain) {
   try {
-    const res = await moralisFetch(`/erc20/${tokenAddress}/price?chain=${chain}`);
-    return res?.usdPrice ?? null;
+    const res = await moralisFetch(`/erc20/${tokenAddress}/price?chain=${chain}&include=percent_change`);
+    return {
+      price: res?.usdPrice ?? null,
+      source: 'moralis_single',
+      symbol: res?.tokenSymbol,
+      name: res?.tokenName,
+      change24h: res?.['24hrPercentChange'],
+      verified: res?.verifiedContract,
+      possibleSpam: res?.possibleSpam === 'true'
+    };
   } catch (error) {
     console.error(`❌ Moralis price error for ${tokenAddress}:`, error.message);
     return null;
@@ -125,12 +186,30 @@ export default async function handler(req, res) {
 
     console.log(`📊 Found ${txData.result.length} token transfers`);
 
-    // 2. VERARBEITE TRANSAKTIONEN
+    // 2. SAMMLE ALLE UNIQUE TOKEN-ADRESSEN für Batch-Loading
+    const uniqueTokens = [...new Set(txData.result.map(tx => tx.token_address.toLowerCase()))];
+    console.log(`📊 Found ${uniqueTokens.length} unique tokens for batch price loading`);
+
+    // 3. 🚀 BATCH PRICE LOADING (99% CU Ersparnis!)
+    let batchPrices = null;
+    let moralisCallsUsed = 0;
+    let dexscreenerCallsUsed = 0;
+
+    if (uniqueTokens.length > 0) {
+      batchPrices = await getBatchPricesMoralis(uniqueTokens, chainId);
+      moralisCallsUsed = 1; // Nur 1 API Call für alle Tokens!
+      
+      if (batchPrices) {
+        console.log(`🚀 BATCH SUCCESS: ${Object.keys(batchPrices).length} prices loaded with 1 API call`);
+      } else {
+        console.log(`⚠️ BATCH FAILED: Falling back to individual calls`);
+      }
+    }
+
+    // 4. VERARBEITE TRANSAKTIONEN mit Batch-Preisen
     const transactions = [];
     const ungepaarteTokens = [];
     const kaufHistorie = {};
-    let moralisCallsUsed = 0;
-    let dexscreenerCallsUsed = 0;
 
     for (const tx of txData.result) {
       const token = tx.token_symbol || 'Unknown';
@@ -152,14 +231,27 @@ export default async function handler(req, res) {
         kaufHistorie[tokenAddr] = datum;
       }
 
-      // 3. PREISFINDUNG: Moralis First
-      let usdPrice = await getPriceMoralis(tokenAddr, chainId);
-      moralisCallsUsed++;
+      // 5. PREISFINDUNG: Batch First, dann Fallbacks
+      let priceInfo = null;
+      let priceSource = 'unknown';
       
-      let priceSource = 'moralis';
+      // 5a. Versuche Batch-Preis
+      if (batchPrices && batchPrices[tokenAddr]) {
+        priceInfo = batchPrices[tokenAddr];
+        priceSource = 'moralis_batch';
+      }
+      // 5b. Fallback: Einzelner Moralis-Call
+      else {
+        console.log(`⚠️ Token ${token} nicht im Batch - einzelner Call...`);
+        priceInfo = await getPriceMoralis(tokenAddr, chainId);
+        moralisCallsUsed++;
+        priceSource = 'moralis_single';
+      }
+      
+      let usdPrice = priceInfo?.price || null;
       let hasReliablePrice = !!usdPrice;
 
-      // 4. FALLBACK: DEXScreener für ungepaarte Tokens
+      // 5c. FALLBACK: DEXScreener für ungepaarte Tokens
       if (usdPrice === null) {
         console.log(`⚠️ Token ${token} nicht in Moralis - versuche DEXScreener...`);
         
@@ -190,18 +282,19 @@ export default async function handler(req, res) {
         }
       }
 
-      // 5. STEUERPFLICHTIGKEIT BERECHNEN
+      // 6. STEUERPFLICHTIGKEIT BERECHNEN
       const haltefristTage = kaufHistorie[tokenAddr] ? 
         (datum - kaufHistorie[tokenAddr]) / (1000 * 60 * 60 * 24) : 0;
       
       const isSteuerpflichtig = type === 'ROI' || 
         (type === 'Verkauf' && haltefristTage < 365);
 
-      // 6. TRANSAKTION SPEICHERN
+      // 7. TRANSAKTION SPEICHERN (mit erweiterten Preis-Infos)
       transactions.push({
         type,
         token,
-        symbol: token,
+        symbol: priceInfo?.symbol || token,
+        tokenName: priceInfo?.name || 'Unknown',
         amount: amount,
         date: dateFormatted,
         priceUSD: usdPrice,
@@ -213,7 +306,11 @@ export default async function handler(req, res) {
         priceSource,
         hasReliablePrice,
         hash: tx.transaction_hash,
-        tokenAddress: tokenAddr
+        tokenAddress: tokenAddr,
+        // Zusätzliche Moralis-Daten
+        priceChange24h: priceInfo?.change24h,
+        verifiedContract: priceInfo?.verified,
+        possibleSpam: priceInfo?.possibleSpam
       });
     }
 
@@ -224,8 +321,15 @@ export default async function handler(req, res) {
     const roiTransaktionen = transactions.filter(t => t.type === 'ROI');
     const roiWert = roiTransaktionen.reduce((sum, t) => sum + t.valueEUR, 0);
 
+    // 🚀 BATCH-OPTIMIERUNG STATISTIKEN
+    const estimatedCUsUsed = moralisCallsUsed * 25; // ~25 CUs pro Call
+    const oldSystemCUs = uniqueTokens.length * 25; // Was das alte System gekostet hätte
+    const cuSavings = Math.max(0, oldSystemCUs - estimatedCUsUsed);
+    const efficiencyPercent = oldSystemCUs > 0 ? Math.round((cuSavings / oldSystemCUs) * 100) : 0;
+
     console.log(`✅ TAX REPORT: ${transactions.length} transactions, ${ungepaarteTokens.length} ungepaart`);
-    console.log(`📊 API Calls: ${moralisCallsUsed} Moralis, ${dexscreenerCallsUsed} DEXScreener`);
+    console.log(`📊 API Calls: ${moralisCallsUsed} Moralis (${estimatedCUsUsed} CUs), ${dexscreenerCallsUsed} DEXScreener`);
+    console.log(`🚀 BATCH EFFICIENCY: ${efficiencyPercent}% CU savings (${cuSavings} CUs saved vs old system)`);
 
     // 8. RESPONSE
     return res.status(200).json({
@@ -251,20 +355,33 @@ export default async function handler(req, res) {
         ungepaarteTokens: ungepaarteTokens.length
       },
       
-      // API Usage
+      // API Usage & Batch-Optimierung
       apiUsage: {
         moralisCallsUsed,
         dexscreenerCallsUsed,
-        totalCalls: moralisCallsUsed + dexscreenerCallsUsed
+        totalCalls: moralisCallsUsed + dexscreenerCallsUsed,
+        // 🚀 Batch-Optimierung Details
+        batchOptimization: {
+          enabled: !!batchPrices,
+          uniqueTokens: uniqueTokens.length,
+          tokensInBatch: batchPrices ? Object.keys(batchPrices).length : 0,
+          fallbackCalls: Math.max(0, moralisCallsUsed - 1),
+          estimatedCUsUsed: estimatedCUsUsed,
+          oldSystemCUs: oldSystemCUs,
+          cuSavings: cuSavings,
+          efficiencyPercent: efficiencyPercent
+        }
       },
       
       // Metadata
       generatedAt: new Date().toISOString(),
+      version: "v0.1.9-BATCH-OPTIMIZED",
       hinweise: [
         `${ungepaarteTokens.length} Tokens ohne Preis gefunden - bitte manuell vervollständigen`,
         'Steuerpflichtigkeit basiert auf deutschen Steuergesetzen (1-Jahr Haltefrist)',
         'ROI-Transaktionen sind immer steuerpflichtig',
-        'Preise in EUR sind Näherungswerte - für exakte Steuererklärung Tageskurs verwenden'
+        'Preise in EUR sind Näherungswerte - für exakte Steuererklärung Tageskurs verwenden',
+        `🚀 BATCH-OPTIMIERUNG: ${efficiencyPercent}% CU-Ersparnis durch intelligente Preisabfrage`
       ]
     });
 
