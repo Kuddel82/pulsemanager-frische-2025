@@ -816,7 +816,7 @@ const TaxReportView = () => {
               {/* RAW DATA BUTTONS */}
               <div className="flex justify-between items-center pt-4 border-t border-white/10">
                 <div className="text-xs text-gray-400">
-                  💡 Tax Debug: Enterprise-APIs entfernt für Pro Plan Kostenreduktion
+                  💡 Tax Debug: Optimiert für Standard Moralis APIs
                 </div>
                 <div className="flex space-x-2">
                   <Button

@@ -1,58 +1,90 @@
-// 🧪 QUICK API TEST - Check if Moralis API Key is working
-// Datum: 2025-01-11 - Emergency debugging
+// 🚀 QUICK API TEST - STANDARD MORALIS APIS
+// Test der wichtigsten API-Endpunkte für Funktionalität
 
-const testWallet = '0x742d35Cc6e6c17Dc5f6c15485b2C8EF9c3A3beAf';
+console.log('🚀 QUICK API TEST: Standard Moralis APIs');
 
-async function testMoralisAPI() {
-  console.log('🧪 TESTING MORALIS API ACCESS...');
-  console.log('===============================');
-
+// Test Health Check
+async function testHealth() {
   try {
-    // Test 1: Health Check
-    console.log('🔧 Test 1: API Health Check');
-    const healthResponse = await fetch('http://localhost:5175/api/moralis-enterprise-apis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint: 'enterprise-health' })
+    const healthResponse = await fetch('/api/health', {
+      method: 'GET'
     });
     
     const healthData = await healthResponse.json();
-    console.log('Health Response:', healthData.status || 'Error');
     
-    // Test 2: Basic Token Check  
-    console.log('\n🪙 Test 2: Basic Token API');
-    const tokenResponse = await fetch(`http://localhost:5175/api/moralis-tokens?endpoint=wallet-tokens&chain=0x1&address=${testWallet}&limit=5`);
-    const tokenData = await tokenResponse.json();
-    
-    if (tokenData._error) {
-      console.log('❌ TOKEN API ERROR:', tokenData._error.message);
-    } else if (tokenData._fallback) {
-      console.log('⚠️ TOKEN API: Using fallback (no Moralis access)');
-    } else if (tokenData.result) {
-      console.log('✅ TOKEN API: Working! Found', tokenData.result.length, 'tokens');
-    } else {
-      console.log('⚪ TOKEN API: Unexpected response format');
-    }
-    
-    // Test 3: Environment Variable Check (server-side)
-    console.log('\n🔑 Test 3: Environment Check');
-    const envResponse = await fetch('http://localhost:5175/api/moralis-v2?endpoint=api-version');
-    const envData = await envResponse.json();
-    
-    if (envData._error && envData._error.message.includes('API Key')) {
-      console.log('❌ ENV CHECK: API Key not found on server');
-    } else if (envData.result) {
-      console.log('✅ ENV CHECK: API Key working, version:', envData.result.version);
-    } else {
-      console.log('⚪ ENV CHECK: Unexpected response');
-    }
-    
+    console.log('✅ Health Check:', healthData);
+    return { success: true, ...healthData };
   } catch (error) {
-    console.log('💥 TEST ERROR:', error.message);
+    console.error('❌ Health Check failed:', error);
+    return { success: false, error: error.message };
   }
-  
-  console.log('\n🏁 TEST COMPLETE');
 }
 
-// Run test
-testMoralisAPI().catch(console.error); 
+// Test Token Prices  
+async function testTokenPrices() {
+  try {
+    const response = await fetch('/api/moralis-prices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: 'token-price',
+        chain: '0x171',
+        address: '0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d'
+      })
+    });
+    
+    const data = await response.json();
+    console.log('✅ Token Prices:', data);
+    return { success: true, ...data };
+  } catch (error) {
+    console.error('❌ Token Prices failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Test Wallet Tokens
+async function testWalletTokens() {
+  try {
+    const response = await fetch('/api/moralis-tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: 'wallet-tokens',
+        chain: '0x171',
+        address: '0x0000000000000000000000000000000000000000',
+        limit: 5
+      })
+    });
+    
+    const data = await response.json();
+    console.log('✅ Wallet Tokens:', data);
+    return { success: true, ...data };
+  } catch (error) {
+    console.error('❌ Wallet Tokens failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Run all tests
+async function runAllTests() {
+  console.log('🎯 RUNNING ALL API TESTS...\n');
+  
+  const results = {
+    health: await testHealth(),
+    tokenPrices: await testTokenPrices(),
+    walletTokens: await testWalletTokens()
+  };
+  
+  console.log('\n📊 TEST RESULTS:');
+  Object.entries(results).forEach(([test, result]) => {
+    console.log(`${result.success ? '✅' : '❌'} ${test}: ${result.success ? 'OK' : result.error}`);
+  });
+  
+  const successCount = Object.values(results).filter(r => r.success).length;
+  console.log(`\n🎯 SUMMARY: ${successCount}/${Object.keys(results).length} tests passed`);
+  
+  return results;
+}
+
+// Auto-run
+runAllTests(); 

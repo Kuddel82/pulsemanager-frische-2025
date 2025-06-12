@@ -69,9 +69,9 @@ export default async function handler(req, res) {
     const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
     
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
-      console.error('🚨 CRITICAL: Moralis API Key required for Enterprise functionality');
+      console.error('🚨 CRITICAL: Moralis API Key required for API functionality');
       return res.status(401).json({
-        error: 'ENTERPRISE ERROR: Moralis API Key required',
+        error: 'API ERROR: Moralis API Key required',
         message: 'Add valid MORALIS_API_KEY to .env file',
         critical: true
       });
@@ -236,7 +236,7 @@ export default async function handler(req, res) {
               // Metadata
               _moralis: {
                 api_version: 'v2.2',
-                data_source: 'enterprise',
+                data_source: 'moralis',
                 processed_at: new Date().toISOString()
               }
             };
@@ -260,8 +260,8 @@ export default async function handler(req, res) {
       page_size: data.page_size || limit,
       cursor: data.cursor || null,
       
-      // Enterprise metadata
-      _enterprise: {
+      // API metadata
+      _metadata: {
         provider: 'moralis',
         api_version: 'v2.2',
         endpoint: 'token_transfers',
