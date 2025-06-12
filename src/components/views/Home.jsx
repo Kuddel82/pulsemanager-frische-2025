@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { TrendingUp, Activity, FileText, Crown } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
 import WalletManualInput from '@/components/WalletManualInput';
-import ROICalculator from '@/components/ROICalculator';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -86,95 +85,7 @@ const Home = () => {
         <WalletManualInput />
       </div>
 
-      {/* 💰 ROI Calculator & Portfolio Tracking */}
-      <div className="mb-8">
-        <ROICalculator />
-      </div>
 
-      {/* 📈 Quick Navigation Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Tax Report Navigation */}
-        <button
-          onClick={() => navigate('/tax-report')}
-          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <FileText className="h-8 w-8 text-red-400" />
-            <div>
-              <div className="text-lg font-bold pulse-text">Tax Report</div>
-              <div className="text-sm pulse-text-secondary">Steuer-Export für Deutschland</div>
-            </div>
-          </div>
-          <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
-        </button>
-
-        {/* ROI Tracker Navigation */}
-        <button
-          onClick={() => navigate('/roi-tracker')}
-          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <TrendingUp className="h-8 w-8 text-green-400" />
-            <div>
-              <div className="text-lg font-bold pulse-text">ROI Tracker</div>
-              <div className="text-sm pulse-text-secondary">Performance Analyse</div>
-            </div>
-          </div>
-          <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
-        </button>
-      </div>
-
-      {/* Portfolio, PulseX & Bridge Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Portfolio Navigation */}
-        <button
-          onClick={() => navigate('/portfolio')}
-          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <Activity className="h-8 w-8 text-blue-400" />
-            <div>
-              <div className="text-lg font-bold pulse-text">Portfolio</div>
-              <div className="text-sm pulse-text-secondary">Token Holdings anzeigen</div>
-            </div>
-          </div>
-          <div className="text-xs pulse-text-secondary">→ Klicken zum Öffnen</div>
-        </button>
-
-        {/* PulseX DEX Navigation */}
-        <button
-          onClick={() => window.open('https://pulsex.mypinata.cloud/ipfs/bafybeiajyhfbf6evh4mdabassmbtsy73ci2gmcgh4ffmjkrgsea35vqxba/#/?chain=pulsechain', '_blank')}
-          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-8 w-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              PX
-            </div>
-            <div>
-              <div className="text-lg font-bold pulse-text">PulseX</div>
-              <div className="text-sm pulse-text-secondary">Dezentrale Börse (DEX)</div>
-            </div>
-          </div>
-          <div className="text-xs pulse-text-secondary">→ Externe Seite öffnen</div>
-        </button>
-
-        {/* Portal Bridge Navigation */}
-        <button
-          onClick={() => window.open('https://bridge.mypinata.cloud/ipfs/bafybeif242ld54nzjg2aqxvfse23wpbkqbyqasj3usgslccuajnykonzo4/#/bridge', '_blank')}
-          className="pulse-card p-6 hover:bg-white/5 transition-colors text-left"
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-8 w-8 bg-gradient-to-r from-cyan-400 to-blue-400 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              BR
-            </div>
-            <div>
-              <div className="text-lg font-bold pulse-text">Bridge</div>
-              <div className="text-sm pulse-text-secondary">Token über Portal bridgen</div>
-            </div>
-          </div>
-          <div className="text-xs pulse-text-secondary">→ Externe Seite öffnen</div>
-        </button>
-      </div>
 
       {/* 🚀 PulseX DEX Embedded Interface */}
       <div className="pulse-card p-6 mb-8">
