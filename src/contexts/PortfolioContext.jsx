@@ -57,13 +57,35 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, [user?.id, CACHE_KEY]);
 
-  // ❌ DISABLED: Auto-loading removed for cost control
-  // Portfolio data ONLY loads on manual user action
-  // useEffect(() => {
-  //   if (user?.id) {
-  //     loadPortfolioData();
-  //   }
-  // }, [user?.id]);
+  // 🚀 INTELLIGENT AUTO-LOADING - Only when needed
+  useEffect(() => {
+    if (user?.id && !portfolioData && !loading) {
+      console.log('🚀 SMART AUTO-LOAD: First-time portfolio loading...');
+      
+      // Check if we have recent cache first
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const { timestamp } = JSON.parse(cached);
+          const age = Date.now() - timestamp;
+          
+          if (age < CACHE_DURATION) {
+            console.log('✅ AUTO-LOAD SKIPPED: Recent cache available');
+            return; // Cache already loaded in previous useEffect
+          }
+        } catch (err) {
+          console.error('💥 Cache check failed:', err);
+        }
+      }
+      
+      // Only auto-load if no recent data and user just logged in
+      const isFirstLoad = !lastLoadTime.current || lastLoadTime.current === 0;
+      if (isFirstLoad) {
+        console.log('🚀 AUTO-LOADING: First portfolio load for user');
+        loadPortfolioData();
+      }
+    }
+  }, [user?.id, portfolioData, loading, loadPortfolioData, CACHE_KEY]);
 
   // 🚀 LOAD PORTFOLIO DATA
   const loadPortfolioData = useCallback(async (forceLoad = false) => {

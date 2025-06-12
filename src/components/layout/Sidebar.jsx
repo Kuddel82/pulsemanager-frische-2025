@@ -109,34 +109,6 @@ const Sidebar = () => {
     
   const displayableSidebarItems = sidebarViewConfigs;
 
-  const menuItems = [
-    {
-      icon: LayoutDashboard,
-      label: 'Portfolio',
-      path: '/dashboard'
-    },
-    {
-      icon: TrendingUp,
-      label: 'ROI Tracker',
-      path: '/roi-tracker'
-    },
-    {
-      icon: FileText,
-      label: 'Steuer Report',
-      path: '/tax-report'
-    },
-    {
-      icon: Bug,
-      label: 'Debug Monitor',
-      path: '/debug'
-    },
-    {
-      icon: Settings,
-      label: 'Einstellungen',
-      path: '/settings'
-    }
-  ];
-
   return (
     <AnimatePresence>
       {isSidebarOpen && (
