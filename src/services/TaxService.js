@@ -4,793 +4,329 @@ Ziel: Unbegrenzte Transaktionen + DSGVO-konforme Steuerberichte
 FIXED: Nutzt jetzt korrekt vorhandene Moralis APIs
 */
 
-import { supabase } from "@/lib/supabaseClient";
+import { logger } from '@/lib/logger';
+import { TokenPriceService } from './tokenPriceService';
+import { TransactionHistoryService } from './TransactionHistoryService';
 
+/**
+ * 🎯 TAX SERVICE
+ * Generiert Steuerberichte basierend auf Transaktionshistorie
+ */
 export class TaxService {
-  // 🛡️ ENHANCED CONFIGURATION for better ROI detection
+  // 🔧 PERFORMANCE SETTINGS
   static CONFIG = {
-    MAX_TRANSACTIONS: 999999,    // User-Wunsch: ALLE verfügbaren Daten
-    MAX_API_CALLS: 9999,         // Hoher Limit für Enterprise
-    BATCH_SIZE: 1000,           // Große Batches für Performance
-    MIN_TAX_VALUE_USD: 0.001,   // 🚀 REDUCED: Capture smaller ROI transactions  
-    CACHE_DURATION_MS: 30 * 60 * 1000 // 30 Minuten Cache
+    MAX_API_CALLS: 100,         // Standard Limit
+    RATE_LIMIT_DELAY: 200,      // 200ms zwischen API Calls
+    BATCH_SIZE: 50,             // Batch-Größe für Transaktionen
+    CACHE_DURATION: 10 * 60 * 1000, // 10 Minuten Cache
   };
 
+  static cache = new Map();
+
   /**
-   * 🚀 HAUPTFUNKTION: Lade vollständige Transaktionshistorie mit Caching
+   * 🎯 MAIN: Generate Tax Report
+   * @param {string} walletAddress - Wallet für Steuerreport
+   * @param {Object} options - Optionen {year, startDate, endDate}
+   * @returns {Promise<Object>} Tax report data
    */
-  static async fetchFullTransactionHistory(userId, wallets) {
-    console.log(`📊 TAX SERVICE: Loading transaction history for user ${userId}`);
+  static async generateTaxReport(walletAddress, options = {}) {
+    const {
+      year = new Date().getFullYear(),
+      startDate = null,
+      endDate = null
+    } = options;
+
+    if (!walletAddress) {
+      throw new Error('Wallet address is required for tax report');
+    }
+
+    const cacheKey = `tax_${walletAddress}_${year}`;
     
+    // Check cache
+    const cached = this.cache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < this.CONFIG.CACHE_DURATION)) {
+      logger.info('✅ Returning cached tax report');
+      return cached.data;
+    }
+
+    logger.info(`🎯 Generating tax report for ${walletAddress} (${year})`);
+
     try {
-      // 1. Prüfe Cache in Supabase
-      const cachedData = await this.getCachedTransactions(userId);
-      
-      if (cachedData.isValid && cachedData.transactions.length > 0) {
-        console.log(`✅ CACHE HIT: Found ${cachedData.transactions.length} cached transactions`);
-        const taxData = this.processTransactionsForTax(cachedData.transactions);
-        taxData.fromCache = true; // Markiere als Cache-Hit
-        return taxData;
+      // 1. Fetch transaction history
+      const transactionData = await TransactionHistoryService.getTransactionHistory(
+        walletAddress, 
+        'eth', 
+        1000
+      );
+
+      if (!transactionData.success) {
+        throw new Error('Failed to fetch transaction history');
       }
-      
-      console.log(`🔄 CACHE MISS: Loading fresh transaction data via Moralis...`);
-      
-      // 2. Lade ALLE Transaktionen von Moralis API (korrekt!)
-      const allTransactions = await this.loadAllTransactionsViaMoralis(wallets);
-      
-      // 3. Preise für Token laden (falls noch nicht vorhanden)
-      const transactionsWithPrices = await this.enrichTransactionsWithPrices(allTransactions);
-      
-      // 4. In Supabase cachen
-      await this.cacheTransactions(userId, transactionsWithPrices);
-      
-      // 5. Für Steuerreport verarbeiten
-      const taxData = this.processTransactionsForTax(transactionsWithPrices);
-      
-      console.log(`✅ TAX SERVICE: Loaded ${allTransactions.length} transactions, ${taxData.taxableTransactions.length} taxable`);
-      return taxData;
-      
+
+      // 2. Filter by date range
+      const filteredTransactions = this.filterTransactionsByDate(
+        transactionData.transactions, 
+        startDate || `${year}-01-01`, 
+        endDate || `${year}-12-31`
+      );
+
+      // 3. Process transactions for tax purposes
+      const processedTransactions = await this.processTransactionsForTax(
+        filteredTransactions, 
+        walletAddress
+      );
+
+      // 4. Generate tax summary
+      const taxSummary = this.generateTaxSummary(processedTransactions, year);
+
+      // 5. Create final report
+      const report = {
+        wallet: walletAddress,
+        year: year,
+        period: {
+          start: startDate || `${year}-01-01`,
+          end: endDate || `${year}-12-31`
+        },
+        summary: taxSummary,
+        transactions: processedTransactions,
+        metadata: {
+          totalTransactions: processedTransactions.length,
+          reportGenerated: new Date().toISOString(),
+          source: 'moralis'
+        }
+      };
+
+      // Cache result
+      this.cache.set(cacheKey, {
+        data: report,
+        timestamp: Date.now()
+      });
+
+      logger.info(`✅ Tax report generated: ${processedTransactions.length} transactions`);
+      return report;
+
     } catch (error) {
-      console.error('💥 TAX SERVICE: Error loading transaction history:', error);
+      logger.error('Tax report generation failed:', error);
       throw error;
     }
   }
 
   /**
-   * 💾 Prüfe gecachte Transaktionen in Supabase
+   * 🔄 Filter transactions by date range
    */
-  static async getCachedTransactions(userId) {
-    try {
-      const cacheExpiry = new Date();
-      cacheExpiry.setMilliseconds(cacheExpiry.getMilliseconds() - this.CONFIG.CACHE_DURATION_MS);
-      
-      const { data, error } = await supabase
-        .from("transactions_cache")
-        .select("*")
-        .eq("user_id", userId)
-        .gte("created_at", cacheExpiry.toISOString())
-        .order("block_timestamp", { ascending: false });
-      
-      if (error && error.code !== 'PGRST116') {
-        console.warn('⚠️ TAX CACHE: Could not load cache:', error.code);
-        return { isValid: false, transactions: [] };
-      }
-      
-      // Konvertiere Supabase Format zurück zu Standard Format
-      const transactions = (data || []).map(row => ({
-        walletId: row.wallet_id,
-        walletAddress: row.wallet_address,
-        txHash: row.tx_hash,
-        blockTimestamp: new Date(row.block_timestamp),
-        blockNumber: row.block_number,
-        
-        tokenSymbol: row.token_symbol,
-        tokenName: row.token_name,
-        contractAddress: row.contract_address,
-        tokenDecimal: row.token_decimal,
-        
-        from: row.from_address,
-        to: row.to_address,
-        
-        rawValue: row.raw_value,
-        amount: parseFloat(row.amount),
-        priceUSD: parseFloat(row.price_usd) || 0,
-        valueUSD: parseFloat(row.value_usd) || 0,
-        
-        isIncoming: row.is_incoming,
-        isROI: row.is_roi_transaction,
-        
-        gas: row.gas,
-        gasPrice: row.gas_price,
-        gasUsed: row.gas_used,
-        
-        source: row.source,
-        processedAt: new Date(row.processed_at)
-      }));
-      
-      const isValid = transactions.length > 0;
-      
-      return {
-        isValid,
-        transactions,
-        cacheAge: isValid ? new Date() - new Date(data[0].created_at) : 0
-      };
-      
-    } catch (error) {
-      console.warn('⚠️ TAX CACHE: Cache check failed:', error);
-      return { isValid: false, transactions: [] };
-    }
-  }
+  static filterTransactionsByDate(transactions, startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
 
-  /**
-   * 🔄 Lade ALLE Transaktionen via Moralis Enterprise APIs (PulseChain + ETH)
-   */
-  static async loadAllTransactionsViaMoralis(wallets) {
-    const allTransactions = [];
-    
-    // 🎯 Multi-Chain Support: 99% PulseChain + ETH
-    const supportedChains = [
-      { id: '0x171', name: 'PulseChain', symbol: 'PLS', priority: 1 },
-      { id: '0x1', name: 'Ethereum', symbol: 'ETH', priority: 2 }
-    ];
-    
-    for (const wallet of wallets) {
-      console.log(`📡 Loading multi-chain transactions for wallet ${wallet.address}...`);
-      
-      for (const chain of supportedChains) {
-        try {
-          console.log(`⛓️ Processing ${chain.name} (${chain.id}) for wallet ${wallet.address.slice(0, 8)}...`);
-          
-          // 🚀 1. NATIVE TRANSACTIONS (PLS/ETH) - UNLIMITED
-          const nativeResponse = await fetch(`/api/moralis-transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              address: wallet.address,
-              chain: chain.id,
-              limit: 9999 // User-Wunsch: ALLE verfügbaren Daten
-            })
-          });
-          
-          if (nativeResponse.ok) {
-            const nativeData = await nativeResponse.json();
-            
-            if (nativeData.success && nativeData.result) {
-              const nativeTransactions = nativeData.result.map(tx => ({
-                walletId: wallet.id,
-                walletAddress: wallet.address,
-                txHash: tx.hash,
-                blockTimestamp: new Date(tx.block_timestamp),
-                blockNumber: parseInt(tx.block_number),
-                
-                tokenSymbol: chain.symbol,
-                tokenName: chain.name,
-                contractAddress: null, // Native token
-                tokenDecimal: 18,
-                
-                from: tx.from_address?.toLowerCase(),
-                to: tx.to_address?.toLowerCase(),
-                
-                rawValue: tx.value,
-                amount: this.calculateTokenAmount(tx.value, 18),
-                
-                // ROI-Erkennung für native schwieriger (meist Käufe/Verkäufe)
-                isIncoming: tx.is_incoming,
-                isROI: false, // Native Transaktionen sind selten ROI
-                
-                gas: parseInt(tx.gas) || 0,
-                gasPrice: parseInt(tx.gas_price) || 0,
-                gasUsed: parseInt(tx.receipt_gas_used) || 0,
-                
-                priceUSD: 0, // Später hinzufügen
-                valueUSD: 0,
-                
-                chainId: chain.id,
-                chainName: chain.name,
-                source: 'moralis_native_transactions',
-                processedAt: new Date()
-              }));
-              
-              allTransactions.push(...nativeTransactions);
-              console.log(`✅ ${chain.name}: ${nativeTransactions.length} native transactions`);
-            }
-          }
-          
-          // 🚀 2. TOKEN TRANSFERS (ERC-20) - UNLIMITED
-          const tokenResponse = await fetch(`/api/moralis-token-transfers`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              address: wallet.address,
-              chain: chain.id,
-              limit: 9999 // User-Wunsch: ALLE verfügbaren Daten
-            })
-          });
-          
-          if (tokenResponse.ok) {
-            const tokenData = await tokenResponse.json();
-            
-            if (tokenData.success && tokenData.result) {
-              const tokenTransactions = tokenData.result.map(transfer => ({
-                walletId: wallet.id,
-                walletAddress: wallet.address,
-                txHash: transfer.transaction_hash,
-                blockTimestamp: new Date(transfer.block_timestamp),
-                blockNumber: parseInt(transfer.block_number),
-                
-                tokenSymbol: transfer.token_symbol || 'UNKNOWN',
-                tokenName: transfer.token_name || 'Unknown Token',
-                contractAddress: transfer.address, // Contract address
-                tokenDecimal: parseInt(transfer.token_decimals) || 18,
-                
-                from: transfer.from_address?.toLowerCase(),
-                to: transfer.to_address?.toLowerCase(),
-                
-                rawValue: transfer.value,
-                amount: parseFloat(transfer.value_formatted) || this.calculateTokenAmount(transfer.value, transfer.token_decimals),
-                
-                // 🎯 ROI-ERKENNUNG: Kritisch für deutsche Steuerberechnung!
-                isIncoming: transfer.is_incoming,
-                isROI: this.isROITransaction(transfer), // FIXED: Proper ROI detection
-                
-                gas: 0, // Token transfers haben separate Gas-Kosten
-                gasPrice: 0,
-                gasUsed: 0,
-                
-                priceUSD: 0, // Später hinzufügen
-                valueUSD: 0,
-                
-                chainId: chain.id,
-                chainName: chain.name,
-                source: 'moralis_token_transfers',
-                processedAt: new Date()
-              }));
-              
-              allTransactions.push(...tokenTransactions);
-              console.log(`✅ ${chain.name}: ${tokenTransactions.length} token transfers`);
-            }
-          }
-          
-          // 📊 Rate Limiting für Enterprise-Level Performance
-          await new Promise(resolve => setTimeout(resolve, 150));
-          
-        } catch (error) {
-          console.error(`💥 Error loading ${chain.name} transactions for wallet ${wallet.address}:`, error);
-        }
-      }
-    }
-    
-    console.log(`🎯 MULTI-CHAIN TOTAL: ${allTransactions.length} transactions loaded across ${supportedChains.length} chains`);
-    
-    // 📊 Statistiken loggen
-    const chainStats = supportedChains.map(chain => {
-      const chainTxs = allTransactions.filter(tx => tx.chainId === chain.id);
-      return `${chain.name}: ${chainTxs.length}`;
-    }).join(', ');
-    
-    console.log(`📈 Chain distribution: ${chainStats}`);
-    
-    return allTransactions;
-  }
-
-  /**
-   * 💰 Reichere Transaktionen mit Preisen an (Multi-Chain: PulseChain + ETH)
-   */
-  static async enrichTransactionsWithPrices(transactions) {
-    console.log(`💰 Enriching ${transactions.length} multi-chain transactions with prices...`);
-    
-    const priceMap = new Map();
-    
-    // 🎯 Gruppiere nach Chains für effiziente Preis-Abfrage
-    const chainGroups = {
-      '0x171': [], // PulseChain
-      '0x1': []    // Ethereum
-    };
-    
-    // Native tokens direkt setzen
-    const nativeTokens = {
-      '0x171': 'pls', // PulseChain native
-      '0x1': 'eth'    // Ethereum native
-    };
-    
-    // Gruppiere Contract-Adressen nach Chains
-    transactions.forEach(tx => {
-      if (tx.contractAddress && chainGroups[tx.chainId]) {
-        chainGroups[tx.chainId].push(tx.contractAddress);
-      }
+    return transactions.filter(tx => {
+      const txDate = new Date(tx.timestamp);
+      return txDate >= start && txDate <= end;
     });
+  }
 
-    // 🚀 IMPROVED: Use multiple fallback strategies for prices
-    console.log('💰 ENHANCED: Using multiple price sources for reliable price data');
-    
-    // 💰 Lade Preise für jede Chain separat mit Fallbacks
-    for (const [chainId, contractAddresses] of Object.entries(chainGroups)) {
-      if (contractAddresses.length === 0) continue;
-      
-      const uniqueAddresses = [...new Set(contractAddresses)];
-      
+  /**
+   * 🔄 Process transactions for tax calculation
+   */
+  static async processTransactionsForTax(transactions, walletAddress) {
+    const processed = [];
+
+    logger.info(`🔄 Processing ${transactions.length} transactions for tax calculation`);
+
+    for (const tx of transactions) {
       try {
-        console.log(`💰 Loading prices for ${uniqueAddresses.length} tokens on chain ${chainId}...`);
+        // Determine transaction type for tax purposes
+        const taxType = this.determineTaxType(tx, walletAddress);
         
-        // 🚀 FALLBACK 1: Try Moralis API first
-        const moralisResponse = await fetch(`/api/moralis-prices`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tokenAddresses: uniqueAddresses.slice(0, 25), // Moralis Limit
-            chain: chainId
-          })
-        });
-        
-        if (moralisResponse.ok) {
-          const data = await moralisResponse.json();
-          if (data.success && data.prices) {
-            data.prices.forEach(priceData => {
-              if (priceData.tokenAddress && priceData.usdPrice) {
-                const key = `${chainId}:${priceData.tokenAddress.toLowerCase()}`;
-                priceMap.set(key, parseFloat(priceData.usdPrice));
-                console.log(`✅ MORALIS: ${priceData.tokenSymbol || 'TOKEN'} = $${priceData.usdPrice}`);
-              }
-            });
-          }
-        } else {
-          console.warn(`⚠️ Moralis prices failed for chain ${chainId}: ${moralisResponse.status}`);
-        }
-        
-        // 🚀 FALLBACK 2: Try Tax Report API for missing tokens
-        const missingTokens = uniqueAddresses.filter(addr => {
-          const key = `${chainId}:${addr.toLowerCase()}`;
-          return !priceMap.has(key);
-        });
-        
-        if (missingTokens.length > 0) {
-          console.log(`💰 FALLBACK: Loading ${missingTokens.length} missing tokens via tax-report API...`);
-          
-          for (const tokenAddress of missingTokens.slice(0, 10)) { // Limit für Rate-Limiting
-            try {
-              const chainName = chainId === '0x171' ? 'pulsechain' : 'ethereum';
-              const taxResponse = await fetch(`/api/token-price?contract=${tokenAddress}&chain=${chainName}`);
-              
-              if (taxResponse.ok) {
-                const tokenData = await taxResponse.json();
-                if (tokenData.success && tokenData.price) {
-                  const key = `${chainId}:${tokenAddress.toLowerCase()}`;
-                  priceMap.set(key, parseFloat(tokenData.price));
-                  console.log(`✅ FALLBACK: ${tokenData.symbol || tokenAddress.slice(0, 8)} = $${tokenData.price}`);
-                }
-              }
-              
-              // Rate limiting
-              await new Promise(resolve => setTimeout(resolve, 200));
-            } catch (fallbackError) {
-              console.warn(`⚠️ Fallback failed for ${tokenAddress}:`, fallbackError.message);
-            }
+        // Get price at transaction time (if not available)
+        let usdValue = tx.usdValue || 0;
+        if (!usdValue && tx.valueFormatted && tx.symbol) {
+          try {
+            const priceData = await TokenPriceService.getTokenPrice(
+              tx.tokenAddress || tx.address,
+              'eth',
+              tx.symbol
+            );
+            usdValue = tx.valueFormatted * (priceData.price || 0);
+          } catch (priceError) {
+            logger.warn(`Price lookup failed for ${tx.symbol}:`, priceError);
           }
         }
-        
-        // 🚀 Native Token Preis für diese Chain laden
-        const nativeResponse = await fetch(`/api/moralis-prices`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tokenAddresses: ['native'], // Spezial-Keyword für native
-            chain: chainId
-          })
-        });
-        
-        if (nativeResponse.ok) {
-          const nativeData = await nativeResponse.json();
-          if (nativeData.success && nativeData.nativePrice) {
-            const nativeKey = `${chainId}:native`;
-            priceMap.set(nativeKey, parseFloat(nativeData.nativePrice.usdPrice));
-            console.log(`✅ NATIVE: ${chainId === '0x171' ? 'PLS' : 'ETH'} = $${nativeData.nativePrice.usdPrice}`);
-          }
-        } else {
-          // 🚀 HARDCODED FALLBACK für kritische Native Tokens
-          const nativeKey = `${chainId}:native`;
-          const fallbackPrices = {
-            '0x1': 2400,     // ETH ca. $2400
-            '0x171': 0.00001 // PLS ca. $0.00001
-          };
-          
-          if (fallbackPrices[chainId]) {
-            priceMap.set(nativeKey, fallbackPrices[chainId]);
-            console.log(`🔧 HARDCODED: ${chainId === '0x171' ? 'PLS' : 'ETH'} = $${fallbackPrices[chainId]} (fallback)`);
-          }
-        }
-        
-      } catch (error) {
-        console.warn(`⚠️ Price loading failed for chain ${chainId}:`, error);
-        
-        // 🚀 EMERGENCY FALLBACK: Minimal price data für kritische Tokens
-        const emergencyPrices = {
-          '0x171': {
-            'native': 0.00001,
-            '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': 0.10, // HEX
-            '0x95b303987a60c71504d99aa1b13b4da07b0790ab': 0.002 // PLSX
-          },
-          '0x1': {
-            'native': 2400,
-            '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': 0.10 // HEX
-          }
+
+        const processedTx = {
+          hash: tx.hash,
+          timestamp: tx.timestamp,
+          type: taxType,
+          direction: tx.direction,
+          symbol: tx.symbol,
+          amount: tx.valueFormatted || 0,
+          usdValue: usdValue,
+          from: tx.from,
+          to: tx.to,
+          blockNumber: tx.blockNumber,
+          // Tax-specific fields
+          taxable: this.isTaxable(taxType, tx.direction),
+          category: this.getTaxCategory(taxType, tx.direction),
+          notes: this.generateTaxNotes(tx, taxType)
         };
-        
-        if (emergencyPrices[chainId]) {
-          Object.entries(emergencyPrices[chainId]).forEach(([addr, price]) => {
-            const key = `${chainId}:${addr}`;
-            priceMap.set(key, price);
-            console.log(`🆘 EMERGENCY: ${addr === 'native' ? (chainId === '0x171' ? 'PLS' : 'ETH') : addr.slice(0, 8)} = $${price}`);
-          });
-        }
+
+        processed.push(processedTx);
+
+        // Rate limiting
+        await this.delay(this.CONFIG.RATE_LIMIT_DELAY);
+
+      } catch (error) {
+        logger.error(`Error processing transaction ${tx.hash}:`, error);
       }
-      
-      // Rate limiting zwischen Chain-Aufrufen
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
-    // 📊 Berechne USD-Werte mit Chain-spezifischen Preisen
-    const enrichedTransactions = transactions.map(tx => {
-      let price = 0;
-      let priceKey;
-      
-      if (tx.contractAddress) {
-        // Token-Preis (Chain-spezifisch)
-        priceKey = `${tx.chainId}:${tx.contractAddress.toLowerCase()}`;
-      } else {
-        // Native Token (PLS/ETH)
-        priceKey = `${tx.chainId}:native`;
-      }
-      
-      price = priceMap.get(priceKey) || 0;
-      const valueUSD = price > 0 ? tx.amount * price : 0;
-      
-      // 🚀 IMPROVED: Add price debugging info
-      if (price === 0 && tx.amount > 0) {
-        console.warn(`⚠️ NO PRICE: ${tx.tokenSymbol} (${tx.chainId}:${tx.contractAddress || 'native'}) - Amount: ${tx.amount}`);
-      }
-      
-      return {
-        ...tx,
-        priceUSD: price,
-        valueUSD: valueUSD,
-        hasPriceData: price > 0,
-        priceKey: priceKey, // Debug info
-        priceSource: price > 0 ? 'multi_fallback' : 'no_price_found'
-      };
-    });
-    
-    // 📈 Statistiken
-    const priceStats = Array.from(priceMap.entries()).reduce((acc, [key, price]) => {
-      const [chainId] = key.split(':');
-      const chainName = chainId === '0x171' ? 'PulseChain' : 'Ethereum';
-      if (!acc[chainName]) acc[chainName] = 0;
-      acc[chainName]++;
-      return acc;
-    }, {});
-    
-    const statsText = Object.entries(priceStats).map(([chain, count]) => `${chain}: ${count}`).join(', ');
-    const successfulPrices = enrichedTransactions.filter(tx => tx.hasPriceData).length;
-    const totalWithAmounts = enrichedTransactions.filter(tx => tx.amount > 0).length;
-    
-    console.log(`💰 ENHANCED price enrichment complete: ${statsText} | Success: ${successfulPrices}/${totalWithAmounts} transactions with prices`);
-    
-    return enrichedTransactions;
+
+    return processed;
   }
 
   /**
-   * 💾 Cache Transaktionen in Supabase (FIXED Format!)
+   * 🏷️ Determine tax type of transaction
    */
-  static async cacheTransactions(userId, transactions) {
-    try {
-      console.log(`💾 Caching ${transactions.length} transactions for user ${userId}...`);
-      
-      // 🔧 FIXED: Entferne Duplikate BEVOR Batch-Processing
-      const uniqueTransactions = transactions.filter((tx, index, self) => 
-        index === self.findIndex(t => t.txHash === tx.txHash)
-      );
-      
-      console.log(`🔧 Removed ${transactions.length - uniqueTransactions.length} duplicate transactions from batch`);
-      
-      // 🔧 FIXED: UPSERT statt DELETE + INSERT (vermeidet 409 Conflicts)
-      const batchSize = 100; // DEUTLICH KLEINER für Stabilität bei UPSERT
-      for (let i = 0; i < uniqueTransactions.length; i += batchSize) {
-        const batch = uniqueTransactions.slice(i, i + batchSize).map(tx => ({
-          user_id: userId,
-          wallet_id: tx.walletId,
-          wallet_address: tx.walletAddress,
-          tx_hash: tx.txHash,
-          block_timestamp: tx.blockTimestamp.toISOString(),
-          block_number: tx.blockNumber,
-          
-          token_symbol: tx.tokenSymbol,
-          token_name: tx.tokenName,
-          contract_address: tx.contractAddress,
-          token_decimal: tx.tokenDecimal,
-          
-          from_address: tx.from,
-          to_address: tx.to,
-          
-          raw_value: tx.rawValue?.toString(),
-          amount: tx.amount,
-          price_usd: tx.priceUSD || 0,
-          value_usd: tx.valueUSD || 0,
-          
-          is_incoming: tx.isIncoming,
-          is_roi_transaction: tx.isROI,
-          
-          gas: tx.gas,
-          gas_price: tx.gasPrice,
-          gas_used: tx.gasUsed,
-          
-          source: tx.source,
-          processed_at: tx.processedAt.toISOString()
-        }));
-        
-        // 🔧 SIMPLIFIED UPSERT - nur ignoreDuplicates
-        const { error } = await supabase
-          .from("transactions_cache")
-          .upsert(batch, { 
-            ignoreDuplicates: true // Einfach Duplikate ignorieren
-          });
-        
-        if (error) {
-          console.warn(`⚠️ Cache batch ${i}-${i + batchSize} failed:`, error.code, error.message);
-          
-          // 🔧 FALLBACK: Insert einzeln bei Batch-Fehlern
-          for (const row of batch) {
-            try {
-              await supabase
-                .from("transactions_cache")
-                .upsert([row], { ignoreDuplicates: true });
-            } catch (singleError) {
-              console.warn(`⚠️ Single row upsert failed for tx ${row.tx_hash}:`, singleError.message);
-            }
-          }
-        } else {
-          console.log(`✅ Cache batch ${i}-${i + batchSize} saved successfully`);
-        }
-        
-        // Kurze Pause zwischen Batches
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      console.log(`✅ Transaction caching complete - ${uniqueTransactions.length} unique transactions cached!`);
-      
-    } catch (error) {
-      console.warn('⚠️ Transaction caching failed:', error);
-      // Nicht kritisch - System funktioniert ohne Cache
+  static determineTaxType(tx, walletAddress) {
+    // Native transactions (ETH/PLS)
+    if (tx.type === 'native') {
+      return tx.direction === 'in' ? 'receive_native' : 'send_native';
     }
-  }
 
-  /**
-   * 📊 Verarbeite Transaktionen für Steuerreport (KORREKTE STEUERLOGIK)
-   */
-  static processTransactionsForTax(transactions) {
-    console.log(`📊 Processing ${transactions.length} transactions for tax report...`);
-    
-    // 🛡️ KORREKTE STEUERLOGIK: Nur ROI ist steuerpflichtig
-    const taxableTransactions = transactions.filter(tx => {
-      // 1. Muss eingehend sein (an User-Wallet)
-      if (!tx.isIncoming && !tx.is_incoming) return false;
-      
-      // 2. Muss ROI/Minting/Airdrop sein (keine Käufe!)
-      if (!tx.isROI && !tx.is_roi_transaction) return false;
-      
-      // 3. Muss Mindest-Wert haben
-      const value = tx.valueUSD || tx.value_usd || 0;
-      if (value < this.CONFIG.MIN_TAX_VALUE_USD) return false;
-      
-      return true;
-    });
-    
-    // 🛒 Käufe (NICHT steuerpflichtig, nur für Übersicht)
-    const purchases = transactions.filter(tx => {
-      return tx.isIncoming && !tx.isROI && !tx.is_roi_transaction;
-    });
-    
-    // 💸 Verkäufe (ausgehende Transaktionen)
-    const sales = transactions.filter(tx => {
-      return !tx.isIncoming && !tx.is_incoming;
-    });
-    
-    // 📊 Steuer-Zusammenfassung berechnen
-    const taxSummary = this.calculateTaxSummary(taxableTransactions, purchases, sales);
-    
-    console.log(`📊 TAX PROCESSING COMPLETE:`, {
-      total: transactions.length,
-      taxable: taxableTransactions.length,
-      purchases: purchases.length,
-      sales: sales.length,
-      taxableIncomeUSD: taxSummary.taxableIncomeUSD
-    });
-    
-    return {
-      allTransactions: transactions,
-      taxableTransactions,
-      purchases,
-      sales,
-      taxSummary,
-      
-      // Für CSV/PDF Export
-      exportData: {
-        taxableTransactions: taxableTransactions.map(this.formatTransactionForExport),
-        summary: taxSummary
+    // Token transactions
+    if (tx.type === 'token') {
+      // Check for special cases
+      if (tx.from === '0x0000000000000000000000000000000000000000') {
+        return 'mint';
       }
-    };
-  }
-
-  /**
-   * 📊 Berechne Steuer-Zusammenfassung (KORREKTE DEUTSCHE STEUERLOGIK)
-   */
-  static calculateTaxSummary(taxableTransactions, purchases, sales) {
-    // 💰 Nur ROI/Minting als steuerpflichtiges Einkommen (§ 22 EStG)
-    const taxableIncome = taxableTransactions.reduce((sum, tx) => {
-      return sum + (tx.valueUSD || tx.value_usd || 0);
-    }, 0);
-    
-    // 🛒 Käufe (nicht steuerpflichtig)
-    const totalPurchases = purchases.reduce((sum, tx) => {
-      return sum + (tx.valueUSD || tx.value_usd || 0);
-    }, 0);
-    
-    // 💸 Verkäufe (separate Besteuerung)
-    const totalSales = sales.reduce((sum, tx) => {
-      return sum + (tx.valueUSD || tx.value_usd || 0);
-    }, 0);
-    
-    return {
-      totalTransactions: taxableTransactions.length + purchases.length + sales.length,
+      if (tx.to === '0x0000000000000000000000000000000000000000') {
+        return 'burn';
+      }
       
-      // 🎯 STEUERPFLICHTIG (nur ROI/Minting)
-      taxableTransactionsCount: taxableTransactions.length,
-      taxableIncomeUSD: taxableIncome.toFixed(2),
-      
-      // 📊 ÜBERSICHT (nicht steuerpflichtig)
-      purchasesCount: purchases.length,
-      purchasesUSD: totalPurchases.toFixed(2),
-      
-      salesCount: sales.length,
-      salesUSD: totalSales.toFixed(2),
-      
-      // 🇩🇪 Deutsche Steuerhinweise
-      taxNote: "Nur ROI/Minting als sonstige Einkünfte nach § 22 EStG steuerpflichtig",
-      disclaimerNote: "Keine Steuerberatung - konsultieren Sie einen Steuerberater"
-    };
-  }
-
-  /**
-   * 📄 Formatiere Transaktion für Export
-   */
-  static formatTransactionForExport(tx) {
-    return {
-      Datum: tx.blockTimestamp?.toLocaleDateString('de-DE') || tx.block_timestamp,
-      Zeit: tx.blockTimestamp?.toLocaleTimeString('de-DE') || '',
-      Token: tx.tokenSymbol || tx.token_symbol,
-      Menge: tx.amount?.toFixed(6) || '0',
-      'Preis (USD)': (tx.priceUSD || tx.price_usd || 0).toFixed(6),
-      'Wert (USD)': (tx.valueUSD || tx.value_usd || 0).toFixed(2),
-      Kategorie: tx.isROI || tx.is_roi_transaction ? 'ROI/Minting' : 'Transfer',
-      'TX Hash': tx.txHash || tx.tx_hash,
-      'Contract Address': tx.contractAddress || tx.contract_address
-    };
-  }
-
-  /**
-   * 🎯 ROI-ERKENNUNG: Identifiziere ROI/Minting Transaktionen
-   */
-  static isROITransaction(transfer) {
-    const fromAddress = transfer.from_address?.toLowerCase();
-    const toAddress = transfer.to_address?.toLowerCase();
-    const tokenSymbol = transfer.token_symbol || '';
-    const tokenName = transfer.token_name || '';
-    const amount = parseFloat(transfer.value_formatted) || 0;
-    
-    console.log(`🔍 ROI CHECK: ${tokenSymbol} ${amount.toFixed(4)} from ${fromAddress?.slice(0, 8)} to ${toAddress?.slice(0, 8)}`);
-    
-    // 1. Minting von Null-Adresse (klassisches ROI)
-    if (fromAddress === '0x0000000000000000000000000000000000000000') {
-      console.log(`🎯 ROI DETECTED: Minting from null address for ${tokenSymbol}`);
-      return true;
+      return tx.direction === 'in' ? 'receive_token' : 'send_token';
     }
-    
-    // 2. Bekannte Minter-Adressen (HEX, INC, PLSX)
-    const KNOWN_MINTERS = [
-      '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
-      '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC  
-      '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1'  // PLSX
+
+    return 'unknown';
+  }
+
+  /**
+   * 🏷️ Determine if transaction is taxable
+   */
+  static isTaxable(taxType, direction) {
+    const taxableTypes = [
+      'receive_native',
+      'receive_token',
+      'mint',
+      'send_native', // Capital gains
+      'send_token'   // Capital gains
     ];
-    
-    if (KNOWN_MINTERS.includes(fromAddress)) {
-      console.log(`🎯 ROI DETECTED: From known minter ${fromAddress.slice(0, 8)} for ${tokenSymbol}`);
-      return true;
-    }
-    
-    // 3. 🚀 EXPANDED: Bekannte ROI Token-Symbole (auch normale Transfers können ROI sein!)
-    const ROI_TOKENS = ['hex', 'inc', 'plsx', 'loan', 'flex', 'prate', 'pdai', 'usdc', 'usdt'];
-    if (ROI_TOKENS.includes(tokenSymbol.toLowerCase())) {
-      console.log(`🎯 ROI DETECTED: Known ROI token ${tokenSymbol}`);
-      return true;
-    }
-    
-    // 4. 🚀 EXPANDED: Spezielle ROI-Keywords im Token-Namen
-    const tokenNameLower = tokenName.toLowerCase();
-    const tokenSymbolLower = tokenSymbol.toLowerCase();
-    
-    const roiKeywords = ['stake', 'reward', 'yield', 'farm', 'mint', 'claim', 'dividend', 'interest', 'bonus'];
-    
-    if (roiKeywords.some(keyword => tokenNameLower.includes(keyword) || tokenSymbolLower.includes(keyword))) {
-      console.log(`🎯 ROI DETECTED: ROI keyword in ${tokenSymbol} (${tokenName})`);
-      return true;
-    }
-    
-    // 5. 🚀 NEW: Regelmäßige kleine Beträge (typisch für tägliche ROI)
-    if (amount > 0 && amount < 10000) { // Unter 10K tokens
-      // Prüfe ob es ein eingehender Transfer ist
-      if (transfer.is_incoming) {
-        console.log(`🎯 ROI DETECTED: Small regular amount ${amount} ${tokenSymbol} (incoming)`);
-        return true;
-      }
-    }
-    
-    // 6. 🚀 NEW: Sehr kleine regelmäßige Beträge (Micro-ROI)
-    if (amount > 0 && amount < 100) { // Unter 100 tokens
-      console.log(`🎯 ROI DETECTED: Micro ROI ${amount} ${tokenSymbol}`);
-      return true;
-    }
-    
-    // 7. Große Token-Mengen ohne offensichtliche Zahlung (potentielle Airdrops)
-    if (amount > 1000000 && transfer.is_incoming) { // > 1M tokens
-      console.log(`🎯 ROI DETECTED: Large airdrop amount ${amount} for ${tokenSymbol}`);
-      return true;
-    }
-    
-    // 8. 🚀 NEW: Contract-zu-Contract Transfers (oft ROI/Rewards)
-    if (fromAddress && fromAddress !== toAddress && fromAddress.length === 42 && toAddress?.length === 42) {
-      // Wenn beide Adressen Contract-ähnlich sind (42 chars) und es eingehend ist
-      if (transfer.is_incoming) {
-        console.log(`🎯 ROI DETECTED: Contract-to-wallet transfer ${tokenSymbol}`);
-        return true;
-      }
-    }
-    
-    console.log(`❌ NOT ROI: ${tokenSymbol} ${amount} - no criteria matched`);
-    return false; // Standard-Transaktion (Kauf/Verkauf)
+
+    return taxableTypes.includes(taxType);
   }
 
   /**
-   * 🔧 Helper: Token-Amount berechnen
+   * 🏷️ Get tax category
    */
-  static calculateTokenAmount(rawValue, decimals) {
-    try {
-      const decimalCount = decimals || 18;
-      const divisor = Math.pow(10, decimalCount);
-      return parseFloat(rawValue) / divisor;
-    } catch (error) {
-      return 0;
+  static getTaxCategory(taxType, direction) {
+    switch (taxType) {
+      case 'receive_native':
+      case 'receive_token':
+      case 'mint':
+        return 'income';
+      case 'send_native':
+      case 'send_token':
+        return 'capital_gains';
+      default:
+        return 'other';
     }
   }
 
   /**
-   * 📄 Generiere CSV für Steuerberater
+   * 📝 Generate tax notes
    */
-  static generateTaxCSV(taxData) {
-    const { taxableTransactions } = taxData;
-    
-    const headers = [
-      'Datum', 'Zeit', 'Token', 'Menge', 'Preis (USD)', 'Wert (USD)', 
-      'Kategorie', 'TX Hash', 'Contract Address'
-    ];
-    
-    const rows = taxableTransactions.map(tx => {
-      const formatted = this.formatTransactionForExport(tx);
-      return Object.values(formatted);
+  static generateTaxNotes(tx, taxType) {
+    switch (taxType) {
+      case 'mint':
+        return 'Token mint - possible airdrop or reward';
+      case 'receive_token':
+        return 'Token received - possible income';
+      case 'receive_native':
+        return 'Native token received';
+      case 'send_token':
+      case 'send_native':
+        return 'Token sent - possible capital gains event';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * 📊 Generate tax summary
+   */
+  static generateTaxSummary(transactions, year) {
+    const summary = {
+      year: year,
+      income: {
+        totalTransactions: 0,
+        totalValue: 0,
+        byToken: {}
+      },
+      capitalGains: {
+        totalTransactions: 0,
+        totalValue: 0,
+        byToken: {}
+      },
+      totals: {
+        allTransactions: transactions.length,
+        taxableTransactions: 0,
+        totalTaxableValue: 0
+      }
+    };
+
+    transactions.forEach(tx => {
+      if (!tx.taxable) return;
+
+      summary.totals.taxableTransactions++;
+      summary.totals.totalTaxableValue += tx.usdValue || 0;
+
+      if (tx.category === 'income') {
+        summary.income.totalTransactions++;
+        summary.income.totalValue += tx.usdValue || 0;
+        
+        if (!summary.income.byToken[tx.symbol]) {
+          summary.income.byToken[tx.symbol] = { count: 0, value: 0 };
+        }
+        summary.income.byToken[tx.symbol].count++;
+        summary.income.byToken[tx.symbol].value += tx.usdValue || 0;
+      }
+
+      if (tx.category === 'capital_gains') {
+        summary.capitalGains.totalTransactions++;
+        summary.capitalGains.totalValue += tx.usdValue || 0;
+        
+        if (!summary.capitalGains.byToken[tx.symbol]) {
+          summary.capitalGains.byToken[tx.symbol] = { count: 0, value: 0 };
+        }
+        summary.capitalGains.byToken[tx.symbol].count++;
+        summary.capitalGains.byToken[tx.symbol].value += tx.usdValue || 0;
+      }
     });
-    
-    const csv = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
-    
-    return csv;
+
+    return summary;
   }
-} 
+
+  /**
+   * 🧹 Clear cache
+   */
+  static clearCache() {
+    this.cache.clear();
+    logger.info('🧹 Tax service cache cleared');
+  }
+
+  /**
+   * 🕐 Delay utility
+   */
+  static delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+export default TaxService; 
