@@ -64,7 +64,6 @@ const Sidebar = () => {
     'bridge',
     // 'nftPortfolio', // Removed
     'taxReport',
-    'wgep',
     'pulseChainInfo', 
     'settings',       
   ];
@@ -75,7 +74,19 @@ const Sidebar = () => {
   publicViewsConfig.forEach(v => allViewsMap.set(v.id, v));
   protectedViewsConfig.forEach(v => allViewsMap.set(v.id, v));
 
-  const sidebarViewConfigs = orderedSidebarItemsDefault
+  // 🎯 CUSTOM ORDER: Dashboard, then protected views, then WGEP, then other public views
+  const customOrderedItems = [
+    'wallets',
+    'roiTracker', 
+    'tokenTrade',
+    'bridge',
+    'taxReport',
+    'wgep',  // WGEP directly after Tax Report
+    'pulseChainInfo',
+    'settings'
+  ];
+
+  const sidebarViewConfigs = customOrderedItems
     .map(id => {
       const view = allViewsMap.get(id);
       console.log(`🔍 SIDEBAR DEBUG: ${id} ->`, view);
