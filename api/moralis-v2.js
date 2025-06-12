@@ -198,27 +198,45 @@ export default async function handler(req, res) {
       });
     }
 
-    // 💎 SINGLE TOKEN PRICE
+    // 💎 SINGLE TOKEN PRICE (FIXED ERROR HANDLING)
     if (endpoint === 'token-price') {
       console.log(`🚀 PRO PRICE: Getting price for token ${address} on ${chainId}`);
       
-      const result = await moralisFetch(`erc20/${address}/price`, { 
-        chain: chainId 
-      });
-      
-      if (!result) {
-        return res.status(500).json({ 
-          error: 'Failed to fetch token price.',
-          _pro_mode: true 
+      try {
+        const result = await moralisFetch(`erc20/${address}/price`, { 
+          chain: chainId 
+        });
+        
+        // Fallback to zero price if API fails (no 500 error)
+        if (!result) {
+          console.warn(`⚠️ PRO PRICE: No price data for ${address}, returning $0`);
+          return res.status(200).json({
+            usdPrice: 0,
+            exchangeAddress: null,
+            exchangeName: null,
+            tokenAddress: address,
+            _source: 'moralis_v2_pro_price_fallback',
+            _fallback: true
+          });
+        }
+
+        console.log(`✅ PRO PRICE: $${result.usdPrice || 0}`);
+
+        return res.status(200).json({
+          ...result,
+          _source: 'moralis_v2_pro_price'
+        });
+      } catch (priceError) {
+        console.warn(`⚠️ PRO PRICE ERROR: ${priceError.message} - returning $0`);
+        return res.status(200).json({
+          usdPrice: 0,
+          exchangeAddress: null,
+          exchangeName: null,
+          tokenAddress: address,
+          _source: 'moralis_v2_pro_price_error',
+          _error: priceError.message
         });
       }
-
-      console.log(`✅ PRO PRICE: $${result.usdPrice || 0}`);
-
-      return res.status(200).json({
-        ...result,
-        _source: 'moralis_v2_pro_price'
-      });
     }
 
     // ❌ ENTERPRISE ENDPOINTS COMPLETELY REMOVED (to prevent CU consumption)

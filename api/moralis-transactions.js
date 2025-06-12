@@ -25,141 +25,131 @@ async function moralisFetch(endpoint) {
   }
 }
 
+//🚀 MORALIS TRANSACTIONS API - PRO COMPATIBLE
+// Endpoint: POST /api/moralis-transactions
+// Purpose: Load ERC20 transfers for tax reporting
+// Compatible with Pro Plan using separate API calls
+
+const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
+const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
+
+/**
+ * Helper to fetch data from Moralis REST API
+ */
+async function moralisFetch(endpoint, params = {}) {
+  const url = new URL(`${MORALIS_BASE_URL}/${endpoint}`);
+  Object.entries(params).forEach(([key, val]) => url.searchParams.append(key, val));
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      'X-API-Key': MORALIS_API_KEY
+    }
+  });
+
+  if (!res.ok) {
+    console.error(`Moralis Error: ${res.status} - ${res.statusText}`);
+    return null;
+  }
+
+  return await res.json();
+}
+
+/**
+ * 🎯 TRANSACTIONS API - Load ERC20 transfers for tax reporting
+ */
 export default async function handler(req, res) {
-  console.log('🚀 MORALIS TRANSACTIONS API: Request received');
+  console.log('🔵 MORALIS TRANSACTIONS: Loading ERC20 transfers for tax reporting');
   
-  // CORS Headers
+  // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      error: 'Method not allowed. Use POST.',
-      allowedMethods: ['POST']
-    });
-  }
-
-  const { address, chain = '0x171', limit = 100 } = req.body;
-
-  // Validation
-  if (!address) {
-    return res.status(400).json({ 
-      error: 'Wallet-Adresse fehlt',
-      usage: 'POST { "address": "0x...", "chain": "0x171", "limit": 100 }'
-    });
-  }
-
   if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
     return res.status(503).json({ 
-      error: 'Moralis API Key nicht konfiguriert'
+      error: 'Moralis API Key missing or invalid.',
+      _pro_mode: true 
     });
   }
 
-  // Chain mapping
+  // Extract parameters
+  const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
+  const { address, chain = 'pulsechain', limit = 100, cursor } = params;
+
+  console.log('🔵 TRANSACTIONS PARAMS:', { chain, address: address?.slice(0, 8) + '...', limit });
+
+  if (!address) {
+    return res.status(400).json({ 
+      error: 'Missing address parameter.',
+      usage: 'POST /api/moralis-transactions with address, chain, limit'
+    });
+  }
+
+  // Convert chain names to Moralis format
   const chainMap = {
-    '0x171': '0x171', // PulseChain
-    '0x1': '0x1',     // Ethereum
-    'pulsechain': '0x171',
-    'ethereum': '0x1',
-    'eth': '0x1',
-    'pls': '0x171'
+    ethereum: '0x1',
+    eth: '0x1',
+    '1': '0x1',
+    '0x1': '0x1',
+    pulsechain: '0x171',
+    pls: '0x171',
+    '369': '0x171',
+    '0x171': '0x171',
+    bsc: '0x38',
+    polygon: '0x89',
+    arbitrum: '0xa4b1'
   };
-  const normalizedChain = chainMap[chain.toLowerCase()] || chain;
+  const chainId = chainMap[chain.toLowerCase()] || chain;
+
+  console.log(`🔵 TRANSACTIONS CHAIN MAPPING: ${chain} -> ${chainId}`);
 
   try {
-    console.log(`🚀 Loading native transactions for ${address} on chain ${normalizedChain}`);
-
-    // ✅ KORRIGIERTER MORALIS V2 ENDPUNKT FÜR NATIVE TRANSAKTIONEN
-    const endpoint = `/wallets/${address}/transactions?chain=${normalizedChain}&limit=${Math.min(limit, 500)}`;
-    const data = await moralisFetch(endpoint);
+    // Load ERC20 transfers from Moralis
+    console.log(`🚀 PRO TRANSACTIONS: Loading transfers for ${address} on ${chainId}`);
     
-    if (!data?.result) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Keine native Transaktionen gefunden',
-        address,
-        chain: normalizedChain
+    const result = await moralisFetch(`${address}/erc20/transfers`, { 
+      chain: chainId,
+      limit: Math.min(limit, 100),
+      cursor: cursor
+    });
+    
+    if (!result) {
+      console.warn(`⚠️ PRO TRANSACTIONS: No transfer data for ${address}, returning empty array`);
+      return res.status(200).json({
+        result: [],
+        cursor: null,
+        page: 0,
+        page_size: limit,
+        total: 0,
+        _source: 'moralis_v2_pro_transactions_empty'
       });
     }
 
-    console.log(`📊 Found ${data.result.length} native transactions`);
-
-    // 🚀 Process transactions for TaxService compatibility
-    let transactions = [];
-    
-    try {
-      if (data && data.result && Array.isArray(data.result)) {
-        transactions = data.result.map(tx => {
-          try {
-            return {
-              // Standard fields with safe defaults
-              hash: tx.hash || '',
-              block_number: tx.block_number || 0,
-              block_timestamp: tx.block_timestamp || new Date().toISOString(),
-              
-              // Addresses with safe defaults  
-              from_address: tx.from_address || '',
-              to_address: tx.to_address || '',
-              
-              // Value
-              value: tx.value || '0',
-              
-              // Enhanced fields for tax calculation
-              is_incoming: (tx.to_address || '').toLowerCase() === address.toLowerCase(),
-              is_native_transaction: true,
-              chain_id: normalizedChain,
-              
-              // Gas info
-              gas: tx.gas || '0',
-              gas_price: tx.gas_price || '0',
-              receipt_gas_used: tx.receipt_gas_used || '0',
-              
-              // Metadata
-              _moralis: {
-                api_version: 'v2.2',
-                data_source: 'enterprise',
-                processed_at: new Date().toISOString()
-              }
-            };
-          } catch (transactionError) {
-            console.error('💥 TRANSACTION PROCESSING ERROR (skipping item):', transactionError.message);
-            return null;
-          }
-        }).filter(tx => tx !== null); // Remove failed items
-      }
-    } catch (processingError) {
-      console.error('💥 DATA PROCESSING ERROR (returning empty result):', processingError.message);
-      transactions = [];
-    }
-
-    console.log(`✅ Processed ${transactions.length} native transactions successfully`);
+    console.log(`✅ PRO TRANSACTIONS: ${result.result?.length || 0} transfers loaded`);
 
     return res.status(200).json({
-      success: true,
-      result: transactions,
-      total: transactions.length,
-      address,
-      chain: normalizedChain,
-      source: 'moralis_native_transactions',
-      apiInfo: {
-        endpoint: 'moralis-transactions',
-        version: '1.0',
-        processed_at: new Date().toISOString()
-      }
+      ...result,
+      _source: 'moralis_v2_pro_transactions',
+      _chain: chainId,
+      _address: address
     });
 
   } catch (error) {
-    console.error('💥 MORALIS TRANSACTIONS ERROR:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-      address,
-      chain: normalizedChain
+    console.error('💥 PRO TRANSACTIONS ERROR:', error.message);
+    
+    // Return empty array instead of error to prevent tax report crash
+    return res.status(200).json({
+      result: [],
+      cursor: null,
+      page: 0,
+      page_size: limit,
+      total: 0,
+      _source: 'moralis_v2_pro_transactions_error',
+      _error: error.message
     });
   }
 } 
