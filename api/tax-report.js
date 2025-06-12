@@ -161,14 +161,23 @@ export default async function handler(req, res) {
     });
   }
 
-  // Chain mapping
+  // Chain mapping & Mainnet Detection
   const chainMap = {
     ethereum: '0x1',
     pulsechain: '0x171',
     eth: '0x1',
-    pls: '0x171'
+    pls: '0x171',
+    polygon: '0x89',
+    bsc: '0x38',
+    avalanche: '0xa86a'
   };
   const chainId = chainMap[chain.toLowerCase()] || chain;
+  
+  // 🚨 WICHTIG: Batch API funktioniert nur auf Mainnet Chains!
+  const MAINNET_CHAINS = ['0x1', '0x89', '0x38', '0xa86a']; // Ethereum, Polygon, BSC, Avalanche
+  const isBatchSupported = MAINNET_CHAINS.includes(chainId);
+  
+  console.log(`🔍 Chain ${chainId} - Batch API supported: ${isBatchSupported}`);
 
   console.log(`🔍 Loading transfers for ${wallet} on chain ${chainId}`);
 
@@ -190,12 +199,13 @@ export default async function handler(req, res) {
     const uniqueTokens = [...new Set(txData.result.map(tx => tx.token_address.toLowerCase()))];
     console.log(`📊 Found ${uniqueTokens.length} unique tokens for batch price loading`);
 
-    // 3. 🚀 BATCH PRICE LOADING (99% CU Ersparnis!)
+    // 3. 🚀 BATCH PRICE LOADING (nur auf Mainnet Chains!)
     let batchPrices = null;
     let moralisCallsUsed = 0;
     let dexscreenerCallsUsed = 0;
 
-    if (uniqueTokens.length > 0) {
+    if (uniqueTokens.length > 0 && isBatchSupported) {
+      console.log(`🚀 MAINNET DETECTED: Using Batch API for ${uniqueTokens.length} tokens`);
       batchPrices = await getBatchPricesMoralis(uniqueTokens, chainId);
       moralisCallsUsed = 1; // Nur 1 API Call für alle Tokens!
       
@@ -204,6 +214,8 @@ export default async function handler(req, res) {
       } else {
         console.log(`⚠️ BATCH FAILED: Falling back to individual calls`);
       }
+    } else if (uniqueTokens.length > 0) {
+      console.log(`⚠️ NON-MAINNET CHAIN: Batch API nicht verfügbar, verwende Individual Calls`);
     }
 
     // 4. VERARBEITE TRANSAKTIONEN mit Batch-Preisen
@@ -329,7 +341,14 @@ export default async function handler(req, res) {
 
     console.log(`✅ TAX REPORT: ${transactions.length} transactions, ${ungepaarteTokens.length} ungepaart`);
     console.log(`📊 API Calls: ${moralisCallsUsed} Moralis (${estimatedCUsUsed} CUs), ${dexscreenerCallsUsed} DEXScreener`);
-    console.log(`🚀 BATCH EFFICIENCY: ${efficiencyPercent}% CU savings (${cuSavings} CUs saved vs old system)`);
+    
+    if (isBatchSupported && batchPrices) {
+      console.log(`🚀 BATCH EFFICIENCY: ${efficiencyPercent}% CU savings (${cuSavings} CUs saved vs old system)`);
+    } else if (!isBatchSupported) {
+      console.log(`⚠️ NON-MAINNET CHAIN: Batch API nicht verfügbar auf Chain ${chainId}`);
+    } else {
+      console.log(`⚠️ BATCH FAILED: Fallback zu Individual Calls`);
+    }
 
     // 8. RESPONSE
     return res.status(200).json({
@@ -363,6 +382,11 @@ export default async function handler(req, res) {
         // 🚀 Batch-Optimierung Details
         batchOptimization: {
           enabled: !!batchPrices,
+          supported: isBatchSupported,
+          chainId: chainId,
+          reason: !isBatchSupported ? 'Non-mainnet chain - Batch API nur auf Ethereum/Polygon/BSC/Avalanche' :
+                  !batchPrices ? 'Batch API fehlgeschlagen - Fallback zu Individual Calls' :
+                  'Batch API erfolgreich verwendet',
           uniqueTokens: uniqueTokens.length,
           tokensInBatch: batchPrices ? Object.keys(batchPrices).length : 0,
           fallbackCalls: Math.max(0, moralisCallsUsed - 1),
@@ -375,13 +399,17 @@ export default async function handler(req, res) {
       
       // Metadata
       generatedAt: new Date().toISOString(),
-      version: "v0.1.9-BATCH-OPTIMIZED",
+      version: "v0.1.9-BATCH-MAINNET-FIX",
       hinweise: [
         `${ungepaarteTokens.length} Tokens ohne Preis gefunden - bitte manuell vervollständigen`,
         'Steuerpflichtigkeit basiert auf deutschen Steuergesetzen (1-Jahr Haltefrist)',
         'ROI-Transaktionen sind immer steuerpflichtig',
         'Preise in EUR sind Näherungswerte - für exakte Steuererklärung Tageskurs verwenden',
-        `🚀 BATCH-OPTIMIERUNG: ${efficiencyPercent}% CU-Ersparnis durch intelligente Preisabfrage`
+        isBatchSupported && batchPrices ? 
+          `🚀 BATCH-OPTIMIERUNG: ${efficiencyPercent}% CU-Ersparnis durch intelligente Preisabfrage` :
+          !isBatchSupported ? 
+            `⚠️ BATCH API: Nicht verfügbar auf ${chain} - nur auf Mainnet Chains (Ethereum, Polygon, BSC, Avalanche)` :
+            `⚠️ BATCH API: Fehlgeschlagen - Individual Calls verwendet`
       ]
     });
 
