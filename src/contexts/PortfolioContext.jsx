@@ -31,9 +31,15 @@ export const PortfolioProvider = ({ children }) => {
   const CACHE_KEY = `portfolio_${user?.id}`;
   const CACHE_DURATION = 10 * 60 * 1000; // 10 Minuten
 
-  // 🔄 LOAD FROM CACHE ON INIT
-  useEffect(() => {
-    if (!user?.id) return;
+  // ❌ KOMPLETT DEAKTIVIERT: KEINE AUTOMATISCHEN CACHE-LOADS MEHR!
+  // 🚨 Das war der Grund für die ungewollten API-Calls beim Homepage-Load!
+  // Jetzt wird NICHTS mehr automatisch geladen - nur manuelle Button-Clicks!
+
+  console.log('🚨 PORTFOLIO CONTEXT: 100% MANUAL MODE - Keine Auto-Loads!');
+
+  // 🚀 MANUAL CACHE CHECK (NUR bei Button-Click!)
+  const checkAndLoadCache = useCallback(() => {
+    if (!user?.id) return null;
     
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -42,26 +48,37 @@ export const PortfolioProvider = ({ children }) => {
         const age = Date.now() - timestamp;
         
         if (age < CACHE_DURATION) {
-          console.log('🚀 PORTFOLIO CACHE HIT: Loading from localStorage');
+          console.log('💾 MANUAL CACHE HIT: Loading cached data');
           setPortfolioData(data);
           setLastUpdate(new Date(timestamp));
           setStats(prev => ({ ...prev, fromCache: true }));
+          return data;
         } else {
-          console.log('⏰ PORTFOLIO CACHE EXPIRED: Removing old data');
+          console.log('🗑️ CACHE EXPIRED: Removing old cache');
           localStorage.removeItem(CACHE_KEY);
         }
       } catch (err) {
-        console.error('💥 PORTFOLIO CACHE ERROR:', err);
+        console.error('💥 CACHE ERROR:', err);
         localStorage.removeItem(CACHE_KEY);
       }
     }
+    return null;
   }, [user?.id, CACHE_KEY]);
 
-  // 🚀 LOAD PORTFOLIO DATA
+  // 🚀 LOAD PORTFOLIO DATA (NUR BEI MANUELLER ANFRAGE!)
   const loadPortfolioData = useCallback(async (forceLoad = false) => {
     if (!user?.id) {
       setError('Kein User angemeldet');
       return null;
+    }
+
+    // 🚀 ERST Cache prüfen, dann API nur bei Bedarf
+    if (!forceLoad) {
+      const cachedData = checkAndLoadCache();
+      if (cachedData) {
+        console.log('✅ CACHE HIT: Keine API-Calls nötig!');
+        return cachedData;
+      }
     }
 
     const now = Date.now();
@@ -87,7 +104,7 @@ export const PortfolioProvider = ({ children }) => {
       setError(null);
       
       const startTime = Date.now();
-      console.log('🔄 GLOBAL PORTFOLIO LOAD: Loading fresh data...');
+      console.log('🔄 MANUAL PORTFOLIO LOAD: Fresh API call...');
       
       // 🚨 COST OPTIMIZED: Only load basic portfolio data (no ROI/Tax)
     const data = await CentralDataService.loadCompletePortfolio(user.id, { 
@@ -123,17 +140,17 @@ export const PortfolioProvider = ({ children }) => {
         apiCallsUsed: data.apiCalls || 0
       }));
       
-      console.log(`✅ GLOBAL PORTFOLIO LOADED: ${data.apiCalls || 0} API calls used (${loadDuration}ms)`);
+      console.log(`✅ MANUAL PORTFOLIO LOADED: ${data.apiCalls || 0} API calls used (${loadDuration}ms)`);
       return data;
       
     } catch (err) {
-      console.error('💥 GLOBAL PORTFOLIO ERROR:', err);
+      console.error('💥 MANUAL PORTFOLIO ERROR:', err);
       setError(err.message);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [user?.id, portfolioData, CACHE_KEY]);
+  }, [user?.id, portfolioData, CACHE_KEY, checkAndLoadCache]);
 
   // 🔍 REFRESH CHECK
   const canRefresh = useCallback(() => {
@@ -167,16 +184,12 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, [user?.id]);
 
-  // 🚪 CLEAR ON LOGOUT
+  // 🚪 CLEAR ON LOGOUT (ONLY ON LOGOUT!)
   useEffect(() => {
     if (!user) {
       clearData();
     }
   }, [user, clearData]);
-
-  // 🚀 FIXED: Allow navigation without loading data first
-  // User can navigate to Portfolio view and see empty state with load button
-  const canNavigateToPortfolio = true; // Always allow navigation
   
   const contextValue = {
     // Portfolio Data
@@ -186,7 +199,6 @@ export const PortfolioProvider = ({ children }) => {
     lastUpdate,
     
     // Navigation & Control  
-    canNavigateToPortfolio, // 🚀 NEW: Always allow navigation
     canRefresh,
     remainingTime: getRemainingTime(),
     hasData: !!portfolioData,
@@ -194,6 +206,7 @@ export const PortfolioProvider = ({ children }) => {
     
     // Methods
     loadPortfolioData,
+    checkAndLoadCache, // 🚀 NEW: Manual cache check
     clearPortfolioData: () => {
       setPortfolioData(null);
       setError(null);
