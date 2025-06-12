@@ -57,6 +57,21 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, [user?.id, CACHE_KEY]);
 
+  // 🚀 AUTO-LOAD: Fresh data when user logs in and no cache
+  useEffect(() => {
+    if (!user?.id || portfolioData) return; // Don't load if already have data
+    
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) {
+      console.log('💾 NO CACHE: Auto-loading portfolio data for better UX');
+      const timer = setTimeout(() => {
+        loadPortfolioData(true); // Force load to bypass rate limiting on login
+      }, 1000); // Small delay to avoid race conditions
+      
+      return () => clearTimeout(timer);
+    }
+  }, [user?.id, portfolioData, CACHE_KEY]);
+
   // 🚀 LOAD PORTFOLIO DATA
   const loadPortfolioData = useCallback(async (forceLoad = false) => {
     if (!user?.id) {
