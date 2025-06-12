@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle } from 'lucide-react';
+import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,8 +13,9 @@ import {
   PUBLIC_VIEWS_CONFIG as publicViewsConfig
 } from '@/config/appConfig';
 
-const NavItem = ({ icon, label, viewId, isActive, onClick, isLocked, isSidebarOpen }) => {
+const NavItem = ({ icon, label, viewId, isActive, onClick, accessResult, isSidebarOpen }) => {
   const IconComponent = icon;
+  const isLocked = !accessResult.access;
   
   return (
     <motion.div
@@ -25,13 +26,14 @@ const NavItem = ({ icon, label, viewId, isActive, onClick, isLocked, isSidebarOp
     >
       <Button
         variant={isActive ? "default" : "ghost"}
-        className={`w-full justify-start gap-3 text-left h-auto p-3 ${
-          isLocked ? 'opacity-60 cursor-not-allowed' : ''
+        className={`w-full justify-start gap-3 text-left h-auto p-3 relative ${
+          isLocked ? 'opacity-60' : ''
         }`}
         onClick={onClick}
-        disabled={isLocked}
+        disabled={isLocked && accessResult.reason === 'registration_required'}
       >
         <IconComponent size={20} />
+        
         <AnimatePresence>
           {isSidebarOpen && (
             <motion.span
@@ -45,7 +47,22 @@ const NavItem = ({ icon, label, viewId, isActive, onClick, isLocked, isSidebarOp
             </motion.span>
           )}
         </AnimatePresence>
-        {isLocked && <Lock size={16} className="ml-auto" />}
+        
+        {/* 🔒 LOCK ICON für gesperrte Features */}
+        {isLocked && (
+          <Lock size={16} className="ml-auto text-red-400" />
+        )}
+        
+        {/* 🎯 STATUS BADGES */}
+        {!isLocked && accessResult.reason === 'trial' && (
+          <Badge variant="warning" className="ml-auto bg-yellow-100 text-yellow-800 text-xs">
+            {accessResult.daysLeft}d
+          </Badge>
+        )}
+        
+        {!isLocked && accessResult.reason === 'premium' && (
+          <Crown size={16} className="ml-auto text-yellow-500" />
+        )}
       </Button>
     </motion.div>
   );
@@ -64,7 +81,7 @@ const Sidebar = () => {
     t
   } = useAppContext();
 
-  // 🎯 NEUE BUSINESS LOGIC - Feature Access Check
+  // 🎯 BUSINESS LOGIC - Feature Access Check
   const checkFeatureAccess = (featureId) => {
     return getFeatureAccess(featureId, user, subscriptionStatus, daysRemaining);
   };
@@ -75,12 +92,15 @@ const Sidebar = () => {
     if (!accessResult.access) {
       // Show appropriate modal/message based on reason
       if (accessResult.reason === 'registration_required') {
-        // Redirect to registration
-        console.log('Redirect to registration:', accessResult.message);
+        // Redirect to registration or show message
+        console.log('❌ NAVIGATION BLOCKED: Registration required for', viewId);
+        alert('Registrierung erforderlich für dieses Feature');
       } else if (accessResult.reason === 'trial_expired' || accessResult.reason === 'premium_required') {
+        console.log('❌ NAVIGATION BLOCKED: Premium required for', viewId);
         setShowSubscriptionModal(true);
       }
     } else {
+      console.log('✅ NAVIGATION ALLOWED:', viewId, accessResult.reason);
       setActiveView(viewId);
     }
   };
@@ -89,47 +109,32 @@ const Sidebar = () => {
   publicViewsConfig.forEach(v => allViewsMap.set(v.id, v));
   protectedViewsConfig.forEach(v => allViewsMap.set(v.id, v));
 
-  // 🎯 FIXED: Use all needed views in correct order
-  const customOrderedItems = [
-    'dashboard',  // Dashboard first
-    'wallets',
-    'roiTracker', 
-    'tokenTrade',
-    'bridge',
-    'taxReport',
-    'wgep',  // WGEP after Tax Report
-    'pulseChainInfo',
-    'settings'
+  // 🎯 SIMPLIFIED: Main menu items in correct order
+  const mainMenuItems = [
+    'dashboard',  // Portfolio - FREE
+    'wallets',    // Wallets - TRIAL
+    'roiTracker', // ROI Tracker - PREMIUM ONLY
+    'taxReport',  // Tax Report - PREMIUM ONLY
+    'tokenTrade', // Token Trade - TRIAL
+    'bridge',     // Bridge - TRIAL
+    'wgep',       // WGEP - FREE
+    'settings'    // Settings - TRIAL
   ];
 
   console.log('🔍 SIDEBAR DEBUG:', {
-    protectedViewsCount: protectedViewsConfig.length,
-    publicViewsCount: publicViewsConfig.length,
-    totalMappedViews: allViewsMap.size,
+    user: user?.email,
     subscriptionStatus,
     daysRemaining,
-    allProtectedViews: protectedViewsConfig.map(v => ({ id: v.id, translationKey: v.translationKey, isSidebarLink: v.isSidebarLink })),
-    allPublicViews: publicViewsConfig.map(v => ({ id: v.id, translationKey: v.translationKey, isSidebarLink: v.isSidebarLink })),
+    totalViews: allViewsMap.size,
   });
 
-  const sidebarViewConfigs = customOrderedItems
+  const sidebarViewConfigs = mainMenuItems
     .map(id => {
       const view = allViewsMap.get(id);
       if (!view) {
         console.warn(`⚠️ SIDEBAR: View '${id}' not found in config`);
         return null;
       }
-      if (view.isSidebarLink === false) {
-        console.log(`ℹ️ SIDEBAR: View '${id}' excluded (isSidebarLink: false)`);
-        return null;
-      }
-      
-      // 🔥 FORCE WGEP ALWAYS VISIBLE!
-      if (id === 'wgep') {
-        console.log('🔥 FORCING WGEP TO BE VISIBLE!', view);
-        return view;
-      }
-      
       return view;
     })
     .filter(Boolean);
@@ -137,34 +142,6 @@ const Sidebar = () => {
   console.log('✅ SIDEBAR: Final sidebar views:', sidebarViewConfigs.map(v => ({ id: v.id, translationKey: v.translationKey })));
 
   const displayableSidebarItems = sidebarViewConfigs;
-
-  const menuItems = [
-    {
-      icon: LayoutDashboard,
-      label: 'Portfolio',
-      path: '/dashboard'
-    },
-    {
-      icon: TrendingUp,
-      label: 'ROI Tracker',
-      path: '/roi-tracker'
-    },
-    {
-      icon: FileText,
-      label: 'Steuer Report',
-      path: '/tax-report'
-    },
-    {
-      icon: Bug,
-      label: 'Debug Monitor',
-      path: '/debug'
-    },
-    {
-      icon: Settings,
-      label: 'Einstellungen',
-      path: '/settings'
-    }
-  ];
 
   return (
     <div className="flex">
@@ -180,9 +157,8 @@ const Sidebar = () => {
               return null;
           }
           
-          // 🎯 NEUE BUSINESS LOGIC
+          // 🎯 BUSINESS LOGIC CHECK
           const accessResult = checkFeatureAccess(view.id);
-          const isLocked = !accessResult.access;
           
           let labelText = view.translationKey;
           if (t && t[view.translationKey]) {
@@ -199,44 +175,48 @@ const Sidebar = () => {
                 viewId={view.id}
                 isActive={activeView === view.id}
                 onClick={() => handleNavClick(view.id)}
-                isLocked={isLocked}
+                accessResult={accessResult}
                 isSidebarOpen={isSidebarOpen}
               />
               
-              {/* 🎯 NEUE FEATURE STATUS ANZEIGE */}
+              {/* 🎯 FEATURE STATUS ANZEIGE */}
               {isSidebarOpen && (
                 <div className="px-3 pb-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-500">
                       {BUSINESS_MODEL.getAccessDescription(view.id)}
                     </p>
-                    
-                    {/* Status Badge */}
-                    {accessResult.access && accessResult.reason === 'trial' && (
-                      <Badge variant="warning" className="bg-yellow-100 text-yellow-800 text-xs">
-                        {accessResult.daysLeft}d Trial
-                      </Badge>
-                    )}
-                    {accessResult.access && accessResult.reason === 'premium' && (
-                      <Badge variant="default" className="bg-blue-100 text-blue-800 text-xs">
-                        Premium
-                      </Badge>
-                    )}
-                    {!accessResult.access && accessResult.reason === 'trial_expired' && (
-                      <Badge variant="destructive" className="bg-red-100 text-red-800 text-xs">
-                        Abgelaufen
-                      </Badge>
-                    )}
-                    {!accessResult.access && accessResult.reason === 'premium_required' && (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-600 text-xs">
-                        Premium
-                      </Badge>
-                    )}
                   </div>
                   
-                  {accessResult.message && (
-                    <p className="text-xs text-blue-600 mt-1">
+                  {/* 🔴 LOCKED MESSAGE */}
+                  {!accessResult.access && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center">
+                      <Lock className="h-3 w-3 mr-1" />
                       {accessResult.message}
+                    </p>
+                  )}
+                  
+                  {/* 🟡 TRIAL MESSAGE */}
+                  {accessResult.access && accessResult.reason === 'trial' && (
+                    <p className="text-xs text-yellow-600 mt-1 flex items-center">
+                      <Timer className="h-3 w-3 mr-1" />
+                      {accessResult.message}
+                    </p>
+                  )}
+                  
+                  {/* 🟢 FREE MESSAGE */}
+                  {accessResult.access && accessResult.reason === 'free' && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Kostenlos verfügbar
+                    </p>
+                  )}
+                  
+                  {/* 👑 PREMIUM MESSAGE */}
+                  {accessResult.access && accessResult.reason === 'premium' && (
+                    <p className="text-xs text-blue-600 mt-1 flex items-center">
+                      <Crown className="h-3 w-3 mr-1" />
+                      Premium aktiv
                     </p>
                   )}
                 </div>
@@ -245,36 +225,51 @@ const Sidebar = () => {
           );
         })}
 
-        {/* Subscription Status */}
+        {/* 🚀 USER STATUS PANEL */}
         {isSidebarOpen && (
           <div className="mt-6 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <Crown className={`h-4 w-4 ${subscriptionStatus === 'active' ? 'text-yellow-500' : 'text-gray-400'}`} />
               <span className="text-sm font-medium">
-                {subscriptionStatus === 'active' ? 'Premium Aktiv' : 'Basic Plan'}
+                {user?.email || 'Nicht angemeldet'}
               </span>
             </div>
             
-            {subscriptionStatus !== 'active' && daysRemaining > 0 && (
-              <p className="text-xs text-orange-600 mb-2">
-                Trial läuft noch {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''}
-              </p>
-            )}
+            {/* 🎯 STATUS ANZEIGE */}
+            <div className="text-xs space-y-1">
+              {!user && (
+                <p className="text-gray-600">
+                  🔐 Melden Sie sich an für Trial-Zugang
+                </p>
+              )}
+              
+              {user && subscriptionStatus === 'active' && (
+                <p className="text-blue-600">
+                  👑 Premium Nutzer - Vollzugriff
+                </p>
+              )}
+              
+              {user && subscriptionStatus === 'trial' && daysRemaining > 0 && (
+                <p className="text-yellow-600">
+                  ⏰ Trial: {daysRemaining} Tag{daysRemaining !== 1 ? 'e' : ''} verbleibend
+                </p>
+              )}
+              
+              {user && (subscriptionStatus === 'inactive' || daysRemaining <= 0) && (
+                <p className="text-red-600">
+                  ❌ Trial abgelaufen - Premium erforderlich
+                </p>
+              )}
+            </div>
             
-            {subscriptionStatus !== 'active' && daysRemaining <= 0 && (
-              <p className="text-xs text-red-600 mb-2">
-                Trial abgelaufen
-              </p>
-            )}
-            
-            {subscriptionStatus !== 'active' && (
+            {user && subscriptionStatus !== 'active' && (
               <Button 
                 size="sm" 
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600"
+                className="w-full mt-2 bg-gradient-to-r from-blue-500 to-purple-600"
                 onClick={() => setShowSubscriptionModal(true)}
               >
                 <Crown className="h-3 w-3 mr-1" />
-                Upgrade zu Premium
+                Premium holen
               </Button>
             )}
           </div>
