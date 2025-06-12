@@ -348,14 +348,14 @@ export class CentralDataService {
     }
     
     // Calculate ROI stats für LAUFENDEN MONAT
-    const now = Date.now();
+    const nowTimestamp = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
     
     const dailyTransactions = allROITransactions.filter(tx => 
-      new Date(tx.timestamp).getTime() > (now - dayMs)
+      new Date(tx.timestamp).getTime() > (nowTimestamp - dayMs)
     );
     const weeklyTransactions = allROITransactions.filter(tx => 
-      new Date(tx.timestamp).getTime() > (now - 7 * dayMs)
+      new Date(tx.timestamp).getTime() > (nowTimestamp - 7 * dayMs)
     );
     const monthlyTransactions = allROITransactions; // Bereits auf Monat gefiltert
     
