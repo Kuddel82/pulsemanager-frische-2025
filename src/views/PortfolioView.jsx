@@ -22,10 +22,10 @@ import {
   EyeOff
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
-import { usePortfolioData } from '@/hooks/usePortfolioData';
+import { usePortfolioContext } from '@/contexts/PortfolioContext';
 
 const PortfolioView = () => {
-  // 🚀 NEW: Smart Portfolio Hook mit Rate Limiting
+  // 🚀 GLOBAL: Portfolio Context mit Caching & State-Sharing
   const {
     portfolioData,
     loading,
@@ -36,8 +36,9 @@ const PortfolioView = () => {
     remainingTime,
     stats,
     hasData,
-    isStale
-  } = usePortfolioData();
+    isStale,
+    isCached
+  } = usePortfolioContext();
 
   const [showDebug, setShowDebug] = useState(false);
 
@@ -122,6 +123,7 @@ const PortfolioView = () => {
             <div className="flex items-center space-x-4 text-sm pulse-text-secondary">
               <span>💰 MORALIS PRO MODUS</span>
               <span className="text-green-400">✅ Manuelle Steuerung aktiv</span>
+              {isCached && <span className="text-blue-400">💾 Aus Cache geladen</span>}
               {lastUpdate && (
                 <span>Letzte Aktualisierung: {lastUpdate.toLocaleTimeString('de-DE')}</span>
               )}

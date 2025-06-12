@@ -7,6 +7,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AppProvider } from '@/contexts/AppContext';
+import { PortfolioProvider } from '@/contexts/PortfolioContext';
 import AppRoutes from '@/routes/index';
 
 // STUB: Entfernt DOM-manipulierende Provider für Login-Fix
@@ -19,9 +20,11 @@ export default function MainApp() {
       <AuthProvider>
         <Router>
           <AppProvider>
-            <div className="min-h-screen bg-background">
-              <AppRoutes />
-            </div>
+            <PortfolioProvider>
+              <div className="min-h-screen bg-background">
+                <AppRoutes />
+              </div>
+            </PortfolioProvider>
           </AppProvider>
         </Router>
       </AuthProvider>

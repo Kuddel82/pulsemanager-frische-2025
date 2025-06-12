@@ -28,48 +28,60 @@ import {
   BarChart3
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
-import CentralDataService from '@/services/CentralDataService';
+import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import { MoralisV2Service } from '@/services/MoralisV2Service';
 import { ROIDetectionService } from '@/services/ROIDetectionService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
-  const [portfolioData, setPortfolioData] = useState(null);
+  
+  // 🚀 GLOBAL PORTFOLIO CONTEXT - Shared data between views
+  const {
+    portfolioData,
+    loading: portfolioLoading,
+    error: portfolioError,
+    lastUpdate: portfolioLastUpdate,
+    loadPortfolioData,
+    canRefresh,
+    remainingTime,
+    hasData: hasPortfolioData,
+    isCached
+  } = usePortfolioContext();
+  
+  // 🎯 ROI-SPECIFIC STATE (DeFi data nur für ROI)
   const [defiData, setDefiData] = useState(null);
   const [roiDetectionData, setROIDetectionData] = useState(null);
-  const [loading, setLoading] = useState(false); // MORALIS PRO: Start without loading
+  const [defiLoading, setDefiLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [lastDefiUpdate, setLastDefiUpdate] = useState(null);
   const [timeFrame, setTimeFrame] = useState('monthly');
   const [showDebug, setShowDebug] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // overview, defi, positions, detection
 
-  // 🚀 LADE ALLE ROI-RELEVANTEN DATEN (V2: CACHE-OPTIMIERT)
-  const loadAllROIData = async () => {
-    if (!user?.id) return;
+  // 🚀 LOAD DEFI DATA ONLY - Portfolio comes from Global Context
+  const loadDefiData = async () => {
+    if (!user?.id || !hasPortfolioData) {
+      console.log('⚠️ Cannot load DeFi data: No user or portfolio data');
+      return;
+    }
     
     try {
-      setLoading(true);
+      setDefiLoading(true);
       setError(null);
       
-      console.log('🔄 ROI TRACKER V2: Loading ROI data with smart caching...');
+      console.log('🔄 ROI TRACKER: Loading DeFi data using Global Portfolio Context...');
       
-      // 1. 📦 Portfolio-Daten aus Cache/API (Smart Cache Service)
-      const portfolioResponse = await CentralDataService.loadCompletePortfolio(user.id);
-      
-      console.log('📊 ROI TRACKER: Portfolio Response:', {
-        success: portfolioResponse.success,
-        isLoaded: portfolioResponse.isLoaded,
-        fromCache: portfolioResponse.fromCache,
-        totalValue: portfolioResponse.totalValue,
-        tokenCount: portfolioResponse.tokenCount,
-        apiCalls: portfolioResponse.apiCalls || 'Cache Hit',
-        cacheInfo: portfolioResponse.cacheOptimization
+             console.log('📊 ROI TRACKER: Using Global Portfolio Data:', {
+        success: portfolioData?.success,
+        isLoaded: portfolioData?.isLoaded,
+        fromCache: isCached,
+        totalValue: portfolioData?.totalValue,
+        tokenCount: portfolioData?.tokenCount
       });
       
       // 2. 🔥 MULTI-CHAIN WALLET SELECTION für Moralis DeFi APIs
-      const wallets = portfolioResponse.wallets || [];
+      const wallets = portfolioData?.wallets || [];
       console.log('📱 Available wallets:', wallets.map(w => ({ address: w.address?.slice(0, 8) + '...', chain: w.chain })));
       
       // Suche Ethereum-Wallet ODER verwende PulseChain-Wallet für Ethereum DeFi Test
@@ -225,71 +237,32 @@ const ROITrackerView = () => {
         };
       }
       
-      // 🎯 Portfolio-Daten validieren und setzen (Cache oder Fresh)
-      let validPortfolioData;
-      
-      if (portfolioResponse.success || portfolioResponse.isLoaded) {
-        // ✅ Gültige Daten (aus Cache oder frisch von APIs)
-        validPortfolioData = portfolioResponse;
-        console.log(`✅ ROI TRACKER: Valid portfolio data ${portfolioResponse.fromCache ? 'from CACHE' : 'from APIs'}`);
-      } else {
-        // ❌ Fallback für fehlerhafte Daten
-        console.warn('⚠️ ROI TRACKER: Using fallback portfolio data');
-        validPortfolioData = {
-          success: true,
-          isLoaded: true,
-          totalValue: 0,
-          monthlyROI: 0,
-          dailyROI: 0,
-          weeklyROI: 0,
-          tokens: [],
-          wallets: [],
-          roiTransactions: [],
-          tokenCount: 0,
-          walletCount: 0,
-          fromCache: false,
-          error: portfolioResponse.error || 'No valid portfolio data'
-        };
-      }
-      
-      setPortfolioData(validPortfolioData);
-      
+      // 💾 Store DeFi-specific data only (Portfolio comes from Global Context)
       setDefiData(defiResponse);
       setROIDetectionData(roiDetectionResponse);
-      setLastUpdate(new Date());
+      setLastDefiUpdate(new Date());
       
-      console.log('✅ ROI TRACKER V2: All data loaded', {
-        portfolioROI: portfolioResponse.monthlyROI || 0,
-        portfolioValue: portfolioResponse.totalValue || 0,
+      console.log('✅ ROI TRACKER: DeFi data loaded', {
+        portfolioROI: portfolioData?.monthlyROI || 0,
+        portfolioValue: portfolioData?.totalValue || 0,
         defiPositions: defiResponse?.positions?.positions?.length || 0,
         roiSources: roiDetectionResponse?.sources?.length || 0,
         walletUsed: primaryWallet?.address?.slice(0, 8) + '...' || 'None',
         originalChain: primaryWallet?.chain || 'None',
-        dataLoaded: true
+        usingGlobalPortfolio: true
       });
       
     } catch (err) {
-      console.error('💥 ROI TRACKER V2 ERROR:', err);
+      console.error('💥 ROI TRACKER DeFi ERROR:', err);
       setError(err.message);
       
-      // Auch bei Fehlern Mock-Daten setzen, damit UI funktioniert
-      setPortfolioData({
-        success: false,
-        totalValue: 0,
-        monthlyROI: 0,
-        dailyROI: 0,
-        weeklyROI: 0,
-        tokens: [],
-        wallets: [],
-        roiTransactions: [],
-        error: err.message
-      });
+      // Set fallback DeFi data (Portfolio data remains from Global Context)
       setDefiData({
         summary: { success: false, error: err.message, roiAnalysis: { activeProtocols: 0, totalValue: 0, unclaimedValue: 0, roiPotential: 'low' } },
         positions: { success: false, positions: [], roiAnalysis: { totalPositions: 0, totalDailyROI: 0, estimatedMonthlyROI: 0 } }
       });
     } finally {
-      setLoading(false);
+      setDefiLoading(false);
     }
   };
 
@@ -305,22 +278,8 @@ const ROITrackerView = () => {
   //   return () => clearInterval(interval);
   // }, [user?.id]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="pulse-card p-8 text-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
-          <div className="space-y-2">
-            <span className="text-lg pulse-text">💰 MORALIS PRO: Lade ROI-Daten...</span>
-            <p className="text-sm pulse-text-secondary">Manual Load Mode • Kostenkontrolle aktiv</p>
-            <p className="text-xs pulse-text-secondary text-green-400">
-              ✅ Kein Auto-Refresh • API-Calls nur bei manueller Anfrage
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Loading states: Portfolio (global) + DeFi (local)
+  const isLoading = portfolioLoading || defiLoading;
 
   // ❌ REMOVED: Manual loading screen - show normal UI instead
 
@@ -331,9 +290,9 @@ const ROITrackerView = () => {
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden der ROI-Daten</h2>
           <p className="pulse-text-secondary mb-4">{error}</p>
-          <Button onClick={loadAllROIData} className="bg-green-500 hover:bg-green-600">
+          <Button onClick={loadDefiData} className="bg-green-500 hover:bg-green-600">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Erneut versuchen
+            DeFi-Daten erneut laden
           </Button>
         </div>
       </div>
@@ -387,8 +346,8 @@ const ROITrackerView = () => {
     return totalValue > 0 ? (currentROI / totalValue) * 100 : 0;
   };
 
-  // Show empty state info when no data loaded
-  const showEmptyState = !loading && !portfolioData && !error;
+  // Show empty state when no portfolio data available
+  const showEmptyState = !isLoading && !hasPortfolioData && !portfolioError;
 
   const tabs = [
     { id: 'overview', label: 'Überblick', icon: PieChart },
@@ -406,7 +365,7 @@ const ROITrackerView = () => {
           <div>
             <h1 className="text-3xl font-bold pulse-title">ROI Tracker V2</h1>
             <p className="pulse-text-secondary">
-              Enterprise DeFi Analytics • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
+              Enterprise DeFi Analytics • Portfolio: {portfolioLastUpdate?.toLocaleTimeString('de-DE')} • DeFi: {lastDefiUpdate?.toLocaleTimeString('de-DE')}
             </p>
           </div>
           <div className="flex space-x-2">
@@ -418,10 +377,16 @@ const ROITrackerView = () => {
               {showDebug ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               Debug
             </Button>
-            <Button onClick={loadAllROIData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Aktualisieren
-            </Button>
+            <div className="flex space-x-2">
+              <Button onClick={loadPortfolioData} disabled={portfolioLoading || !canRefresh}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${portfolioLoading ? 'animate-spin' : ''}`} />
+                Portfolio laden
+              </Button>
+              <Button onClick={loadDefiData} disabled={defiLoading || !hasPortfolioData}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${defiLoading ? 'animate-spin' : ''}`} />
+                DeFi laden
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -429,20 +394,25 @@ const ROITrackerView = () => {
         {showEmptyState && (
           <div className="pulse-card p-8 mb-6 text-center border-2 border-green-500/20">
             <TrendingUp className="h-16 w-16 mx-auto mb-4 text-green-400" />
-            <h3 className="text-xl font-bold pulse-text mb-2">💰 MORALIS PRO: ROI-Daten laden</h3>
+            <h3 className="text-xl font-bold pulse-text mb-2">💰 MORALIS PRO: Portfolio-Daten laden</h3>
             <p className="pulse-text-secondary mb-6">
-              Klicken Sie hier um Ihre Portfolio- und ROI-Daten zu laden.<br/>
-              <span className="text-green-400">✅ Kostenoptimiert - nur bei Bedarf</span>
+              Laden Sie zuerst Ihre Portfolio-Daten, dann können DeFi-Analysen durchgeführt werden.<br/>
+              <span className="text-green-400">✅ Globaler State - Daten werden zwischen Seiten geteilt</span>
             </p>
             <Button 
-              onClick={loadAllROIData} 
+              onClick={loadPortfolioData} 
               className="bg-green-500 hover:bg-green-600"
               size="lg"
-              disabled={loading}
+              disabled={portfolioLoading || !canRefresh}
             >
-              <TrendingUp className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              ROI-Daten jetzt laden
+              <TrendingUp className={`h-5 w-5 mr-2 ${portfolioLoading ? 'animate-spin' : ''}`} />
+              Portfolio-Daten jetzt laden
             </Button>
+            {remainingTime > 0 && (
+              <p className="text-sm text-yellow-400 mt-2">
+                ⏱️ Nächstes Update in {remainingTime} Sekunden möglich
+              </p>
+            )}
           </div>
         )}
 
