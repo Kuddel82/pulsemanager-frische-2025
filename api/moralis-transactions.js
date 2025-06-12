@@ -1,30 +1,3 @@
-// 🚀 MORALIS NATIVE TRANSACTIONS API 
-// Holt native Transaktionen (PLS/ETH) für Tax/ROI Analysis
-
-const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
-
-// 🌐 MORALIS API HELPER
-async function moralisFetch(endpoint) {
-  try {
-    const res = await fetch(`${MORALIS_BASE}${endpoint}`, {
-      headers: {
-        'X-API-Key': MORALIS_API_KEY
-      }
-    });
-    
-    if (!res.ok) {
-      console.error(`❌ Moralis error ${res.status}: ${endpoint}`);
-      return null;
-    }
-    
-    return await res.json();
-  } catch (error) {
-    console.error('❌ Moralis fetch error:', error.message);
-    return null;
-  }
-}
-
 //🚀 MORALIS TRANSACTIONS API - PRO COMPATIBLE
 // Endpoint: POST /api/moralis-transactions
 // Purpose: Load ERC20 transfers for tax reporting
