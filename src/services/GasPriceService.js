@@ -1,12 +1,11 @@
 /**
  * ⛽ GAS PRICE SERVICE - CORS-FREE SOLUTION
  * 
- * Strukturelle Lösung für Gas Price APIs mit:
- * - Backend-Proxy für alle externen APIs (CORS-free)
- * - Multi-Provider Fallback-Strategien
- * - Smart Caching mit Emergency Fallbacks
- * - Graceful Degradation bei API-Ausfällen
- * - Real-time Error Monitoring
+ * ❌ DEPRECATED - 2025-06-12
+ * Das System ist VOLLSTÄNDIG READ-ONLY und benötigt keine Gas-Preise!
+ * 
+ * Dieser Service wird nicht mehr verwendet und sollte entfernt werden.
+ * Bewahrt nur zu Dokumentationszwecken.
  */
 
 import { ExternalAPIService } from './core/ExternalAPIService.js';
@@ -23,6 +22,9 @@ export class GasPriceService extends ExternalAPIService {
       rateLimit: 30             // 30 requests per minute
     });
     
+    console.warn('❌ DEPRECATED: GasPriceService ist veraltet und sollte nicht verwendet werden!');
+    console.warn('Das System ist READ-ONLY und benötigt keine Gas-Preise.');
+
     // Gas Price Provider Configuration
     this.providers = {
       // Primary: Backend proxy (CORS-free)

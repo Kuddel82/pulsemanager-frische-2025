@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   if (!address || !endpoint) {
     return res.status(400).json({ 
       error: 'Missing address or endpoint param.',
-      available_endpoints: ['wallet-token-transfers', 'erc20', 'token-price', 'nft', 'balance']
+      available_endpoints: ['wallet-token-transfers', 'erc20_transfers', 'native_transactions', 'erc20', 'token-price', 'nft', 'balance']
     });
   }
 
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
     }
 
     // 🔄 TOKEN TRANSFERS (Pro-compatible)
-    if (endpoint === 'wallet-token-transfers') {
+    if (endpoint === 'wallet-token-transfers' || endpoint === 'erc20_transfers') {
       console.log(`🚀 PRO TRANSFERS: Loading for ${address} on ${chainId}`);
       
       const result = await moralisFetch(`${address}/erc20/transfers`, { 
@@ -113,9 +113,48 @@ export default async function handler(req, res) {
 
       console.log(`✅ PRO TRANSFERS: ${result.result?.length || 0} transfers loaded`);
 
+      // Wenn der erc20_transfers Endpoint verwendet wird, formatiere das Ergebnis speziell
+      // für TaxService und andere interne Anwendungen
+      if (endpoint === 'erc20_transfers') {
+        return res.status(200).json({
+          transfers: result.result || [],
+          cursor: result.cursor,
+          page_size: result.result?.length || 0,
+          _source: 'moralis_v2_pro_erc20_transfers'
+        });
+      }
+
+      // Standard-Antwort für den wallet-token-transfers Endpoint
       return res.status(200).json({
         ...result,
         _source: 'moralis_v2_pro_transfers'
+      });
+    }
+
+    // 🔄 NATIVE TRANSACTIONS (Pro-compatible)
+    if (endpoint === 'native_transactions') {
+      console.log(`🚀 PRO NATIVE TX: Loading for ${address} on ${chainId}`);
+      
+      const result = await moralisFetch(`${address}`, { 
+        chain: chainId,
+        limit: Math.min(limit, 100),
+        cursor: cursor
+      });
+      
+      if (!result) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch native transactions.',
+          _pro_mode: true 
+        });
+      }
+
+      console.log(`✅ PRO NATIVE TX: ${result.result?.length || 0} transactions loaded`);
+
+      return res.status(200).json({
+        transactions: result.result || [],
+        cursor: result.cursor,
+        page_size: result.result?.length || 0,
+        _source: 'moralis_v2_pro_native_transactions'
       });
     }
 
@@ -259,7 +298,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ 
       error: `Unsupported endpoint: ${endpoint}`,
       available_endpoints: [
-        'wallet-token-transfers', 
+        'wallet-token-transfers',
+        'erc20_transfers',
+        'native_transactions', 
         'balance',
         'native-balance',
         'nft',
