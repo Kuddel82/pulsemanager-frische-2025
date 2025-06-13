@@ -21,6 +21,7 @@ export const useSubscription = () => {
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
+      console.log('🔒 No authenticated user, setting default trial state');
       setSubscription({
         tier: 'trial',
         isActive: false,
@@ -31,6 +32,7 @@ export const useSubscription = () => {
       return;
     }
 
+    console.log('🔍 Starting subscription check for user:', user.email);
     loadSubscriptionData();
   }, [user, isAuthenticated]);
 
@@ -38,20 +40,23 @@ export const useSubscription = () => {
     try {
       console.log('🔍 Loading subscription for:', user.email);
 
-      // 🎯 PREMIUM USER: dkuddel@web.de
+      // 🎯 PREMIUM USER: dkuddel@web.de - HIGHEST PRIORITY
       if (user.email === 'dkuddel@web.de') {
-        console.log('✅ Premium user detected:', user.email);
-        setSubscription({
+        console.log('🌟 PREMIUM USER DETECTED:', user.email);
+        const premiumState = {
           tier: 'premium',
           isActive: true,
           isPremium: true,
           daysRemaining: 999, // Unlimited
           loading: false
-        });
+        };
+        console.log('✅ Setting premium state:', premiumState);
+        setSubscription(premiumState);
         return;
       }
 
       // Check Supabase for other users
+      console.log('📊 Checking Supabase for user:', user.id);
       const { data: profile, error } = await supabase
         .from('user_profiles')
         .select('subscription_tier, created_at')
@@ -59,16 +64,18 @@ export const useSubscription = () => {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        console.error('Subscription query error:', error);
+        console.error('❌ Subscription query error:', error);
         // Default to trial on error
         setTrialSubscription();
         return;
       }
 
       if (profile) {
+        console.log('📋 Profile found:', profile);
         const isSubscriptionPremium = profile.subscription_tier === 'premium';
         
         if (isSubscriptionPremium) {
+          console.log('🎯 Supabase confirms premium user');
           setSubscription({
             tier: 'premium',
             isActive: true,
@@ -77,16 +84,18 @@ export const useSubscription = () => {
             loading: false
           });
         } else {
+          console.log('📅 Calculating trial status');
           calculateTrialStatus(profile.created_at);
         }
       } else {
+        console.log('👤 No profile found - creating trial profile');
         // No profile found - create default trial
         await createTrialProfile();
         setTrialSubscription();
       }
 
     } catch (error) {
-      console.error('Subscription loading error:', error);
+      console.error('❌ Subscription loading error:', error);
       setTrialSubscription();
     }
   };
@@ -99,25 +108,31 @@ export const useSubscription = () => {
     const daysRemaining = Math.max(0, trialDays - daysSinceCreation);
     const isActive = daysRemaining > 0;
 
-    console.log(`📅 Trial: ${daysSinceCreation} days used, ${daysRemaining} remaining`);
+    console.log(`📅 Trial calculation: ${daysSinceCreation} days used, ${daysRemaining} remaining, active: ${isActive}`);
 
-    setSubscription({
+    const trialState = {
       tier: 'trial',
       isActive: isActive,
       isPremium: false,
       daysRemaining: daysRemaining,
       loading: false
-    });
+    };
+    
+    console.log('📅 Setting trial state:', trialState);
+    setSubscription(trialState);
   };
 
   const setTrialSubscription = () => {
-    setSubscription({
+    const defaultTrialState = {
       tier: 'trial',
       isActive: true,
       isPremium: false,
       daysRemaining: 3, // Default
       loading: false
-    });
+    };
+    
+    console.log('🆕 Setting default trial state:', defaultTrialState);
+    setSubscription(defaultTrialState);
   };
 
   const createTrialProfile = async () => {
@@ -134,30 +149,38 @@ export const useSubscription = () => {
         ]);
 
       if (error) {
-        console.error('Profile creation error:', error);
+        console.error('❌ Profile creation error:', error);
       } else {
         console.log('✅ Trial profile created for:', user.email);
       }
     } catch (error) {
-      console.error('Profile creation failed:', error);
+      console.error('❌ Profile creation failed:', error);
     }
   };
 
   // Access Control Functions
   const canAccessPortfolio = () => {
-    return subscription.isActive || subscription.isPremium;
+    const canAccess = subscription.isActive || subscription.isPremium;
+    console.log(`🔐 Portfolio access check: ${canAccess} (isActive: ${subscription.isActive}, isPremium: ${subscription.isPremium})`);
+    return canAccess;
   };
 
   const canAccessROI = () => {
-    return subscription.isPremium;
+    const canAccess = subscription.isPremium;
+    console.log(`🔐 ROI access check: ${canAccess} (isPremium: ${subscription.isPremium})`);
+    return canAccess;
   };
 
   const canAccessTaxReport = () => {
-    return subscription.isPremium;
+    const canAccess = subscription.isPremium;
+    console.log(`🔐 Tax Report access check: ${canAccess} (isPremium: ${subscription.isPremium})`);
+    return canAccess;
   };
 
   const canAccessAllFeatures = () => {
-    return subscription.isPremium;
+    const canAccess = subscription.isPremium;
+    console.log(`🔐 All features access check: ${canAccess} (isPremium: ${subscription.isPremium})`);
+    return canAccess;
   };
 
   const getAccessMessage = () => {
@@ -173,6 +196,9 @@ export const useSubscription = () => {
     
     return '🔒 Trial abgelaufen - Upgrade auf Premium erforderlich';
   };
+
+  // Debug info
+  console.log('🔍 Current subscription state:', subscription);
 
   return {
     ...subscription,
