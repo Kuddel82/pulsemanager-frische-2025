@@ -1,5 +1,5 @@
 {
-  "name": "pulsemanager-app",
+  "name": "pulsemanager-app-force-csp",
   "version": 2,
   "public": true,
   "functions": {
