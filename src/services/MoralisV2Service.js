@@ -77,14 +77,11 @@ export class MoralisV2Service {
       let hasMore = true;
       
       while (hasMore) {
-        const url = new URL(`${window.location.origin}${this.API_BASE}`);
-        url.searchParams.set('endpoint', 'history');
-        url.searchParams.set('address', address);
-        url.searchParams.set('chain', chain);
-        url.searchParams.set('limit', limit.toString());
-        if (currentCursor) url.searchParams.set('cursor', currentCursor);
+        // 🔄 CSP FIX: Verwende Proxy-API
+        let url = `/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=${limit}`;
+        if (currentCursor) url += `&cursor=${currentCursor}`;
         
-        const response = await fetch(url.toString());
+        const response = await fetch(url);
         const data = await response.json();
         
         if (data._error) {
@@ -294,7 +291,8 @@ export class MoralisV2Service {
       const { limit = 100, cursor = null } = options;
       console.log(`🚀 V2: Loading ERC20 transfers for ${address}`);
       
-      let url = `${this.API_BASE}?endpoint=erc20_transfers&address=${address}&chain=${chain}&limit=${limit}`;
+      // 🔄 CSP FIX: Verwende Proxy-API
+      let url = `/api/moralis-proxy?endpoint=erc20-transfers&address=${address}&chain=${chain}&limit=${limit}`;
       if (cursor) {
         url += `&cursor=${cursor}`;
       }
@@ -343,7 +341,8 @@ export class MoralisV2Service {
       const { limit = 100, cursor = null } = options;
       console.log(`🚀 V2: Loading native transactions for ${address}`);
       
-      let url = `${this.API_BASE}?endpoint=native_transactions&address=${address}&chain=${chain}&limit=${limit}`;
+      // 🔄 CSP FIX: Verwende Proxy-API  
+      let url = `/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=${limit}`;
       if (cursor) {
         url += `&cursor=${cursor}`;
       }

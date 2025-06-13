@@ -64,35 +64,26 @@ export class TransactionHistoryService {
     }
 
     try {
-      // 1. Fetch native transactions
-      const nativeUrl = `${MORALIS_BASE_URL}/wallets/${walletAddress}/history?chain=${chain}&limit=${limit}`;
-      
-      // 2. Fetch all token transfers via Moralis
-      const erc20Url = `${MORALIS_BASE_URL}/wallets/${walletAddress}/tokens/transfers?chain=${chain}&limit=${limit}`;
-
-      console.log(`🔍 Fetching transaction history: ${limit} transactions max`);
+      // 🔄 CSP FIX: Verwende Proxy-API statt direkter Moralis-Aufrufe
+      console.log(`🔍 Fetching transaction history via PROXY: ${limit} transactions max`);
 
       const [nativeResponse, erc20Response] = await Promise.all([
-        fetch(nativeUrl, {
+        fetch(`/api/moralis-proxy?endpoint=transactions&address=${walletAddress}&chain=${chain}&limit=${limit}`, {
           method: 'GET',
           headers: {
-            'X-API-Key': apiKey,
             'Accept': 'application/json'
-          },
-          timeout: this.API_TIMEOUT
+          }
         }),
-        fetch(erc20Url, {
+        fetch(`/api/moralis-proxy?endpoint=erc20-transfers&address=${walletAddress}&chain=${chain}&limit=${limit}`, {
           method: 'GET',
           headers: {
-            'X-API-Key': apiKey,
             'Accept': 'application/json'
-          },
-          timeout: this.API_TIMEOUT
+          }
         })
       ]);
 
       if (!nativeResponse.ok || !erc20Response.ok) {
-        throw new Error(`Moralis API Error: ${nativeResponse.status || erc20Response.status}`);
+        throw new Error(`Proxy API Error: ${nativeResponse.status || erc20Response.status}`);
       }
 
       const [nativeData, erc20Data] = await Promise.all([
