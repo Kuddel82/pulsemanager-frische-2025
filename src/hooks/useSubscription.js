@@ -56,12 +56,12 @@ export const useSubscription = () => {
         // Also update Supabase to match our override
         try {
           await supabase
-            .from('user_profiles')
+            .from('profiles')
             .upsert({
               id: user.id,
               email: user.email,
               subscription_tier: 'premium',
-              status: 'active',
+              subscription_status: 'active',
               updated_at: new Date().toISOString()
             });
           console.log('✅ Updated Supabase to match premium status');
@@ -75,8 +75,8 @@ export const useSubscription = () => {
       // Check Supabase for other users
       console.log('📊 Checking Supabase for user:', user.id);
       const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .select('subscription_tier, created_at')
+        .from('profiles')
+        .select('subscription_tier, subscription_status, created_at')
         .eq('id', user.id)
         .single();
 
@@ -155,12 +155,13 @@ export const useSubscription = () => {
   const createTrialProfile = async () => {
     try {
       const { error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .insert([
           {
             id: user.id,
             email: user.email,
             subscription_tier: 'trial',
+            subscription_status: 'active',
             created_at: new Date().toISOString()
           }
         ]);
