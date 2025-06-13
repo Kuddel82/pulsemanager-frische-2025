@@ -1,4 +1,4 @@
-@import url('./styles/pulsechain-design.css');
+@import './styles/pulsechain-design.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
