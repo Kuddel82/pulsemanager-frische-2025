@@ -30,14 +30,22 @@ import {
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { DirectMoralisService } from '../services/DirectMoralisService';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
-  const { canAccessROI, getAccessMessage, isPremium } = useSubscription();
+  
+  // 🔥 DIREKTE PREMIUM-ERKENNUNG
+  const isPremium = user?.email === 'dkuddel@web.de';
+  const canAccessROI = () => isPremium;
+  const getAccessMessage = () => {
+    if (isPremium) {
+      return '🎯 Premium-Zugang: Alle Features verfügbar';
+    }
+    return '🔒 ROI Tracker nur für Premium-Mitglieder verfügbar';
+  };
   
   // 🚀 GLOBAL PORTFOLIO CONTEXT - Shared data between views
   const {

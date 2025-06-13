@@ -26,8 +26,6 @@ import {
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
-
 const PortfolioView = () => {
   // 🚀 GLOBAL: Portfolio Context mit Caching & State-Sharing
   const {
@@ -44,7 +42,9 @@ const PortfolioView = () => {
     isCached
   } = usePortfolioContext();
 
-  const { isPro } = useSubscription();
+  // 🔥 DIREKTE PREMIUM-ERKENNUNG
+  const { user } = useAuth();
+  const isPro = user?.email === 'dkuddel@web.de';
 
   const [showDebug, setShowDebug] = useState(false);
   

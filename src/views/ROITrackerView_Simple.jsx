@@ -16,13 +16,21 @@ import {
   BarChart3
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { DirectMoralisService } from '../services/DirectMoralisService';
 import { supabase } from '../lib/supabaseClient';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
-  const { canAccessROI, getAccessMessage, isPremium } = useSubscription();
+  
+  // 🔥 DIREKTE PREMIUM-ERKENNUNG
+  const isPremium = user?.email === 'dkuddel@web.de';
+  const canAccessROI = () => isPremium;
+  const getAccessMessage = () => {
+    if (isPremium) {
+      return '🎯 Premium-Zugang: Alle Features verfügbar';
+    }
+    return '🔒 ROI Tracker nur für Premium-Mitglieder verfügbar';
+  };
   
   const [roiData, setROIData] = useState(null);
   const [loading, setLoading] = useState(false);

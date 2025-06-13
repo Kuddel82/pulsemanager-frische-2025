@@ -18,14 +18,22 @@ import {
   Wallet
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { DirectMoralisService } from '@/services/DirectMoralisService';
 import { supabase } from '@/lib/supabaseClient';
 import { getHiddenTokens, hideToken as hideTokenService, showToken as showTokenService, testHiddenTokenService } from '@/services/HiddenTokenService';
 
 const PortfolioView = () => {
   const { user } = useAuth();
-  const { canAccessPortfolio, getAccessMessage, isPremium } = useSubscription();
+  
+  // 🔥 DIREKTE PREMIUM-ERKENNUNG
+  const isPremium = user?.email === 'dkuddel@web.de';
+  const canAccessPortfolio = () => isPremium;
+  const getAccessMessage = () => {
+    if (isPremium) {
+      return '🎯 Premium-Zugang: Alle Features verfügbar';
+    }
+    return '🔒 Portfolio nur für Premium-Mitglieder verfügbar';
+  };
   const [portfolioData, setPortfolioData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
