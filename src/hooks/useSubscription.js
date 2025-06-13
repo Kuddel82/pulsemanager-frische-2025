@@ -53,20 +53,28 @@ export const useSubscription = () => {
         console.log('✅ FORCING PREMIUM STATE (ignoring Supabase):', premiumState);
         setSubscription(premiumState);
         
-        // Also update Supabase to match our override
+        // Force create/update Supabase profile for premium user
         try {
-          await supabase
+          const { error } = await supabase
             .from('profiles')
             .upsert({
               id: user.id,
               email: user.email,
               subscription_tier: 'premium',
               subscription_status: 'active',
+              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'id'
             });
-          console.log('✅ Updated Supabase to match premium status');
+          
+          if (error) {
+            console.warn('⚠️ Could not update Supabase premium status:', error);
+          } else {
+            console.log('✅ Supabase profile created/updated for premium user');
+          }
         } catch (error) {
-          console.warn('⚠️ Could not update Supabase premium status:', error);
+          console.warn('⚠️ Supabase update failed:', error);
         }
         
         return;

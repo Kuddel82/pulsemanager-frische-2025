@@ -1,8 +1,7 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-// import { SubscriptionProvider } from './contexts/SubscriptionContext'; // OLD
-import { SubscriptionProvider } from './contexts/SubscriptionProvider'; // NEW
+import { SubscriptionProvider } from './contexts/SubscriptionProvider'; // FIXED VERSION
 import { PortfolioProvider } from './contexts/PortfolioContext';
 import AppRoutes from './routes';
 import Navigation from './components/layout/Navigation';
