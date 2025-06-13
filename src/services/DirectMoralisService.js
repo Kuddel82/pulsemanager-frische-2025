@@ -144,7 +144,7 @@ export class DirectMoralisService {
   }
   
   /**
-   * 📄 TAX-REPORT: Alle Transfers tracken, kein WalletStats nötig
+   * 📄 TAX-REPORT: Alle Transfers tracken, unlimited mit Pagination
    */
   static async getTaxData(address, chain = '0x171', options = {}) {
     try {
@@ -153,32 +153,55 @@ export class DirectMoralisService {
         throw new Error('VITE_MORALIS_API_KEY not configured. Please add to .env file.');
       }
       
-      const { limit = 200, getAllPages = false } = options;
+      const { limit = 100, getAllPages = true, maxTransactions = 5000 } = options;
       
-      console.log(`🚀 DIRECT: Loading tax data for ${address} on chain ${chain}`);
+      console.log(`🚀 DIRECT: Loading tax data for ${address} on chain ${chain} (unlimited: ${getAllPages})`);
       
       let allTransfers = [];
       let cursor = null;
       let hasMore = true;
+      let pageCount = 0;
       
-      while (hasMore && allTransfers.length < 1000) { // Max 1000 for performance
+      // 🔄 UNLIMITED PAGINATION für Tax Reports
+      while (hasMore && allTransfers.length < maxTransactions) {
+        pageCount++;
+        console.log(`📄 TAX: Loading page ${pageCount}, current total: ${allTransfers.length}`);
+        
         // 🔄 CSP FIX: Verwende Proxy-API
         let url = `/api/moralis-proxy?endpoint=erc20-transfers&address=${address}&chain=${chain}&limit=${Math.min(limit, 100)}`;
         if (cursor) url += `&cursor=${cursor}`;
         
         const response = await fetch(url);
         
-        if (!response.ok) break;
+        if (!response.ok) {
+          console.warn(`⚠️ TAX: Page ${pageCount} failed with ${response.status}`);
+          break;
+        }
         
         const data = await response.json();
         const transfers = data.result || [];
+        
+        if (transfers.length === 0) {
+          console.log(`📄 TAX: No more transfers on page ${pageCount}`);
+          break;
+        }
+        
         allTransfers.push(...transfers);
         
         cursor = data.cursor;
         hasMore = getAllPages && cursor && transfers.length === Math.min(limit, 100);
         
+        console.log(`✅ TAX: Page ${pageCount} loaded ${transfers.length} transfers, cursor: ${cursor ? 'yes' : 'no'}`);
+        
         if (!getAllPages) break;
+        
+        // Rate limiting zwischen Seiten
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
+      
+      console.log(`📊 TAX: Total loaded ${allTransfers.length} transfers across ${pageCount} pages`);
       
       // Tax Classification
       const taxableTransfers = allTransfers.filter(transfer => {
@@ -204,8 +227,9 @@ export class DirectMoralisService {
         totalTransfers: allTransfers.length,
         taxableCount: taxableTransfers.length,
         purchaseCount: purchases.length,
-        cuUsed: Math.ceil(allTransfers.length / 100) * 10, // Estimate
-        source: 'direct_moralis_pro_tax'
+        cuUsed: Math.min(pageCount * 10, 100), // Estimate based on pages
+        pagesLoaded: pageCount,
+        source: 'direct_moralis_unlimited_tax'
       };
       
     } catch (error) {

@@ -14,10 +14,14 @@ export default async function handler(req, res) {
   const { endpoint, address, chain = 'eth', limit = 100, cursor } = req.query;
   const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 
+  console.log(`🔍 PROXY DEBUG: endpoint=${endpoint}, address=${address?.slice(0,8)}..., chain=${chain}, limit=${limit}`);
+
   if (!MORALIS_API_KEY) {
+    console.error('🚨 PROXY: MORALIS_API_KEY missing');
     return res.status(500).json({
       error: 'MORALIS_API_KEY nicht konfiguriert',
-      success: false
+      success: false,
+      debug: 'Server-side API key missing'
     });
   }
 
@@ -32,20 +36,35 @@ export default async function handler(req, res) {
   try {
     let apiUrl;
     
+    // Chain mapping für bessere Kompatibilität
+    const chainMap = {
+      'eth': '0x1',
+      'ethereum': '0x1',
+      '1': '0x1',
+      '0x1': '0x1',
+      'pls': '0x171',
+      'pulsechain': '0x171',
+      '369': '0x171',
+      '0x171': '0x171'
+    };
+    
+    const normalizedChain = chainMap[chain.toLowerCase()] || chain;
+    console.log(`🔍 PROXY: Chain mapping ${chain} -> ${normalizedChain}`);
+    
     // API Endpoint auswählen
     switch (endpoint) {
       case 'transactions':
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}?chain=${chain}&limit=${limit}`;
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
       case 'erc20-transfers':
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${chain}&limit=${limit}`;
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
       case 'balances':
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20?chain=${chain}&limit=${limit}`;
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
@@ -57,19 +76,51 @@ export default async function handler(req, res) {
         });
     }
 
-    console.log(`🚀 PROXY: ${endpoint} für ${address} auf ${chain}`);
+    console.log(`🚀 PROXY: ${endpoint} für ${address?.slice(0,8)}... auf ${normalizedChain}`);
+    console.log(`🔗 PROXY URL: ${apiUrl}`);
 
-    // Moralis API Aufruf
+    // Moralis API Aufruf mit besserer Fehlerbehandlung
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'X-API-Key': MORALIS_API_KEY,
-        'Accept': 'application/json'
-      }
+        'Accept': 'application/json',
+        'User-Agent': 'PulseManager-Proxy/1.0'
+      },
+      timeout: 30000
     });
 
+    console.log(`📡 PROXY Response: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
-      throw new Error(`Moralis API Error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ MORALIS API ERROR: ${response.status} - ${errorText}`);
+      
+      // Spezifische Fehlerbehandlung
+      if (response.status === 401) {
+        return res.status(500).json({
+          success: false,
+          error: 'Moralis API Authentication failed',
+          debug: 'Invalid API key or permissions',
+          moralisStatus: response.status
+        });
+      }
+      
+      if (response.status === 429) {
+        return res.status(500).json({
+          success: false,
+          error: 'Moralis API Rate limit exceeded',
+          debug: 'Too many requests',
+          moralisStatus: response.status
+        });
+      }
+      
+      return res.status(500).json({
+        success: false,
+        error: `Moralis API Error: ${response.status}`,
+        debug: errorText,
+        moralisStatus: response.status
+      });
     }
 
     const data = await response.json();
@@ -80,14 +131,14 @@ export default async function handler(req, res) {
       success: true,
       endpoint: endpoint,
       address: address,
-      chain: chain,
+      chain: normalizedChain,
       result: data.result || [],
       cursor: data.cursor,
       total: data.total,
       page: data.page,
       page_size: data.page_size,
       timestamp: new Date().toISOString(),
-      source: 'moralis_proxy'
+      source: 'moralis_proxy_fixed'
     });
 
   } catch (error) {
@@ -99,7 +150,8 @@ export default async function handler(req, res) {
       endpoint: endpoint,
       address: address,
       chain: chain,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      debug: 'Proxy internal error'
     });
   }
 } 
