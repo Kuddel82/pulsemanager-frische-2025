@@ -16,8 +16,8 @@ import MinimalLayout from '@/components/layout/MinimalLayout';
 // ✅ ONLY THE 4 CORE FEATURES THE USER WANTS
 import Home from '@/components/views/Home';
 import PortfolioView from '@/views/PortfolioView';
-import ROITrackerView from '@/views/ROITrackerView';
-import TaxReportView from '@/views/TaxReportView';
+import ROITrackerView from '@/views/ROITrackerView_Simple';
+import TaxReportView from '@/views/TaxReportView_Simple';
 import WgepView from '@/views/WGEPView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';

@@ -305,7 +305,7 @@ const ROITrackerView = () => {
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden der ROI-Daten</h2>
           <p className="pulse-text-secondary mb-4">{error}</p>
-          <Button onClick={loadDefiData} className="bg-green-500 hover:bg-green-600">
+                          <Button onClick={loadROIData} className="bg-green-500 hover:bg-green-600">
             <RefreshCw className="h-4 w-4 mr-2" />
             DeFi-Daten erneut laden
           </Button>
@@ -411,7 +411,7 @@ const ROITrackerView = () => {
                 )}
               </Button>
               <Button 
-                onClick={loadDefiData} 
+                onClick={loadROIData} 
                 disabled={defiLoading || !hasPortfolioData}
                 variant="outline"
                 size="sm"
@@ -428,7 +428,7 @@ const ROITrackerView = () => {
                   // Combined load: Portfolio first, then DeFi
                   loadPortfolioData().then(() => {
                     if (hasPortfolioData) {
-                      loadDefiData();
+                      loadROIData();
                     }
                   });
                 }}

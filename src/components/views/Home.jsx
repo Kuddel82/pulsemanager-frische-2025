@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Crown } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
@@ -10,7 +11,8 @@ import WalletManualInput from '@/components/WalletManualInput';
 const Home = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
-  const { t, language, subscriptionStatus } = useAppContext();
+  const { t, language } = useAppContext();
+  const { isPremium, getAccessMessage } = useSubscription();
 
 
 
@@ -67,8 +69,8 @@ const Home = () => {
           <div className="flex items-center gap-4">
             <div className="text-right">
               <div className="text-sm pulse-text-secondary">Status</div>
-              <div className={`font-semibold ${subscriptionStatus === 'active' ? 'text-green-400' : 'text-yellow-400'}`}>
-                {subscriptionStatus === 'active' ? '✅ Premium' : '⚡ Basic'}
+              <div className={`font-semibold ${isPremium ? 'text-green-400' : 'text-yellow-400'}`}>
+                {isPremium ? '✅ Premium' : '⚡ Basic'}
               </div>
             </div>
           </div>
