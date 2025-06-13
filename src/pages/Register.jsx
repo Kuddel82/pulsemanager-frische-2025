@@ -125,6 +125,43 @@ const Register = () => {
 
   const passwordStrength = getPasswordStrength(formData.password);
 
+  // Show loading while auth is initializing
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+          <p className="mt-2 text-gray-300">Lade Anwendung...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Anpassung der Alerts
+  const renderSuccessAlert = () => {
+    if (!success) return null;
+    return (
+      <Alert className="border-green-600 bg-green-900/20 backdrop-blur-sm">
+        <CheckCircle className="h-4 w-4 text-green-400" />
+        <AlertDescription className="text-green-200">
+          {success}
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
+  const renderErrorAlert = () => {
+    if (!error) return null;
+    return (
+      <Alert className="border-red-600 bg-red-900/20 backdrop-blur-sm">
+        <AlertCircle className="h-4 w-4 text-red-400" />
+        <AlertDescription className="text-red-200">
+          {error}
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -147,24 +184,10 @@ const Register = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Success Alert */}
-              {success && (
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    {success}
-                  </AlertDescription>
-                </Alert>
-              )}
+              {renderSuccessAlert()}
 
               {/* Error Alert */}
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {error}
-                  </AlertDescription>
-                </Alert>
-              )}
+              {renderErrorAlert()}
 
               {/* Email Field */}
               <div className="space-y-2">
@@ -225,12 +248,12 @@ const Register = () => {
                                 : passwordStrength <= 3
                                 ? 'bg-yellow-500'
                                 : 'bg-green-500'
-                              : 'bg-gray-200'
+                              : 'bg-gray-700'
                           }`}
                         />
                       ))}
                     </div>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-gray-400">
                       Passwortstärke: {passwordStrength <= 2 ? 'Schwach' : passwordStrength <= 3 ? 'Mittel' : 'Stark'}
                     </p>
                   </div>

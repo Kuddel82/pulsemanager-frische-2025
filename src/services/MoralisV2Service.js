@@ -1,5 +1,15 @@
-// 🚀 MORALIS V2 SERVICE - MODERNE WALLET APIS
-// Ersetzt fragmentierte API-Calls durch holistische Wallet-Endpunkte
+/**
+ * 🚀 MORALIS V2 SERVICE - OPTIMIERT FÜR READ-ONLY SYSTEM
+ * 
+ * ✅ PulseManager READ-ONLY System Optimierungen:
+ * - ✅ Portfolio & Transaction APIs sind aktiv
+ * - ✅ Steuer-/Tax-Report APIs sind aktiv
+ * - ❌ DeFi APIs (Enterprise Features) deaktiviert
+ * - ❌ Gas-Price APIs deaktiviert
+ * 
+ * WICHTIG: Dieses System ist rein LESEND und benötigt keine Gas-Preise oder DeFi-Enterprise-Features!
+ * Alle Methoden für Enterprise Features und Gas-Preise geben Mock-Daten zurück, um existierende Codeaufrufe nicht zu brechen.
+ */
 
 export class MoralisV2Service {
   
@@ -114,42 +124,26 @@ export class MoralisV2Service {
   /**
    * 📊 WALLET ANALYTICS
    * Für Dashboard-KPIs und User-Segmentierung
+   * 
+   * ❌ DEPRECATED - 2025-06-12 - Enterprise Feature, nicht mehr aktiv
    */
   static async getWalletStats(address, chain = '1') {
-    try {
-      console.log(`🚀 V2: Loading wallet stats for ${address}`);
-      
-      const response = await fetch(`${this.API_BASE}?endpoint=stats&address=${address}&chain=${chain}`, {
-        method: 'GET'
-      });
-      
-      const data = await response.json();
-      
-      if (data._error) {
-        console.warn('⚠️ V2 Stats API Error:', data._error.message);
-        return {
-          success: false,
-          error: data._error.message,
-          stats: null
-        };
-      }
-      
-      console.log(`✅ V2: Stats loaded - ${data.result.transactions?.total || 0} total transactions`);
-      
-      return {
-        success: true,
-        stats: data.result,
-        source: 'moralis_v2_stats'
-      };
-      
-    } catch (error) {
-      console.error('💥 V2 Stats Service Error:', error);
-      return { 
-        success: false, 
-        error: error.message,
-        stats: null
-      };
-    }
+    console.warn('❌ DEPRECATED: getWalletStats ist ein Enterprise Feature und nicht mehr unterstützt');
+    console.warn('Das System ist READ-ONLY und verwendet nur Pro-Features');
+    
+    // Leere Daten zurückgeben, damit existierende Code nicht kaputt geht
+    return {
+      success: true,
+      stats: {
+        nfts: 0,
+        collections: 0,
+        transactions: { total: 0 },
+        nft_transfers: { total: 0 },
+        token_transfers: { total: 0 }
+      },
+      _deprecated: true,
+      _note: 'Enterprise Feature deaktiviert im READ-ONLY System'
+    };
   }
   
   /**
@@ -158,20 +152,17 @@ export class MoralisV2Service {
    */
   static async loadCompletePortfolio(address, chain = '1') {
     try {
-      console.log(`🚀 V2: Loading complete portfolio for ${address}`);
+      console.log(`🚀 V2: Loading portfolio for ${address}`);
       
-      // Parallel loading für Performance
-      const [portfolioResult, statsResult] = await Promise.all([
-        this.getPortfolioNetWorth(address, chain),
-        this.getWalletStats(address, chain)
-      ]);
+      // Nur noch Portfolio laden, keine Stats mehr (Enterprise Feature)
+      const portfolioResult = await this.getPortfolioNetWorth(address, chain);
       
       return {
         success: true,
         portfolio: portfolioResult,
-        stats: statsResult,
+        stats: { success: true, stats: {} }, // Leere Stats
         total_value_usd: portfolioResult.total_networth_usd || '0',
-        source: 'moralis_v2_complete'
+        source: 'moralis_v2_portfolio_only'
       };
       
     } catch (error) {
@@ -295,186 +286,99 @@ export class MoralisV2Service {
   }
   
   /**
-   * 🏆 DEFI SUMMARY - ROI Detection Goldmine
-   * Ersetzt: Manuelle ROI-Detection durch echte DeFi-Daten
+   * 🔄 GET ERC20 TRANSFERS
+   * Lädt ERC20 Token Transfers für eine Wallet
    */
-  static async getDefiSummary(address, chain = '1') {
+  static async getERC20Transfers(address, chain = '1', options = {}) {
     try {
-      console.log(`🚀 V2 DEFI: Loading DeFi summary for ${address}`);
+      const { limit = 100, cursor = null } = options;
+      console.log(`🚀 V2: Loading ERC20 transfers for ${address}`);
       
-      const response = await fetch(`/api/moralis-v2?endpoint=defi-summary&address=${address}&chain=${chain}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      // 🔧 BETTER 500 ERROR HANDLING
-      if (!response.ok) {
-        if (response.status === 500) {
-          console.warn(`⚠️ DeFi Summary not available: [C0006] Request failed, Internal Server Error(500): Unknown error occurred. Please try again or contact support.`);
-          return {
-            success: true, // Return success with empty data instead of failing
-            defiSummary: {
-              active_protocols: 0,
-              total_usd_value: 0,
-              total_unclaimed_usd_value: 0,
-              total_positions: 0
-            },
-            roiAnalysis: {
-              hasActivePositions: false,
-              hasUnclaimedRewards: false,
-              totalValue: 0,
-              unclaimedValue: 0,
-              activeProtocols: 0,
-              roiPotential: 'none'
-            },
-            _fallback500: true,
-            source: 'moralis_v2_defi_summary_fallback'
-          };
-        }
-        throw new Error(`DeFi Summary API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data._error) {
-        console.warn('⚠️ V2 DeFi Summary Error:', data._error.message);
-        return { 
-          success: false, 
-          error: data._error.message,
-          defiSummary: null
-        };
+      let url = `${this.API_BASE}?endpoint=erc20_transfers&address=${address}&chain=${chain}&limit=${limit}`;
+      if (cursor) {
+        url += `&cursor=${cursor}`;
       }
       
-      const summary = data.result;
-      console.log(`✅ V2 DEFI: ${summary.active_protocols} protocols, $${summary.total_usd_value} value, $${summary.total_unclaimed_usd_value} unclaimed`);
-      
-      return {
-        success: true,
-        defiSummary: summary,
-        roiAnalysis: {
-          hasActivePositions: parseInt(summary.total_positions) > 0,
-          hasUnclaimedRewards: parseFloat(summary.total_unclaimed_usd_value) > 0,
-          totalValue: parseFloat(summary.total_usd_value) || 0,
-          unclaimedValue: parseFloat(summary.total_unclaimed_usd_value) || 0,
-          activeProtocols: parseInt(summary.active_protocols) || 0,
-          roiPotential: parseFloat(summary.total_unclaimed_usd_value) > 0 ? 'high' : 'low'
-        },
-        source: 'moralis_v2_defi_summary'
-      };
-      
-    } catch (error) {
-      console.error('💥 V2 DeFi Summary Error:', error);
-      return { 
-        success: false, 
-        error: error.message,
-        defiSummary: null
-      };
-    }
-  }
-  
-  /**
-   * 🎯 DEFI POSITIONS - Complete ROI Source Detection
-   * Ersetzt: Vermutungen durch echte Position-Daten
-   */
-  static async getDefiPositions(address, chain = '1') {
-    try {
-      console.log(`🚀 V2 DEFI POSITIONS: Loading positions for ${address}`);
-      
-      const response = await fetch(`/api/moralis-v2?endpoint=defi-positions&address=${address}&chain=${chain}`, {
+      const response = await fetch(url, {
         method: 'GET'
       });
       
-      // 🔧 BETTER 500 ERROR HANDLING
-      if (!response.ok) {
-        if (response.status === 500) {
-          console.warn(`⚠️ DeFi Positions not available: [C0006] Request failed, Internal Server Error(500): Unknown error occurred. Please try again or contact support.`);
-          return {
-            success: true, // Return success with empty data instead of failing
-            positions: [],
-            roiSources: [],
-            roiAnalysis: {
-              totalPositions: 0,
-              roiSourcesCount: 0,
-              totalROIValue: 0,
-              totalDailyROI: 0,
-              estimatedMonthlyROI: 0,
-              hasActiveROI: false
-            },
-            _fallback500: true,
-            source: 'moralis_v2_defi_positions_fallback'
-          };
-        }
-        throw new Error(`DeFi Positions API error: ${response.status}`);
-      }
-
       const data = await response.json();
       
       if (data._error) {
-        console.warn('⚠️ V2 DeFi Positions Error:', data._error.message);
-        return { 
-          success: false, 
+        console.warn('⚠️ V2 ERC20 Transfers API Error:', data._error.message);
+        return {
+          success: false,
           error: data._error.message,
-          positions: []
+          transfers: []
         };
       }
       
-      const positions = Array.isArray(data.result) ? data.result : [];
-      
-      // ROI Analysis for each position
-      const roiPositions = positions.map(position => {
-        const balanceUsd = parseFloat(position.balance_usd) || 0;
-        const unclaimedUsd = parseFloat(position.total_unclaimed_usd_value) || 0;
-        const apy = position.position_details?.apy || 0;
-        
-        return {
-          protocol: position.protocol_name || 'Unknown',
-          protocolId: position.protocol_id || 'unknown',
-          label: position.label || 'position',
-          balanceUsd: balanceUsd,
-          unclaimedUsd: unclaimedUsd,
-          apy: apy,
-          isROISource: unclaimedUsd > 0 || apy > 0,
-          roiType: position.position_details?.is_debt ? 'lending' : 'liquidity',
-          estimatedDailyROI: apy > 0 ? (apy * balanceUsd / 365 / 100) : 0,
-          
-          tokens: position.tokens?.map(token => ({
-            symbol: token.symbol,
-            name: token.name,
-            balanceFormatted: token.balance_formatted,
-            usdValue: token.usd_value
-          })) || []
-        };
-      });
-      
-      const roiSources = roiPositions.filter(pos => pos.isROISource);
-      const totalROIValue = roiSources.reduce((sum, pos) => sum + pos.unclaimedUsd, 0);
-      const totalDailyROI = roiSources.reduce((sum, pos) => sum + pos.estimatedDailyROI, 0);
-      
-      console.log(`✅ V2 DEFI POSITIONS: ${positions.length} positions, ${roiSources.length} ROI sources, $${totalROIValue.toFixed(2)} unclaimed`);
+      console.log(`✅ V2: ERC20 Transfers loaded - ${data.transfers?.length || 0} transfers`);
       
       return {
         success: true,
-        positions: roiPositions,
-        roiSources: roiSources,
-        roiAnalysis: {
-          totalPositions: positions.length,
-          roiSourcesCount: roiSources.length,
-          totalROIValue: totalROIValue,
-          totalDailyROI: totalDailyROI,
-          estimatedMonthlyROI: totalDailyROI * 30,
-          hasActiveROI: roiSources.length > 0
-        },
-        source: 'moralis_v2_defi_positions'
+        transfers: data.transfers || [],
+        cursor: data.cursor,
+        total: data.transfers?.length || 0,
+        source: 'moralis_v2_erc20_transfers'
       };
       
     } catch (error) {
-      console.error('💥 V2 DeFi Positions Error:', error);
+      console.error('💥 V2 ERC20 Transfers Error:', error);
       return { 
         success: false, 
         error: error.message,
-        positions: []
+        transfers: []
+      };
+    }
+  }
+
+  /**
+   * 🔄 GET NATIVE TRANSACTIONS
+   * Lädt Native Transaktionen (ETH/PLS) für eine Wallet
+   */
+  static async getNativeTransactions(address, chain = '1', options = {}) {
+    try {
+      const { limit = 100, cursor = null } = options;
+      console.log(`🚀 V2: Loading native transactions for ${address}`);
+      
+      let url = `${this.API_BASE}?endpoint=native_transactions&address=${address}&chain=${chain}&limit=${limit}`;
+      if (cursor) {
+        url += `&cursor=${cursor}`;
+      }
+      
+      const response = await fetch(url, {
+        method: 'GET'
+      });
+      
+      const data = await response.json();
+      
+      if (data._error) {
+        console.warn('⚠️ V2 Native Transactions API Error:', data._error.message);
+        return {
+          success: false,
+          error: data._error.message,
+          transactions: []
+        };
+      }
+      
+      console.log(`✅ V2: Native Transactions loaded - ${data.transactions?.length || 0} transactions`);
+      
+      return {
+        success: true,
+        transactions: data.transactions || [],
+        cursor: data.cursor,
+        total: data.transactions?.length || 0,
+        source: 'moralis_v2_native_transactions'
+      };
+      
+    } catch (error) {
+      console.error('💥 V2 Native Transactions Error:', error);
+      return { 
+        success: false, 
+        error: error.message,
+        transactions: []
       };
     }
   }
@@ -482,249 +386,159 @@ export class MoralisV2Service {
   /**
    * 📊 ENHANCED WALLET STATS - Combined Analytics
    * Kombiniert: Basic Stats + DeFi Data + ROI Analysis
+   * 
+   * ❌ DEPRECATED - 2025-06-12 - Enterprise Feature, nicht mehr aktiv
    */
   static async getEnhancedWalletStats(address, chain = '1') {
-    try {
-      console.log(`🚀 V2 ENHANCED STATS: Loading enhanced analytics for ${address}`);
-      
-      // Parallel loading für Performance
-      const [statsResult, defiSummaryResult] = await Promise.all([
-        this.getWalletStats(address, chain),
-        this.getDefiSummary(address, chain)
-      ]);
-      
-      const stats = statsResult.stats || {};
-      const defiSummary = defiSummaryResult.defiSummary || {};
-      
-      // Enhanced analytics
-      const enhancedStats = {
-        // Basic Stats
-        nfts: parseInt(stats.nfts) || 0,
-        collections: parseInt(stats.collections) || 0,
-        totalTransactions: parseInt(stats.transactions?.total) || 0,
-        nftTransfers: parseInt(stats.nft_transfers?.total) || 0,
-        tokenTransfers: parseInt(stats.token_transfers?.total) || 0,
-        
-        // DeFi Stats
-        defiProtocols: parseInt(defiSummary.active_protocols) || 0,
-        defiPositions: parseInt(defiSummary.total_positions) || 0,
-        defiValueUsd: parseFloat(defiSummary.total_usd_value) || 0,
-        defiUnclaimedUsd: parseFloat(defiSummary.total_unclaimed_usd_value) || 0,
-        
-        // Activity Score (0-100)
-        activityScore: this.calculateActivityScore(stats, defiSummary),
-        
-        // User Classification
-        userType: this.determineUserType(stats, defiSummary),
-        
-        // ROI Analysis
+    console.warn('❌ DEPRECATED: getEnhancedWalletStats ist ein Enterprise Feature und nicht mehr unterstützt');
+    console.warn('Das System ist READ-ONLY und verwendet nur Pro-Features');
+    
+    // Leere Enhanced Stats zurückgeben
+    return {
+      success: true,
+      enhancedStats: {
+        nfts: 0,
+        collections: 0,
+        totalTransactions: 0,
+        nftTransfers: 0,
+        tokenTransfers: 0,
+        defiProtocols: 0,
+        defiPositions: 0,
+        defiValueUsd: 0,
+        defiUnclaimedUsd: 0,
+        activityScore: 0,
+        userType: 'basic_user',
         roiProfile: {
-          hasDefiPositions: parseInt(defiSummary.total_positions) > 0,
-          hasUnclaimedRewards: parseFloat(defiSummary.total_unclaimed_usd_value) > 0,
-          roiPotential: this.calculateROIPotential(defiSummary),
-          riskProfile: this.assessRiskProfile(stats, defiSummary)
+          hasDefiPositions: false,
+          hasUnclaimedRewards: false,
+          roiPotential: 'none',
+          riskProfile: 'low'
         }
-      };
-      
-      console.log(`✅ V2 ENHANCED STATS: Activity Score: ${enhancedStats.activityScore}, User Type: ${enhancedStats.userType}`);
-      
-      return {
-        success: true,
-        enhancedStats: enhancedStats,
-        rawStats: stats,
-        rawDefi: defiSummary,
-        source: 'moralis_v2_enhanced_stats'
-      };
-      
-    } catch (error) {
-      console.error('💥 V2 Enhanced Stats Error:', error);
-      return { 
-        success: false, 
-        error: error.message,
-        enhancedStats: null
-      };
-    }
+      },
+      _deprecated: true,
+      source: 'moralis_v2_enhanced_stats_disabled',
+      _note: 'Enterprise Feature deaktiviert im READ-ONLY System'
+    };
   }
   
   /**
    * 🔍 COMPLETE ROI ANALYSIS
    * Kombiniert: Transaction History + DeFi Positions + Portfolio Analysis
+   * 
+   * ❌ DEPRECATED - 2025-06-12 - Enterprise Feature, nicht mehr aktiv
    */
   static async getCompleteROIAnalysis(address, chain = '1', options = {}) {
-    try {
-      console.log(`🚀 V2 COMPLETE ROI: Starting comprehensive ROI analysis for ${address}`);
-      
-      // Parallel loading aller ROI-relevanten Daten
-      const [historyResult, defiPositionsResult, portfolioResult] = await Promise.all([
-        this.getCompleteHistory(address, chain, { 
-          getAllPages: false, // Begrenzt für Performance
-          limit: 100
-        }),
-        this.getDefiPositions(address, chain),
-        this.getPortfolioNetWorth(address, chain)
-      ]);
-      
-      // ROI Analysis aus verschiedenen Quellen
-      const roiAnalysis = {
-        // Transaction-basiertes ROI
-        transactionROI: this.analyzeTransactionROI(historyResult.transactions || []),
-        
-        // DeFi-basiertes ROI
-        defiROI: defiPositionsResult.roiAnalysis || {},
-        
-        // Portfolio-basiertes ROI
-        portfolioROI: this.analyzePortfolioROI(portfolioResult),
-        
-        // Kombinierte Metriken
-        combinedMetrics: this.calculateCombinedROIMetrics(historyResult, defiPositionsResult, portfolioResult)
-      };
-      
-      console.log(`✅ V2 COMPLETE ROI: Analysis complete - DeFi ROI: $${roiAnalysis.defiROI.totalROIValue || 0}, Portfolio: $${portfolioResult.total_networth_usd || 0}`);
-      
-      return {
-        success: true,
-        roiAnalysis: roiAnalysis,
-        source: 'moralis_v2_complete_roi',
-        dataQuality: {
-          hasTransactionHistory: (historyResult.transactions || []).length > 0,
-          hasDefiPositions: (defiPositionsResult.positions || []).length > 0,
-          hasPortfolioData: parseFloat(portfolioResult.total_networth_usd || '0') > 0
+    console.warn('❌ DEPRECATED: getCompleteROIAnalysis ist ein Enterprise Feature und nicht mehr unterstützt');
+    console.warn('Das System ist READ-ONLY und verwendet nur Pro-Features');
+    
+    // Nur Portfolio-Daten laden, Rest leer
+    const portfolioResult = await this.getPortfolioNetWorth(address, chain);
+    
+    // Leere ROI-Analyse zurückgeben
+    return {
+      success: true,
+      roiAnalysis: {
+        transactionROI: {
+          dailyROI: 0,
+          weeklyROI: 0,
+          monthlyROI: 0
+        },
+        defiROI: {
+          totalROIValue: 0,
+          dailyROI: 0,
+          monthlyROI: 0
+        },
+        portfolioROI: {
+          totalValue: parseFloat(portfolioResult.total_networth_usd || '0'),
+          dailyChange: 0,
+          weeklyChange: 0,
+          monthlyChange: 0
+        },
+        combinedMetrics: {
+          totalValue: parseFloat(portfolioResult.total_networth_usd || '0'),
+          totalROI: 0,
+          roiScore: 0
         }
-      };
-      
-    } catch (error) {
-      console.error('💥 V2 Complete ROI Analysis Error:', error);
-      return {
-        success: false,
-        error: error.message,
-        roiAnalysis: null
-      };
-    }
+      },
+      _deprecated: true,
+      source: 'moralis_v2_complete_roi_disabled',
+      _note: 'Enterprise Feature deaktiviert im READ-ONLY System',
+      dataQuality: {
+        hasTransactionHistory: false,
+        hasDefiPositions: false,
+        hasPortfolioData: parseFloat(portfolioResult.total_networth_usd || '0') > 0
+      }
+    };
   }
   
-  // Helper: Calculate Activity Score
+  // Die folgenden Helper-Methoden werden nicht mehr verwendet, bleiben aber für Dokumentationszwecke
+  
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static calculateActivityScore(stats, defiSummary) {
-    const transactions = parseInt(stats.transactions?.total) || 0;
-    const nfts = parseInt(stats.nfts) || 0;
-    const defiProtocols = parseInt(defiSummary.active_protocols) || 0;
-    const defiValue = parseFloat(defiSummary.total_usd_value) || 0;
-    
-    return Math.min(100, 
-      Math.min(30, transactions / 100 * 30) +          // 30% weight on transactions
-      Math.min(20, nfts / 10 * 20) +                   // 20% weight on NFTs
-      Math.min(25, defiProtocols * 5) +                // 25% weight on DeFi protocols
-      Math.min(25, defiValue / 10000 * 25)             // 25% weight on DeFi value
-    );
+    return 0; // Deaktiviert
   }
   
-  // Helper: Determine User Type
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static determineUserType(stats, defiSummary) {
-    const transactions = parseInt(stats.transactions?.total) || 0;
-    const nfts = parseInt(stats.nfts) || 0;
-    const defiProtocols = parseInt(defiSummary.active_protocols) || 0;
-    const defiValue = parseFloat(defiSummary.total_usd_value) || 0;
-    
-    if (defiValue > 100000 || defiProtocols > 5) return 'defi_whale';
-    if (defiProtocols > 2 || defiValue > 10000) return 'defi_user';
-    if (nfts > 50) return 'nft_collector';
-    if (nfts > 10) return 'nft_user';
-    if (transactions > 1000) return 'active_trader';
-    if (transactions > 100) return 'regular_user';
-    return 'beginner';
+    return 'basic_user'; // Deaktiviert
   }
   
-  // Helper: Calculate ROI Potential
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static calculateROIPotential(defiSummary) {
-    const unclaimed = parseFloat(defiSummary.total_unclaimed_usd_value) || 0;
-    const protocols = parseInt(defiSummary.active_protocols) || 0;
-    
-    if (unclaimed > 1000 || protocols > 3) return 'high';
-    if (unclaimed > 100 || protocols > 1) return 'medium';
-    if (unclaimed > 0 || protocols > 0) return 'low';
-    return 'none';
+    return 'none'; // Deaktiviert
   }
   
-  // Helper: Assess Risk Profile
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static assessRiskProfile(stats, defiSummary) {
-    const defiValue = parseFloat(defiSummary.total_usd_value) || 0;
-    const protocols = parseInt(defiSummary.active_protocols) || 0;
-    const transactions = parseInt(stats.transactions?.total) || 0;
-    
-    if (defiValue > 50000 && protocols > 4) return 'high_risk_high_reward';
-    if (defiValue > 10000 && protocols > 2) return 'moderate_risk';
-    if (defiValue > 1000 || protocols > 0) return 'low_risk';
-    if (transactions > 100) return 'explorer';
-    return 'beginner';
+    return 'low'; // Deaktiviert
   }
   
-  // Helper: Analyze Transaction ROI
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static analyzeTransactionROI(transactions) {
-    // Simplified transaction ROI analysis
-    const incomingTransactions = transactions.filter(tx => {
-      return tx.erc20_transfer?.some(transfer => 
-        transfer.direction === 'incoming' || 
-        transfer.to_address?.toLowerCase() === tx.to_address?.toLowerCase()
-      ) || tx.native_transfers?.some(transfer => 
-        transfer.direction === 'incoming'
-      );
-    });
-    
     return {
-      totalTransactions: transactions.length,
-      incomingCount: incomingTransactions.length,
-      estimatedROITransactions: incomingTransactions.length,
-      roiRatio: transactions.length > 0 ? 
-        (incomingTransactions.length / transactions.length * 100).toFixed(2) : '0'
-    };
+      dailyROI: 0,
+      weeklyROI: 0, 
+      monthlyROI: 0
+    }; // Deaktiviert
   }
   
-  // Helper: Analyze Portfolio ROI
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static analyzePortfolioROI(portfolioResult) {
-    const totalValue = parseFloat(portfolioResult.total_networth_usd || '0');
-    
     return {
-      portfolioValue: totalValue,
-      hasSignificantValue: totalValue > 1000,
-      valueCategory: totalValue > 100000 ? 'whale' : 
-                   totalValue > 10000 ? 'large' :
-                   totalValue > 1000 ? 'medium' : 'small'
-    };
+      totalValue: parseFloat(portfolioResult?.total_networth_usd || '0'),
+      dailyChange: 0,
+      weeklyChange: 0,
+      monthlyChange: 0
+    }; // Deaktiviert
   }
   
-  // Helper: Calculate Combined ROI Metrics
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static calculateCombinedROIMetrics(historyResult, defiResult, portfolioResult) {
-    const defiROI = defiResult.roiAnalysis || {};
-    const portfolioValue = parseFloat(portfolioResult.total_networth_usd || '0');
-    
     return {
-      totalEstimatedROI: defiROI.totalROIValue || 0,
-      dailyROIEstimate: defiROI.totalDailyROI || 0,
-      monthlyROIEstimate: defiROI.estimatedMonthlyROI || 0,
-      portfolioROIRatio: portfolioValue > 0 ? 
-        ((defiROI.totalROIValue || 0) / portfolioValue * 100).toFixed(2) : '0',
-      overallROIScore: this.calculateOverallROIScore(defiResult, portfolioResult)
-    };
+      totalValue: parseFloat(portfolioResult?.total_networth_usd || '0'),
+      totalROI: 0,
+      roiScore: 0
+    }; // Deaktiviert
   }
   
-  // Helper: Calculate Overall ROI Score
+  /**
+   * ❌ DEPRECATED - Helper-Methode, nicht mehr verwendet
+   */
   static calculateOverallROIScore(defiResult, portfolioResult) {
-    const roiValue = defiResult.roiAnalysis?.totalROIValue || 0;
-    const portfolioValue = parseFloat(portfolioResult.total_networth_usd || '0');
-    const roiSources = defiResult.roiAnalysis?.roiSourcesCount || 0;
-    
-    let score = 0;
-    if (roiValue > 1000) score += 40;
-    else if (roiValue > 100) score += 25;
-    else if (roiValue > 0) score += 10;
-    
-    if (roiSources > 3) score += 30;
-    else if (roiSources > 1) score += 20;
-    else if (roiSources > 0) score += 10;
-    
-    if (portfolioValue > 50000) score += 30;
-    else if (portfolioValue > 10000) score += 20;
-    else if (portfolioValue > 1000) score += 10;
-    
-    return Math.min(100, score);
+    return 0; // Deaktiviert
   }
 } 

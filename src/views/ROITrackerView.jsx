@@ -28,48 +28,61 @@ import {
   BarChart3
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
-import CentralDataService from '@/services/CentralDataService';
+import { usePortfolioContext } from '@/contexts/PortfolioContext';
+import CUMonitor from '@/components/ui/CUMonitor';
 import { MoralisV2Service } from '@/services/MoralisV2Service';
 import { ROIDetectionService } from '@/services/ROIDetectionService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
-  const [portfolioData, setPortfolioData] = useState(null);
+  
+  // 🚀 GLOBAL PORTFOLIO CONTEXT - Shared data between views
+  const {
+    portfolioData,
+    loading: portfolioLoading,
+    error: portfolioError,
+    lastUpdate: portfolioLastUpdate,
+    loadPortfolioData,
+    canRefresh,
+    remainingTime,
+    hasData: hasPortfolioData,
+    isCached
+  } = usePortfolioContext();
+  
+  // 🎯 ROI-SPECIFIC STATE (DeFi data nur für ROI)
   const [defiData, setDefiData] = useState(null);
   const [roiDetectionData, setROIDetectionData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [defiLoading, setDefiLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [lastDefiUpdate, setLastDefiUpdate] = useState(null);
   const [timeFrame, setTimeFrame] = useState('monthly');
   const [showDebug, setShowDebug] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // overview, defi, positions, detection
 
-  // 🚀 LADE ALLE ROI-RELEVANTEN DATEN (V2: CACHE-OPTIMIERT)
-  const loadAllROIData = async () => {
-    if (!user?.id) return;
+  // 🚀 LOAD DEFI DATA ONLY - Portfolio comes from Global Context
+  const loadDefiData = async () => {
+    if (!user?.id || !hasPortfolioData) {
+      console.log('⚠️ Cannot load DeFi data: No user or portfolio data');
+      return;
+    }
     
     try {
-      setLoading(true);
+      setDefiLoading(true);
       setError(null);
       
-      console.log('🔄 ROI TRACKER V2: Loading ROI data with smart caching...');
+      console.log('🔄 ROI TRACKER: Loading DeFi data using Global Portfolio Context...');
       
-      // 1. 📦 Portfolio-Daten aus Cache/API (Smart Cache Service)
-      const portfolioResponse = await CentralDataService.loadCompletePortfolio(user.id);
-      
-      console.log('📊 ROI TRACKER: Portfolio Response:', {
-        success: portfolioResponse.success,
-        isLoaded: portfolioResponse.isLoaded,
-        fromCache: portfolioResponse.fromCache,
-        totalValue: portfolioResponse.totalValue,
-        tokenCount: portfolioResponse.tokenCount,
-        apiCalls: portfolioResponse.apiCalls || 'Cache Hit',
-        cacheInfo: portfolioResponse.cacheOptimization
+             console.log('📊 ROI TRACKER: Using Global Portfolio Data:', {
+        success: portfolioData?.success,
+        isLoaded: portfolioData?.isLoaded,
+        fromCache: isCached,
+        totalValue: portfolioData?.totalValue,
+        tokenCount: portfolioData?.tokenCount
       });
       
       // 2. 🔥 MULTI-CHAIN WALLET SELECTION für Moralis DeFi APIs
-      const wallets = portfolioResponse.wallets || [];
+      const wallets = portfolioData?.wallets || [];
       console.log('📱 Available wallets:', wallets.map(w => ({ address: w.address?.slice(0, 8) + '...', chain: w.chain })));
       
       // Suche Ethereum-Wallet ODER verwende PulseChain-Wallet für Ethereum DeFi Test
@@ -162,10 +175,10 @@ const ROITrackerView = () => {
             defiPositionsSuccess: defiPositions.success,
             roiDetectionSuccess: roiDetection.success,
             portfolioData: {
-              totalValue: portfolioResponse.totalValue,
-              monthlyROI: portfolioResponse.monthlyROI,
-              dailyROI: portfolioResponse.dailyROI,
-              weeklyROI: portfolioResponse.weeklyROI
+              totalValue: portfolioData?.totalValue || 0,
+              monthlyROI: portfolioData?.monthlyROI || 0,
+              dailyROI: portfolioData?.dailyROI || 0,
+              weeklyROI: portfolioData?.weeklyROI || 0
             }
           });
         } catch (apiError) {
@@ -225,101 +238,51 @@ const ROITrackerView = () => {
         };
       }
       
-      // 🎯 Portfolio-Daten validieren und setzen (Cache oder Fresh)
-      let validPortfolioData;
-      
-      if (portfolioResponse.success || portfolioResponse.isLoaded) {
-        // ✅ Gültige Daten (aus Cache oder frisch von APIs)
-        validPortfolioData = portfolioResponse;
-        console.log(`✅ ROI TRACKER: Valid portfolio data ${portfolioResponse.fromCache ? 'from CACHE' : 'from APIs'}`);
-      } else {
-        // ❌ Fallback für fehlerhafte Daten
-        console.warn('⚠️ ROI TRACKER: Using fallback portfolio data');
-        validPortfolioData = {
-          success: true,
-          isLoaded: true,
-          totalValue: 0,
-          monthlyROI: 0,
-          dailyROI: 0,
-          weeklyROI: 0,
-          tokens: [],
-          wallets: [],
-          roiTransactions: [],
-          tokenCount: 0,
-          walletCount: 0,
-          fromCache: false,
-          error: portfolioResponse.error || 'No valid portfolio data'
-        };
-      }
-      
-      setPortfolioData(validPortfolioData);
-      
+      // 💾 Store DeFi-specific data only (Portfolio comes from Global Context)
       setDefiData(defiResponse);
       setROIDetectionData(roiDetectionResponse);
-      setLastUpdate(new Date());
+      setLastDefiUpdate(new Date());
       
-      console.log('✅ ROI TRACKER V2: All data loaded', {
-        portfolioROI: portfolioResponse.monthlyROI || 0,
-        portfolioValue: portfolioResponse.totalValue || 0,
+      console.log('✅ ROI TRACKER: DeFi data loaded', {
+        portfolioROI: portfolioData?.monthlyROI || 0,
+        portfolioValue: portfolioData?.totalValue || 0,
         defiPositions: defiResponse?.positions?.positions?.length || 0,
         roiSources: roiDetectionResponse?.sources?.length || 0,
         walletUsed: primaryWallet?.address?.slice(0, 8) + '...' || 'None',
         originalChain: primaryWallet?.chain || 'None',
-        dataLoaded: true
+        usingGlobalPortfolio: true
       });
       
     } catch (err) {
-      console.error('💥 ROI TRACKER V2 ERROR:', err);
+      console.error('💥 ROI TRACKER DeFi ERROR:', err);
       setError(err.message);
       
-      // Auch bei Fehlern Mock-Daten setzen, damit UI funktioniert
-      setPortfolioData({
-        success: false,
-        totalValue: 0,
-        monthlyROI: 0,
-        dailyROI: 0,
-        weeklyROI: 0,
-        tokens: [],
-        wallets: [],
-        roiTransactions: [],
-        error: err.message
-      });
+      // Set fallback DeFi data (Portfolio data remains from Global Context)
       setDefiData({
         summary: { success: false, error: err.message, roiAnalysis: { activeProtocols: 0, totalValue: 0, unclaimedValue: 0, roiPotential: 'low' } },
         positions: { success: false, positions: [], roiAnalysis: { totalPositions: 0, totalDailyROI: 0, estimatedMonthlyROI: 0 } }
       });
     } finally {
-      setLoading(false);
+      setDefiLoading(false);
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    loadAllROIData();
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: No auto-loading to save API calls
+  // Initial load removed - only manual loading via button
+  // useEffect(() => {
+  //   loadAllROIData();
+  // }, [user?.id]);
 
-  // Auto-refresh every 10 minutes
-  useEffect(() => {
-    const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: Auto-refresh removed to save costs
+  // useEffect(() => {
+  //   const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
+  //   return () => clearInterval(interval);
+  // }, [user?.id]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="pulse-card p-8 text-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-green-400 mx-auto mb-4" />
-          <div className="space-y-2">
-            <span className="text-lg pulse-text">🚀 Smart Cache Loading...</span>
-            <p className="text-sm pulse-text-secondary">Checking Cache • Portfolio • ROI Analysis</p>
-            <p className="text-xs pulse-text-secondary text-orange-400">
-              Cache Hit = 0 API calls | Fresh Data = Normal API usage
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Loading states: Portfolio (global) + DeFi (local)
+  const isLoading = portfolioLoading || defiLoading;
+
+  // ❌ REMOVED: Manual loading screen - show normal UI instead
 
   if (error) {
     return (
@@ -328,9 +291,9 @@ const ROITrackerView = () => {
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-semibold mb-2 pulse-text">Fehler beim Laden der ROI-Daten</h2>
           <p className="pulse-text-secondary mb-4">{error}</p>
-          <Button onClick={loadAllROIData} className="bg-green-500 hover:bg-green-600">
+          <Button onClick={loadDefiData} className="bg-green-500 hover:bg-green-600">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Erneut versuchen
+            DeFi-Daten erneut laden
           </Button>
         </div>
       </div>
@@ -384,6 +347,9 @@ const ROITrackerView = () => {
     return totalValue > 0 ? (currentROI / totalValue) * 100 : 0;
   };
 
+  // Show empty state when no portfolio data available
+  const showEmptyState = !isLoading && !hasPortfolioData && !portfolioError;
+
   const tabs = [
     { id: 'overview', label: 'Überblick', icon: PieChart },
     { id: 'defi', label: 'DeFi Positionen', icon: Target },
@@ -395,13 +361,18 @@ const ROITrackerView = () => {
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
-        {/* Header */}
+        {/* Header mit Portfolio-Status */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold pulse-title">ROI Tracker V2</h1>
-            <p className="pulse-text-secondary">
-              Enterprise DeFi Analytics • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
-            </p>
+            <h1 className="text-3xl font-bold pulse-title">ROI Tracker</h1>
+            <div className="flex items-center space-x-4 text-sm pulse-text-secondary">
+              <span>💰 MORALIS PRO MODUS</span>
+              <span className="text-green-400">✅ Globaler Portfolio-State</span>
+              {hasPortfolioData && <span>Portfolio geladen: {portfolioData?.tokenCount || 0} Tokens</span>}
+              {remainingTime > 0 && (
+                <span className="text-yellow-400">⏱️ Nächstes Update in {remainingTime}s</span>
+              )}
+            </div>
           </div>
           <div className="flex space-x-2">
             <Button
@@ -412,44 +383,308 @@ const ROITrackerView = () => {
               {showDebug ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               Debug
             </Button>
-            <Button onClick={loadAllROIData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Aktualisieren
-            </Button>
+            <div className="flex space-x-2">
+              <Button 
+                onClick={loadPortfolioData} 
+                disabled={portfolioLoading || !canRefresh}
+                variant="default"
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${portfolioLoading ? 'animate-spin' : ''}`} />
+                Portfolio
+                {remainingTime > 0 && (
+                  <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
+                )}
+              </Button>
+              <Button 
+                onClick={loadDefiData} 
+                disabled={defiLoading || !hasPortfolioData}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${defiLoading ? 'animate-spin' : ''}`} />
+                DeFi
+                {!hasPortfolioData && (
+                  <span className="ml-1 text-xs text-red-400">(Portfolio zuerst)</span>
+                )}
+              </Button>
+              {/* 🚀 COMBINED LOAD BUTTON for convenience */}
+              <Button 
+                onClick={() => {
+                  // Combined load: Portfolio first, then DeFi
+                  loadPortfolioData().then(() => {
+                    if (hasPortfolioData) {
+                      loadDefiData();
+                    }
+                  });
+                }}
+                disabled={portfolioLoading || defiLoading || !canRefresh}
+                variant="default"
+                size="sm"
+                className="bg-green-500 hover:bg-green-600"
+              >
+                <TrendingUp className={`h-4 w-4 mr-2 ${(portfolioLoading || defiLoading) ? 'animate-spin' : ''}`} />
+                Komplett laden
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* 🔥 SMART CACHE STATUS */}
-        <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
+        {/* ERROR NOTICES: Nicht blockierend */}
+        {portfolioError && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-red-500">
             <div className="flex items-center">
-              <Target className="h-5 w-5 mr-2 text-green-400" />
-              <div>
-                <span className="pulse-text font-medium">
-                  🚀 Smart Cache Status: {portfolioData?.fromCache ? 'CACHE HIT' : 'FRESH DATA'}
+              <AlertCircle className="h-5 w-5 mr-2 text-red-400" />
+              <span className="pulse-text font-medium">Portfolio-Fehler (nicht blockierend)</span>
+            </div>
+            <p className="pulse-text-secondary text-sm mt-1">{portfolioError}</p>
+          </div>
+        )}
+
+        {defiError && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-orange-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-orange-400" />
+              <span className="pulse-text font-medium">DeFi-Fehler (nicht blockierend)</span>
+            </div>
+            <p className="pulse-text-secondary text-sm mt-1">{defiError}</p>
+          </div>
+        )}
+
+        {/* 🚫 REMOVED: Hässlicher "Portfolio-Daten laden" Kasten entfernt wie gewünscht */}
+
+        {/* ROI DEBUG: Zeige warum keine ROI-Daten sichtbar */}
+        {hasPortfolioData && !defiData && !defiLoading && !showEmptyState && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-yellow-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-yellow-400" />
+              <h3 className="text-lg font-bold pulse-text">⚠️ ROI-Daten Debug</h3>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Portfolio geladen:</span>
+                <span className="text-green-400">✅ {portfolioData?.tokenCount || 0} Tokens</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">DeFi-Daten geladen:</span>
+                <span className="text-red-400">❌ Noch nicht geladen</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Transaktionen verfügbar:</span>
+                <span className="text-gray-400">❓ Unbekannt (DeFi-Load erforderlich)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">ROI-Sources erkannt:</span>
+                <span className="text-gray-400">❓ Unbekannt (DeFi-Load erforderlich)</span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+              <p className="text-blue-400 text-sm">
+                💡 <strong>Grund:</strong> Klicken Sie auf "DeFi" oder "Alles laden" um ROI-Analysen zu starten.
+                Ohne DeFi-Daten können keine ROI-Quellen erkannt werden.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* DeFi LOADED BUT NO ROI DEBUG */}
+        {hasPortfolioData && defiData && (!roiDetectionData?.sources || roiDetectionData.sources.length === 0) && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-orange-500">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-orange-400" />
+              <h3 className="text-lg font-bold pulse-text">📊 ROI-Detection Debug</h3>
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">DeFi Summary Erfolg:</span>
+                <span className={defiData?.summary?.success ? "text-green-400" : "text-red-400"}>
+                  {defiData?.summary?.success ? "✅ Ja" : "❌ Nein"}
                 </span>
-                <p className="pulse-text-secondary text-sm">
-                  Portfolio: {portfolioData ? '✅' : '❌'} • 
-                  Source: {portfolioData?.fromCache ? '📦 Cache' : '🔄 API'} • 
-                  API Calls: {portfolioData?.fromCache ? '0' : (portfolioData?.apiCalls || 'N/A')} • 
-                  Value: ${(portfolioData?.totalValue || 0).toFixed(0)}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">DeFi Positionen:</span>
+                <span className="text-blue-400">{defiData?.positions?.positions?.length || 0} gefunden</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">ROI-Quellen erkannt:</span>
+                <span className="text-yellow-400">{roiDetectionData?.sources?.length || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="pulse-text-secondary">Wallet getestet:</span>
+                <span className="text-purple-400">{defiData?.wallet?.slice(0, 8)}... ({defiData?.originalChain})</span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-orange-500/10 border border-orange-400/20 rounded">
+              <p className="text-orange-400 text-sm">
+                💡 <strong>Grund für leere ROI:</strong> {
+                  !defiData?.summary?.success ? "DeFi Summary API-Fehler" :
+                  defiData?.positions?.positions?.length === 0 ? "Keine DeFi-Positionen gefunden" :
+                  !roiDetectionData?.sources ? "ROI-Detection nicht ausgeführt" :
+                  "Keine ROI-Quellen in DeFi-Positionen erkannt"
+                }
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 🔥 SMART CACHE STATUS */}
+        {portfolioData && (
+          <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Target className="h-5 w-5 mr-2 text-green-400" />
+                <div>
+                  <span className="pulse-text font-medium">
+                    🚀 Smart Cache Status: {portfolioData?.fromCache ? 'CACHE HIT' : 'FRESH DATA'}
+                  </span>
+                  <p className="pulse-text-secondary text-sm">
+                    Portfolio: {portfolioData ? '✅' : '❌'} • 
+                    Source: {portfolioData?.fromCache ? '📦 Cache' : '🔄 API'} • 
+                    API Calls: {portfolioData?.fromCache ? '0' : (portfolioData?.apiCalls || 'N/A')} • 
+                    Value: ${(portfolioData?.totalValue || 0).toFixed(0)}
+                  </p>
+                </div>
+              </div>
+              {portfolioData?.fromCache ? (
+                <Badge variant="outline" className="text-orange-400 border-orange-400">
+                  📦 CACHED
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-cyan-400 border-cyan-400">
+                  🔄 FRESH
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 🔍 PRO PLAN ROI DEBUG INFORMATION */}
+        {showDebug && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-purple-500">
+            <h3 className="flex items-center text-lg font-bold pulse-text mb-4">
+              <Activity className="h-5 w-5 mr-2 text-purple-400" />
+              🔍 ROI Tracker Pro Debug
+            </h3>
+            
+            {/* CU TRACKING FOR ROI */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
+              <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
+                <span className="font-medium text-green-400">💰 Portfolio CUs:</span>
+                <p className="text-white font-mono text-lg">
+                  {portfolioData?.apiCalls || 0} CUs
+                </p>
+                <p className="text-xs text-green-400">
+                  {portfolioLastUpdate ? 'Portfolio geladen' : 'Nicht geladen'}
+                </p>
+              </div>
+              
+              <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+                <span className="font-medium text-blue-400">🎯 DeFi CUs:</span>
+                <p className="text-white font-mono text-lg">
+                  0 CUs
+                </p>
+                <p className="text-xs text-blue-400">
+                  Enterprise deaktiviert
+                </p>
+              </div>
+              
+              <div className="p-3 bg-purple-500/10 border border-purple-400/20 rounded">
+                <span className="font-medium text-purple-400">📅 Letzter ROI Cache:</span>
+                <p className="text-white font-mono">
+                  {lastDefiUpdate ? lastDefiUpdate.toLocaleTimeString('de-DE') : 'Nie'}
+                </p>
+                <p className="text-xs text-purple-400">
+                  {defiData ? 'DeFi analysiert' : 'Keine DeFi-Daten'}
+                </p>
+              </div>
+              
+              <div className="p-3 bg-orange-500/10 border border-orange-400/20 rounded">
+                <span className="font-medium text-orange-400">🎯 ROI Herkunft:</span>
+                <p className="text-white">
+                  {portfolioData?.roiTransactions?.length > 0 ? '📊 Transaktionen' : '❌ Keine ROI'}
+                </p>
+                <p className="text-xs text-orange-400">
+                  Transaction-based ROI
                 </p>
               </div>
             </div>
-            {portfolioData?.fromCache ? (
-              <Badge variant="outline" className="text-orange-400 border-orange-400">
-                📦 CACHED
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-cyan-400 border-cyan-400">
-                🔄 FRESH
-              </Badge>
-            )}
+            
+            {/* ENTERPRISE FEATURES DISABLED INFO */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+              <div className="p-3 bg-red-500/10 border border-red-400/20 rounded">
+                <span className="font-medium text-red-400">❌ Enterprise Features deaktiviert:</span>
+                <ul className="text-xs text-red-400 mt-2 space-y-1">
+                  <li>• defi-summary (0 CUs gespart)</li>
+                  <li>• defi-positions (0 CUs gespart)</li>
+                  <li>• wallet-stats (0 CUs gespart)</li>
+                </ul>
+              </div>
+              
+              <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
+                <span className="font-medium text-green-400">✅ Pro Plan ROI Detection:</span>
+                <ul className="text-xs text-green-400 mt-2 space-y-1">
+                  <li>• Transaction-based Analysis</li>
+                  <li>• Known Minter Detection</li>
+                  <li>• Transfer Pattern Recognition</li>
+                </ul>
+              </div>
+            </div>
+            
+            {/* ROI STATS DEBUG */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+              <div>
+                <span className="font-medium pulse-text-secondary">Portfolio ROI ({timeFrame}):</span>
+                <p className="pulse-text font-mono text-green-400">{formatCurrency(roiStats.portfolioROI[timeFrame])}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">DeFi ROI ({timeFrame}):</span>
+                <p className="pulse-text font-mono text-blue-400">{formatCurrency(roiStats.defiROI[timeFrame])}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">Gesamt ROI ({timeFrame}):</span>
+                <p className="pulse-text font-mono text-purple-400">{formatCurrency(getCurrentROI())}</p>
+              </div>
+              <div>
+                <span className="font-medium pulse-text-secondary">ROI Percentage:</span>
+                <p className="pulse-text font-mono text-orange-400">{formatPercentage(getROIPercentage())}</p>
+              </div>
+            </div>
+            
+            {/* RAW DATA BUTTONS */}
+            <div className="flex justify-between items-center pt-4 border-t border-white/10">
+              <div className="text-xs text-gray-400">
+                💡 ROI Debug: Enterprise-Features deaktiviert für Pro Plan Cost Reduction
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    console.log('🔍 PORTFOLIO ROI DATA:', portfolioData);
+                    alert('Portfolio ROI-Daten in Konsole geloggt (F12 → Console)');
+                  }}
+                  className="text-xs"
+                >
+                  📊 Portfolio Raw
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    console.log('🔍 DEFI ROI DATA:', defiData);
+                    alert('DeFi ROI-Daten in Konsole geloggt (F12 → Console)');
+                  }}
+                  className="text-xs"
+                >
+                  🎯 DeFi Raw
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* MORALIS STATUS INDICATORS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* Portfolio & DeFi Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="pulse-card p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -512,44 +747,51 @@ const ROITrackerView = () => {
         </div>
 
         {/* Time Frame Selector */}
-        <div className="flex justify-center mb-6">
-          <div className="pulse-card p-1 flex">
-            {['daily', 'weekly', 'monthly'].map((tf) => (
-              <button
-                key={tf}
-                onClick={() => setTimeFrame(tf)}
-                className={`px-4 py-2 rounded-lg transition-all ${
-                  timeFrame === tf 
-                    ? 'bg-green-500 text-white' 
-                    : 'pulse-text hover:bg-white/5'
-                }`}
-              >
-                {tf === 'daily' ? 'Täglich' : tf === 'weekly' ? 'Wöchentlich' : 'Monatlich'}
-              </button>
-            ))}
+        {!showEmptyState && (
+          <div className="flex justify-center mb-6">
+            <div className="pulse-card p-1 flex">
+              {['daily', 'weekly', 'monthly'].map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeFrame(tf)}
+                  className={`px-4 py-2 rounded-lg transition-all ${
+                    timeFrame === tf 
+                      ? 'bg-green-500 text-white' 
+                      : 'pulse-text hover:bg-white/5'
+                  }`}
+                >
+                  {tf === 'daily' ? 'Täglich' : tf === 'weekly' ? 'Wöchentlich' : 'Monatlich'}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tab Navigation */}
-        <div className="flex justify-center mb-6">
-          <div className="pulse-card p-1 flex">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                  activeTab === tab.id 
-                    ? 'bg-blue-500 text-white' 
-                    : 'pulse-text hover:bg-white/5'
-                }`}
-              >
-                <tab.icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
+        {!showEmptyState && (
+          <div className="flex justify-center mb-6">
+            <div className="pulse-card p-1 flex">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+                    activeTab === tab.id 
+                      ? 'bg-blue-500 text-white' 
+                      : 'pulse-text hover:bg-white/5'
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
+        {/* TAB CONTENT - Only show when data is loaded */}
+        {!showEmptyState && (
+          <>
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
@@ -870,8 +1112,34 @@ const ROITrackerView = () => {
             </div>
           </div>
         )}
+        </>
+        )}
 
       </div>
+
+      {/* CU Monitor */}
+      <CUMonitor 
+        viewName="ROI Tracker"
+        apiCalls={[
+          ...(portfolioData?.debug?.apiCalls ? [{
+            endpoint: 'portfolio-defi',
+            responseCount: portfolioData?.tokenCount || 0,
+            estimatedCUs: portfolioData?.debug?.apiCalls || 0
+          }] : []),
+          ...(defiData ? [{
+            endpoint: 'moralis-defi-summary',
+            responseCount: defiData?.positions?.positions?.length || 0,
+            estimatedCUs: defiData?.summary?.success ? 30 : 0
+          }] : []),
+          ...(roiDetectionData ? [{
+            endpoint: 'roi-detection',
+            responseCount: roiDetectionData?.sources?.length || 0,
+            estimatedCUs: roiDetectionData?.success ? 20 : 0
+          }] : [])
+        ]}
+        totalCUs={(portfolioData?.debug?.apiCalls || 0) + (defiData ? 30 : 0) + (roiDetectionData ? 20 : 0)}
+        showByDefault={showDebug}
+      />
     </div>
   );
 };

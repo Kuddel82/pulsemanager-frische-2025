@@ -18,6 +18,7 @@ import Home from '@/components/views/Home';
 import PortfolioView from '@/views/PortfolioView';
 import ROITrackerView from '@/views/ROITrackerView';
 import TaxReportView from '@/views/TaxReportView';
+import WgepView from '@/views/WGEPView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
 import DebugView from '@/views/DebugView'; // Debug Monitor für PHASE 3
@@ -32,7 +33,7 @@ import TermsOfServiceView from '@/components/views/TermsOfServiceView';
 import SubscriptionModal from '@/components/SubscriptionModal';
 
 const AppRoutes = () => {
-  const { loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { loading: appLoading } = useAppContext();
   const { t } = useAppContext();
 
@@ -46,10 +47,10 @@ const AppRoutes = () => {
   // Show loading while auth is initializing
   if (authLoading || appLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Lade Anwendung...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+          <p className="mt-2 text-gray-300">Lade Anwendung...</p>
         </div>
       </div>
     );
@@ -90,6 +91,7 @@ const AppRoutes = () => {
         <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/roi-tracker" element={<ROITrackerView />} />
         <Route path="/tax-report" element={<TaxReportView />} />
+        <Route path="/wgep" element={<WgepView />} />
         
         {/* 🐛 DEBUG MONITOR - PHASE 3 */}
         <Route path="/debug" element={<DebugView />} />

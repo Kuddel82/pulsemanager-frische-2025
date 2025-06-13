@@ -60,10 +60,11 @@ class TrackerService {
     this.isTracking = true;
     await this.updateHistoricalData(address);
     
-    // Regelmäßige Updates
-    this.updateInterval = setInterval(async () => {
-      await this.updatePortfolioValue(address);
-    }, 5 * 60 * 1000); // Alle 5 Minuten
+    // 🚫 TIMER-LECK ENTFERNT! Manual Control Only
+    // ❌ Regelmäßige Updates alle 5 Minuten DEAKTIVIERT - KEIN TIMER-LECK!
+    // this.updateInterval = setInterval(async () => {
+    //   await this.updatePortfolioValue(address);
+    // }, 5 * 60 * 1000); // Alle 5 Minuten
   }
 
   stopTracking(): void {

@@ -63,13 +63,14 @@ const ROITrackerView = () => {
   };
 
   // Initiales Laden
-  useEffect(() => {
-    loadPortfolioData();
-    
-    // Auto-refresh alle 5 Minuten
-    const interval = setInterval(loadPortfolioData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
+  // ❌ EMERGENCY DISABLED: Auto-loading komplett deaktiviert für Kostenreduktion
+  // useEffect(() => {
+  //   loadPortfolioData();
+  //   
+  //   // Auto-refresh alle 5 Minuten
+  //   const interval = setInterval(loadPortfolioData, 5 * 60 * 1000);
+  //   return () => clearInterval(interval);
+  // }, [user?.id]);
 
   // Format Funktionen
   const formatCurrency = (value) => {

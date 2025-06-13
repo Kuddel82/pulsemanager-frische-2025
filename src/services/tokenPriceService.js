@@ -1,217 +1,184 @@
-// 🎯 TOKEN PRICE SERVICE - 100% MORALIS ENTERPRISE ONLY
-// Eliminiert ALLE kostenlosen APIs für maximale Zuverlässigkeit
-// Datum: 2025-01-11 - ENTERPRISE ONLY: Nur bezahlte Moralis APIs
+// 🎯 TOKEN PRICE SERVICE - MORALIS API
+// Version: 2.0
+// Datum: 2025-01-11 - Standard Moralis APIs
 
+import { logger } from '@/lib/logger';
+
+// 🚀 MORALIS API ENDPOINTS
+const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2.2';
+
+/**
+ * 🚀 TOKEN PRICE SERVICE - Moralis Integration
+ * Handles token price fetching from Moralis APIs
+ */
 export class TokenPriceService {
-  
-  // 🚀 100% MORALIS ENTERPRISE ENDPOINTS
-  static MORALIS_ENDPOINTS = {
-    prices: '/api/moralis-prices',
-    tokens: '/api/moralis-tokens'
-  };
-
-  // 💰 EMERGENCY FALLBACKS: Nur für absolute Notfälle
-  static EMERGENCY_PRICES = {
-    'PLS': 0.000088,      // PulseChain Native
-    'ETH': 2400,          // Ethereum Native
-    'USDC': 1.0,          // Stablecoin
-    'USDT': 1.0,          // Stablecoin
-    'DAI': 1.0            // Stablecoin
-  };
+  static API_TIMEOUT = 15000; // 15 Sekunden
+  static CACHE_DURATION = 2 * 60 * 1000; // 2 Minuten
+  static priceCache = new Map();
 
   /**
-   * 🚀 100% MORALIS ENTERPRISE: Get Token Price
+   * 🚀 MORALIS: Get Token Price
+   * @param {string} address - Token contract address
+   * @param {string} chain - Blockchain (eth, pulsechain)
+   * @returns {Promise<Object>} Price data
    */
-  static async getTokenPrice(symbol, contractAddress, chainId = '0x171') {
-    try {
-      console.log(`💰 MORALIS PRICE: Getting price for ${symbol} (${contractAddress})`);
-      
-             // 🔑 CHECK MORALIS ENTERPRISE ACCESS  
-       const testResponse = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
-       const testData = await testResponse.json();
-       
-       if (testData._fallback || testData._error || !testResponse.ok) {
-         console.warn(`⚠️ MORALIS ENTERPRISE not available, using emergency fallback for ${symbol}`);
-         return this.EMERGENCY_PRICES[symbol] || 0;
-       }
-
-      // 🚀 MORALIS ENTERPRISE PRICE API
-      const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=${chainId}&address=${contractAddress}`);
-      const data = await response.json();
-      
-      if (data.usdPrice && data.usdPrice > 0) {
-        console.log(`💎 MORALIS PRICE: ${symbol} = $${data.usdPrice}`);
-        return data.usdPrice;
-      }
-      
-      // Emergency fallback if Moralis has no price
-      if (this.EMERGENCY_PRICES[symbol]) {
-        console.warn(`🚨 MORALIS: No price for ${symbol}, using emergency fallback: $${this.EMERGENCY_PRICES[symbol]}`);
-        return this.EMERGENCY_PRICES[symbol];
-      }
-      
-      console.warn(`⚠️ MORALIS: No price available for ${symbol}`);
-      return 0;
-      
-    } catch (error) {
-      console.error(`❌ MORALIS PRICE ERROR for ${symbol}:`, error);
-      
-      // Emergency fallback
-      if (this.EMERGENCY_PRICES[symbol]) {
-        return this.EMERGENCY_PRICES[symbol];
-      }
-      
-      return 0;
-    }
-  }
-
-  /**
-   * 🚀 100% MORALIS ENTERPRISE: Get Multiple Token Prices
-   */
-  static async getMultipleTokenPrices(tokens, chainId = '0x171') {
-    const priceMap = new Map();
+  static async getTokenPrice(address, chain = 'eth', symbol = 'TOKEN') {
+    const cacheKey = `${address}_${chain}`;
     
-    try {
-      console.log(`💰 MORALIS BATCH PRICES: Getting prices for ${tokens.length} tokens`);
-      
-      // Batch process tokens in groups of 25 (Moralis limit)
-      for (let i = 0; i < tokens.length; i += 25) {
-        const batch = tokens.slice(i, i + 25);
-        const addresses = batch.map(token => token.contractAddress).join(',');
-        
-        try {
-          const response = await fetch(`/api/moralis-prices?endpoint=multiple-token-prices&chain=${chainId}&addresses=${addresses}`);
-          const data = await response.json();
-          
-          if (data.result && Array.isArray(data.result)) {
-            for (const priceData of data.result) {
-              const contractAddress = priceData.tokenAddress?.toLowerCase();
-              const price = parseFloat(priceData.usdPrice) || 0;
-              
-              if (contractAddress && price > 0) {
-                priceMap.set(contractAddress, price);
-                console.log(`💎 MORALIS BATCH: ${contractAddress.slice(0, 8)}... = $${price}`);
-              }
-            }
-          }
-        } catch (batchError) {
-          console.error(`❌ MORALIS BATCH ERROR:`, batchError);
-        }
-        
-        // Rate limiting
-        if (i + 25 < tokens.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-      
-      // Add emergency fallbacks for tokens without prices
-      for (const token of tokens) {
-        const contractKey = token.contractAddress?.toLowerCase();
-        if (contractKey && !priceMap.has(contractKey) && this.EMERGENCY_PRICES[token.symbol]) {
-          priceMap.set(contractKey, this.EMERGENCY_PRICES[token.symbol]);
-          console.log(`🚨 EMERGENCY FALLBACK: ${token.symbol} = $${this.EMERGENCY_PRICES[token.symbol]}`);
-        }
-      }
-      
-      console.log(`✅ MORALIS BATCH COMPLETE: ${priceMap.size} prices loaded`);
-      
-    } catch (error) {
-      console.error(`💥 MORALIS BATCH PRICING ERROR:`, error);
+    // 🔑 CHECK MORALIS ACCESS
+    const apiKey = import.meta.env.VITE_MORALIS_API_KEY;
+    if (!apiKey) {
+      console.warn(`⚠️ MORALIS not available, using emergency fallback for ${symbol}`);
+      return this.getEmergencyFallbackPrice(symbol);
     }
-    
-    return priceMap;
-  }
 
-  /**
-   * 🚀 100% MORALIS ENTERPRISE: Get Token Metadata
-   */
-  static async getTokenMetadata(contractAddress, chainId = '0x171') {
+    // 🚀 MORALIS PRICE API
     try {
-      const response = await fetch(`/api/moralis-tokens?endpoint=token-metadata&chain=${chainId}&address=${contractAddress}`);
+      const response = await fetch(`${MORALIS_BASE_URL}/erc20/${address}/price?chain=${chain}`, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': apiKey,
+          'Accept': 'application/json'
+        },
+        timeout: this.API_TIMEOUT
+      });
+
+      if (!response.ok) {
+        throw new Error(`Moralis API Error: ${response.status}`);
+      }
+
       const data = await response.json();
       
-      if (data.result) {
-        return {
-          name: data.result.name,
-          symbol: data.result.symbol,
-          decimals: data.result.decimals,
-          logo: data.result.logo,
-          thumbnail: data.result.thumbnail,
-          source: 'moralis_enterprise'
-        };
-      }
+      const result = {
+        price: data.usdPrice || 0,
+        symbol: symbol,
+        address: address,
+        chain: chain,
+        timestamp: new Date().toISOString(),
+        source: 'moralis'
+      };
+
+      // Cache für 2 Minuten
+      this.priceCache.set(cacheKey, { data: result, timestamp: Date.now() });
       
-      return null;
-      
+      logger.info(`✅ Token price fetched: ${symbol} = $${result.price}`);
+      return result;
+
     } catch (error) {
-      console.error(`❌ MORALIS METADATA ERROR:`, error);
-      return null;
+      logger.error(`Token price fetch failed for ${symbol}:`, error);
+      return this.getEmergencyFallbackPrice(symbol);
     }
   }
 
   /**
-   * 🔍 Check if Moralis Enterprise is available
+   * 🚀 MORALIS: Get Multiple Token Prices
+   * @param {Array} tokens - Array of {address, chain, symbol}
+   * @returns {Promise<Array>} Array of price data
    */
-  static async isMoralisEnterpriseAvailable() {
+  static async getMultipleTokenPrices(tokens) {
+    if (!Array.isArray(tokens) || tokens.length === 0) {
+      return [];
+    }
+
+    logger.info(`🚀 Fetching prices for ${tokens.length} tokens`);
+
+    const promises = tokens.map(token => 
+      this.getTokenPrice(token.address, token.chain, token.symbol)
+        .catch(error => {
+          logger.error(`Failed to get price for ${token.symbol}:`, error);
+          return this.getEmergencyFallbackPrice(token.symbol);
+        })
+    );
+
     try {
-      const response = await fetch('/api/moralis-tokens?endpoint=wallet-tokens&chain=0x171&address=0x0000000000000000000000000000000000000000&limit=1');
+      const results = await Promise.all(promises);
+      logger.info(`✅ Bulk price fetch completed: ${results.length} prices`);
+      return results;
+    } catch (error) {
+      logger.error('Bulk price fetch failed:', error);
+      return tokens.map(token => this.getEmergencyFallbackPrice(token.symbol));
+    }
+  }
+
+  /**
+   * 🚀 MORALIS: Get Token Metadata
+   * @param {string} address - Token contract address  
+   * @param {string} chain - Blockchain
+   * @returns {Promise<Object>} Token metadata
+   */
+  static async getTokenMetadata(address, chain = 'eth') {
+    const apiKey = import.meta.env.VITE_MORALIS_API_KEY;
+    if (!apiKey) {
+      return { symbol: 'TOKEN', name: 'Unknown Token', decimals: 18 };
+    }
+
+    try {
+      const response = await fetch(`${MORALIS_BASE_URL}/erc20/metadata?chain=${chain}&addresses[]=${address}`, {
+        headers: { 'X-API-Key': apiKey }
+      });
+
       const data = await response.json();
+      return {
+        ...data[0],
+        source: 'moralis'
+      };
+    } catch (error) {
+      logger.error('Token metadata fetch failed:', error);
+      return { symbol: 'TOKEN', name: 'Unknown Token', decimals: 18 };
+    }
+  }
+
+  /**
+   * 🔍 Check if Moralis is available
+   */
+  static async isMoralisAvailable() {
+    try {
+      const apiKey = import.meta.env.VITE_MORALIS_API_KEY;
+      const isAvailable = !!apiKey;
       
-      // ✅ Accept test-mode responses as valid
-      if (data._test_mode && data._message && response.ok) {
-        console.log('✅ MORALIS ENTERPRISE: Available (test passed)');
-        return true;
-      }
-      
-      const isAvailable = !data._fallback && !data._error && response.ok;
-      console.log(`🔍 MORALIS ENTERPRISE: ${isAvailable ? 'Available' : 'Not available'}`);
+      console.log('✅ MORALIS: Available (test passed)');
       return isAvailable;
     } catch (error) {
-      console.log(`🔍 MORALIS ENTERPRISE: Error - ${error.message}`);
+      console.log(`🔍 MORALIS: ${isAvailable ? 'Available' : 'Not available'}`);
+      return false;
+    } finally {
+      console.log(`🔍 MORALIS: Error - ${error.message}`);
       return false;
     }
   }
 
   /**
-   * 🏷️ Get emergency price for symbol (last resort)
+   * 🚨 Emergency Fallback Price
    */
-  static getEmergencyPrice(symbol) {
-    return this.EMERGENCY_PRICES[symbol] || 0;
+  static getEmergencyFallbackPrice(symbol) {
+    const fallbackPrices = {
+      'WGEP': 0.001,
+      'PLS': 0.00012,
+      'PLSX': 0.000045,
+      'HEX': 0.007,
+      'WPLS': 0.00012,
+      'ETH': 3000,
+      'USDC': 1.00,
+      'USDT': 1.00,
+      'DAI': 1.00
+    };
+
+    return {
+      price: fallbackPrices[symbol] || 0.001,
+      symbol: symbol,
+      timestamp: new Date().toISOString(),
+      source: 'fallback',
+      _warning: 'Using fallback price - API unavailable'
+    };
   }
 
   /**
-   * 📊 Format price for display
+   * 🧹 Clear Price Cache
    */
-  static formatPrice(price) {
-    if (price >= 1) {
-      return `$${price.toFixed(2)}`;
-    } else if (price >= 0.01) {
-      return `$${price.toFixed(4)}`;
-    } else if (price > 0) {
-      return `$${price.toFixed(8)}`;
-    } else {
-      return '$0.00';
-    }
+  static clearCache() {
+    this.priceCache.clear();
+    logger.info('🧹 Token price cache cleared');
   }
+}
 
-  /**
-   * 🕐 Price cache for optimization (5 minute cache)
-   */
-  static priceCache = new Map();
-  static CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-  static getCachedPrice(contractAddress) {
-    const cached = this.priceCache.get(contractAddress);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      return cached.price;
-    }
-    return null;
-  }
-
-  static setCachedPrice(contractAddress, price) {
-    this.priceCache.set(contractAddress, {
-      price: price,
-      timestamp: Date.now()
-    });
-  }
-} 
+export default TokenPriceService; 

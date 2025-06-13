@@ -1,15 +1,38 @@
-// 🚀 MORALIS SDK INTEGRATION - 100% MORALIS ONLY
-// Enterprise-grade APIs für PulseManager mit echtem Moralis SDK
+// 🚀 MORALIS V2 API - PRO COMPATIBLE VERSION
+// Simple REST API calls instead of expensive SDK
+// Datum: 2025-01-11 - COST REDUCTION: Pro Plan Compatible
 
-import Moralis from "moralis";
-import { EvmChain } from "@moralisweb3/common-evm-utils";
+// Note: Using native fetch API (available on Vercel/Node 18+)
 
-let moralisInitialized = false;
+const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
+const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
+/**
+ * Helper to fetch data from Moralis REST API
+ */
+async function moralisFetch(endpoint, params = {}) {
+  const url = new URL(`${MORALIS_BASE_URL}/${endpoint}`);
+  Object.entries(params).forEach(([key, val]) => url.searchParams.append(key, val));
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      'X-API-Key': MORALIS_API_KEY
+    }
+  });
+
+  if (!res.ok) {
+    console.error(`Moralis Error: ${res.status} - ${res.statusText}`);
+    return null;
+  }
+
+  return await res.json();
+}
+
+/**
+ * 🎯 PRO COMPATIBLE: GET /api/moralis-v2?address=0x...&chain=ethereum&endpoint=wallet-tokens-prices
+ */
 export default async function handler(req, res) {
-  console.log('🔥 DEBUG: /api/moralis-tokens.js - 100% MORALIS ONLY');
-  console.log('🔥 DEBUG: Method:', req.method);
-  console.log('🔥 DEBUG: Query:', req.query);
+  console.log('🔵 MORALIS V2 PRO: Cost-efficient API endpoint');
   
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,663 +43,288 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Support both GET and POST methods
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  // Extract parameters
+  const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
+  const { address, chain = 'eth', endpoint, limit = 100, cursor } = params;
+
+  console.log('🔵 PRO PARAMS:', { endpoint, chain, address: address?.slice(0, 8) + '...' });
+
+  if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
+    return res.status(503).json({ 
+      error: 'Moralis API Key missing or invalid.',
+      _pro_mode: true 
+    });
   }
 
+  if (!address || !endpoint) {
+    return res.status(400).json({ 
+      error: 'Missing address or endpoint param.',
+      available_endpoints: ['wallet-token-transfers', 'erc20_transfers', 'native_transactions', 'erc20', 'token-price', 'nft', 'balance']
+    });
+  }
+
+  // Convert chain names to Moralis format
+  const chainMap = {
+    ethereum: '0x1',
+    eth: '0x1',
+    '1': '0x1',
+    '0x1': '0x1',
+    pulsechain: '0x171',
+    pls: '0x171',
+    '369': '0x171',
+    '0x171': '0x171',
+    bsc: '0x38',
+    polygon: '0x89',
+    arbitrum: '0xa4b1'
+  };
+  const chainId = chainMap[chain.toLowerCase()] || chain;
+
+  console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
+
   try {
-    // Extract parameters from both GET and POST
-    const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { endpoint, chain, address, cursor, limit } = params;
-    
-    console.log('🔥 DEBUG: Parameters:', { endpoint, chain, address, cursor, limit });
-
-    // 🔑 Moralis API Configuration
-    const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-
-    // 🛡️ FALLBACK: If no Moralis API key, return empty results
-    if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
-      console.error('🚨 CRITICAL: Moralis API Key required for Enterprise functionality');
+    // ❌ REMOVED: wallet-tokens-prices (Enterprise feature - not available in Pro Plan)
+    if (endpoint === 'wallet-tokens-prices') {
+      console.log(`🚨 ENTERPRISE ENDPOINT REMOVED: wallet-tokens-prices not available in Pro Plan`);
       
-      return res.status(401).json({
-        error: 'ENTERPRISE ERROR: Moralis API Key required',
-        message: 'Add valid MORALIS_API_KEY to .env file',
-        critical: true
+      return res.status(400).json({
+        error: 'wallet-tokens-prices endpoint removed - use separate erc20 and token-price calls instead',
+        _enterprise_feature: true,
+        _pro_alternative: 'Use: 1) GET /erc20 for tokens, 2) GET /token-price for each token',
+        suggested_endpoints: ['erc20', 'token-price']
       });
     }
 
-    // 🌐 Chain ID Mapping (Moralis Standard Format)
-    const chainIdMap = {
-      '369': '0x171',
-      'pulsechain': '0x171',
-      'pls': '0x171',
-      '0x171': '0x171',
-      '1': '0x1',
-      'ethereum': '0x1',
-      'eth': '0x1',
-      '0x1': '0x1'
-    };
-
-    const chainId = chainIdMap[chain?.toString().toLowerCase()] || '0x1'; // Default Ethereum
-    console.log(`🔍 CHAIN MAPPING: Input='${chain}' -> Output='${chainId}'`);
-
-    // 🎉 INITIALIZE MORALIS SDK  
-    if (!moralisInitialized) {
-      try {
-        await Moralis.start({
-          apiKey: MORALIS_API_KEY,
-        });
-        moralisInitialized = true;
-        console.log('✅ MORALIS SDK INITIALIZED - 100% MORALIS');
-      } catch (initError) {
-        console.error('💥 MORALIS SDK INIT ERROR:', initError.message);
-        return res.status(200).json({
-          success: false,
-          error: 'Moralis SDK initialization failed',
-          _safe_mode: true
+    // 🔄 TOKEN TRANSFERS (Pro-compatible)
+    if (endpoint === 'wallet-token-transfers' || endpoint === 'erc20_transfers') {
+      console.log(`🚀 PRO TRANSFERS: Loading for ${address} on ${chainId}`);
+      
+      const result = await moralisFetch(`${address}/erc20/transfers`, { 
+        chain: chainId,
+        limit: Math.min(limit, 100),
+        cursor: cursor
+      });
+      
+      if (!result) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch token transfers.',
+          _pro_mode: true 
         });
       }
+
+      console.log(`✅ PRO TRANSFERS: ${result.result?.length || 0} transfers loaded`);
+
+      // Wenn der erc20_transfers Endpoint verwendet wird, formatiere das Ergebnis speziell
+      // für TaxService und andere interne Anwendungen
+      if (endpoint === 'erc20_transfers') {
+        return res.status(200).json({
+          transfers: result.result || [],
+          cursor: result.cursor,
+          page_size: result.result?.length || 0,
+          _source: 'moralis_v2_pro_erc20_transfers'
+        });
+      }
+
+      // Standard-Antwort für den wallet-token-transfers Endpoint
+      return res.status(200).json({
+        ...result,
+        _source: 'moralis_v2_pro_transfers'
+      });
     }
 
-    // 🏆 PORTFOLIO NET WORTH - Complete USD Portfolio 
-    if (endpoint === 'portfolio') {
-      try {
-        console.log(`🚀 V2 PORTFOLIO: Getting net worth for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.wallets.getWalletNetWorth({
-          address,
-          chain: moralisChain,
-          excludeSpam: true,
-          excludeUnverifiedContracts: true,
-          maxTokenInactivity: 30,
-          minPairSideLiquidityUsd: 1000
-        });
-        
-        console.log(`✅ V2 PORTFOLIO SUCCESS: $${response.result.total_networth_usd}`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_portfolio'
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 PORTFOLIO ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          _error: { message: error.message, source: 'moralis_v2_portfolio' }
+    // 🔄 NATIVE TRANSACTIONS (Pro-compatible)
+    if (endpoint === 'native_transactions') {
+      console.log(`🚀 PRO NATIVE TX: Loading for ${address} on ${chainId}`);
+      
+      const result = await moralisFetch(`${address}`, { 
+        chain: chainId,
+        limit: Math.min(limit, 100),
+        cursor: cursor
+      });
+      
+      if (!result) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch native transactions.',
+          _pro_mode: true 
         });
       }
+
+      console.log(`✅ PRO NATIVE TX: ${result.result?.length || 0} transactions loaded`);
+
+      return res.status(200).json({
+        transactions: result.result || [],
+        cursor: result.cursor,
+        page_size: result.result?.length || 0,
+        _source: 'moralis_v2_pro_native_transactions'
+      });
     }
 
-    // 📈 COMPLETE HISTORY - All transaction types
-    if (endpoint === 'history') {
-      try {
-        console.log(`🚀 V2 HISTORY: Getting complete history for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        const requestLimit = Math.min(limit || 100, 100);
-        
-        const response = await Moralis.EvmApi.wallets.getWalletHistory({
-          address,
-          chain: moralisChain,
-          cursor,
-          limit: requestLimit,
-          order: 'DESC',
-          include_internal_transactions: true,
-          nft_metadata: false
-        });
-        
-        console.log(`✅ V2 HISTORY SUCCESS: ${response.result.length} comprehensive transactions`);
-        
-        return res.status(200).json({
-          result: response.result,
-          cursor: response.cursor,
-          page_size: response.page_size,
-          _source: 'moralis_v2_history'
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 HISTORY ERROR:', error.message);
-        return res.status(500).json({
-          result: [],
-          _error: { message: error.message, source: 'moralis_v2_history' }
+    // 💰 NATIVE BALANCE
+    if (endpoint === 'balance' || endpoint === 'native-balance') {
+      console.log(`🚀 PRO BALANCE: Loading native balance for ${address} on ${chainId}`);
+      
+      const result = await moralisFetch(`${address}/balance`, { 
+        chain: chainId 
+      });
+      
+      if (!result) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch native balance.',
+          _pro_mode: true 
         });
       }
+
+      const balanceEth = parseFloat(result.balance) / 1e18;
+      const currency = chainId === '0x171' ? 'PLS' : 'ETH';
+
+      console.log(`✅ PRO BALANCE: ${balanceEth.toFixed(6)} ${currency}`);
+
+      return res.status(200).json({
+        balance: result.balance,
+        balance_formatted: balanceEth.toFixed(6),
+        currency: currency,
+        chain: chainId,
+        _source: 'moralis_v2_pro_balance'
+      });
     }
 
-    // 📊 WALLET STATS - Analytics
-    if (endpoint === 'stats') {
-      try {
-        console.log(`🚀 V2 STATS: Getting wallet stats for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.wallets.getWalletStats({
-          address,
-          chain: moralisChain
-        });
-        
-        console.log(`✅ V2 STATS SUCCESS: ${response.result.transactions?.total || 0} total transactions`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_stats'
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 STATS ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          _error: { message: error.message, source: 'moralis_v2_stats' }
+    // 🖼️ NFT BALANCES  
+    if (endpoint === 'nft' || endpoint === 'wallet-nfts') {
+      console.log(`🚀 PRO NFTs: Loading NFTs for ${address} on ${chainId}`);
+      
+      const result = await moralisFetch(`${address}/nft`, { 
+        chain: chainId,
+        limit: Math.min(limit, 100),
+        cursor: cursor
+      });
+      
+      if (!result) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch NFTs.',
+          _pro_mode: true 
         });
       }
+
+      console.log(`✅ PRO NFTs: ${result.result?.length || 0} NFTs loaded`);
+
+      return res.status(200).json({
+        ...result,
+        _source: 'moralis_v2_pro_nfts'
+      });
     }
 
-    // 💰 NATIVE TRANSACTIONS - Backup endpoint
-    if (endpoint === 'native') {
-      try {
-        console.log(`🚀 V2 NATIVE: Getting native transactions for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        const requestLimit = Math.min(limit || 100, 100);
-        
-        const response = await Moralis.EvmApi.transaction.getWalletTransactions({
-          address,
-          chain: moralisChain,
-          cursor,
-          limit: requestLimit,
-          order: 'DESC'
-        });
-        
-        console.log(`✅ V2 NATIVE SUCCESS: ${response.result.length} native transactions`);
-        
-        return res.status(200).json({
-          result: response.result,
-          cursor: response.cursor,
-          page_size: response.page_size,
-          _source: 'moralis_v2_native'
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 NATIVE ERROR:', error.message);
-        return res.status(500).json({
-          result: [],
-          _error: { message: error.message, source: 'moralis_v2_native' }
+    // 🔄 RAW ERC20 TOKENS (without prices)
+    if (endpoint === 'erc20') {
+      console.log(`🚀 PRO ERC20: Loading raw tokens for ${address} on ${chainId}`);
+      
+      const result = await moralisFetch(`${address}/erc20`, { 
+        chain: chainId,
+        limit: Math.min(limit, 100),
+        cursor: cursor
+      });
+      
+      if (!result) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch ERC20 tokens.',
+          _pro_mode: true 
         });
       }
+
+      console.log(`✅ PRO ERC20: ${result.length || 0} tokens loaded`);
+
+      return res.status(200).json({
+        result: result,
+        _source: 'moralis_v2_pro_erc20'
+      });
     }
 
-    // 📊 API Endpoint Routing with REAL MORALIS SDK ONLY
-    if (endpoint === 'wallet-tokens') {
-      // NULL Address Test für hasValidMoralisApiKey
-      if (!address || address === '0x0000000000000000000000000000000000000000') {
-        console.log('⚠️ NULL ADDRESS DETECTED - returning test result');
-        return res.status(200).json({ 
-          result: [],
-          total: 0,
-          _test_mode: true,
-          _message: 'Test call with null address - API Key validation passed'
-        });
-      }
+    // 💎 SINGLE TOKEN PRICE (FIXED ERROR HANDLING)
+    if (endpoint === 'token-price') {
+      console.log(`🚀 PRO PRICE: Getting price for token ${address} on ${chainId}`);
       
       try {
-        console.log(`🚀 MORALIS SDK: Getting wallet tokens for ${address} on chain ${chainId}`);
-        
-        // Validate address format
-        if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-          throw new Error(`Invalid Ethereum address format: ${address}`);
-        }
-        
-        // 100% MORALIS SDK ONLY
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        
-        console.log('🎯 MORALIS CALL: 100% MORALIS ONLY');
-        
-        const tokenBalances = await Moralis.EvmApi.token.getWalletTokenBalances({
-          address,
-          chain: moralisChain,
-          excludeSpam: true
+        const result = await moralisFetch(`erc20/${address}/price`, { 
+          chain: chainId 
         });
         
-        console.log(`✅ MORALIS SDK SUCCESS: ${tokenBalances.result.length} tokens found`);
-        
-        // Return the raw Moralis response
-        return res.status(200).json(tokenBalances);
-        
-      } catch (sdkError) {
-        console.error('💥 MORALIS SDK ERROR:', sdkError.message);
-        
-        // Handle large wallet error gracefully
-        if (sdkError.message.includes('over 2000 tokens')) {
-          console.log('🔥 LARGE WALLET DETECTED: Returning empty for now');
-          
+        // Fallback to zero price if API fails (no 500 error)
+        if (!result) {
+          console.warn(`⚠️ PRO PRICE: No price data for ${address}, returning $0`);
           return res.status(200).json({
-            result: [],
-            total: 0,
-            _large_wallet: true,
-            _message: 'Wallet contains >2000 tokens - Moralis limit reached',
-            _moralis_only: true
+            usdPrice: 0,
+            exchangeAddress: null,
+            exchangeName: null,
+            tokenAddress: address,
+            _source: 'moralis_v2_pro_price_fallback',
+            _fallback: true
           });
         }
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        console.log(`💎 PROCESSING PULSECHAIN TOKENS: Chain ${chainId} now fully supported by Moralis!`);
-        
-        // Check for specific error types
-        if (sdkError.message.includes('Invalid address')) {
-          return res.status(200).json({
-            result: [],
-            total: 0,
-            _error: {
-              message: 'Invalid wallet address format',
-              type: 'address_validation'
-            }
-          });
+
+        console.log(`✅ PRO PRICE: $${result.usdPrice || 0}`);
+
+        return res.status(200).json({
+          ...result,
+          _source: 'moralis_v2_pro_price'
+        });
+      } catch (priceError) {
+        console.warn(`⚠️ PRO PRICE ERROR: ${priceError.message} - returning $0`);
+        return res.status(200).json({
+          usdPrice: 0,
+          exchangeAddress: null,
+          exchangeName: null,
+          tokenAddress: address,
+          _source: 'moralis_v2_pro_price_error',
+          _error: priceError.message
+        });
+      }
+    }
+
+    // ❌ ENTERPRISE ENDPOINTS COMPLETELY REMOVED (to prevent CU consumption)
+    if (endpoint === 'defi-summary' || endpoint === 'defi-positions' || endpoint === 'stats') {
+      console.log(`🚨 ENTERPRISE ENDPOINT BLOCKED: ${endpoint} not supported in Pro Plan`);
+      
+      return res.status(400).json({
+        error: `Enterprise endpoint '${endpoint}' removed to prevent CU waste`,
+        _enterprise_feature: true,
+        _removed_reason: 'These endpoints consume CUs but return empty data in Pro Plan',
+        _alternatives: {
+          'defi-summary': 'Use transaction-based ROI detection instead',
+          'defi-positions': 'Use transaction analysis for position tracking',
+          'stats': 'Use wallet activity analysis from transfers'
         }
-        
-        // Generic error handling
-        return res.status(200).json({
-          result: [],
-          total: 0,
-          _error: {
-            message: sdkError.message,
-            type: 'sdk_error',
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-    }
-
-    // 🏆 DEFI SUMMARY - ROI Detection Goldmine
-    if (endpoint === 'defi-summary') {
-      try {
-        console.log(`🚀 V2 DEFI SUMMARY: Getting DeFi overview for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.wallets.getDefiSummary({
-          address,
-          chain: moralisChain
-        });
-        
-        console.log(`✅ V2 DEFI SUMMARY SUCCESS: ${response.result.active_protocols} protocols, $${response.result.total_usd_value} value`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_defi_summary',
-          _roi_potential: response.result.total_unclaimed_usd_value || '0'
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 DEFI SUMMARY ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          _error: { message: error.message, source: 'moralis_v2_defi_summary' }
-        });
-      }
-    }
-
-    // 🎯 DEFI POSITIONS - ROI Source Detection
-    if (endpoint === 'defi-positions') {
-      try {
-        console.log(`🚀 V2 DEFI POSITIONS: Getting DeFi positions for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.wallets.getDefiPositionsSummary({
-          address,
-          chain: moralisChain
-        });
-        
-        console.log(`✅ V2 DEFI POSITIONS SUCCESS: ${response.result.length || 'Multiple'} positions found`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_defi_positions',
-          _roi_detection: true
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 DEFI POSITIONS ERROR:', error.message);
-        return res.status(500).json({
-          result: [],
-          _error: { message: error.message, source: 'moralis_v2_defi_positions' }
-        });
-      }
-    }
-
-    // 🔍 DEFI POSITIONS BY PROTOCOL - Detailed ROI Analysis
-    if (endpoint === 'defi-protocol') {
-      try {
-        const { protocol } = params;
-        if (!protocol) {
-          return res.status(400).json({
-            error: 'Protocol parameter required',
-            available_protocols: ['aave-v3', 'uniswap-v2', 'uniswap-v3', 'compound-v2']
-          });
-        }
-        
-        console.log(`🚀 V2 DEFI PROTOCOL: Getting ${protocol} positions for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.wallets.getDefiPositionsByProtocol({
-          address,
-          chain: moralisChain,
-          protocol
-        });
-        
-        console.log(`✅ V2 DEFI PROTOCOL SUCCESS: ${protocol} positions loaded`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_defi_protocol',
-          _protocol: protocol,
-          _detailed_roi: true
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 DEFI PROTOCOL ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          _error: { message: error.message, source: 'moralis_v2_defi_protocol' }
-        });
-      }
-    }
-
-    // 💰 MULTIPLE TOKEN PRICES - Real-time pricing
-    if (endpoint === 'multiple-token-prices') {
-      try {
-        const { tokens } = params;
-        if (!tokens || !Array.isArray(tokens)) {
-          return res.status(400).json({
-            error: 'tokens parameter required (array of token addresses)',
-            example: {
-              tokens: [
-                { token_address: '0x...', exchange: 'pulsex' },
-                { token_address: '0x...', exchange: 'uniswap-v3' }
-              ]
-            }
-          });
-        }
-        
-        console.log(`🚀 V2 MULTIPLE PRICES: Getting prices for ${tokens.length} tokens on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        // Extract just the token addresses for Moralis API
-        const tokenAddresses = tokens.map(token => token.token_address || token).filter(Boolean);
-        
-        if (tokenAddresses.length === 0) {
-          return res.status(400).json({
-            error: 'No valid token addresses provided'
-          });
-        }
-        
-        console.log(`🔄 MORALIS PRICE API: Requesting prices for ${tokenAddresses.length} tokens`);
-        
-        const response = await Moralis.EvmApi.token.getMultipleTokenPrices({
-          chain: moralisChain,
-          include: 'percent_change'
-        }, {
-          tokens: tokenAddresses.slice(0, 25).map(address => ({ // Limit to 25 tokens
-            token_address: address
-          }))
-        });
-        
-        console.log(`✅ V2 MULTIPLE PRICES SUCCESS: ${response.result.length} prices retrieved`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_multiple_prices',
-          _real_time: true,
-          _api_calls: 1
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 MULTIPLE PRICES ERROR:', error.message);
-        return res.status(500).json({
-          result: [],
-          _error: { message: error.message, source: 'moralis_v2_multiple_prices' }
-        });
-      }
-    }
-
-    // 💰 SINGLE TOKEN PRICE - Individual token pricing
-    if (endpoint === 'token-price') {
-      try {
-        if (!address) {
-          return res.status(400).json({
-            error: 'address parameter required (token contract address)'
-          });
-        }
-        
-        console.log(`🚀 V2 TOKEN PRICE: Getting price for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.token.getTokenPrice({
-          address,
-          chain: moralisChain,
-          include: 'percent_change'
-        });
-        
-        console.log(`✅ V2 TOKEN PRICE SUCCESS: ${response.result.tokenSymbol} = $${response.result.usdPrice}`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_token_price',
-          _real_time: true
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 TOKEN PRICE ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          _error: { message: error.message, source: 'moralis_v2_token_price' }
-        });
-      }
-    }
-
-    // 💎 WALLET TOKENS WITH PRICES - Game changer API!
-    if (endpoint === 'wallet-tokens-prices') {
-      try {
-        console.log(`🚀 V2 WALLET TOKENS+PRICES: Getting balances + prices for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.wallets.getWalletTokenBalancesPrice({
-          address,
-          chain: moralisChain,
-          excludeSpam: true,
-          excludeUnverifiedContracts: true
-        });
-        
-        console.log(`✅ V2 WALLET TOKENS+PRICES SUCCESS: ${response.result.length} tokens with prices`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_wallet_tokens_prices',
-          _combined_api: true,
-          _api_efficiency: 'single_call_instead_of_multiple'
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 WALLET TOKENS+PRICES ERROR:', error.message);
-        return res.status(500).json({
-          result: [],
-          _error: { message: error.message, source: 'moralis_v2_wallet_tokens_prices' }
-        });
-      }
-    }
-
-    // 📈 WALLET PNL SUMMARY - Profit/Loss tracking
-    if (endpoint === 'wallet-pnl-summary') {
-      try {
-        console.log(`🚀 V2 WALLET PNL SUMMARY: Getting P&L for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.wallets.getWalletProfitabilitySummary({
-          address,
-          chain: moralisChain,
-          days: 30
-        });
-        
-        console.log(`✅ V2 WALLET PNL SUCCESS: ${response.result.total_count_of_trades || 0} trades analyzed`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_v2_wallet_pnl_summary',
-          _pnl_tracking: true
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 WALLET PNL SUMMARY ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          _error: { message: error.message, source: 'moralis_v2_wallet_pnl_summary' }
-        });
-      }
-    }
-
-    // 🔄 WALLET TOKEN TRANSFERS - Transaction history
-    if (endpoint === 'wallet-token-transfers') {
-      try {
-        const requestLimit = Math.min(limit || 100, 100);
-        console.log(`🚀 V2 WALLET TOKEN TRANSFERS: Getting transfers for ${address} on chain ${chainId}`);
-        
-        // 🎉 MORALIS NOW SUPPORTS PULSECHAIN 100%! (confirmed by support)
-        const moralisChain = chainId === '0x171' ? '0x171' : EvmChain.ETHEREUM;
-        console.log(`💎 USING MORALIS FOR CHAIN: ${chainId} (PulseChain FULLY SUPPORTED!)`);
-        
-        const response = await Moralis.EvmApi.token.getWalletTokenTransfers({
-          address,
-          chain: moralisChain,
-          cursor,
-          limit: requestLimit,
-          order: 'DESC'
-        });
-        
-        console.log(`✅ V2 WALLET TOKEN TRANSFERS SUCCESS: ${response.result.length} transfers found`);
-        
-        return res.status(200).json({
-          result: response.result,
-          cursor: response.cursor,
-          page_size: response.page_size,
-          _source: 'moralis_v2_wallet_token_transfers'
-        });
-        
-      } catch (error) {
-        console.error('💥 V2 WALLET TOKEN TRANSFERS ERROR:', error.message);
-        return res.status(500).json({
-          result: [],
-          _error: { message: error.message, source: 'moralis_v2_wallet_token_transfers' }
-        });
-      }
-    }
-
-    // 🔧 SYSTEM HEALTH CHECK - API Version & Status
-    if (endpoint === 'api-version' || endpoint === 'health') {
-      try {
-        console.log(`🔧 SYSTEM HEALTH: Checking API version and connectivity`);
-        
-        const response = await Moralis.EvmApi.utils.web3ApiVersion({});
-        
-        console.log(`✅ MORALIS API HEALTH: Version ${response.result.version}`);
-        
-        return res.status(200).json({
-          result: response.result,
-          moralis_status: 'online',
-          our_api_status: 'operational',
-          timestamp: new Date().toISOString(),
-          _source: 'moralis_health_check',
-          _debug_endpoint: true
-        });
-        
-      } catch (error) {
-        console.error('💥 MORALIS API HEALTH ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          moralis_status: 'offline',
-          our_api_status: 'degraded',
-          error: error.message,
-          timestamp: new Date().toISOString(),
-          _source: 'moralis_health_check_failed'
-        });
-      }
-    }
-
-    // 🔍 ENDPOINT WEIGHTS - API Cost Information
-    if (endpoint === 'endpoint-weights') {
-      try {
-        console.log(`🔍 SYSTEM INFO: Getting endpoint cost information`);
-        
-        const response = await Moralis.EvmApi.utils.getEndpointWeights({});
-        
-        console.log(`✅ ENDPOINT WEIGHTS: Retrieved cost information for ${Object.keys(response.result).length} endpoints`);
-        
-        return res.status(200).json({
-          result: response.result,
-          _source: 'moralis_endpoint_weights',
-          _cost_optimization: true,
-          timestamp: new Date().toISOString()
-        });
-        
-      } catch (error) {
-        console.error('💥 ENDPOINT WEIGHTS ERROR:', error.message);
-        return res.status(500).json({
-          result: null,
-          error: error.message,
-          _source: 'moralis_endpoint_weights_failed'
-        });
-      }
+      });
     }
 
     // Invalid endpoint
-    return res.status(200).json({
-      success: false,
-      error: 'Invalid endpoint',
-      available: ['wallet-tokens', 'wallet-tokens-prices', 'wallet-pnl-summary', 'wallet-token-transfers', 'portfolio', 'history', 'stats', 'native', 'defi-summary', 'defi-positions', 'defi-protocol', 'multiple-token-prices', 'token-price', 'api-version', 'health', 'endpoint-weights'],
-      _moralis_only: true
+    return res.status(400).json({ 
+      error: `Unsupported endpoint: ${endpoint}`,
+      available_endpoints: [
+        'wallet-token-transfers',
+        'erc20_transfers',
+        'native_transactions', 
+        'balance',
+        'native-balance',
+        'nft',
+        'wallet-nfts',
+        'erc20',
+        'token-price'
+      ],
+      _pro_compatible: true,
+      _enterprise_removed: [
+        'wallet-tokens-prices',  // Use erc20 + token-price instead
+        'defi-summary',          // Use transaction analysis instead
+        'defi-positions',        // Use transaction analysis instead  
+        'stats'                  // Use activity analysis instead
+      ],
+      _note: 'Enterprise endpoints removed to prevent CU waste in Pro Plan'
     });
 
   } catch (error) {
-    console.error('💥 MORALIS PROXY ERROR:', error.message);
-    
-    return res.status(200).json({
-      result: [],
-      total: 0,
-      _error: {
-        message: error.message,
-        endpoint: 'moralis-tokens',
-        timestamp: new Date().toISOString()
-      }
+    console.error('💥 PRO API ERROR:', error.message);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: error.message,
+      _pro_mode: true,
+      timestamp: new Date().toISOString()
     });
   }
 } 

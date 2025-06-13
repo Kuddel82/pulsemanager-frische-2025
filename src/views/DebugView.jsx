@@ -199,20 +199,21 @@ const DebugView = () => {
     }
   };
 
-  // Initial test
-  useEffect(() => {
-    if (user?.id) {
-      runSystemTest();
-    }
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: No auto-loading to save API calls
+  // Initial test removed - only manual loading via button
+  // useEffect(() => {
+  //   if (user?.id) {
+  //     runSystemTest();
+  //   }
+  // }, [user?.id]);
 
-  // Auto-refresh
-  useEffect(() => {
-    if (autoRefresh) {
-      const interval = setInterval(runSystemTest, 30000); // 30 seconds
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: Auto-refresh removed to save costs
+  // useEffect(() => {
+  //   if (autoRefresh) {
+  //     const interval = setInterval(runSystemTest, 30000); // 30 seconds
+  //     return () => clearInterval(interval);
+  //   }
+  // }, [autoRefresh, user?.id]);
 
   const getStatusIcon = (success) => {
     if (success === true) return <CheckCircle className="h-5 w-5 text-green-500" />;

@@ -257,6 +257,7 @@ export const translationsDe = {
 
   // Tax Report
   taxReportViewTitle: "Steuerbericht",
+  wgepViewTitle: "WGEP Token",
   taxExportCSV: "CSV Exportieren",
   taxExportPDF: "PDF Exportieren",
   taxReportTitle: 'Steuerbericht',

@@ -17,6 +17,7 @@ import { translationsEn as walletEn } from './en/wallet';
 import { translationsEn as bridgeEn } from './en/bridge';
 import { translationsEn as yieldOptimizerEn } from './en/yieldOptimizer';
 import { translationsEn as marketEn } from './en/market';
+import { translationsEn as wgepEn } from './en/wgep';
 
 export const translationsEn = {
   ...authEn,
@@ -38,4 +39,5 @@ export const translationsEn = {
   ...bridgeEn,
   ...yieldOptimizerEn,
   ...marketEn,
+  ...wgepEn,
 };

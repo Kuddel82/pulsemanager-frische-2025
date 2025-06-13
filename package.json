@@ -1,8 +1,8 @@
 {
   "name": "pulsemanger-app",
   "type": "module",
-  "version": "0.1.8-MORALIS-ENTERPRISE-100-PERCENT",
-  "description": "🚀 FORCE DEPLOY - API fixes must go live!",
+  "version": "0.1.9-MORALIS-PRO-COST-OPTIMIZED",
+  "description": "💰 COST REDUCTION - Pro Plan kompatibel!",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -20,6 +20,8 @@
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.5.0",
     "ethers": "^5.7.2",
     "express-validator": "^7.2.1",
     "framer-motion": "^10.16.4",
@@ -51,6 +53,8 @@
     "@types/react-dom": "^18.2.7",
     "eslint": "^8.57.1",
     "eslint-config-react-app": "^7.0.1",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.10.0",
     "terser": "^5.39.0"
   }
 }

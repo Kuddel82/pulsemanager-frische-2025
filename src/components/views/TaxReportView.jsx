@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import CentralDataService from '@/services/CentralDataService';
+import TaxReportDownload from '../tax/TaxReportDownload';
 
 const TaxReportView = () => {
   const { user } = useAuth();
@@ -222,10 +223,11 @@ const TaxReportView = () => {
     }
   };
 
-  // Initiales Laden
-  useEffect(() => {
-    loadTaxData();
-  }, [user?.id]);
+  // ❌ AUTOMATISCHES LADEN DEAKTIVIERT FÜR KOSTENOPTIMIERUNG
+  // ✅ Nur noch manuelles Laden via Button erlaubt!
+  // useEffect(() => {
+  //   loadTaxData();
+  // }, [user?.id]);
 
   // Format Funktionen
   const formatCurrency = (value) => {
@@ -610,6 +612,9 @@ const TaxReportView = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Professional PDF Tax Report Download */}
+      <TaxReportDownload walletAddress={user?.wallet || portfolioData?.wallet} />
     </div>
   );
 };

@@ -38,7 +38,7 @@ const ROITrackerV2View = () => {
   const [portfolioData, setPortfolioData] = useState(null);
   const [defiData, setDefiData] = useState(null);
   const [roiDetectionData, setROIDetectionData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // MORALIS PRO: Start without loading
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [timeFrame, setTimeFrame] = useState('monthly');
@@ -56,10 +56,10 @@ const ROITrackerV2View = () => {
       console.log('🔄 ROI TRACKER V2: Loading comprehensive ROI data...');
       
       // 1. Standard Portfolio-Daten (lokale ROI-Transaktionen)
-      const portfolioResponse = await CentralDataService.loadCompletePortfolio(user.id);
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id);
       
       // 2. Lade erste Wallet-Adresse für Moralis DeFi-Daten
-      const wallets = portfolioResponse.wallets || [];
+      const wallets = portfolioData.wallets || [];
       const primaryWallet = wallets.find(w => w.chain === 'ethereum') || wallets[0];
       
       let defiResponse = null;
@@ -84,13 +84,13 @@ const ROITrackerV2View = () => {
         roiDetectionResponse = roiDetection;
       }
       
-      setPortfolioData(portfolioResponse);
+      setPortfolioData(portfolioData);
       setDefiData(defiResponse);
       setROIDetectionData(roiDetectionResponse);
       setLastUpdate(new Date());
       
       console.log('✅ ROI TRACKER V2: All data loaded', {
-        portfolioROI: portfolioResponse.monthlyROI || 0,
+        portfolioROI: portfolioData.monthlyROI || 0,
         defiPositions: defiResponse?.positions?.positions?.length || 0,
         roiSources: roiDetectionResponse?.sources?.length || 0
       });
@@ -103,16 +103,17 @@ const ROITrackerV2View = () => {
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    loadAllROIData();
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: No auto-loading to save API calls
+  // Initial load removed - only manual loading via button
+  // useEffect(() => {
+  //   loadAllROIData();
+  // }, [user?.id]);
 
-  // Auto-refresh every 10 minutes
-  useEffect(() => {
-    const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
+  // ❌ DISABLED FOR MORALIS PRO: Auto-refresh removed to save costs
+  // useEffect(() => {
+  //   const interval = setInterval(loadAllROIData, 10 * 60 * 1000);
+  //   return () => clearInterval(interval);
+  // }, [user?.id]);
 
   if (loading) {
     return (
