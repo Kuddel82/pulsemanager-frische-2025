@@ -1,7 +1,7 @@
 // 📊 PORTFOLIO VIEW - Zeigt Token-Holdings mit echten Preisen
 // Datum: 2025-01-08 - PHASE 3: ECHTE PREISE INTEGRATION
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -117,16 +117,11 @@ const PortfolioView = () => {
     }
   ] : [];
 
-  // ROI Berechnung
+  // ROI Berechnung - FIXED: Verhindere Endlosschleife
   const calculateROI = useCallback(() => {
     if (!portfolioData) return null;
 
     try {
-      console.log('📊 Calculating ROI Stats:', {
-        portfolioData: JSON.stringify(portfolioData),
-        defiData: JSON.stringify(defiData)
-      });
-
       // Portfolio ROI
       const portfolioROI = {
         totalValue: portfolioData.totalValue || 0,
@@ -154,13 +149,6 @@ const PortfolioView = () => {
           : 0
       };
 
-      console.log('💰 ROI Calculation Result:', {
-        portfolioROI,
-        defiROI,
-        totalROI,
-        portfolioValue: portfolioData.totalValue
-      });
-
       return {
         portfolioROI,
         defiROI,
@@ -177,10 +165,21 @@ const PortfolioView = () => {
         error: error.message
       };
     }
-  }, [portfolioData, defiData]);
+  }, [portfolioData?.totalValue, portfolioData?.totalCost, defiData?.totalValue, defiData?.totalCost]);
 
-  // ROI berechnen wenn sich die Daten ändern
-  const roiData = calculateROI();
+  // ROI berechnen wenn sich die relevanten Daten ändern - FIXED: Nur bei echten Änderungen
+  const roiData = useMemo(() => {
+    const result = calculateROI();
+    if (result) {
+      console.log('💰 ROI Calculation Result:', {
+        portfolioROI: result.portfolioROI,
+        defiROI: result.defiROI,
+        totalROI: result.totalROI,
+        portfolioValue: result.portfolioValue
+      });
+    }
+    return result;
+  }, [calculateROI]);
 
   return (
     <div className="min-h-screen bg-black p-6">
