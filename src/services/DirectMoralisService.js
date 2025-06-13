@@ -111,32 +111,36 @@ export class DirectMoralisService {
       const data = await response.json();
       const transfers = data.result || [];
       
-      // 🎯 SEHR STRENGE ROI DETECTION: Nur echte Minting/Rewards
+      // 🎯 AUSGEWOGENE ROI DETECTION: Echte ROI-Transaktionen erkennen
       const roiTransfers = transfers.filter(transfer => {
         const isIncoming = transfer.to_address?.toLowerCase() === address.toLowerCase();
         const hasValue = transfer.value && parseFloat(transfer.value) > 0;
         const fromAddress = transfer.from_address?.toLowerCase();
         
-        // 1. NUR von Null-Address (echtes Minting) - SEHR STRENG
+        // 1. Von Null-Address (echtes Minting)
         const fromZeroAddress = fromAddress === '0x0000000000000000000000000000000000000000';
         
-        // 2. Bekannte ROI-Token NUR mit sehr kleinen Beträgen
+        // 2. Bekannte ROI-Token mit angemessenen Beträgen
         const tokenSymbol = transfer.token_symbol?.toUpperCase();
-        const isROIToken = ['HEX', 'INC'].includes(tokenSymbol); // Nur HEX und INC
+        const isROIToken = ['HEX', 'INC', 'PLSX'].includes(tokenSymbol);
         
-        // 3. SEHR kleine regelmäßige Beträge (nur echte Rewards)
+        // 3. ROI-typische Beträge (erweitert für bessere Erkennung)
         const amount = parseFloat(transfer.value) / Math.pow(10, parseInt(transfer.token_decimals) || 18);
-        const isVerySmallAmount = amount > 0 && amount < 10; // Unter 10 Token nur!
+        const isROIAmount = amount > 0 && amount < 10000; // Unter 10k Token
         
         // 4. Nicht von eigener Wallet
         const notSelfTransfer = fromAddress !== address.toLowerCase();
         
-        // 5. Nicht von bekannten DEX/Contract-Adressen (große Transfers)
-        const isLargeTransfer = amount > 100; // Über 100 Token = kein ROI
+        // 5. Von Contract-Adressen (typisch für ROI)
+        const fromContract = fromAddress && 
+                           fromAddress.length === 42 && 
+                           fromAddress.startsWith('0x') &&
+                           fromAddress !== address.toLowerCase() &&
+                           !fromAddress.startsWith('0x000000000000000000000000000000000000');
         
-        // ROI = NUR Minting ODER (ROI-Token UND sehr kleine Beträge UND nicht Self-Transfer UND nicht große Transfers)
-        return isIncoming && hasValue && notSelfTransfer && !isLargeTransfer &&
-               (fromZeroAddress || (isROIToken && isVerySmallAmount));
+        // ROI = Minting ODER (ROI-Token UND ROI-Betrag UND von Contract UND nicht Self-Transfer)
+        return isIncoming && hasValue && notSelfTransfer &&
+               (fromZeroAddress || (isROIToken && isROIAmount && fromContract));
       });
       
       console.log(`✅ DIRECT: ${transfers.length} transfers, ${roiTransfers.length} potential ROI`);

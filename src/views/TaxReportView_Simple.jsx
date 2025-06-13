@@ -85,7 +85,8 @@ const TaxReportView = () => {
         
         const result = await DirectMoralisService.getTaxData(wallet.address, chain, {
           getAllPages: true,
-          limit: 500
+          limit: 100,
+          maxTransactions: 200000
         });
         
         if (result.success) {
