@@ -1,7 +1,7 @@
 // 📊 PORTFOLIO VIEW - Zeigt Token-Holdings mit echten Preisen
 // Datum: 2025-01-08 - PHASE 3: ECHTE PREISE INTEGRATION
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -19,11 +19,14 @@ import {
   AlertCircle,
   ExternalLink,
   Eye,
-  EyeOff
+  EyeOff,
+  PlusCircle,
+  Wallet
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 const PortfolioView = () => {
   // 🚀 GLOBAL: Portfolio Context mit Caching & State-Sharing
@@ -40,6 +43,8 @@ const PortfolioView = () => {
     isStale,
     isCached
   } = usePortfolioContext();
+
+  const { isPro } = useSubscription();
 
   const [showDebug, setShowDebug] = useState(false);
   
@@ -84,8 +89,6 @@ const PortfolioView = () => {
     isCached,
     lastUpdate
   });
-
-  // 🚫 BLOCKIERENDE STATES ENTFERNT: Keine return statements mehr - always show main UI
 
   // 🛡️ SAFE STATS - Verhindere Crashes bei fehlenden Daten
   const portfolioStats = portfolioData ? [
@@ -170,6 +173,9 @@ const PortfolioView = () => {
       };
     }
   }, [portfolioData, defiData]);
+
+  // ROI berechnen wenn sich die Daten ändern
+  const roiData = calculateROI();
 
   return (
     <div className="min-h-screen bg-black p-6">
