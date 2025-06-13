@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { useSubscription as useSubscriptionHook } from '../hooks/useSubscription';
+import { useSubscription as useSubscriptionHook } from '@/hooks/useSubscription';
 
 const SubscriptionContext = createContext();
 

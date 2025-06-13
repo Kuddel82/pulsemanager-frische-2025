@@ -40,9 +40,9 @@ export const useSubscription = () => {
     try {
       console.log('🔍 Loading subscription for:', user.email);
 
-      // 🎯 PREMIUM USER: dkuddel@web.de - HIGHEST PRIORITY
+      // 🎯 PREMIUM USER: dkuddel@web.de - ABSOLUTE HIGHEST PRIORITY
       if (user.email === 'dkuddel@web.de') {
-        console.log('🌟 PREMIUM USER DETECTED:', user.email);
+        console.log('🌟 PREMIUM USER DETECTED - OVERRIDING ALL OTHER CHECKS:', user.email);
         const premiumState = {
           tier: 'premium',
           isActive: true,
@@ -50,8 +50,25 @@ export const useSubscription = () => {
           daysRemaining: 999, // Unlimited
           loading: false
         };
-        console.log('✅ Setting premium state:', premiumState);
+        console.log('✅ FORCING PREMIUM STATE (ignoring Supabase):', premiumState);
         setSubscription(premiumState);
+        
+        // Also update Supabase to match our override
+        try {
+          await supabase
+            .from('user_profiles')
+            .upsert({
+              id: user.id,
+              email: user.email,
+              subscription_tier: 'premium',
+              status: 'active',
+              updated_at: new Date().toISOString()
+            });
+          console.log('✅ Updated Supabase to match premium status');
+        } catch (error) {
+          console.warn('⚠️ Could not update Supabase premium status:', error);
+        }
+        
         return;
       }
 
