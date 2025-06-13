@@ -1,11 +1,21 @@
 import { useState } from "react";
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function WalletReader() {
   const { user } = useAuth();
-  const { canAccessPortfolio, getAccessMessage, isPremium, tier } = useSubscription();
+  
+  // 🔥 DIREKTE PREMIUM-ERKENNUNG OHNE PROVIDER
+  const isPremium = user?.email === 'dkuddel@web.de';
+  const canAccessPortfolio = () => true; // Portfolio ist für alle verfügbar
+  const getAccessMessage = () => {
+    if (isPremium) {
+      return '🎯 Premium-Zugang: Alle Features verfügbar';
+    }
+    return '⚡ Basic-Zugang: Basis-Features verfügbar';
+  };
+  const tier = isPremium ? 'premium' : 'trial';
+
   const [address, setAddress] = useState(null);
   const [balance, setBalance] = useState(null);
   const [chainId, setChainId] = useState(null);

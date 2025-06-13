@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { Crown } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
@@ -12,9 +11,25 @@ const Home = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
   const { t, language } = useAppContext();
-  const { isPremium, getAccessMessage } = useSubscription();
-
-
+  
+  // 🔥 DIREKTE PREMIUM-ERKENNUNG OHNE PROVIDER
+  const [isPremium, setIsPremium] = useState(false);
+  
+  useEffect(() => {
+    if (user?.email === 'dkuddel@web.de') {
+      console.log('🌟 DIRECT PREMIUM DETECTION:', user.email);
+      setIsPremium(true);
+    } else {
+      setIsPremium(false);
+    }
+  }, [user]);
+  
+  const getAccessMessage = () => {
+    if (isPremium) {
+      return '🎯 Premium-Zugang: Alle Features verfügbar';
+    }
+    return '⚡ Basic-Zugang: Basis-Features verfügbar';
+  };
 
   const safeT = (key, fallback) => {
     if (typeof t === 'function') {
@@ -34,8 +49,6 @@ const Home = () => {
       
     }
   };
-
-
 
   if (authLoading) {
     return (
@@ -77,8 +90,6 @@ const Home = () => {
         </div>
       </div>
 
-
-
       {/* 🔌 WalletReader - DOM-sichere Wallet-Verbindung */}
       <div className="mb-8">
         <WalletReader />
@@ -88,8 +99,6 @@ const Home = () => {
       <div className="mb-8">
         <WalletManualInput />
       </div>
-
-
 
       {/* 📋 DASHBOARD OBJEKTE (READ-ONLY VIEW + LINK) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -141,7 +150,6 @@ const Home = () => {
         </div>
         
       </div>
-
 
     </div>
   );
