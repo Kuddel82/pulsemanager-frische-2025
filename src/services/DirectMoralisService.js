@@ -111,29 +111,32 @@ export class DirectMoralisService {
       const data = await response.json();
       const transfers = data.result || [];
       
-      // 🎯 VERBESSERTE ROI DETECTION: Nur echte ROI-Transaktionen
+      // 🎯 SEHR STRENGE ROI DETECTION: Nur echte Minting/Rewards
       const roiTransfers = transfers.filter(transfer => {
         const isIncoming = transfer.to_address?.toLowerCase() === address.toLowerCase();
         const hasValue = transfer.value && parseFloat(transfer.value) > 0;
         const fromAddress = transfer.from_address?.toLowerCase();
         
-        // 1. Von Null-Address (echtes Minting)
+        // 1. NUR von Null-Address (echtes Minting) - SEHR STRENG
         const fromZeroAddress = fromAddress === '0x0000000000000000000000000000000000000000';
         
-        // 2. Bekannte ROI-Token (HEX, INC, etc.)
+        // 2. Bekannte ROI-Token NUR mit sehr kleinen Beträgen
         const tokenSymbol = transfer.token_symbol?.toUpperCase();
-        const isROIToken = ['HEX', 'INC', 'PLSX'].includes(tokenSymbol);
+        const isROIToken = ['HEX', 'INC'].includes(tokenSymbol); // Nur HEX und INC
         
-        // 3. Kleine regelmäßige Beträge (typisch für ROI)
+        // 3. SEHR kleine regelmäßige Beträge (nur echte Rewards)
         const amount = parseFloat(transfer.value) / Math.pow(10, parseInt(transfer.token_decimals) || 18);
-        const isSmallAmount = amount > 0 && amount < 1000; // Unter 1000 Token
+        const isVerySmallAmount = amount > 0 && amount < 10; // Unter 10 Token nur!
         
-        // 4. Nicht von eigener Wallet (verhindert Self-Transfers als ROI)
+        // 4. Nicht von eigener Wallet
         const notSelfTransfer = fromAddress !== address.toLowerCase();
         
-        // ROI = (Minting ODER ROI-Token) UND eingehend UND nicht Self-Transfer
-        return isIncoming && hasValue && notSelfTransfer && 
-               (fromZeroAddress || (isROIToken && isSmallAmount));
+        // 5. Nicht von bekannten DEX/Contract-Adressen (große Transfers)
+        const isLargeTransfer = amount > 100; // Über 100 Token = kein ROI
+        
+        // ROI = NUR Minting ODER (ROI-Token UND sehr kleine Beträge UND nicht Self-Transfer UND nicht große Transfers)
+        return isIncoming && hasValue && notSelfTransfer && !isLargeTransfer &&
+               (fromZeroAddress || (isROIToken && isVerySmallAmount));
       });
       
       console.log(`✅ DIRECT: ${transfers.length} transfers, ${roiTransfers.length} potential ROI`);
@@ -169,7 +172,7 @@ export class DirectMoralisService {
         throw new Error('VITE_MORALIS_API_KEY not configured. Please add to .env file.');
       }
       
-      const { limit = 100, getAllPages = true, maxTransactions = 5000 } = options;
+      const { limit = 100, getAllPages = true, maxTransactions = 200000 } = options;
       
       console.log(`🚀 DIRECT: Loading tax data for ${address} on chain ${chain} (unlimited: ${getAllPages})`);
       
@@ -178,7 +181,7 @@ export class DirectMoralisService {
       let hasMore = true;
       let pageCount = 0;
       
-      // 🔄 UNLIMITED PAGINATION für Tax Reports
+      // 🔄 UNLIMITED PAGINATION für Tax Reports (bis zu 200k Transaktionen)
       while (hasMore && allTransfers.length < maxTransactions) {
         pageCount++;
         console.log(`📄 TAX: Loading page ${pageCount}, current total: ${allTransfers.length}`);
@@ -219,28 +222,37 @@ export class DirectMoralisService {
       
       console.log(`📊 TAX: Total loaded ${allTransfers.length} transfers across ${pageCount} pages`);
       
-      // 🎯 VERBESSERTE TAX CLASSIFICATION
+      // 🎯 ERWEITERTE TAX CLASSIFICATION - Mehr Transaktionen erfassen
       const taxableTransfers = allTransfers.filter(transfer => {
         const isIncoming = transfer.to_address?.toLowerCase() === address.toLowerCase();
         const fromAddress = transfer.from_address?.toLowerCase();
         const tokenSymbol = transfer.token_symbol?.toUpperCase();
         
-        // 1. Echtes Minting (von Null-Address)
+        // 1. Echtes Minting (von Null-Address) - IMMER steuerpflichtig
         const fromZeroAddress = fromAddress === '0x0000000000000000000000000000000000000000';
         
-        // 2. Bekannte ROI-Token von Contract-Adressen
-        const isROIToken = ['HEX', 'INC', 'PLSX'].includes(tokenSymbol);
-        const fromContract = fromAddress && fromAddress !== address.toLowerCase() && 
+        // 2. Alle eingehenden Transfers von Contract-Adressen (nicht nur ROI-Token)
+        const fromContract = fromAddress && 
+                           fromAddress !== address.toLowerCase() && 
+                           fromAddress.length === 42 && 
+                           fromAddress.startsWith('0x') &&
                            !fromAddress.startsWith('0x000000000000000000000000000000000000');
         
-        // 3. Kleine regelmäßige Beträge (typisch für Staking/Rewards)
+        // 3. Reward-ähnliche Beträge (erweitert)
         const amount = parseFloat(transfer.value) / Math.pow(10, parseInt(transfer.token_decimals) || 18);
-        const isRewardAmount = amount > 0 && amount < 10000; // Unter 10k Token
+        const isRewardAmount = amount > 0 && amount < 50000; // Unter 50k Token
         
-        // STEUERPFLICHTIG = Minting ODER (ROI-Token UND kleine Beträge UND von Contract)
+        // 4. Bekannte DeFi/Staking Token
+        const isDeFiToken = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'USDC', 'USDT', 'DAI'].includes(tokenSymbol);
+        
+        // 5. Regelmäßige kleine Transfers (typisch für Rewards)
+        const isSmallRegularTransfer = amount > 0 && amount < 1000;
+        
+        // STEUERPFLICHTIG = Minting ODER (von Contract UND Reward-Betrag) ODER (DeFi-Token UND kleine Transfers)
         return isIncoming && (
           fromZeroAddress || 
-          (isROIToken && isRewardAmount && fromContract)
+          (fromContract && isRewardAmount) ||
+          (isDeFiToken && isSmallRegularTransfer && fromContract)
         );
       });
       
