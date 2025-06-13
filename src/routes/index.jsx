@@ -33,7 +33,7 @@ import TermsOfServiceView from '@/components/views/TermsOfServiceView';
 import SubscriptionModal from '@/components/SubscriptionModal';
 
 const AppRoutes = () => {
-  const { loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { loading: appLoading } = useAppContext();
   const { t } = useAppContext();
 
