@@ -89,64 +89,55 @@ const Home = () => {
 
 
 
-      {/* 🚀 PulseX DEX Embedded Interface */}
-      <div className="pulse-card p-6 mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-6 w-6 bg-gradient-to-r from-purple-400 to-pink-400 rounded flex items-center justify-center text-white font-bold text-xs">
-            PX
+      {/* 📋 DASHBOARD OBJEKTE (READ-ONLY VIEW + LINK) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        
+        {/* PulseX */}
+        <div className="pulse-card p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded flex items-center justify-center text-white font-bold text-sm">
+              PX
+            </div>
+            <h2 className="text-xl font-bold pulse-text">PulseX</h2>
           </div>
-          <h2 className="text-xl font-bold pulse-text">Token Kauf/Verkauf über PulseX</h2>
-        </div>
-        
-        <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-400/20 rounded-lg">
-          <p className="text-yellow-400 text-sm">
-            ⚠️ <strong>Bitte beachten:</strong> Sie interagieren direkt mit PulseX. PulseManager wickelt keine Transaktionen direkt ab, sondern stellt eine komfortable Oberfläche bereit.
+          
+          <p className="pulse-text-secondary mb-4">
+            Hier kannst du Token kaufen & tauschen
           </p>
+          
+          <a 
+            href="https://app.pulsex.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+          >
+            🚀 PulseX öffnen
+          </a>
         </div>
 
-        <div className="bg-black/20 rounded-lg p-4 border border-purple-500/20">
-          <iframe
-            src="https://pulsex.mypinata.cloud/ipfs/bafybeiajyhfbf6evh4mdabassmbtsy73ci2gmcgh4ffmjkrgsea35vqxba/#/?chain=pulsechain"
-            className="w-full h-[600px] rounded-lg border-0"
-            title="PulseX DEX Interface"
-            allowFullScreen
-          />
-        </div>
-        
-        <div className="mt-4 text-xs pulse-text-secondary text-center">
-          💡 <strong>PulseX Kauf/Verkauf-Schnittstelle:</strong><br />
-          Nutzen Sie die untenstehende Fenster, um Token direkt auf PulseX zu kaufen oder zu verkaufen.
-        </div>
-      </div>
-
-      {/* 🌉 Portal Bridge Embedded Interface */}
-      <div className="pulse-card p-6 mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-6 w-6 bg-gradient-to-r from-cyan-400 to-blue-400 rounded flex items-center justify-center text-white font-bold text-xs">
-            BR
+        {/* Bridge */}
+        <div className="pulse-card p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-cyan-400 to-blue-400 rounded flex items-center justify-center text-white font-bold text-sm">
+              BR
+            </div>
+            <h2 className="text-xl font-bold pulse-text">PulseChain Bridge</h2>
           </div>
-          <h2 className="text-xl font-bold pulse-text">Token über Portal bridgen</h2>
-        </div>
-        
-        <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-400/20 rounded-lg">
-          <p className="text-yellow-400 text-sm">
-            ⚠️ <strong>Bitte beachten:</strong> Sie interagieren direkt mit der Portal Bridge. PulseManager wickelt keine Bridge-Transaktionen direkt ab, sondern stellt eine komfortable Oberfläche bereit.
+          
+          <p className="pulse-text-secondary mb-4">
+            Hier kannst du Tokens z.B. von Ethereum zur PulseChain senden
           </p>
-        </div>
-
-        <div className="bg-black/20 rounded-lg p-4 border border-cyan-500/20">
-          <iframe
-            src="https://bridge.mypinata.cloud/ipfs/bafybeif242ld54nzjg2aqxvfse23wpbkqbyqasj3usgslccuajnykonzo4/#/bridge"
-            className="w-full h-[600px] rounded-lg border-0"
-            title="Portal Bridge Interface"
-            allowFullScreen
-          />
+          
+          <a 
+            href="https://bridge.pulsechain.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+          >
+            🌉 Bridge öffnen
+          </a>
         </div>
         
-        <div className="mt-4 text-xs pulse-text-secondary text-center">
-          🌉 <strong>Portal Bridge Schnittstelle:</strong><br />
-          Nutzen Sie die untenstehende Fenster, um Token zwischen Blockchains zu transferieren.
-        </div>
       </div>
 
 

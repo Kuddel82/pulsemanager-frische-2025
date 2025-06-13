@@ -794,12 +794,12 @@ const TaxReportView = () => {
               
               {/* ENTERPRISE FEATURES STATUS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                <div className="p-3 bg-red-500/10 border border-red-400/20 rounded">
-                  <span className="font-medium text-red-400">❌ Enterprise entfernt (CUs gespart):</span>
-                  <ul className="text-xs text-red-400 mt-2 space-y-1">
-                    <li>• wallet-tokens-prices (Auto-Preisfindung)</li>
-                    <li>• defi-summary (DeFi Tax Detection)</li>
-                    <li>• global-portfolio (Enterprise Analytics)</li>
+                <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+                  <span className="font-medium text-blue-400">🚀 Moralis Pro APIs verwendet:</span>
+                  <ul className="text-xs text-blue-400 mt-2 space-y-1">
+                    <li>• /wallets/{address}/erc20 (Token Detection)</li>
+                    <li>• /erc20/{token}/price (Price Lookup)</li>
+                    <li>• /wallets/{address}/erc20/transfers (Transfers)</li>
                   </ul>
                 </div>
                 

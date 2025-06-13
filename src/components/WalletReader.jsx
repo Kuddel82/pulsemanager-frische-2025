@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '../hooks/useSubscription';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function WalletReader() {
   const { user } = useAuth();
+  const { canAccessPortfolio, getAccessMessage, isPremium, tier } = useSubscription();
   const [address, setAddress] = useState(null);
   const [balance, setBalance] = useState(null);
   const [chainId, setChainId] = useState(null);
@@ -175,6 +177,11 @@ export default function WalletReader() {
             Auto-Connect & Save to Portfolio
             {isSavingToDb && <span className="text-orange-400 ml-2">💾 Speichert...</span>}
           </p>
+          <div className="text-xs mt-1">
+            <span className={`px-2 py-1 rounded-full text-xs ${isPremium ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+              {getAccessMessage()}
+            </span>
+          </div>
         </div>
       </div>
 

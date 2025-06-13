@@ -30,12 +30,14 @@ import {
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
-import { MoralisV2Service } from '@/services/MoralisV2Service';
-import { ROIDetectionService } from '@/services/ROIDetectionService';
+import { useSubscription } from '../hooks/useSubscription';
+import { DirectMoralisService } from '../services/DirectMoralisService';
+import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ROITrackerView = () => {
   const { user } = useAuth();
+  const { canAccessROI, getAccessMessage, isPremium } = useSubscription();
   
   // 🚀 GLOBAL PORTFOLIO CONTEXT - Shared data between views
   const {
@@ -60,10 +62,22 @@ const ROITrackerView = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // overview, defi, positions, detection
 
-  // 🚀 LOAD DEFI DATA ONLY - Portfolio comes from Global Context
-  const loadDefiData = async () => {
-    if (!user?.id || !hasPortfolioData) {
-      console.log('⚠️ Cannot load DeFi data: No user or portfolio data');
+  // 🚀 PRO PLAN ROI: Transaction-based ROI Detection
+  const loadROIData = async () => {
+    if (!user?.id || !canAccessROI()) {
+      setError('ROI-Tracker nur für Premium-Mitglieder verfügbar');
+      return;
+    }
+    
+    // Hole gespeicherte Wallet-Adressen
+    const { data: wallets } = await supabase
+      .from('wallets')
+      .select('address, chain_id')
+      .eq('user_id', user.id)
+      .eq('is_active', true);
+    
+    if (!wallets || wallets.length === 0) {
+      setError('Keine Wallets gefunden für ROI-Analyse');
       return;
     }
     
@@ -71,7 +85,7 @@ const ROITrackerView = () => {
       setDefiLoading(true);
       setError(null);
       
-      console.log('🔄 ROI TRACKER: Loading DeFi data using Global Portfolio Context...');
+      console.log('🚀 ROI TRACKER: Loading ROI data with DirectMoralisService...');
       
              console.log('📊 ROI TRACKER: Using Global Portfolio Data:', {
         success: portfolioData?.success,
@@ -609,23 +623,23 @@ const ROITrackerView = () => {
               </div>
             </div>
             
-            {/* ENTERPRISE FEATURES DISABLED INFO */}
+            {/* PRO PLAN FEATURES */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-              <div className="p-3 bg-red-500/10 border border-red-400/20 rounded">
-                <span className="font-medium text-red-400">❌ Enterprise Features deaktiviert:</span>
-                <ul className="text-xs text-red-400 mt-2 space-y-1">
-                  <li>• defi-summary (0 CUs gespart)</li>
-                  <li>• defi-positions (0 CUs gespart)</li>
-                  <li>• wallet-stats (0 CUs gespart)</li>
+              <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
+                <span className="font-medium text-blue-400">🚀 Moralis Pro Plan Features:</span>
+                <ul className="text-xs text-blue-400 mt-2 space-y-1">
+                  <li>• Direct API calls (no proxy)</li>
+                  <li>• /wallets/{'{address}'}/erc20</li>
+                  <li>• /erc20/{'{token}'}/price</li>
                 </ul>
               </div>
               
               <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
-                <span className="font-medium text-green-400">✅ Pro Plan ROI Detection:</span>
+                <span className="font-medium text-green-400">✅ Smart ROI Detection:</span>
                 <ul className="text-xs text-green-400 mt-2 space-y-1">
                   <li>• Transaction-based Analysis</li>
-                  <li>• Known Minter Detection</li>
-                  <li>• Transfer Pattern Recognition</li>
+                  <li>• Token Transfer Patterns</li>
+                  <li>• CU-Optimized Approach</li>
                 </ul>
               </div>
             </div>
@@ -1127,9 +1141,9 @@ const ROITrackerView = () => {
             estimatedCUs: portfolioData?.debug?.apiCalls || 0
           }] : []),
           ...(defiData ? [{
-            endpoint: 'moralis-defi-summary',
+            endpoint: 'transaction-analysis',
             responseCount: defiData?.positions?.positions?.length || 0,
-            estimatedCUs: defiData?.summary?.success ? 30 : 0
+            estimatedCUs: 0  // PRO: Transaction-based analysis uses no CUs
           }] : []),
           ...(roiDetectionData ? [{
             endpoint: 'roi-detection',

@@ -18,11 +18,14 @@ import {
   Wallet
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import CentralDataService from '@/services/CentralDataService';
+import { useSubscription } from '@/hooks/useSubscription';
+import { DirectMoralisService } from '@/services/DirectMoralisService';
+import { supabase } from '@/lib/supabaseClient';
 import { getHiddenTokens, hideToken as hideTokenService, showToken as showTokenService, testHiddenTokenService } from '@/services/HiddenTokenService';
 
 const PortfolioView = () => {
   const { user } = useAuth();
+  const { canAccessPortfolio, getAccessMessage, isPremium } = useSubscription();
   const [portfolioData, setPortfolioData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -45,43 +48,89 @@ const PortfolioView = () => {
     loadPortfolioData(true); // Force load bypassing rate limits
   };
 
-  // Portfolio laden
+  // Portfolio laden mit DirectMoralisService
   const loadPortfolioData = async (force = false) => {
-    if (!user?.id) return;
+    if (!user?.id || !canAccessPortfolio()) {
+      setError('Portfolio-Zugang nicht verfügbar');
+      return;
+    }
+    
+    // Hole gespeicherte Wallet-Adressen
+    const { data: wallets } = await supabase
+      .from('wallets')
+      .select('address, chain_id')
+      .eq('user_id', user.id)
+      .eq('is_active', true);
+    
+    if (!wallets || wallets.length === 0) {
+      setError('Keine Wallets gefunden. Bitte verbinden Sie zuerst ein Wallet.');
+      return;
+    }
     
     setLoading(true);
     setError(null);
-    setStatusMessage('💎 Lade Portfolio-Daten...');
+    setStatusMessage('🚀 Lade Portfolio über DirectMoralisService...');
     
     try {
-      console.log('💎 PORTFOLIO: Loading portfolio with CentralDataService');
+      console.log('🚀 PORTFOLIO: Loading with DirectMoralisService for', wallets.length, 'wallets');
       
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      let allTokens = [];
+      let totalValue = 0;
+      let totalCUs = 0;
       
-      if (data.isLoaded) {
-        setPortfolioData(data);
-        setStatusMessage(`✅ Portfolio geladen: ${data.tokenCount} Tokens, $${data.totalValue.toFixed(2)}`);
-        console.log('✅ PORTFOLIO: Portfolio loaded successfully');
+      // Lade Portfolio für alle Wallets
+      for (const wallet of wallets) {
+        const chain = wallet.chain_id === 369 ? '0x171' : '0x1'; // PulseChain oder Ethereum
         
-        // 🙈 Lade versteckte Tokens
-        try {
-          const hidden = await getHiddenTokens(user.id);
-          setHiddenTokens(hidden);
-          console.log('✅ HIDDEN_TOKENS: Loaded hidden tokens for portfolio');
-        } catch (hiddenError) {
-          console.warn('⚠️ HIDDEN_TOKENS: Could not load hidden tokens (Tabelle eventuell nicht erstellt):', hiddenError);
-          // Setze leeres Array damit das Feature trotzdem funktioniert
-          setHiddenTokens([]);
+        console.log(`🔍 Loading portfolio for ${wallet.address} on chain ${chain}`);
+        
+        const result = await DirectMoralisService.getPortfolioTokens(wallet.address, chain);
+        
+        if (result.success) {
+          allTokens.push(...result.tokens.map(token => ({
+            ...token,
+            walletAddress: wallet.address,
+            chain: chain,
+            value: token.usdValue || 0
+          })));
+          totalValue += result.totalValue;
+          totalCUs += result.cuUsed;
+          
+          console.log(`✅ Loaded ${result.tokens.length} tokens, $${result.totalValue}`);
+        } else {
+          console.warn(`⚠️ Failed to load portfolio for ${wallet.address}:`, result.error);
         }
-      } else {
-        setError(data.error);
-        setStatusMessage(`❌ Fehler: ${data.error}`);
+      }
+      
+      // Sortiere Tokens nach Wert
+      allTokens.sort((a, b) => (b.value || 0) - (a.value || 0));
+      
+      const portfolioResult = {
+        tokens: allTokens,
+        totalValue: totalValue,
+        tokenCount: allTokens.length,
+        cuUsed: totalCUs,
+        walletCount: wallets.length,
+        source: 'direct_moralis_pro'
+      };
+      
+      setPortfolioData(portfolioResult);
+      setStatusMessage(`✅ Portfolio geladen: ${allTokens.length} Tokens, $${totalValue.toFixed(2)} (${totalCUs} CUs)`);
+      console.log('✅ PORTFOLIO: DirectMoralis portfolio loaded successfully');
+      
+      // 🙈 Lade versteckte Tokens
+      try {
+        const hidden = await getHiddenTokens(user.id);
+        setHiddenTokens(hidden);
+      } catch (hiddenError) {
+        console.warn('⚠️ HIDDEN_TOKENS: Could not load hidden tokens:', hiddenError);
+        setHiddenTokens([]);
       }
       
     } catch (error) {
-      console.error('💥 PORTFOLIO: Error loading portfolio:', error);
+      console.error('💥 PORTFOLIO: DirectMoralis error:', error);
       setError(error.message);
-      setStatusMessage(`💥 Fehler beim Laden: ${error.message}`);
+      setStatusMessage(`💥 Fehler: ${error.message}`);
     } finally {
       setLoading(false);
     }
