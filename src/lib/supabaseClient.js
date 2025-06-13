@@ -6,6 +6,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 console.log("🔍 SUPABASE CONNECTION:");
 console.log("URL:", supabaseUrl ? "✅ Found" : "❌ Missing");
 console.log("Key:", supabaseAnonKey ? "✅ Found" : "❌ Missing");
+console.log("🔍 Connecting to:", supabaseUrl);
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
