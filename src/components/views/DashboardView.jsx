@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, ShieldCheck, BarChart3, HelpCircle, BookOpen, Settings, Unplug } from 'lucide-react';
+import { Zap, ShieldCheck, BarChart3, HelpCircle, BookOpen, Settings, Unplug, Bug } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
+import { APITestComponent } from '@/components/debug/APITestComponent';
 
 const DashboardView = () => {
   const { 
@@ -21,6 +22,8 @@ const DashboardView = () => {
     wcIsConnecting,
     wcDisconnectWallet
   } = useAppContext();
+  
+  const [showAPITest, setShowAPITest] = useState(false);
 
   const features = [
     { id: 'pulseChainInfo', title: t.pulseChainInfo || "PulseChain Info", icon: HelpCircle, descriptionKey: "dashboardFeaturePulseChainInfoDesc" },
@@ -48,7 +51,27 @@ const DashboardView = () => {
       <div className="mb-8 text-center">
         <h1 className="text-4xl md:text-5xl font-bold pulse-title mb-3">{t.welcome || "Welcome to PulseManager"}</h1>
         <p className="text-lg md:text-xl text-foreground/80">{t.subtitle || "Your All-in-One Crypto Dashboard"}</p>
+        
+        {/* 🧪 Debug API Test Button */}
+        <div className="mt-4">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowAPITest(!showAPITest)}
+            className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+          >
+            <Bug className="h-4 w-4 mr-2" />
+            {showAPITest ? 'API Test verstecken' : '🔧 CSP/API Debug Test'}
+          </Button>
+        </div>
       </div>
+      
+      {/* 🧪 API Test Component */}
+      {showAPITest && (
+        <div className="mb-8">
+          <APITestComponent />
+        </div>
+      )}
 
       <Card className="mb-8 bg-primary/5 dark:bg-primary/10 border-primary/20 shadow-lg">
         <CardHeader>
