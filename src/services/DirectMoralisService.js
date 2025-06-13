@@ -29,13 +29,8 @@ export class DirectMoralisService {
     try {
       console.log(`🚀 DIRECT: Loading portfolio tokens for ${address}`);
       
-      // 1. Get ERC20 tokens
-      const tokensResponse = await fetch(`${MORALIS_BASE_URL}/${address}/erc20?chain=${chain}&limit=50`, {
-        headers: {
-          'X-API-Key': API_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
+      // 1. Get ERC20 tokens via Proxy API
+      const tokensResponse = await fetch(`/api/moralis-proxy?endpoint=balances&address=${address}&chain=${chain}&limit=50`);
       
       if (!tokensResponse.ok) {
         throw new Error(`Tokens API failed: ${tokensResponse.status}`);
@@ -50,18 +45,9 @@ export class DirectMoralisService {
       const tokensWithPrices = await Promise.allSettled(
         tokens.slice(0, 10).map(async (token) => {
           try {
-            const priceResponse = await fetch(`${MORALIS_BASE_URL}/erc20/${token.token_address}/price?chain=${chain}`, {
-              headers: {
-                'X-API-Key': API_KEY,
-                'Content-Type': 'application/json'
-              }
-            });
-            
+            // 🔄 CSP FIX: Price-API temporär deaktiviert - verhindert 401 Fehler
+            // TODO: Price-Endpoint zur Proxy-API hinzufügen
             let price = 0;
-            if (priceResponse.ok) {
-              const priceData = await priceResponse.json();
-              price = priceData.usdPrice || 0;
-            }
             
             return {
               ...token,
@@ -115,12 +101,8 @@ export class DirectMoralisService {
     try {
       console.log(`🚀 DIRECT: Loading transfer history for ${address}`);
       
-      const response = await fetch(`${MORALIS_BASE_URL}/${address}/erc20/transfers?chain=${chain}&limit=${limit}`, {
-        headers: {
-          'X-API-Key': API_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
+      // 🔄 CSP FIX: Verwende Proxy-API statt direkter Moralis-Aufrufe
+      const response = await fetch(`/api/moralis-proxy?endpoint=erc20-transfers&address=${address}&chain=${chain}&limit=${limit}`);
       
       if (!response.ok) {
         throw new Error(`Transfers API failed: ${response.status}`);
@@ -180,17 +162,11 @@ export class DirectMoralisService {
       let hasMore = true;
       
       while (hasMore && allTransfers.length < 1000) { // Max 1000 for performance
-        const url = new URL(`${MORALIS_BASE_URL}/${address}/erc20/transfers`);
-        url.searchParams.set('chain', chain);
-        url.searchParams.set('limit', Math.min(limit, 100).toString());
-        if (cursor) url.searchParams.set('cursor', cursor);
+        // 🔄 CSP FIX: Verwende Proxy-API
+        let url = `/api/moralis-proxy?endpoint=erc20-transfers&address=${address}&chain=${chain}&limit=${Math.min(limit, 100)}`;
+        if (cursor) url += `&cursor=${cursor}`;
         
-        const response = await fetch(url.toString(), {
-          headers: {
-            'X-API-Key': API_KEY,
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await fetch(url);
         
         if (!response.ok) break;
         
@@ -248,33 +224,15 @@ export class DirectMoralisService {
    * 💰 SINGLE TOKEN PRICE
    */
   static async getTokenPrice(tokenAddress, chain = '0x171') {
-    try {
-      const response = await fetch(`${MORALIS_BASE_URL}/erc20/${tokenAddress}/price?chain=${chain}`, {
-        headers: {
-          'X-API-Key': API_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        return { success: false, price: 0, error: `Price API failed: ${response.status}` };
-      }
-      
-      const data = await response.json();
-      return {
-        success: true,
-        price: data.usdPrice || 0,
-        tokenAddress: tokenAddress,
-        source: 'direct_moralis_pro_price'
-      };
-      
-    } catch (error) {
-      console.error('💥 DIRECT Price Error:', error);
-      return { 
-        success: false, 
-        price: 0, 
-        error: error.message 
-      };
-    }
+    // 🔄 CSP FIX: Price-API temporär deaktiviert - verhindert 401 Fehler
+    // TODO: Price-Endpoint zur Proxy-API hinzufügen
+    console.warn('⚠️ DIRECT: Token prices temporär deaktiviert wegen CSP-Fix');
+    return {
+      success: false,
+      price: 0,
+      tokenAddress: tokenAddress,
+      source: 'direct_moralis_pro_price_disabled',
+      error: 'Temporarily disabled due to CSP fixes'
+    };
   }
 } 

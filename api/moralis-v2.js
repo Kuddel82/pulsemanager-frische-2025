@@ -50,9 +50,19 @@ export default async function handler(req, res) {
   console.log('🔵 PRO PARAMS:', { endpoint, chain, address: address?.slice(0, 8) + '...' });
 
   if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
+    console.error('🚨 MORALIS V2: API Key missing or invalid');
+    console.error('Environment variables:', {
+      hasKey: !!MORALIS_API_KEY,
+      keyLength: MORALIS_API_KEY?.length || 0,
+      keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing'
+    });
     return res.status(503).json({ 
       error: 'Moralis API Key missing or invalid.',
-      _pro_mode: true 
+      _pro_mode: true,
+      debug: {
+        hasKey: !!MORALIS_API_KEY,
+        keyLength: MORALIS_API_KEY?.length || 0
+      }
     });
   }
 
