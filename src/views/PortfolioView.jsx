@@ -1,7 +1,7 @@
 // 📊 PORTFOLIO VIEW - Zeigt Token-Holdings mit echten Preisen
 // Datum: 2025-01-08 - PHASE 3: ECHTE PREISE INTEGRATION
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -108,6 +108,68 @@ const PortfolioView = () => {
       color: 'bg-purple-500'
     }
   ] : [];
+
+  // ROI Berechnung
+  const calculateROI = useCallback(() => {
+    if (!portfolioData) return null;
+
+    try {
+      console.log('📊 Calculating ROI Stats:', {
+        portfolioData: JSON.stringify(portfolioData),
+        defiData: JSON.stringify(defiData)
+      });
+
+      // Portfolio ROI
+      const portfolioROI = {
+        totalValue: portfolioData.totalValue || 0,
+        totalCost: portfolioData.totalCost || 0,
+        roi: portfolioData.totalValue && portfolioData.totalCost 
+          ? ((portfolioData.totalValue - portfolioData.totalCost) / portfolioData.totalCost) * 100 
+          : 0
+      };
+
+      // DeFi ROI (wenn verfügbar)
+      const defiROI = {
+        totalValue: defiData?.totalValue || 0,
+        totalCost: defiData?.totalCost || 0,
+        roi: defiData?.totalValue && defiData?.totalCost
+          ? ((defiData.totalValue - defiData.totalCost) / defiData.totalCost) * 100
+          : 0
+      };
+
+      // Gesamt ROI
+      const totalROI = {
+        totalValue: portfolioROI.totalValue + defiROI.totalValue,
+        totalCost: portfolioROI.totalCost + defiROI.totalCost,
+        roi: portfolioROI.totalCost + defiROI.totalCost > 0
+          ? ((portfolioROI.totalValue + defiROI.totalValue - (portfolioROI.totalCost + defiROI.totalCost)) / (portfolioROI.totalCost + defiROI.totalCost)) * 100
+          : 0
+      };
+
+      console.log('💰 ROI Calculation Result:', {
+        portfolioROI,
+        defiROI,
+        totalROI,
+        portfolioValue: portfolioData.totalValue
+      });
+
+      return {
+        portfolioROI,
+        defiROI,
+        totalROI,
+        portfolioValue: portfolioData.totalValue
+      };
+    } catch (error) {
+      console.error('🚨 ROI Calculation Error:', error);
+      return {
+        portfolioROI: { totalValue: 0, totalCost: 0, roi: 0 },
+        defiROI: { totalValue: 0, totalCost: 0, roi: 0 },
+        totalROI: { totalValue: 0, totalCost: 0, roi: 0 },
+        portfolioValue: 0,
+        error: error.message
+      };
+    }
+  }, [portfolioData, defiData]);
 
   return (
     <div className="min-h-screen bg-black p-6">
