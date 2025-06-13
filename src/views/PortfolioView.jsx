@@ -53,6 +53,9 @@ const PortfolioView = () => {
   // 👁️ TOKEN VISIBILITY STATE - User kann Shit Coins ausblenden
   const [hiddenTokens, setHiddenTokens] = useState(new Set());
   
+  // 💎 DEFI DATA STATE - Für ROI Berechnungen
+  const [defiData, setDefiData] = useState(null);
+  
   // Toggle Token Visibility
   const toggleTokenVisibility = (tokenAddress) => {
     setHiddenTokens(prev => {
