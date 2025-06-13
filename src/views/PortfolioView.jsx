@@ -26,6 +26,8 @@ import {
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
+import { useAuth } from '@/contexts/AuthContext';
+
 const PortfolioView = () => {
   // 🚀 GLOBAL: Portfolio Context mit Caching & State-Sharing
   const {
