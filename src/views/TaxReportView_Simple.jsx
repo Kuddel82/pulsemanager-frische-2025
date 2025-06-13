@@ -288,23 +288,25 @@ const TaxReportView = () => {
           </Button>
           
           {taxData && (
-                         <Button 
-               onClick={downloadCSV}
-               variant="outline"
-               className="flex items-center space-x-2"
-             >
-               <Download className="h-4 w-4" />
-               <span>CSV Export</span>
-             </Button>
-             
-             <Button 
-               onClick={() => setShowDebug(!showDebug)}
-               variant="outline"
-               className="flex items-center space-x-2"
-             >
-               <BarChart3 className="h-4 w-4" />
-               <span>Debug {showDebug ? 'aus' : 'ein'}</span>
-             </Button>
+            <>
+              <Button 
+                onClick={downloadCSV}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>CSV Export</span>
+              </Button>
+              
+              <Button 
+                onClick={() => setShowDebug(!showDebug)}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>Debug {showDebug ? 'aus' : 'ein'}</span>
+              </Button>
+            </>
           )}
         </div>
       </div>
