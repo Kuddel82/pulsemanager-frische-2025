@@ -1,7 +1,7 @@
 {
   "name": "pulsemanager-enterprise",
   "type": "module",
-  "version": "11.06.25-hotfix",
+  "version": "11.06.25-final-fix",
   "description": "💰 COST REDUCTION - Pro Plan kompatibel!",
   "private": true,
   "scripts": {
