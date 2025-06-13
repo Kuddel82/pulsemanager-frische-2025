@@ -1,6 +1,6 @@
 {
   "name": "pulsemanager-app",
-  "version": 3,
+  "version": 2,
   "public": true,
   "functions": {
     "api/**/*.js": {
