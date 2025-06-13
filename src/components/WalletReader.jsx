@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '../hooks/useSubscription';
+import { useSubscription } from '../contexts/SubscriptionProvider';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function WalletReader() {

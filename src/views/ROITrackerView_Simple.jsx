@@ -16,7 +16,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscription } from '../hooks/useSubscription';
+import { useSubscription } from '../contexts/SubscriptionProvider';
 import { DirectMoralisService } from '../services/DirectMoralisService';
 import { supabase } from '../lib/supabaseClient';
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 // import { SubscriptionProvider } from './contexts/SubscriptionContext'; // OLD
+import { SubscriptionProvider } from './contexts/SubscriptionProvider'; // NEW
 import { PortfolioProvider } from './contexts/PortfolioContext';
 import AppRoutes from './routes';
 import Navigation from './components/layout/Navigation';
@@ -10,7 +11,8 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <PortfolioProvider>
+        <SubscriptionProvider>
+          <PortfolioProvider>
             <div className="min-h-screen bg-gray-900 text-white">
               <Navigation />
               <main className="container mx-auto px-4 py-8">
@@ -18,6 +20,7 @@ function App() {
               </main>
             </div>
           </PortfolioProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>
   );

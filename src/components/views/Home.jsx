@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscription } from '../SubscriptionProvider';
 import { Crown } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';

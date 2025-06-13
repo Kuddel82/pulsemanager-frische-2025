@@ -12,6 +12,14 @@
 const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 const API_KEY = import.meta.env.VITE_MORALIS_API_KEY;
 
+// Debug API Key
+if (!API_KEY) {
+  console.error('🚨 CRITICAL: VITE_MORALIS_API_KEY not found in environment!');
+  console.error('📋 Required: Add VITE_MORALIS_API_KEY to .env file');
+} else {
+  console.log('✅ MORALIS API KEY loaded:', API_KEY.substring(0, 10) + '...');
+}
+
 export class DirectMoralisService {
   
   /**
@@ -158,9 +166,14 @@ export class DirectMoralisService {
    */
   static async getTaxData(address, chain = '0x171', options = {}) {
     try {
+      // Check API key first
+      if (!API_KEY) {
+        throw new Error('VITE_MORALIS_API_KEY not configured. Please add to .env file.');
+      }
+      
       const { limit = 200, getAllPages = false } = options;
       
-      console.log(`🚀 DIRECT: Loading tax data for ${address}`);
+      console.log(`🚀 DIRECT: Loading tax data for ${address} on chain ${chain}`);
       
       let allTransfers = [];
       let cursor = null;

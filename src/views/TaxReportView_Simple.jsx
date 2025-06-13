@@ -17,7 +17,7 @@ import {
   Filter
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscription } from '../hooks/useSubscription';
+import { useSubscription } from '../contexts/SubscriptionProvider';
 import { DirectMoralisService } from '../services/DirectMoralisService';
 import { supabase } from '../lib/supabaseClient';
 
@@ -31,6 +31,8 @@ const TaxReportView = () => {
   const [selectedYear, setSelectedYear] = useState('2025');
   const [filterCategory, setFilterCategory] = useState('all');
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({});
 
   // Load Tax Data
   const loadTaxData = async () => {
@@ -40,16 +42,25 @@ const TaxReportView = () => {
     }
     
     // Get user wallets
-    const { data: wallets } = await supabase
+    const { data: wallets, error: walletError } = await supabase
       .from('wallets')
       .select('address, chain_id')
       .eq('user_id', user.id)
       .eq('is_active', true);
     
-    if (!wallets || wallets.length === 0) {
-      setError('Keine Wallets gefunden für Steueranalyse');
+    if (walletError) {
+      console.error('💥 TAX: Wallet query error:', walletError);
+      setError(`Wallet-Datenbankfehler: ${walletError.message}`);
       return;
     }
+    
+    if (!wallets || wallets.length === 0) {
+      console.warn('⚠️ TAX: No wallets found for user');
+      setError('Keine Wallets gefunden für Steueranalyse. Bitte verbinden Sie zuerst ein Wallet.');
+      return;
+    }
+    
+    console.log('✅ TAX: Found', wallets.length, 'wallets for tax analysis');
     
     setLoading(true);
     setError(null);
@@ -70,25 +81,53 @@ const TaxReportView = () => {
         });
         
         if (result.success) {
-          // Add wallet info to transfers
-          const transfersWithWallet = result.allTransfers.map(transfer => ({
-            ...transfer,
-            walletAddress: wallet.address,
-            chain: chain,
-            year: new Date(transfer.block_timestamp).getFullYear().toString()
-          }));
+          console.log(`🔍 TAX: API Result for ${wallet.address}:`, {
+            totalTransfers: result.allTransfers?.length || 0,
+            taxableTransfers: result.taxableTransfers?.length || 0,
+            cuUsed: result.cuUsed
+          });
           
-          allTransfers.push(...transfersWithWallet);
-          totalCUs += result.cuUsed;
-          
-          console.log(`✅ Loaded ${result.allTransfers.length} transfers for ${wallet.address}`);
+          if (result.allTransfers && result.allTransfers.length > 0) {
+            // Add wallet info to transfers
+            const transfersWithWallet = result.allTransfers.map(transfer => ({
+              ...transfer,
+              walletAddress: wallet.address,
+              chain: chain,
+              year: new Date(transfer.block_timestamp).getFullYear().toString()
+            }));
+            
+            allTransfers.push(...transfersWithWallet);
+            totalCUs += result.cuUsed;
+            
+            console.log(`✅ TAX: Loaded ${result.allTransfers.length} transfers for ${wallet.address}`);
+          } else {
+            console.warn(`⚠️ TAX: No transfers found for ${wallet.address}`);
+          }
         } else {
-          console.warn(`⚠️ Failed to load transfers for ${wallet.address}:`, result.error);
+          console.warn(`💥 TAX: Failed to load transfers for ${wallet.address}:`, result.error);
         }
       }
       
       // Filter by selected year
       const yearFilteredTransfers = allTransfers.filter(transfer => transfer.year === selectedYear);
+      
+      console.log(`📊 TAX: Year filtering (${selectedYear}):`, {
+        totalTransfers: allTransfers.length,
+        yearFiltered: yearFilteredTransfers.length
+      });
+      
+      // Check if we have any data
+      if (allTransfers.length === 0) {
+        setError('Keine Transaktionen gefunden. Versuchen Sie es später erneut oder prüfen Sie Ihre Wallet-Verbindung.');
+        console.warn('⚠️ TAX: No transactions found across all wallets');
+        return;
+      }
+      
+      if (yearFilteredTransfers.length === 0) {
+        setError(`Keine Transaktionen für ${selectedYear} gefunden. Wählen Sie ein anderes Jahr oder verbinden Sie weitere Wallets.`);
+        console.warn(`⚠️ TAX: No transactions found for year ${selectedYear}`);
+        return;
+      }
       
       // Calculate tax statistics
       const taxStats = calculateTaxStats(yearFilteredTransfers);
@@ -106,6 +145,16 @@ const TaxReportView = () => {
       });
       
       setLastUpdate(new Date());
+      setDebugInfo({
+        apiCalls: wallets.length,
+        totalCUs: totalCUs,
+        totalTransfers: allTransfers.length,
+        yearFiltered: yearFilteredTransfers.length,
+        taxableCount: taxStats.taxableCount,
+        purchaseCount: taxStats.purchaseCount,
+        wallets: wallets.map(w => ({ address: w.address.slice(0, 8) + '...', chain: w.chain_id }))
+      });
+      
       console.log('✅ Tax Data loaded for', selectedYear, ':', taxStats);
       
     } catch (error) {
@@ -239,14 +288,23 @@ const TaxReportView = () => {
           </Button>
           
           {taxData && (
-            <Button 
-              onClick={downloadCSV}
-              variant="outline"
-              className="flex items-center space-x-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>CSV Export</span>
-            </Button>
+                         <Button 
+               onClick={downloadCSV}
+               variant="outline"
+               className="flex items-center space-x-2"
+             >
+               <Download className="h-4 w-4" />
+               <span>CSV Export</span>
+             </Button>
+             
+             <Button 
+               onClick={() => setShowDebug(!showDebug)}
+               variant="outline"
+               className="flex items-center space-x-2"
+             >
+               <BarChart3 className="h-4 w-4" />
+               <span>Debug {showDebug ? 'aus' : 'ein'}</span>
+             </Button>
           )}
         </div>
       </div>
@@ -428,6 +486,41 @@ const TaxReportView = () => {
                   ... und {filteredTransactions.length - 50} weitere Transaktionen
                 </div>
               )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Debug Panel */}
+      {showDebug && debugInfo.apiCalls && (
+        <Card className="bg-blue-500/10 border-blue-400/20">
+          <CardHeader>
+            <CardTitle className="text-blue-400">🔧 Debug Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-gray-400">API Calls:</span>
+                <div className="font-bold text-blue-400">{debugInfo.apiCalls}</div>
+              </div>
+              <div>
+                <span className="text-gray-400">CU Verbrauch:</span>
+                <div className="font-bold text-orange-400">{debugInfo.totalCUs}</div>
+              </div>
+              <div>
+                <span className="text-gray-400">Total Transfers:</span>
+                <div className="font-bold text-green-400">{debugInfo.totalTransfers}</div>
+              </div>
+              <div>
+                <span className="text-gray-400">Jahr gefiltert:</span>
+                <div className="font-bold text-purple-400">{debugInfo.yearFiltered}</div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <span className="text-gray-400">Wallets:</span>
+              <div className="text-xs text-gray-500 mt-1">
+                {debugInfo.wallets?.map(w => `${w.address} (Chain: ${w.chain})`).join(', ')}
+              </div>
             </div>
           </CardContent>
         </Card>
