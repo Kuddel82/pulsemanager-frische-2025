@@ -2,6 +2,9 @@
   "name": "pulsemanager-fresh-2025",
   "version": 2,
   "public": true,
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "rootDirectory": ".",
   "functions": {
     "api/**/*.js": {
       "maxDuration": 30
