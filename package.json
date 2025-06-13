@@ -1,7 +1,7 @@
 {
-  "name": "pulsemanger-app",
+  "name": "pulsemanager-enterprise",
   "type": "module",
-  "version": "0.1.9-MORALIS-PRO-COST-OPTIMIZED",
+  "version": "11.06.25-hotfix",
   "description": "💰 COST REDUCTION - Pro Plan kompatibel!",
   "private": true,
   "scripts": {
