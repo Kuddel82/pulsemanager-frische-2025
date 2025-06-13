@@ -35,17 +35,17 @@ export default async function handler(req, res) {
     // API Endpoint auswählen
     switch (endpoint) {
       case 'transactions':
-        apiUrl = `https://deep-index.moralis.io/api/v2.2/wallets/${address}/history?chain=${chain}&limit=${limit}`;
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}?chain=${chain}&limit=${limit}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
       case 'erc20-transfers':
-        apiUrl = `https://deep-index.moralis.io/api/v2.2/wallets/${address}/tokens/transfers?chain=${chain}&limit=${limit}`;
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${chain}&limit=${limit}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
       case 'balances':
-        apiUrl = `https://deep-index.moralis.io/api/v2.2/wallets/${address}/tokens?chain=${chain}&limit=${limit}`;
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20?chain=${chain}&limit=${limit}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
