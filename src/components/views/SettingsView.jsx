@@ -42,7 +42,7 @@ const SettingsView = () => {
       </div>
 
       {/* TEMPORARY DEBUG SECTION FOR OWNER */}
-      {user?.email === 'dkuddel@web.de' && (
+              {(user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de') && (
         <div className="bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg border-2 border-yellow-400">
           <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
             🔧 Owner Debug Tools

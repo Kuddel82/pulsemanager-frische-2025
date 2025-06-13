@@ -101,8 +101,8 @@ export const BUSINESS_MODEL = {
   }
 };
 
-// 🚨 EMERGENCY OVERRIDE for dkuddel@web.de
-const EMERGENCY_PREMIUM_EMAILS = ['dkuddel@web.de'];
+// 🚨 EMERGENCY OVERRIDE for Premium Users
+const EMERGENCY_PREMIUM_EMAILS = ['dkuddel@web.de', 'phi_bel@yahoo.de'];
 
 const isEmergencyPremiumUser = (user) => {
   const isEmergency = user?.email && EMERGENCY_PREMIUM_EMAILS.includes(user.email);

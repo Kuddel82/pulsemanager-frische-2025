@@ -18,12 +18,12 @@ export const checkPremiumStatus = async (email) => {
     
     if (!userData) {
       logger.info(`checkPremiumStatus: No user found for email ${email}.`);
-      if (email.toLowerCase() === 'dkuddel@web.de') {
-        logger.info(`checkPremiumStatus: Special case for dkuddel@web.de, attempting to grant premium.`);
+      if (email.toLowerCase() === 'dkuddel@web.de' || email.toLowerCase() === 'phi_bel@yahoo.de') {
+        logger.info(`checkPremiumStatus: Special case for premium user ${email}, attempting to grant premium.`);
         
         const { success, error: updateError } = await userDbService.updateUserPremiumStatus(email, true, '2099-12-31');
         if (updateError) {
-          logger.error(`checkPremiumStatus: Failed to grant premium to dkuddel@web.de (user initially not found):`, updateError);
+          logger.error(`checkPremiumStatus: Failed to grant premium to ${email} (user initially not found):`, updateError);
           return false;
         }
         return success;
@@ -40,15 +40,15 @@ export const checkPremiumStatus = async (email) => {
     
     logger.debug(`checkPremiumStatus for ${email}: MetaData:`, userMetaData, `IsCurrentlyPremium: ${isCurrentlyPremium}, PremiumUntil: ${premiumUntilDate}, IsSubscriptionValid: ${isSubscriptionValid}, FinalInitialStatus: ${finalPremiumStatus}`);
 
-    if (!finalPremiumStatus && email.toLowerCase() === 'dkuddel@web.de') {
-      logger.info(`checkPremiumStatus: Special case for dkuddel@web.de. Current status is non-premium or expired. Granting/extending premium.`);
+    if (!finalPremiumStatus && (email.toLowerCase() === 'dkuddel@web.de' || email.toLowerCase() === 'phi_bel@yahoo.de')) {
+      logger.info(`checkPremiumStatus: Special case for premium user ${email}. Current status is non-premium or expired. Granting/extending premium.`);
       
       const { success, error: updateError } = await userDbService.updateUserPremiumStatus(email, true, '2099-12-31');
       if (updateError) {
-        logger.error(`checkPremiumStatus: Failed to grant/extend premium to dkuddel@web.de:`, updateError);
+        logger.error(`checkPremiumStatus: Failed to grant/extend premium to ${email}:`, updateError);
         return false; 
       }
-      logger.info(`checkPremiumStatus: Successfully granted/extended premium to dkuddel@web.de. New status: ${success}`);
+      logger.info(`checkPremiumStatus: Successfully granted/extended premium to ${email}. New status: ${success}`);
       return success;
     }
 

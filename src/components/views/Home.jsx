@@ -16,7 +16,7 @@ const Home = () => {
   const [isPremium, setIsPremium] = useState(false);
   
   useEffect(() => {
-    if (user?.email === 'dkuddel@web.de') {
+    if (user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de') {
       console.log('🌟 DIRECT PREMIUM DETECTION:', user.email);
       setIsPremium(true);
     } else {

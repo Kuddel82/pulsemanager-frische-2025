@@ -33,7 +33,7 @@ export const authService = {
         const combinedUser = { 
             ...data.user, 
             is_premium: isPremium, 
-            premium_until: (email.toLowerCase() === 'dkuddel@web.de' && isPremium) ? '2099-12-31' : (data.user?.user_metadata?.premium_until || data.user?.raw_user_meta_data?.premium_until),
+            premium_until: ((email.toLowerCase() === 'dkuddel@web.de' || email.toLowerCase() === 'phi_bel@yahoo.de') && isPremium) ? '2099-12-31' : (data.user?.user_metadata?.premium_until || data.user?.raw_user_meta_data?.premium_until),
             profile: userProfileData 
         };
         return { user: combinedUser, session: data.session };
@@ -53,8 +53,8 @@ export const authService = {
     logger.info(`authService.signUp: Attempting registration for ${email}`);
     try {
       const options = {};
-      if (email.toLowerCase() === 'dkuddel@web.de') {
-        logger.info(`authService.signUp: Special registration for ${email}. Setting premium status in user metadata.`);
+      if (email.toLowerCase() === 'dkuddel@web.de' || email.toLowerCase() === 'phi_bel@yahoo.de') {
+        logger.info(`authService.signUp: Special registration for premium user ${email}. Setting premium status in user metadata.`);
         options.data = {
           is_premium: true,
           premium_until: '2099-12-31',

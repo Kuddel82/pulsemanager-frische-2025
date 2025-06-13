@@ -24,7 +24,7 @@ const TaxReportView = () => {
   const { user } = useAuth();
   
   // 🔥 DIREKTE PREMIUM-ERKENNUNG
-  const isPremium = user?.email === 'dkuddel@web.de';
+  const isPremium = user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de';
   const canAccessTaxReport = () => isPremium;
   const getAccessMessage = () => {
     if (isPremium) {

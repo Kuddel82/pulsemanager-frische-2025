@@ -9,7 +9,7 @@ export interface PremiumUser {
 
 class PremiumService {
   private static instance: PremiumService;
-  private specialUsers = new Set(['dkuddel@web.de']);
+  private specialUsers = new Set(['dkuddel@web.de', 'phi_bel@yahoo.de']);
 
   private constructor() {}
 

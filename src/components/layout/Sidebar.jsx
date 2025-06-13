@@ -80,8 +80,8 @@ const Sidebar = () => {
     t
   } = useAppContext();
 
-  // 🚨 EMERGENCY PREMIUM OVERRIDE for dkuddel@web.de
-  const isEmergencyPremiumUser = user?.email === 'dkuddel@web.de';
+  // 🚨 EMERGENCY PREMIUM OVERRIDE for Premium Users
+  const isEmergencyPremiumUser = user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de';
   const effectiveSubscriptionStatus = isEmergencyPremiumUser ? 'active' : subscriptionStatus;
   const effectiveDaysRemaining = isEmergencyPremiumUser ? 999 : daysRemaining;
   
@@ -246,7 +246,7 @@ const Sidebar = () => {
 
   // 🚨 FORCE WGEP for Emergency Users
   if (isEmergencyPremiumUser && !hasWGEP) {
-    console.error('🚨 EMERGENCY USER: Force-adding WGEP for dkuddel@web.de');
+            console.error('🚨 EMERGENCY USER: Force-adding WGEP for premium user');
     sidebarViewConfigs.push(EMERGENCY_WGEP_ITEM);
   }
 

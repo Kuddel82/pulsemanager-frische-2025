@@ -46,7 +46,7 @@ const PortfolioView = () => {
 
   // 🔥 DIREKTE PREMIUM-ERKENNUNG
   const { user } = useAuth();
-  const isPro = user?.email === 'dkuddel@web.de';
+  const isPro = user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de';
 
   const [showDebug, setShowDebug] = useState(false);
   

@@ -54,8 +54,8 @@ export const userDbService = {
         try {
             // Set premium duration
             let determinedPremiumUntil = premiumUntil;
-            if (email.toLowerCase() === 'dkuddel@web.de' && isPremium) {
-                determinedPremiumUntil = '2099-12-31'; // Owner gets permanent premium
+            if ((email.toLowerCase() === 'dkuddel@web.de' || email.toLowerCase() === 'phi_bel@yahoo.de') && isPremium) {
+                determinedPremiumUntil = '2099-12-31'; // Premium users get permanent premium
             } else if (isPremium && !premiumUntil) {
                 determinedPremiumUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
             }
@@ -87,8 +87,8 @@ export const userDbService = {
                 return { success: true, data: data.user, error: null };
             }
             
-            // Special case for owner
-            if (email.toLowerCase() === 'dkuddel@web.de') {
+            // Special case for premium users
+            if (email.toLowerCase() === 'dkuddel@web.de' || email.toLowerCase() === 'phi_bel@yahoo.de') {
                 const { data: users, error: fetchErr } = await supabase
                     .from('users') 
                     .select('id, raw_user_meta_data')
@@ -111,11 +111,11 @@ export const userDbService = {
                     .in('email', [email.toLowerCase(), email]);
 
                 if (updateError) {
-                    logger.error('userDbService.updateUserPremiumStatus: Error updating owner via SQL:', updateError);
+                    logger.error('userDbService.updateUserPremiumStatus: Error updating premium user via SQL:', updateError);
                     return { success: false, error: updateError };
                 }
 
-                logger.info('userDbService.updateUserPremiumStatus: Successfully updated owner premium status');
+                logger.info('userDbService.updateUserPremiumStatus: Successfully updated premium user status');
                 return { success: true, data: { email, ...finalMetaData }, error: null };
             }
 

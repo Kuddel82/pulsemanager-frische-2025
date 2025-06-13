@@ -6,7 +6,7 @@ export default function WalletReader() {
   const { user } = useAuth();
   
   // 🔥 DIREKTE PREMIUM-ERKENNUNG OHNE PROVIDER
-  const isPremium = user?.email === 'dkuddel@web.de';
+  const isPremium = user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de';
   const canAccessPortfolio = () => true; // Portfolio ist für alle verfügbar
   const getAccessMessage = () => {
     if (isPremium) {

@@ -40,8 +40,8 @@ export const useSubscription = () => {
     try {
       console.log('🔍 Loading subscription for:', user.email);
 
-      // 🎯 PREMIUM USER: dkuddel@web.de - ABSOLUTE HIGHEST PRIORITY
-      if (user.email === 'dkuddel@web.de') {
+      // 🎯 PREMIUM USERS: dkuddel@web.de & phi_bel@yahoo.de - ABSOLUTE HIGHEST PRIORITY
+      if (user.email === 'dkuddel@web.de' || user.email === 'phi_bel@yahoo.de') {
         console.log('🌟 PREMIUM USER DETECTED - OVERRIDING ALL OTHER CHECKS:', user.email);
         const premiumState = {
           tier: 'premium',
