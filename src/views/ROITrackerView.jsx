@@ -30,7 +30,7 @@ import {
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
-import { useSubscription } from '../hooks/useSubscription';
+import { useSubscription } from '@/contexts/SubscriptionProvider';
 import { DirectMoralisService } from '../services/DirectMoralisService';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
