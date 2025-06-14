@@ -259,31 +259,37 @@ export class CentralDataService {
             const tokenSymbol = token.symbol?.toUpperCase();
             let usdPrice = 0.0001; // Standard: $0.0001 (sehr niedrig!)
             
-            // 🛡️ Bekannte Token mit realistischen aber niedrigen Preisen
-            const safePrices = {
-              'PLS': 0.00003,      // $0.00003
-              'PLSX': 0.00008,     // $0.00008  
-              'HEX': 0.0025,       // $0.0025
-              'INC': 0.005,        // $0.005
-              'USDC': 1.0,         // $1.00 (Stablecoin)
-              'USDT': 1.0,         // $1.00 (Stablecoin)
-              'DAI': 1.0,          // $1.00 (Stablecoin)
-              'WBTC': 0.01,        // $0.01 (sehr niedrig statt $100k)
-              'ETH': 0.01          // $0.01 (sehr niedrig statt $4k)
-            };
+                         // 🛡️ ULTRA-SICHERE Fallback-Preise (MAXIMAL $0.01!)
+             const safePrices = {
+               'PLS': 0.00003,      // $0.00003
+               'PLSX': 0.00008,     // $0.00008  
+               'HEX': 0.001,        // $0.001 (reduziert von $0.0025)
+               'INC': 0.001,        // $0.001 (reduziert von $0.005)
+               'USDC': 0.01,        // $0.01 (reduziert von $1.00)
+               'USDT': 0.01,        // $0.01 (reduziert von $1.00)
+               'DAI': 0.01,         // $0.01 (reduziert von $1.00)
+               'WBTC': 0.001,       // $0.001 (sehr niedrig)
+               'ETH': 0.001         // $0.001 (sehr niedrig)
+             };
             
             if (safePrices[tokenSymbol]) {
               usdPrice = safePrices[tokenSymbol];
             }
             
             const totalUsd = balanceReadable * usdPrice;
+            
+            // 🚨 DEBUG: Log alle Token mit hohen Werten
+            if (totalUsd > 1000) {
+              console.warn(`🚨 HIGH VALUE TOKEN: ${tokenSymbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${usdPrice}, Value: $${totalUsd.toLocaleString()}`);
+            }
               
-              // 🚨 DOMINANCE TOKEN FIX: Filter out suspicious DOMINANCE values
-              const isDominanceToken = token.symbol?.toUpperCase() === 'DOMINANCE';
-              const hasSuspiciousValue = isDominanceToken && (balanceReadable > 50000 || totalUsd > 10000);
+              // 🚨 UNIVERSAL FILTER: Filter out ALL suspicious values
+              const hasSuspiciousBalance = balanceReadable > 1000000; // Über 1 Million Token
+              const hasSuspiciousValue = totalUsd > 1000; // Über $1000 Wert
+              const hasSuspiciousPrice = usdPrice > 0.1; // Über $0.10 Preis (zu hoch für Fallback)
               
-              if (hasSuspiciousValue) {
-                console.warn(`🚨 DOMINANCE FILTER: Suspicious ${token.symbol} value detected - Balance: ${balanceReadable.toLocaleString()}, Value: $${totalUsd.toLocaleString()}`);
+              if (hasSuspiciousBalance || hasSuspiciousValue || hasSuspiciousPrice) {
+                console.warn(`🚨 SUSPICIOUS TOKEN FILTERED: ${token.symbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${usdPrice}, Value: $${totalUsd.toLocaleString()}`);
                 return {
                   symbol: token.symbol,
                   name: token.name,
@@ -301,7 +307,8 @@ export class CentralDataService {
                   source: 'moralis_safe_fallback_filtered',
                   _filtered: true,
                   _originalBalance: balanceReadable,
-                  _originalValue: totalUsd
+                  _originalValue: totalUsd,
+                  _filterReason: hasSuspiciousBalance ? 'huge_balance' : hasSuspiciousValue ? 'huge_value' : 'high_price'
                 };
               }
               
