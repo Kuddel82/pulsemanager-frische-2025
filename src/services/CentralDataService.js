@@ -317,6 +317,15 @@ export class CentralDataService {
         
         console.log(`✅ TOKENS: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)} (incl. native)`);
         
+        // 🔍 DEBUG: Liste aller geladenen Token anzeigen
+        if (rawTokens.length > 0) {
+          console.log(`🔍 ALL LOADED TOKENS for ${wallet.address.slice(0, 8)}:`);
+          rawTokens.forEach((token, index) => {
+            const balance = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+            console.log(`  ${index + 1}. ${token.symbol} (${token.token_address}) - Balance: ${balance.toLocaleString()}`);
+          });
+        }
+        
         // 🚀 SCHRITT 2: Preise über TokenPricingService strukturiert laden
         if (rawTokens.length > 0) {
           // Vorbereite Token-Array für Pricing-Service
@@ -381,6 +390,19 @@ export class CentralDataService {
               // 📈 DEBUG: Log alle Token mit Werten über $100
               if (totalUsd > 100) {
                 console.log(`💎 HIGH VALUE: ${tokenSymbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${finalPrice} (${priceSource}), Value: $${totalUsd.toLocaleString()}`);
+              }
+              
+              // 🔍 DEBUG: Log ALLE Token für bessere Diagnose
+              if (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP' || tokenSymbol.includes('WG')) {
+                console.log(`🔍 DEBUG TOKEN: ${tokenSymbol} - Balance: ${balanceReadable}, Price: $${finalPrice}, Value: $${totalUsd}, Address: ${tokenAddress}, Source: ${priceSource}`);
+              }
+              
+              // 🚨 CRITICAL: Mindest-Wert Filter zu strikt?
+              const MIN_VALUE_FOR_DISPLAY = 0.01;
+              const shouldInclude = totalUsd >= MIN_VALUE_FOR_DISPLAY;
+              
+              if (!shouldInclude && (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP')) {
+                console.warn(`⚠️ FILTERED OUT: ${tokenSymbol} ($${totalUsd}) below minimum $${MIN_VALUE_FOR_DISPLAY}`);
               }
               
               return {
