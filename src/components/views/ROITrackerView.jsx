@@ -196,11 +196,17 @@ const ROITrackerView = () => {
 
   return (
     <div className="space-y-6">
+      {/* 🚨 LIVE TEST BANNER */}
+      <div className="bg-gradient-to-r from-pink-500 to-purple-600 text-white p-4 rounded-lg text-center">
+        <h2 className="text-xl font-bold">🎯 PULSEWATCH STYLE AKTIV! 🚀</h2>
+        <p className="text-sm">Live Test - Wenn du das siehst, funktionieren die Änderungen!</p>
+      </div>
+
       {/* Header mit Status */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">ROI Tracker</h1>
-          <p className="text-gray-600">Echte ROI-Daten von PulseChain API</p>
+          <h1 className="text-2xl font-bold">🎯 ROI Tracker - PULSEWATCH STYLE 🚀</h1>
+          <p className="text-gray-600">Echte ROI-Daten von PulseChain API - LIVE TEST AKTIV!</p>
         </div>
         
         <Button 
