@@ -46,24 +46,24 @@ const TaxReportView = () => {
     try {
       console.log('📄 TAX REPORT: Loading tax data with massive pagination & caching');
       
-      // 🔍 SCHRITT 1: Cache prüfen (außer bei forceRefresh)
-      if (!forceRefresh) {
-        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
-        const cachedData = await DatabaseCacheService.getCachedTaxReportData(user.id);
-        
-        if (cachedData) {
-          setPortfolioData({
-            ...cachedData,
-            taxTransactions: cachedData.transactions || [],
-            fromCache: true
-          });
-          
-          const cacheHours = Math.round(cachedData.cacheAge / (1000 * 60 * 60));
-          setStatusMessage(`✅ Cache: ${cachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
-          setLoading(false);
-          return;
-        }
-      }
+             // 🔍 SCHRITT 1: GLOBAL CACHE prüfen (Memory + Session Storage)
+       if (!forceRefresh) {
+         const { GlobalCacheService } = await import('@/services/GlobalCacheService');
+         const cachedData = GlobalCacheService.getTaxReportData(user.id);
+         
+         if (cachedData) {
+           setPortfolioData({
+             ...cachedData,
+             taxTransactions: cachedData.transactions || [],
+             fromCache: true
+           });
+           
+           const cacheHours = Math.round(cachedData.cacheAge / (1000 * 60 * 60));
+           setStatusMessage(`✅ TAX ${cachedData.cacheType?.toUpperCase()}: ${cachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
+           setLoading(false);
+           return;
+         }
+       }
       
       setStatusMessage('🚀 Lade alle Steuerdaten (kann 2-5 Minuten dauern)...');
       
@@ -92,9 +92,9 @@ const TaxReportView = () => {
           taxTransactions: taxReportData.transactions
         });
         
-        // 💾 SCHRITT 3: Cache für 24h speichern
-        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
-        await DatabaseCacheService.cacheTaxReportData(user.id, taxReportData);
+                 // 💾 SCHRITT 3: GLOBAL CACHE für 24h speichern (Memory + Session)  
+         const { GlobalCacheService } = await import('@/services/GlobalCacheService');
+         GlobalCacheService.saveTaxReportData(user.id, taxReportData);
         
         setStatusMessage(`✅ MASSIVE LOAD: ${taxReportData.transactions.length} Transaktionen geladen (${data.apiCalls} API calls)`);
         console.log('✅ TAX REPORT: Massive data loaded successfully');

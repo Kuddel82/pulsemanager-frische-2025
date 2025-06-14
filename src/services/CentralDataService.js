@@ -442,7 +442,7 @@ export class CentralDataService {
 
   // 🎯 ROI/Tax REAL IMPLEMENTATIONS for Tax & ROI Views
   static async loadROITransactionsMoralisOnly(wallets, priceMap) {
-    console.log(`🚀 ROI: Loading ROI transactions for ${wallets.length} wallets (CURRENT MONTH ONLY)`);
+    console.log(`🚀 ROI SIMPLE: Loading ROI transactions for ${wallets.length} wallets (CURRENT MONTH)`);
     
     const allROITransactions = [];
     let totalApiCalls = 0;
@@ -456,27 +456,56 @@ export class CentralDataService {
         const chainId = wallet.chain_id || 369;
         const chain = this.getChainConfig(chainId);
         
-        // Call ROI cache API mit Monat-Filter
-        const response = await fetch(`/api/roi-cache?wallet=${wallet.address}&chain=${chain.name.toLowerCase()}&from=${currentMonthStart.toISOString()}`);
+        console.log(`💰 ROI WALLET: Loading ${wallet.address} on ${chain.name}`);
+        
+        // 🔄 DIREKTE MORALIS TRANSACTIONS API (einfacher & robuster)
+        const response = await fetch(`/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=200&from_date=${currentMonthStart.toISOString()}`);
         totalApiCalls++;
         
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.roiTransactions) {
-            // Zusätzlich client-seitig filtern für laufenden Monat
-            const monthlyROITransactions = data.roiTransactions.filter(tx => {
-              const txDate = new Date(tx.timestamp);
-              return txDate >= currentMonthStart;
-            });
-            allROITransactions.push(...monthlyROITransactions);
+          
+          if (data.result && Array.isArray(data.result)) {
+            // 🔍 ROI DETECTION: Alle eingehenden Transfers analysieren
+            const roiTransactions = data.result
+              .filter(tx => {
+                // Eingehende Transaktionen (to_address = wallet)
+                return tx.to_address && tx.to_address.toLowerCase() === wallet.address.toLowerCase();
+              })
+              .map(tx => {
+                // ROI Value berechnen
+                const value = parseFloat(tx.value) || 0;
+                const usdValue = this.calculateTransactionValue(tx, priceMap);
+                
+                return {
+                  ...tx,
+                  walletAddress: wallet.address,
+                  chainId: chainId,
+                  value: usdValue,
+                  timestamp: tx.block_timestamp,
+                  type: 'ROI_INCOMING',
+                  token: tx.token_symbol || 'Unknown',
+                  amount: value / Math.pow(10, parseInt(tx.token_decimals) || 18)
+                };
+              })
+              .filter(tx => {
+                // Nur laufender Monat
+                const txDate = new Date(tx.timestamp);
+                return txDate >= currentMonthStart && tx.value > 0;
+              });
+            
+            allROITransactions.push(...roiTransactions);
+            console.log(`✅ ROI WALLET: ${roiTransactions.length} ROI transactions for ${wallet.address}`);
           }
+        } else {
+          console.error(`❌ ROI WALLET: HTTP ${response.status} for ${wallet.address}`);
         }
       } catch (error) {
-        console.error(`⚠️ ROI load failed for ${wallet.address}:`, error.message);
+        console.error(`💥 ROI WALLET ERROR: ${wallet.address} - ${error.message}`);
       }
     }
     
-    // Calculate ROI stats für LAUFENDEN MONAT
+    // 📊 CALCULATE ROI STATS für LAUFENDEN MONAT
     const nowTimestamp = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
     
@@ -492,18 +521,50 @@ export class CentralDataService {
     const weeklyROI = weeklyTransactions.reduce((sum, tx) => sum + (tx.value || 0), 0);
     const monthlyROI = monthlyTransactions.reduce((sum, tx) => sum + (tx.value || 0), 0);
     
-    console.log(`✅ ROI CURRENT MONTH: ${allROITransactions.length} transactions, $${monthlyROI.toFixed(2)} monthly`);
+    console.log(`✅ ROI SIMPLE COMPLETE: ${allROITransactions.length} transactions, Daily: $${dailyROI.toFixed(2)}, Weekly: $${weeklyROI.toFixed(2)}, Monthly: $${monthlyROI.toFixed(2)}`);
     
     return { 
       transactions: allROITransactions, 
       dailyROI, 
       weeklyROI, 
       monthlyROI, 
-      source: 'roi_cache_api_current_month',
+      source: 'moralis_transactions_direct_current_month',
       totalApiCalls,
       currentMonth: now.getMonth() + 1,
-      currentYear: now.getFullYear()
+      currentYear: now.getFullYear(),
+      debugInfo: {
+        walletsProcessed: wallets.length,
+        totalTransactions: allROITransactions.length,
+        dailyCount: dailyTransactions.length,
+        weeklyCount: weeklyTransactions.length,
+        monthlyCount: monthlyTransactions.length
+      }
     };
+  }
+
+  // 💰 HELPER: Transaction Value berechnen
+  static calculateTransactionValue(tx, priceMap) {
+    try {
+      if (!tx.value || tx.value === '0') return 0;
+      
+      // Native Token (PLS)
+      if (!tx.token_address) {
+        const plsValue = parseFloat(tx.value) / Math.pow(10, 18);
+        const plsPrice = priceMap?.['native'] || 0.00001; // Default PLS price
+        return plsValue * plsPrice;
+      }
+      
+      // ERC20 Token
+      const tokenAddress = tx.token_address.toLowerCase();
+      const tokenValue = parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals) || 18);
+      const tokenPrice = priceMap?.[tokenAddress] || 0;
+      
+      return tokenValue * tokenPrice;
+      
+    } catch (error) {
+      console.error(`⚠️ VALUE CALC ERROR: ${error.message}`);
+      return 0;
+    }
   }
 
   static async loadTaxTransactionsMoralisOnly(wallets, priceMap) {
@@ -524,26 +585,38 @@ export class CentralDataService {
         let cursor = null;
         let walletTransactions = [];
         let pageNumber = 0;
-        const MAX_PAGES = 2000; // 2000 * 50 = 100k max
+        const MAX_PAGES = 3000; // 3000 * 50 = 150k max (erhöht für mehr Transaktionen)
+        let consecutiveEmptyPages = 0;
+        const MAX_EMPTY_PAGES = 3; // Stop after 3 consecutive empty pages
         
         do {
           pageNumber++;
-          console.log(`📄 TAX PAGE ${pageNumber}: Loading batch for ${wallet.address}...`);
+          console.log(`📄 TAX PAGE ${pageNumber}: Loading batch for ${wallet.address}... (Total so far: ${walletTransactions.length})`);
           
           try {
             const apiUrl = `/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=50${cursor ? `&cursor=${cursor}` : ''}`;
             
+            // 🔄 EXTENDED TIMEOUT & RETRY LOGIC
             const response = await fetch(apiUrl, {
               method: 'GET',
               headers: {
                 'Content-Type': 'application/json'
-              }
+              },
+              signal: AbortSignal.timeout(90000) // 90 seconds timeout
             });
             totalApiCalls++;
             
             if (!response.ok) {
               console.error(`❌ TAX PAGE ${pageNumber}: HTTP ${response.status} for ${wallet.address}`);
-              break; // Skip to next wallet on error
+              
+              // Retry on 5xx errors, but not on 4xx errors
+              if (response.status >= 500 && response.status < 600) {
+                console.log(`🔄 TAX RETRY: Retrying page ${pageNumber} for ${wallet.address}...`);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                continue; // Retry same page
+              } else {
+                break; // Skip to next wallet on client errors
+              }
             }
             
             const data = await response.json();
@@ -555,14 +628,25 @@ export class CentralDataService {
                 chainId: chainId
               }));
               
-              walletTransactions.push(...pageTransactions);
-              console.log(`✅ TAX PAGE ${pageNumber}: +${pageTransactions.length} transactions (total: ${walletTransactions.length})`);
+              if (pageTransactions.length === 0) {
+                consecutiveEmptyPages++;
+                console.log(`⚠️ TAX PAGE ${pageNumber}: Empty page (${consecutiveEmptyPages}/${MAX_EMPTY_PAGES})`);
+                
+                if (consecutiveEmptyPages >= MAX_EMPTY_PAGES) {
+                  console.log(`🛑 TAX STOP: ${MAX_EMPTY_PAGES} consecutive empty pages, stopping`);
+                  break;
+                }
+              } else {
+                consecutiveEmptyPages = 0; // Reset counter
+                walletTransactions.push(...pageTransactions);
+                console.log(`✅ TAX PAGE ${pageNumber}: +${pageTransactions.length} transactions (total: ${walletTransactions.length})`);
+              }
               
               // Update cursor for next page
               cursor = data.cursor;
               
-              // Stop if no more pages or no transactions
-              if (!cursor || pageTransactions.length === 0) {
+              // Stop if no cursor (end of data)
+              if (!cursor) {
                 console.log(`🏁 TAX COMPLETE: ${wallet.address} - No more pages available`);
                 break;
               }
@@ -580,11 +664,19 @@ export class CentralDataService {
             
           } catch (pageError) {
             console.error(`💥 TAX PAGE ${pageNumber} ERROR: ${pageError.message}`);
-            break; // Skip to next wallet on page error
+            
+            // Retry on network errors
+            if (pageError.name === 'AbortError' || pageError.name === 'TimeoutError') {
+              console.log(`🔄 TAX TIMEOUT RETRY: Retrying page ${pageNumber} for ${wallet.address}...`);
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+              continue; // Retry same page
+            } else {
+              break; // Skip to next wallet on other errors
+            }
           }
           
-          // Rate limiting: 200ms between requests
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Rate limiting: 150ms between requests (slightly faster)
+          await new Promise(resolve => setTimeout(resolve, 150));
           
         } while (cursor && pageNumber < MAX_PAGES);
         

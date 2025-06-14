@@ -42,10 +42,10 @@ const ROITrackerView = () => {
     try {
       console.log('🔄 ROI TRACKER: Loading ROI data with caching');
       
-      // 🔍 SCHRITT 1: Cache prüfen (außer bei forceRefresh)
+      // 🔍 SCHRITT 1: GLOBAL CACHE prüfen (Memory + Session Storage)
       if (!forceRefresh) {
-        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
-        const cachedData = await DatabaseCacheService.getCachedROITrackerData(user.id);
+        const { GlobalCacheService } = await import('@/services/GlobalCacheService');
+        const cachedData = GlobalCacheService.getROITrackerData(user.id);
         
         if (cachedData) {
           setPortfolioData({
@@ -55,7 +55,7 @@ const ROITrackerView = () => {
           });
           
           const cacheMinutes = Math.round(cachedData.cacheAge / (1000 * 60));
-          setStatusMessage(`✅ ROI Cache: ${cachedData.transactions?.length || 0} Transaktionen, $${cachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
+          setStatusMessage(`✅ ROI ${cachedData.cacheType?.toUpperCase()}: ${cachedData.transactions?.length || 0} Transaktionen, $${cachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
           setLoading(false);
           return;
         }
@@ -92,9 +92,9 @@ const ROITrackerView = () => {
           roiTransactions: roiData.transactions
         });
         
-        // 💾 SCHRITT 3: Cache für 2h speichern
-        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
-        await DatabaseCacheService.cacheROITrackerData(user.id, roiData);
+        // 💾 SCHRITT 3: GLOBAL CACHE für 2h speichern (Memory + Session)
+        const { GlobalCacheService } = await import('@/services/GlobalCacheService');
+        GlobalCacheService.saveROITrackerData(user.id, roiData);
         
         setStatusMessage(`✅ ROI LOADED: ${roiData.transactions.length} Transaktionen, $${roiData.monthlyROI} monthly (${data.apiCalls} API calls)`);
         console.log('✅ ROI TRACKER: ROI data loaded successfully');
