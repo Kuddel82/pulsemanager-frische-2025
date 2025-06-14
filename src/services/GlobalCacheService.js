@@ -286,7 +286,7 @@ export class GlobalCacheService {
   }
 
   /**
-   * 🧹 CLEAR ALL CACHE für User
+   * 🧹 CLEAR ALL CACHE für User (VERSTÄRKT - auch LocalStorage)
    * @param {String} userId - User ID
    */
   static clearUserCache(userId) {
@@ -301,13 +301,58 @@ export class GlobalCacheService {
         sessionStorage.removeItem(this.SESSION_KEYS.ROI_TRACKER_DATA);
         sessionStorage.removeItem(this.SESSION_KEYS.TAX_REPORT_DATA);
         sessionStorage.removeItem(this.SESSION_KEYS.PORTFOLIO_DATA);
+        
+        // Local Storage auch leeren (falls vorhanden)
+        localStorage.removeItem(this.SESSION_KEYS.ROI_TRACKER_DATA);
+        localStorage.removeItem(this.SESSION_KEYS.TAX_REPORT_DATA);
+        localStorage.removeItem(this.SESSION_KEYS.PORTFOLIO_DATA);
+        
+        // Legacy cache keys leeren
+        sessionStorage.removeItem('pulsemanager_portfolio_cache');
+        sessionStorage.removeItem('pulsemanager_roi_cache');
+        sessionStorage.removeItem('pulsemanager_tax_cache');
+        localStorage.removeItem('pulsemanager_portfolio_cache');
+        localStorage.removeItem('pulsemanager_roi_cache');
+        localStorage.removeItem('pulsemanager_tax_cache');
       }
       
-      console.log(`🧹 GLOBAL CACHE: Cleared all data for user ${userId}`);
+      console.log(`🧹 GLOBAL CACHE: Cleared all data (Memory + Session + Local) for user ${userId}`);
       return true;
       
     } catch (error) {
       console.error(`💥 CACHE CLEAR ERROR: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * 🧹 FORCE CLEAR ALL BROWSER STORAGE (Emergency)
+   */
+  static emergencyClearAll() {
+    try {
+      // Clear all memory cache
+      this.memoryCache.clear();
+      
+      if (typeof window !== 'undefined') {
+        // Clear all session storage
+        sessionStorage.clear();
+        
+        // Clear specific local storage keys
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.includes('pulsemanager')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      }
+      
+      console.log(`🧹 EMERGENCY CLEAR: All cache cleared`);
+      return true;
+      
+    } catch (error) {
+      console.error(`💥 EMERGENCY CLEAR ERROR: ${error.message}`);
       return false;
     }
   }

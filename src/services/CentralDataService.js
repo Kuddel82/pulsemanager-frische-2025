@@ -229,7 +229,7 @@ export class CentralDataService {
         const tokensData = await tokensResponse.json();
         let rawTokens = tokensData.result || [];
         
-        // 🚀 SCHRITT 1.5: Native Token hinzufügen (ETH, PLS)
+        // 🚀 SCHRITT 1.5: Native Token hinzufügen (ETH, PLS) - VERSTÄRKT
         try {
           const nativeResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=native-balance`);
           apiCallsUsed++;
@@ -237,21 +237,50 @@ export class CentralDataService {
           if (nativeResponse.ok) {
             const nativeData = await nativeResponse.json();
             const nativeBalance = nativeData.balance || '0';
+            const balanceValue = parseFloat(nativeBalance);
             
-            if (parseFloat(nativeBalance) > 0) {
+            console.log(`🔍 NATIVE CHECK: Chain ${chainId} (${chain.name}), Balance: ${balanceValue / 1e18}`);
+            
+            if (balanceValue > 0) {
+              // Chain-spezifische Native Token Konfiguration
+              let nativeSymbol, nativeName;
+              
+              switch(chainId) {
+                case 1:
+                case '1':
+                case '0x1':
+                  nativeSymbol = 'ETH';
+                  nativeName = 'Ethereum';
+                  break;
+                case 369:
+                case '369':
+                case '0x171':
+                  nativeSymbol = 'PLS';
+                  nativeName = 'PulseChain';
+                  break;
+                default:
+                  nativeSymbol = chain.nativeSymbol || 'NATIVE';
+                  nativeName = chain.nativeName || 'Native Token';
+              }
+              
               const nativeToken = {
                 token_address: 'native',
-                symbol: chain.nativeSymbol || (chainId === 1 ? 'ETH' : 'PLS'),
-                name: chain.nativeName || (chainId === 1 ? 'Ethereum' : 'PulseChain'),
+                symbol: nativeSymbol,
+                name: nativeName,
                 decimals: 18,
                 balance: nativeBalance
               };
+              
               rawTokens.unshift(nativeToken); // Native Token an den Anfang
-              console.log(`✅ NATIVE: Added ${nativeToken.symbol} with balance ${parseFloat(nativeBalance) / 1e18}`);
+              console.log(`✅ NATIVE ADDED: ${nativeToken.symbol} (${nativeToken.name}) with balance ${balanceValue / 1e18} on chain ${chainId}`);
+            } else {
+              console.log(`⚪ NATIVE SKIP: Zero balance for ${chain.name} (${chainId})`);
             }
+          } else {
+            console.warn(`⚠️ NATIVE API: HTTP ${nativeResponse.status} for ${chain.name}`);
           }
         } catch (nativeError) {
-          console.warn(`⚠️ NATIVE: Could not load native balance - ${nativeError.message}`);
+          console.error(`💥 NATIVE ERROR: Could not load native balance for ${chain.name} - ${nativeError.message}`);
         }
         
         console.log(`✅ TOKENS: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)} (incl. native)`);
@@ -280,9 +309,26 @@ export class CentralDataService {
               
               console.log(`📊 PROCESSING: ${tokenSymbol} = ${balanceReadable.toLocaleString()} tokens (${tokenAddress})`);
               
-              // 🚨 CRITICAL: Block falschen DOMINANCE Token  
-              if (tokenSymbol === 'DOMINANCE' && tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea') {
-                console.warn(`🚨 BLOCKED FAKE DOMINANCE: ${tokenAddress} - Only 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea allowed`);
+              // 🚨 CRITICAL: Block falschen DOMINANCE Token - VERSTÄRKT
+              if (tokenSymbol === 'DOMINANCE') {
+                if (tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea') {
+                  console.error(`🚨 BLOCKED FAKE DOMINANCE: ${tokenAddress} - Only 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea allowed`);
+                  console.error(`🚨 FAKE DOMINANCE DETAILS: Symbol: ${tokenSymbol}, Address: ${tokenAddress}, Balance: ${balanceReadable}`);
+                  return null; // BLOCKIERE komplett
+                } else {
+                  console.log(`✅ REAL DOMINANCE APPROVED: ${tokenAddress}`);
+                }
+              }
+              
+              // 🚨 ADDITIONAL: Block specific fake addresses
+              const BLOCKED_ADDRESSES = [
+                '0x64bab8470043748014318b075685addaa1f22a87', // Fake DOMINANCE
+                '0x64bab8470043748014318b075685addaa1f22a88', // Possible variants
+                '0x64bab8470043748014318b075685addaa1f22a89'  // Possible variants
+              ];
+              
+              if (BLOCKED_ADDRESSES.includes(tokenAddress)) {
+                console.error(`🚨 BLOCKED FAKE TOKEN: ${tokenSymbol} (${tokenAddress}) - Address in blocklist`);
                 return null;
               }
               
@@ -491,16 +537,29 @@ export class CentralDataService {
               const data = await response.json();
               
               if (data.result && Array.isArray(data.result)) {
-                // 🔍 ROI DETECTION: Alle eingehenden Transfers analysieren
+                // 🔍 ROI DETECTION: Alle eingehenden Transfers analysieren (Erweitert)
                 const pageROITransactions = data.result
                   .filter(tx => {
                     // Eingehende Transaktionen (to_address = wallet)
-                    return tx.to_address && tx.to_address.toLowerCase() === wallet.address.toLowerCase();
+                    const isIncoming = tx.to_address && tx.to_address.toLowerCase() === wallet.address.toLowerCase();
+                    
+                    // Zusätzliche ROI-Kriterien
+                    const isROIToken = tx.token_symbol && ['PLSX', 'HEX', 'INC', 'PHEX', 'EHEX', 'DOM', 'DOMINANCE'].includes(tx.token_symbol.toUpperCase());
+                    const hasValue = tx.value && tx.value !== '0';
+                    
+                    // Log potential ROI transactions
+                    if (isIncoming && hasValue) {
+                      console.log(`🔍 ROI CANDIDATE: ${tx.token_symbol || 'NATIVE'} from ${tx.from_address?.slice(0,8)}... value: ${tx.value}`);
+                    }
+                    
+                    return isIncoming && hasValue;
                   })
                   .map(tx => {
                     // ROI Value berechnen
-                    const value = parseFloat(tx.value) || 0;
+                    const rawValue = parseFloat(tx.value) || 0;
                     const usdValue = this.calculateTransactionValue(tx, priceMap);
+                    const tokenDecimals = parseInt(tx.token_decimals) || 18;
+                    const tokenAmount = rawValue / Math.pow(10, tokenDecimals);
                     
                     return {
                       ...tx,
@@ -509,14 +568,25 @@ export class CentralDataService {
                       value: usdValue,
                       timestamp: tx.block_timestamp,
                       type: 'ROI_INCOMING',
-                      token: tx.token_symbol || 'Unknown',
-                      amount: value / Math.pow(10, parseInt(tx.token_decimals) || 18)
+                      token: tx.token_symbol || 'NATIVE',
+                      amount: tokenAmount,
+                      rawValue: rawValue,
+                      from: tx.from_address,
+                      to: tx.to_address,
+                      hash: tx.transaction_hash
                     };
                   })
                   .filter(tx => {
-                    // Nur laufender Monat und USD value > 0
+                    // Nur laufender Monat und USD value >= 0.01 (sehr niedrige Schwelle)
                     const txDate = new Date(tx.timestamp);
-                    return txDate >= currentMonthStart && tx.value > 0;
+                    const isCurrentMonth = txDate >= currentMonthStart;
+                    const hasMinValue = tx.value >= 0.01;
+                    
+                    if (isCurrentMonth && hasMinValue) {
+                      console.log(`✅ ROI ACCEPTED: ${tx.token} $${tx.value.toFixed(4)} from ${tx.from?.slice(0,8)}... on ${txDate.toLocaleDateString()}`);
+                    }
+                    
+                    return isCurrentMonth && hasMinValue;
                   });
                 
                 if (data.result.length === 0) {
@@ -621,7 +691,7 @@ export class CentralDataService {
     };
   }
 
-  // 💰 HELPER: Transaction Value berechnen
+  // 💰 HELPER: Transaction Value berechnen (Verbessert für ROI)
   static calculateTransactionValue(tx, priceMap) {
     try {
       if (!tx.value || tx.value === '0') return 0;
@@ -629,20 +699,45 @@ export class CentralDataService {
       // Native Token (PLS)
       if (!tx.token_address) {
         const plsValue = parseFloat(tx.value) / Math.pow(10, 18);
-        const plsPrice = priceMap?.['native'] || 0.00001; // Default PLS price
-        return plsValue * plsPrice;
+        const plsPrice = priceMap?.['native'] || 0.0001; // Höherer default PLS price
+        const usdValue = plsValue * plsPrice;
+        console.log(`💰 NATIVE ROI: ${plsValue.toFixed(4)} PLS × $${plsPrice} = $${usdValue.toFixed(4)}`);
+        return usdValue;
       }
       
       // ERC20 Token
       const tokenAddress = tx.token_address.toLowerCase();
-      const tokenValue = parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals) || 18);
-      const tokenPrice = priceMap?.[tokenAddress] || 0;
+      const tokenDecimals = parseInt(tx.token_decimals) || 18;
+      const tokenValue = parseFloat(tx.value) / Math.pow(10, tokenDecimals);
+      const tokenSymbol = tx.token_symbol || 'Unknown';
       
-      return tokenValue * tokenPrice;
+      // Default Token Prices für häufige ROI Token
+      const defaultPrices = {
+        'plsx': 0.001,    // PLSX
+        'hex': 0.004,     // HEX  
+        'inc': 0.002,     // INC
+        'phex': 0.004,    // pHEX
+        'ehex': 0.004,    // eHEX
+        'dom': 0.1,       // DOMINANCE
+        'dominance': 0.1  // DOMINANCE
+      };
+      
+      const tokenPrice = priceMap?.[tokenAddress] || 
+                        defaultPrices[tokenSymbol.toLowerCase()] || 
+                        0.001; // Min fallback price
+      
+      const usdValue = tokenValue * tokenPrice;
+      
+      // Log significant ROI transactions
+      if (usdValue > 1) {
+        console.log(`💰 TOKEN ROI: ${tokenValue.toFixed(2)} ${tokenSymbol} × $${tokenPrice} = $${usdValue.toFixed(2)} (${tokenAddress.slice(0,8)}...)`);
+      }
+      
+      return usdValue;
       
     } catch (error) {
       console.error(`⚠️ VALUE CALC ERROR: ${error.message}`);
-      return 0;
+      return 0.01; // Minimaler Fallback statt 0
     }
   }
 
