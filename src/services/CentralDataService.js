@@ -408,8 +408,8 @@ export class CentralDataService {
             }
             
             // 🚨 ZUSÄTZLICHE EXTREME-PREIS-KORREKTUR: Alle Preise über $50 blockieren
-            if (usdPrice > 50 && !['WBTC', 'ETH', 'WETH', 'BTC', 'FINVESTA'].includes(tokenSymbol)) {
-              console.error(`🚨 EXTREME PRICE BLOCKED: ${tokenSymbol} had price $${usdPrice}, setting to $0`);
+            if (rawPrice > 50 && !['WBTC', 'ETH', 'WETH', 'BTC', 'FINVESTA'].includes(tokenSymbol)) {
+              console.error(`🚨 EXTREME PRICE BLOCKED: ${tokenSymbol} had price $${rawPrice}, setting to $0`);
               usdPrice = 0;
               priceSource = 'blocked_extreme_price';
             }
