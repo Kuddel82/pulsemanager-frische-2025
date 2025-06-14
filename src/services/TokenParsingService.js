@@ -1,22 +1,22 @@
-// 🔧 TOKEN PARSING SERVICE
-// Behebt die falschen Token-Werte (32k DAI Bug)
+// 🔧 TOKEN PARSING SERVICE - SAUBER
+// Nur für Balance-Parsing, KEINE Preislogik mehr!
 
 export class TokenParsingService {
   
-  // 💰 BEKANNTE TOKEN-KONTRAKTE mit korrekten Decimals
+  // 🔧 BEKANNTE TOKEN-KONTRAKTE - NUR DECIMALS (Preise werden von TokenPricingService verwaltet)
   static KNOWN_TOKENS = {
-    // Stablecoins (sollten ~$1 sein)
-    '0x6b175474e89094c44da98b954eedeac495271d0f': { symbol: 'DAI', decimals: 18, expectedPrice: 1.0 },
-    '0xa0b86a33e6c5e8aac52c8fd9bc99f87eff44b2e9': { symbol: 'USDC', decimals: 6, expectedPrice: 1.0 },
-    '0xdac17f958d2ee523a2206206994597c13d831ec7': { symbol: 'USDT', decimals: 6, expectedPrice: 1.0 },
+    // Stablecoins
+    '0x6b175474e89094c44da98b954eedeac495271d0f': { symbol: 'DAI', decimals: 18 },
+    '0xa0b86a33e6c5e8aac52c8fd9bc99f87eff44b2e9': { symbol: 'USDC', decimals: 6 },
+    '0xdac17f958d2ee523a2206206994597c13d831ec7': { symbol: 'USDT', decimals: 6 },
     
     // ETH
-    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { symbol: 'WETH', decimals: 18, expectedPrice: 2400 },
+    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': { symbol: 'WETH', decimals: 18 },
     
     // PulseChain Tokens
-    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': { symbol: 'HEX', decimals: 8, expectedPrice: 0.003 },
-    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': { symbol: 'INC', decimals: 18, expectedPrice: 0.01 },
-    '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1': { symbol: 'PLSX', decimals: 18, expectedPrice: 0.00001 }
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': { symbol: 'HEX', decimals: 8 },
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': { symbol: 'INC', decimals: 18 },
+    '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1': { symbol: 'PLSX', decimals: 18 }
   };
   
   /**
