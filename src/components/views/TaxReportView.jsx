@@ -46,45 +46,8 @@ const TaxReportView = () => {
     try {
       console.log('📄 TAX REPORT: Loading tax data with massive pagination & caching');
       
-             // 🔍 SCHRITT 1: DATABASE PERSISTENT CACHE prüfen (überlebt Page Reloads)
-       if (!forceRefresh) {
-         try {
-           const { DatabasePersistentCache } = await import('@/services/DatabasePersistentCache');
-           const cachedData = await DatabasePersistentCache.getTaxReportData(user.id);
-           
-           if (cachedData) {
-             setPortfolioData({
-               ...cachedData,
-               taxTransactions: cachedData.transactions || [],
-               fromCache: true
-             });
-             
-             const cacheHours = Math.round(cachedData.cacheAge / (1000 * 60 * 60));
-             setStatusMessage(`✅ TAX DB CACHE: ${cachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
-             setLoading(false);
-             return;
-           }
-         } catch (cacheError) {
-           console.warn(`⚠️ TAX DB CACHE: ${cacheError.message}`);
-         }
-
-         // 🔍 SCHRITT 1.5: FALLBACK - Session Cache prüfen
-         const { GlobalCacheService } = await import('@/services/GlobalCacheService');
-         const sessionCachedData = GlobalCacheService.getTaxReportData(user.id);
-         
-         if (sessionCachedData) {
-           setPortfolioData({
-             ...sessionCachedData,
-             taxTransactions: sessionCachedData.transactions || [],
-             fromCache: true
-           });
-           
-           const cacheHours = Math.round(sessionCachedData.cacheAge / (1000 * 60 * 60));
-           setStatusMessage(`✅ TAX SESSION: ${sessionCachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
-           setLoading(false);
-           return;
-         }
-       }
+                   // 🚨 CACHE TEMPORARILY DISABLED für PulseScan API Testing
+      console.log(`🔄 TAX CACHE DISABLED: Testing PulseScan API (forceRefresh: ${forceRefresh})`);
       
       setStatusMessage('🚀 Lade alle Steuerdaten (kann 2-5 Minuten dauern)...');
       

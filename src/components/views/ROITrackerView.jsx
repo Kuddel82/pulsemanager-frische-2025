@@ -42,45 +42,8 @@ const ROITrackerView = () => {
     try {
       console.log('🔄 ROI TRACKER: Loading ROI data with caching');
       
-      // 🔍 SCHRITT 1: DATABASE PERSISTENT CACHE prüfen (überlebt Page Reloads)
-      if (!forceRefresh) {
-        try {
-          const { DatabasePersistentCache } = await import('@/services/DatabasePersistentCache');
-          const cachedData = await DatabasePersistentCache.getROITrackerData(user.id);
-          
-          if (cachedData) {
-            setPortfolioData({
-              ...cachedData,
-              roiTransactions: cachedData.transactions || [],
-              fromCache: true
-            });
-            
-            const cacheMinutes = Math.round(cachedData.cacheAge / (1000 * 60));
-            setStatusMessage(`✅ ROI DB CACHE: ${cachedData.transactions?.length || 0} Transaktionen, $${cachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
-            setLoading(false);
-            return;
-          }
-        } catch (cacheError) {
-          console.warn(`⚠️ ROI DB CACHE: ${cacheError.message}`);
-        }
-
-        // 🔍 SCHRITT 1.5: FALLBACK - Session Cache prüfen
-        const { GlobalCacheService } = await import('@/services/GlobalCacheService');
-        const sessionCachedData = GlobalCacheService.getROITrackerData(user.id);
-        
-        if (sessionCachedData) {
-          setPortfolioData({
-            ...sessionCachedData,
-            roiTransactions: sessionCachedData.transactions || [],
-            fromCache: true
-          });
-          
-          const cacheMinutes = Math.round(sessionCachedData.cacheAge / (1000 * 60));
-          setStatusMessage(`✅ ROI SESSION: ${sessionCachedData.transactions?.length || 0} Transaktionen, $${sessionCachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
-          setLoading(false);
-          return;
-        }
-      }
+      // 🚨 CACHE TEMPORARILY DISABLED für PulseScan API Testing
+      console.log(`🔄 ROI CACHE DISABLED: Testing PulseScan API (forceRefresh: ${forceRefresh})`);
       
       setStatusMessage('🚀 Lade ROI-Daten (kann 1-2 Minuten dauern)...');
       
