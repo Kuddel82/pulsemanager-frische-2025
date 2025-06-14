@@ -308,6 +308,54 @@ export class CentralDataService {
           console.warn(`⚠️ BATCH PRICES: Error, using emergency fallback:`, priceError.message);
         }
 
+        // 🔍 DEXSCREENER BACKUP: Für fehlende/extreme Preise
+        const missingPrices = [];
+        const extremePrices = [];
+        
+        tokensForPricing.forEach(addr => {
+          const price = pricesData[addr]?.usdPrice || 0;
+          if (price === 0) {
+            missingPrices.push(addr);
+          } else if (price > 100) { // Extreme Preise über $100
+            extremePrices.push(addr);
+          }
+        });
+        
+        if (missingPrices.length > 0 || extremePrices.length > 0) {
+          const backupTokens = [...missingPrices, ...extremePrices];
+          console.log(`🔍 DEXSCREENER BACKUP: Checking ${backupTokens.length} tokens (${missingPrices.length} missing, ${extremePrices.length} extreme)`);
+          
+          try {
+            const dexScreenerResponse = await fetch(`/api/dexscreener-prices?tokens=${backupTokens.join(',')}`);
+            
+            if (dexScreenerResponse.ok) {
+              const dexData = await dexScreenerResponse.json();
+              const dexPrices = dexData.prices || {};
+              
+              // Merge DexScreener prices
+              Object.keys(dexPrices).forEach(addr => {
+                const dexPrice = dexPrices[addr];
+                const moralisPrice = pricesData[addr]?.usdPrice || 0;
+                
+                // Use DexScreener if Moralis is missing or extreme
+                if (moralisPrice === 0 || moralisPrice > 100) {
+                  pricesData[addr] = {
+                    usdPrice: dexPrice.usdPrice,
+                    source: 'dexscreener_backup',
+                    liquidity: dexPrice.liquidity
+                  };
+                  console.log(`🔄 BACKUP USED: ${addr.slice(0,8)}... = $${dexPrice.usdPrice} (was $${moralisPrice})`);
+                }
+              });
+              
+              console.log(`✅ DEXSCREENER BACKUP: Applied ${Object.keys(dexPrices).length} backup prices`);
+            }
+            
+          } catch (error) {
+            console.warn('⚠️ DexScreener backup failed:', error.message);
+          }
+        }
+
         // Step 3: Process tokens with REAL prices - FILTER OUT FAKE TOKENS
         const processedTokens = rawTokens.map((token) => {
           try {
@@ -331,10 +379,10 @@ export class CentralDataService {
               return null; // KOMPLETT ENTFERNEN aus der Liste
             }
             
-            // 1. Versuche Live-Preis von Batch-API
+            // 1. Versuche Live-Preis von Batch-API (Moralis + DexScreener Backup)
             let rawPrice = pricesData[tokenAddress]?.usdPrice || 0;
             let usdPrice = rawPrice;
-            let priceSource = 'moralis_live';
+            let priceSource = pricesData[tokenAddress]?.source || 'moralis_live';
             
             // 🎯 VERIFIED TOKEN CHECK: Prüfe gegen Whitelist
             const verifiedToken = this.VERIFIED_TOKENS[tokenAddress];
