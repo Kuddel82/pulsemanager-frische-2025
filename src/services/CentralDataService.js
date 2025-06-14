@@ -286,10 +286,23 @@ export class CentralDataService {
             const tokenSymbol = token.symbol?.toUpperCase();
             
             // 1. Versuche Live-Preis von Batch-API
-            let usdPrice = pricesData[tokenAddress]?.usdPrice || 0;
+            let rawPrice = pricesData[tokenAddress]?.usdPrice || 0;
+            let usdPrice = rawPrice;
             let priceSource = 'moralis_live';
             
-            // 2. Fallback zu Emergency-Preisen nur wenn kein Live-Preis
+            // 🚨 PREIS-VALIDIERUNG: Erkenne extreme Moralis-Fehler
+            const isExtremePriceError = (
+              rawPrice > 100 && // Über $100 pro Token ist verdächtig für PulseChain
+              !['WBTC', 'ETH', 'WETH'].includes(tokenSymbol) // Außer bekannte High-Value Token
+            );
+            
+            if (isExtremePriceError) {
+              console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice} - likely Moralis API error!`);
+              usdPrice = 0; // Setze auf 0 um Portfolio-Verzerrung zu vermeiden
+              priceSource = 'moralis_price_error';
+            }
+            
+            // 2. Fallback zu Emergency-Preisen nur wenn kein Live-Preis oder Preis-Fehler
             if (usdPrice === 0 && this.EMERGENCY_PRICES[tokenSymbol]) {
               usdPrice = this.EMERGENCY_PRICES[tokenSymbol];
               priceSource = 'emergency_fallback';
@@ -370,6 +383,19 @@ export class CentralDataService {
 
     debug.apiCalls = apiCallsUsed;
     
+    // 🚨 PORTFOLIO-VALIDIERUNG: Warne vor extremen Gesamtwerten
+    if (totalValue > 1000000) { // Über $1 Million
+      console.error(`🚨 EXTREME PORTFOLIO VALUE: $${totalValue.toLocaleString()} - likely contains price errors!`);
+      
+      // Zeige die Top-Token die das Portfolio dominieren
+      const topTokens = sortedTokens.slice(0, 3);
+      topTokens.forEach(token => {
+        if (token.value > totalValue * 0.5) { // Token macht über 50% des Portfolios aus
+          console.error(`🚨 DOMINANT TOKEN: ${token.symbol} = $${token.value.toLocaleString()} (${token.percentageOfPortfolio.toFixed(1)}% of portfolio) - Price: $${token.price}`);
+        }
+      });
+    }
+
     console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed} (RAW BLOCKCHAIN DATA + LIVE PRICES!)`);
 
     return {
