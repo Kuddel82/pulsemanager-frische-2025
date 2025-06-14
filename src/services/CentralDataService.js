@@ -227,9 +227,34 @@ export class CentralDataService {
         }
         
         const tokensData = await tokensResponse.json();
-        const rawTokens = tokensData.result || [];
+        let rawTokens = tokensData.result || [];
         
-        console.log(`✅ TOKENS: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)}`);
+        // 🚀 SCHRITT 1.5: Native Token hinzufügen (ETH, PLS)
+        try {
+          const nativeResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=native-balance`);
+          apiCallsUsed++;
+          
+          if (nativeResponse.ok) {
+            const nativeData = await nativeResponse.json();
+            const nativeBalance = nativeData.balance || '0';
+            
+            if (parseFloat(nativeBalance) > 0) {
+              const nativeToken = {
+                token_address: 'native',
+                symbol: chain.nativeSymbol || (chainId === 1 ? 'ETH' : 'PLS'),
+                name: chain.nativeName || (chainId === 1 ? 'Ethereum' : 'PulseChain'),
+                decimals: 18,
+                balance: nativeBalance
+              };
+              rawTokens.unshift(nativeToken); // Native Token an den Anfang
+              console.log(`✅ NATIVE: Added ${nativeToken.symbol} with balance ${parseFloat(nativeBalance) / 1e18}`);
+            }
+          }
+        } catch (nativeError) {
+          console.warn(`⚠️ NATIVE: Could not load native balance - ${nativeError.message}`);
+        }
+        
+        console.log(`✅ TOKENS: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)} (incl. native)`);
         
         // 🚀 SCHRITT 2: Preise über TokenPricingService strukturiert laden
         if (rawTokens.length > 0) {
@@ -482,41 +507,106 @@ export class CentralDataService {
   }
 
   static async loadTaxTransactionsMoralisOnly(wallets, priceMap) {
-    console.log(`🚀 TAX: Loading tax transactions for ${wallets.length} wallets`);
+    console.log(`🚀 TAX MASSIVE: Loading ALL tax transactions for ${wallets.length} wallets (up to 100k each)`);
     
     const allTaxTransactions = [];
     let totalApiCalls = 0;
+    let totalTransactionsLoaded = 0;
     
     for (const wallet of wallets) {
       try {
         const chainId = wallet.chain_id || 369;
         const chain = this.getChainConfig(chainId);
         
-        // Call tax-report API with full pagination
-        const response = await fetch(`/api/tax-report?wallet=${wallet.address}&chain=${chain.name.toLowerCase()}&getAllPages=true&maxTransactions=100000`);
-        totalApiCalls++;
+        console.log(`📊 TAX WALLET: Starting massive load for ${wallet.address} on ${chain.name}`);
         
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.transactions) {
-            allTaxTransactions.push(...data.transactions.map(tx => ({
-              ...tx,
-              walletAddress: wallet.address,
-              chainId: chainId
-            })));
+        // 🚀 MASSIVE PAGINATION: Load in chunks of 50 until we have all transactions
+        let cursor = null;
+        let walletTransactions = [];
+        let pageNumber = 0;
+        const MAX_PAGES = 2000; // 2000 * 50 = 100k max
+        
+        do {
+          pageNumber++;
+          console.log(`📄 TAX PAGE ${pageNumber}: Loading batch for ${wallet.address}...`);
+          
+          try {
+            const apiUrl = `/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=50${cursor ? `&cursor=${cursor}` : ''}`;
+            
+            const response = await fetch(apiUrl, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            totalApiCalls++;
+            
+            if (!response.ok) {
+              console.error(`❌ TAX PAGE ${pageNumber}: HTTP ${response.status} for ${wallet.address}`);
+              break; // Skip to next wallet on error
+            }
+            
+            const data = await response.json();
+            
+            if (data.result && Array.isArray(data.result)) {
+              const pageTransactions = data.result.map(tx => ({
+                ...tx,
+                walletAddress: wallet.address,
+                chainId: chainId
+              }));
+              
+              walletTransactions.push(...pageTransactions);
+              console.log(`✅ TAX PAGE ${pageNumber}: +${pageTransactions.length} transactions (total: ${walletTransactions.length})`);
+              
+              // Update cursor for next page
+              cursor = data.cursor;
+              
+              // Stop if no more pages or no transactions
+              if (!cursor || pageTransactions.length === 0) {
+                console.log(`🏁 TAX COMPLETE: ${wallet.address} - No more pages available`);
+                break;
+              }
+              
+            } else {
+              console.warn(`⚠️ TAX PAGE ${pageNumber}: No valid result for ${wallet.address}`);
+              break;
+            }
+            
+            // Safety: Stop at max pages
+            if (pageNumber >= MAX_PAGES) {
+              console.warn(`⚠️ TAX LIMIT: Stopped at ${MAX_PAGES} pages for ${wallet.address}`);
+              break;
+            }
+            
+          } catch (pageError) {
+            console.error(`💥 TAX PAGE ${pageNumber} ERROR: ${pageError.message}`);
+            break; // Skip to next wallet on page error
           }
-        }
-      } catch (error) {
-        console.error(`⚠️ TAX load failed for ${wallet.address}:`, error.message);
+          
+          // Rate limiting: 200ms between requests
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } while (cursor && pageNumber < MAX_PAGES);
+        
+        allTaxTransactions.push(...walletTransactions);
+        totalTransactionsLoaded += walletTransactions.length;
+        
+        console.log(`✅ TAX WALLET COMPLETE: ${walletTransactions.length} transactions for ${wallet.address} (${pageNumber} pages)`);
+        
+      } catch (walletError) {
+        console.error(`💥 TAX WALLET ERROR: Failed for ${wallet.address} - ${walletError.message}`);
       }
     }
     
-    console.log(`✅ TAX: ${allTaxTransactions.length} transactions loaded`);
+    console.log(`🎯 TAX MASSIVE COMPLETE: ${totalTransactionsLoaded} transactions total, ${totalApiCalls} API calls`);
     
     return { 
       transactions: allTaxTransactions, 
-      source: 'tax_report_api',
-      totalApiCalls
+      source: 'moralis_transactions_massive_pagination',
+      totalApiCalls,
+      totalTransactionsLoaded,
+      walletsProcessed: wallets.length,
+      averageTransactionsPerWallet: Math.round(totalTransactionsLoaded / wallets.length)
     };
   }
 

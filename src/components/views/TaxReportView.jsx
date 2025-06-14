@@ -35,30 +35,77 @@ const TaxReportView = () => {
     showOnlyROI: true
   });
 
-  // Portfolio laden
-  const loadTaxData = async () => {
+  // Portfolio laden mit MASSIVE PAGINATION & CACHING
+  const loadTaxData = async (forceRefresh = false) => {
     if (!user?.id) return;
     
     setLoading(true);
     setError(null);
-    setStatusMessage('📄 Lade Steuerdaten...');
+    setStatusMessage('📄 Prüfe Cache...');
     
     try {
-      console.log('📄 TAX REPORT: Loading tax data with CentralDataService');
+      console.log('📄 TAX REPORT: Loading tax data with massive pagination & caching');
       
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      // 🔍 SCHRITT 1: Cache prüfen (außer bei forceRefresh)
+      if (!forceRefresh) {
+        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
+        const cachedData = await DatabaseCacheService.getCachedTaxReportData(user.id);
+        
+        if (cachedData) {
+          setPortfolioData({
+            ...cachedData,
+            taxTransactions: cachedData.transactions || [],
+            fromCache: true
+          });
+          
+          const cacheHours = Math.round(cachedData.cacheAge / (1000 * 60 * 60));
+          setStatusMessage(`✅ Cache: ${cachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      setStatusMessage('🚀 Lade alle Steuerdaten (kann 2-5 Minuten dauern)...');
+      
+      // 🔍 SCHRITT 2: Massive Laden mit includeTax=true
+      const data = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeTax: true, 
+        includeROI: false // Nur Tax für Tax Report
+      });
       
       if (data.isLoaded) {
-        setPortfolioData(data);
-        setStatusMessage(`✅ Steuerdaten geladen: ${data.taxTransactions.length} Transaktionen, $${data.taxSummary.totalIncome.toFixed(2)} Einkommen`);
-        console.log('✅ TAX REPORT: Data loaded successfully');
+        // Format für Tax Report
+        const taxReportData = {
+          success: true,
+          isLoaded: true,
+          userId: user.id,
+          transactions: data.taxTransactions || [],
+          totalTransactionsLoaded: data.summary?.taxTransactions || 0,
+          apiCallsUsed: data.apiCalls || 0,
+          source: data.dataSource || 'central_data_service',
+          lastUpdated: data.lastUpdated || new Date().toISOString(),
+          fromCache: false
+        };
+        
+        setPortfolioData({
+          ...taxReportData,
+          taxTransactions: taxReportData.transactions
+        });
+        
+        // 💾 SCHRITT 3: Cache für 24h speichern
+        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
+        await DatabaseCacheService.cacheTaxReportData(user.id, taxReportData);
+        
+        setStatusMessage(`✅ MASSIVE LOAD: ${taxReportData.transactions.length} Transaktionen geladen (${data.apiCalls} API calls)`);
+        console.log('✅ TAX REPORT: Massive data loaded successfully');
+        
       } else {
         setError(data.error);
         setStatusMessage(`❌ Fehler: ${data.error}`);
       }
       
     } catch (error) {
-      console.error('💥 TAX REPORT: Error loading data:', error);
+      console.error('💥 TAX REPORT: Error loading massive data:', error);
       setError(error.message);
       setStatusMessage(`💥 Fehler beim Laden: ${error.message}`);
     } finally {

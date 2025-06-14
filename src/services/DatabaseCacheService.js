@@ -385,4 +385,147 @@ export class DatabaseCacheService {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * 🔐 TAX REPORT CACHING - Cache für bis zu 24 Stunden
+   * @param {String} userId - User ID
+   * @param {Object} taxData - Tax Report Daten
+   */
+  static async cacheTaxReportData(userId, taxData) {
+    try {
+      const cacheKey = `tax_report_${userId}`;
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 Stunden TTL
+      
+      const cacheData = {
+        type: 'tax_report',
+        userId: userId,
+        data: taxData,
+        transactionCount: taxData.transactions?.length || 0,
+        totalApiCalls: taxData.totalApiCalls || 0,
+        lastCalculated: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString()
+      };
+      
+      await this.setCache(cacheKey, cacheData, 24 * 60 * 60 * 1000); // 24h TTL
+      
+      console.log(`💾 TAX CACHE: Saved ${taxData.transactions?.length || 0} transactions for user ${userId}`);
+      return true;
+      
+    } catch (error) {
+      console.error(`💥 TAX CACHE ERROR: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * 🔍 TAX REPORT CACHE RETRIEVAL
+   * @param {String} userId - User ID
+   * @returns {Object|null} - Cached tax data or null
+   */
+  static async getCachedTaxReportData(userId) {
+    try {
+      const cacheKey = `tax_report_${userId}`;
+      const cached = await this.getCache(cacheKey);
+      
+      if (cached && cached.data) {
+        console.log(`✅ TAX CACHE HIT: ${cached.transactionCount} transactions for user ${userId}`);
+        return {
+          ...cached.data,
+          fromCache: true,
+          cacheAge: Date.now() - new Date(cached.lastCalculated).getTime(),
+          cachedAt: cached.lastCalculated
+        };
+      }
+      
+      console.log(`❌ TAX CACHE MISS: No cached data for user ${userId}`);
+      return null;
+      
+    } catch (error) {
+      console.error(`💥 TAX CACHE RETRIEVAL ERROR: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 🔐 ROI TRACKER CACHING - Cache für bis zu 2 Stunden (ROI ändert sich häufiger)
+   * @param {String} userId - User ID
+   * @param {Object} roiData - ROI Tracker Daten
+   */
+  static async cacheROITrackerData(userId, roiData) {
+    try {
+      const cacheKey = `roi_tracker_${userId}`;
+      const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 Stunden TTL
+      
+      const cacheData = {
+        type: 'roi_tracker',
+        userId: userId,
+        data: roiData,
+        transactionCount: roiData.transactions?.length || 0,
+        dailyROI: roiData.dailyROI || 0,
+        weeklyROI: roiData.weeklyROI || 0,
+        monthlyROI: roiData.monthlyROI || 0,
+        totalApiCalls: roiData.totalApiCalls || 0,
+        lastCalculated: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString()
+      };
+      
+      await this.setCache(cacheKey, cacheData, 2 * 60 * 60 * 1000); // 2h TTL
+      
+      console.log(`💾 ROI CACHE: Saved ${roiData.transactions?.length || 0} transactions, $${roiData.monthlyROI} monthly ROI for user ${userId}`);
+      return true;
+      
+    } catch (error) {
+      console.error(`💥 ROI CACHE ERROR: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * 🔍 ROI TRACKER CACHE RETRIEVAL
+   * @param {String} userId - User ID
+   * @returns {Object|null} - Cached ROI data or null
+   */
+  static async getCachedROITrackerData(userId) {
+    try {
+      const cacheKey = `roi_tracker_${userId}`;
+      const cached = await this.getCache(cacheKey);
+      
+      if (cached && cached.data) {
+        console.log(`✅ ROI CACHE HIT: ${cached.transactionCount} transactions, $${cached.monthlyROI} monthly ROI for user ${userId}`);
+        return {
+          ...cached.data,
+          fromCache: true,
+          cacheAge: Date.now() - new Date(cached.lastCalculated).getTime(),
+          cachedAt: cached.lastCalculated
+        };
+      }
+      
+      console.log(`❌ ROI CACHE MISS: No cached data for user ${userId}`);
+      return null;
+      
+    } catch (error) {
+      console.error(`💥 ROI CACHE RETRIEVAL ERROR: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 🧹 CLEAR TAX & ROI CACHE für User
+   * @param {String} userId - User ID
+   */
+  static async clearTaxAndROICache(userId) {
+    try {
+      await Promise.all([
+        this.deleteCache(`tax_report_${userId}`),
+        this.deleteCache(`roi_tracker_${userId}`)
+      ]);
+      
+      console.log(`🧹 CLEARED: Tax & ROI cache for user ${userId}`);
+      return true;
+      
+    } catch (error) {
+      console.error(`💥 CACHE CLEAR ERROR: ${error.message}`);
+      return false;
+    }
+  }
 } 

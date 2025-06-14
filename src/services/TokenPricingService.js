@@ -29,7 +29,12 @@ export class TokenPricingService {
     'HEX': 0.00616,
     'PLSX': 0.0000271,
     'INC': 0.005,
-    'PLS': 0.00005
+    'PLS': 0.00005,
+    'WBTC': 96000, // Bitcoin Wrapper ca. $96k
+    'WETH': 2400,  // Ethereum Wrapper ca. $2.4k
+    'USDC': 1.0,   // USD Coin
+    'USDT': 1.0,   // Tether
+    'DAI': 1.0     // Dai Stablecoin
   };
 
   // 🎯 ROI MINTER MAPPING für ROI-Tracking

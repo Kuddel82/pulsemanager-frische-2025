@@ -31,30 +31,81 @@ const ROITrackerView = () => {
   const [error, setError] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
 
-  // Portfolio laden
-  const loadPortfolioData = async () => {
+  // Portfolio laden mit ROI CACHING
+  const loadPortfolioData = async (forceRefresh = false) => {
     if (!user?.id) return;
     
     setLoading(true);
     setError(null);
-    setStatusMessage('📊 Lade Portfolio-Daten...');
+    setStatusMessage('📊 Prüfe ROI Cache...');
     
     try {
-      console.log('🔄 ROI TRACKER: Loading portfolio with CentralDataService');
+      console.log('🔄 ROI TRACKER: Loading ROI data with caching');
       
-      const data = await CentralDataService.loadCompletePortfolio(user.id);
+      // 🔍 SCHRITT 1: Cache prüfen (außer bei forceRefresh)
+      if (!forceRefresh) {
+        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
+        const cachedData = await DatabaseCacheService.getCachedROITrackerData(user.id);
+        
+        if (cachedData) {
+          setPortfolioData({
+            ...cachedData,
+            roiTransactions: cachedData.transactions || [],
+            fromCache: true
+          });
+          
+          const cacheMinutes = Math.round(cachedData.cacheAge / (1000 * 60));
+          setStatusMessage(`✅ ROI Cache: ${cachedData.transactions?.length || 0} Transaktionen, $${cachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      setStatusMessage('🚀 Lade ROI-Daten (kann 1-2 Minuten dauern)...');
+      
+      // 🔍 SCHRITT 2: ROI Laden mit includeROI=true
+      const data = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeROI: true, 
+        includeTax: false // Nur ROI für ROI Tracker
+      });
       
       if (data.isLoaded) {
-        setPortfolioData(data);
-        setStatusMessage(`✅ Portfolio geladen: ${data.tokenCount} Tokens, $${data.totalValue.toFixed(2)}, ROI: $${data.totalROI.toFixed(2)}`);
-        console.log('✅ ROI TRACKER: Portfolio loaded successfully');
+        // Format für ROI Tracker
+        const roiData = {
+          success: true,
+          isLoaded: true,
+          userId: user.id,
+          transactions: data.roiTransactions || [],
+          dailyROI: data.dailyROI || 0,
+          weeklyROI: data.weeklyROI || 0,
+          monthlyROI: data.monthlyROI || 0,
+          totalValue: data.totalValue || 0,
+          tokenCount: data.tokenCount || 0,
+          apiCallsUsed: data.apiCalls || 0,
+          source: data.dataSource || 'central_data_service',
+          lastUpdated: data.lastUpdated || new Date().toISOString(),
+          fromCache: false
+        };
+        
+        setPortfolioData({
+          ...roiData,
+          roiTransactions: roiData.transactions
+        });
+        
+        // 💾 SCHRITT 3: Cache für 2h speichern
+        const { DatabaseCacheService } = await import('@/services/DatabaseCacheService');
+        await DatabaseCacheService.cacheROITrackerData(user.id, roiData);
+        
+        setStatusMessage(`✅ ROI LOADED: ${roiData.transactions.length} Transaktionen, $${roiData.monthlyROI} monthly (${data.apiCalls} API calls)`);
+        console.log('✅ ROI TRACKER: ROI data loaded successfully');
+        
       } else {
         setError(data.error);
         setStatusMessage(`❌ Fehler: ${data.error}`);
       }
       
     } catch (error) {
-      console.error('💥 ROI TRACKER: Error loading portfolio:', error);
+      console.error('💥 ROI TRACKER: Error loading ROI data:', error);
       setError(error.message);
       setStatusMessage(`💥 Fehler beim Laden: ${error.message}`);
     } finally {
