@@ -72,7 +72,7 @@ export class CentralDataService {
     'DOMINANCE': 0.32
   };
 
-  // 🎯 VERIFIED TOKEN CONTRACTS - Echte Token mit korrekten Limits
+  // 🎯 VERIFIED TOKEN CONTRACTS - Echte Token mit korrekten Limits (PulseWatch-Preise)
   static VERIFIED_TOKENS = {
     // ECHTER DOMINANCE TOKEN (von PulseWatch bestätigt)
     '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea': {
@@ -80,26 +80,29 @@ export class CentralDataService {
       name: 'DOMINANCE',
       maxPrice: 1.0,        // Nie über $1
       maxBalance: 50000,    // Nie über 50k Token
-      expectedPrice: 0.32,  // Aktueller Marktpreis
+      expectedPrice: 0.32,  // PulseWatch: $0.32
       decimals: 18,
       isVerified: true
     },
     
-    // Weitere bekannte Token können hier hinzugefügt werden
+
+    
+    // HEX - PulseWatch: $6.16e-3
     '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': {
       symbol: 'HEX',
       name: 'HEX',
       maxPrice: 0.01,
-      expectedPrice: 0.0025,
+      expectedPrice: 0.00616,  // PulseWatch-Preis
       decimals: 8,
       isVerified: true
     },
     
+    // PLSX - PulseWatch: $2.71e-5
     '0x95b303987a60c71504d99aa1b13b4da07b0790ab': {
       symbol: 'PLSX',
       name: 'PulseX',
       maxPrice: 0.001,
-      expectedPrice: 0.00008,
+      expectedPrice: 0.0000271,  // PulseWatch-Preis
       decimals: 18,
       isVerified: true
     }
@@ -316,7 +319,7 @@ export class CentralDataService {
           const price = pricesData[addr]?.usdPrice || 0;
           if (price === 0) {
             missingPrices.push(addr);
-          } else if (price > 100) { // Extreme Preise über $100
+          } else if (price > 10) { // Extreme Preise über $10 (für PulseChain Token unrealistisch)
             extremePrices.push(addr);
           }
         });
@@ -338,7 +341,7 @@ export class CentralDataService {
                 const moralisPrice = pricesData[addr]?.usdPrice || 0;
                 
                 // Use DexScreener if Moralis is missing or extreme
-                if (moralisPrice === 0 || moralisPrice > 100) {
+                if (moralisPrice === 0 || moralisPrice > 10) {
                   pricesData[addr] = {
                     usdPrice: dexPrice.usdPrice,
                     source: 'dexscreener_backup',
@@ -402,6 +405,13 @@ export class CentralDataService {
               
               usdPrice = 0; // Setze auf 0 um Portfolio-Verzerrung zu vermeiden
               priceSource = 'moralis_price_error';
+            }
+            
+            // 🚨 ZUSÄTZLICHE EXTREME-PREIS-KORREKTUR: Alle Preise über $50 blockieren
+            if (usdPrice > 50 && !['WBTC', 'ETH', 'WETH', 'BTC', 'FINVESTA'].includes(tokenSymbol)) {
+              console.error(`🚨 EXTREME PRICE BLOCKED: ${tokenSymbol} had price $${usdPrice}, setting to $0`);
+              usdPrice = 0;
+              priceSource = 'blocked_extreme_price';
             }
             
             // 2. Fallback zu Emergency-Preisen oder Verified Token-Preisen
