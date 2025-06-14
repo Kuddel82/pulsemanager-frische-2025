@@ -136,18 +136,20 @@ export class ScanTransactionService {
   /**
    * 🔗 Massive History Loading mit Pagination
    * @param {String} walletAddress - Wallet Address
-   * @param {Number} maxPages - Maximum Seiten zu laden (default: 50)
+   * @param {Number} maxPages - Maximum Seiten zu laden (default: 2000 für 200k Transaktionen)
    * @returns {Object} - Vollständige History
    */
-  static async getMassiveTransactionHistory(walletAddress, maxPages = 50) {
-    console.log(`🚀 SCAN MASSIVE: Loading up to ${maxPages} pages for ${walletAddress}`);
+  static async getMassiveTransactionHistory(walletAddress, maxPages = 2000) {
+    console.log(`🚀 SCAN MASSIVE: Loading up to ${maxPages} pages (${maxPages * 100} transactions) for ${walletAddress}`);
     
     const allERC20 = [];
     const allNative = [];
+    let actualERC20Pages = 0;
+    let actualNativePages = 0;
     
-    // ERC20 Transfers - mehrere Seiten
+    // ERC20 Transfers - bis zu 200k Transaktionen
     for (let page = 1; page <= maxPages; page++) {
-      console.log(`📄 SCAN ERC20: Loading page ${page}/${maxPages}...`);
+      console.log(`📄 SCAN ERC20: Loading page ${page}/${maxPages}... (${allERC20.length} transactions loaded)`);
       
       const erc20Page = await this.getERC20Transfers(walletAddress, { 
         page, 
@@ -155,19 +157,25 @@ export class ScanTransactionService {
       });
       
       if (erc20Page.length === 0) {
-        console.log(`🏁 SCAN ERC20: No more data after page ${page}`);
+        console.log(`🏁 SCAN ERC20: No more data after page ${page}, loaded ${allERC20.length} transactions`);
         break;
       }
       
       allERC20.push(...erc20Page);
+      actualERC20Pages = page;
       
-      // Rate limiting
+      // Rate limiting für API Schutz
       await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY));
+      
+      // Progress Log alle 100 Seiten
+      if (page % 100 === 0) {
+        console.log(`🔄 SCAN ERC20: Milestone - Page ${page}, Total: ${allERC20.length} transactions`);
+      }
     }
     
-    // Native Transfers - mehrere Seiten  
+    // Native Transfers - bis zu 200k Transaktionen  
     for (let page = 1; page <= maxPages; page++) {
-      console.log(`📄 SCAN NATIVE: Loading page ${page}/${maxPages}...`);
+      console.log(`📄 SCAN NATIVE: Loading page ${page}/${maxPages}... (${allNative.length} transactions loaded)`);
       
       const nativePage = await this.getNativeTransfers(walletAddress, { 
         page, 
@@ -175,30 +183,72 @@ export class ScanTransactionService {
       });
       
       if (nativePage.length === 0) {
-        console.log(`🏁 SCAN NATIVE: No more data after page ${page}`);
+        console.log(`🏁 SCAN NATIVE: No more data after page ${page}, loaded ${allNative.length} transactions`);
         break;
       }
       
       allNative.push(...nativePage);
+      actualNativePages = page;
       
-      // Rate limiting
+      // Rate limiting für API Schutz
       await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY));
+      
+      // Progress Log alle 100 Seiten
+      if (page % 100 === 0) {
+        console.log(`🔄 SCAN NATIVE: Milestone - Page ${page}, Total: ${allNative.length} transactions`);
+      }
     }
     
     const allTransactions = [...allERC20, ...allNative]
       .sort((a, b) => parseInt(b.timeStamp) - parseInt(a.timeStamp));
     
-    console.log(`✅ SCAN MASSIVE: Loaded ${allTransactions.length} total transactions (${allERC20.length} ERC20 + ${allNative.length} Native)`);
+    console.log(`✅ SCAN MASSIVE: COMPLETED - ${allTransactions.length} total transactions loaded!`);
+    console.log(`📊 SCAN STATS: ERC20: ${allERC20.length} (${actualERC20Pages} pages), Native: ${allNative.length} (${actualNativePages} pages)`);
     
     return {
       erc20Transfers: allERC20,
       nativeTransfers: allNative,
       allTransactions,
       totalCount: allTransactions.length,
-      source: 'pulsechain_scan_massive',
-      pagesLoaded: { erc20: maxPages, native: maxPages },
+      source: 'pulsechain_scan_massive_200k',
+      pagesLoaded: { 
+        erc20: actualERC20Pages, 
+        native: actualNativePages,
+        maxRequested: maxPages 
+      },
       walletAddress,
       loadedAt: new Date().toISOString()
+    };
+  }
+
+  /**
+   * 🏆 ULTIMATE Tax Scan - 200k Transaktionen pro Wallet
+   * Speziell für vollständige Steuererklärung optimiert
+   * @param {String} walletAddress - Wallet Address
+   * @returns {Object} - Vollständige Tax History
+   */
+  static async getUltimateTaxHistory(walletAddress) {
+    console.log(`🏆 ULTIMATE TAX SCAN: Starting 200k transaction scan for ${walletAddress}`);
+    
+    const startTime = Date.now();
+    const result = await this.getMassiveTransactionHistory(walletAddress, 2000);
+    const endTime = Date.now();
+    const duration = (endTime - startTime) / 1000;
+    
+    console.log(`🏆 ULTIMATE TAX SCAN COMPLETE: ${result.totalCount} transactions loaded in ${duration}s`);
+    
+    // Tax-spezifische Statistiken
+    const taxableTransactions = result.allTransactions.filter(tx => 
+      tx.direction === 'IN' && tx.value !== '0'
+    );
+    
+    console.log(`📊 TAX STATS: ${taxableTransactions.length} potentially taxable transactions found`);
+    
+    return {
+      ...result,
+      taxableCount: taxableTransactions.length,
+      loadDuration: duration,
+      source: 'pulsechain_ultimate_tax_scan'
     };
   }
 
