@@ -144,32 +144,20 @@ export class TokenPricingService {
   }
 
   /**
-   * 🔍 Moralis Preis-Validierung (keine willkürlichen Limits!)
+   * 🔍 Moralis Preis-Validierung (reine Plausibilitätsprüfung)
    * @param {Number} price - Preis von Moralis
    * @param {String} symbol - Token Symbol
    * @param {String} chainId - Chain ID
    * @returns {Boolean} - Ist Preis plausibel?
    */
   static validateMoralisPrice(price, symbol, chainId) {
-    // Nur für bekannte High-Value Token akzeptieren wir hohe Preise
-    const highValueTokens = ['WBTC', 'ETH', 'WETH', 'BTC'];
-    if (highValueTokens.includes(symbol)) {
-      return true; // Keine Limits für diese Token
-    }
-    
-    // Für PulseChain: Preise über $50 sind sehr unwahrscheinlich
-    if (chainId === '0x171' && price > 50) {
-      console.log(`⚠️ SUSPICIOUS: ${symbol} price $${price} on PulseChain seems high`);
+    // Nur basic Plausibilität: Preis > 0 und keine extremen NaN/Infinity Werte
+    if (!price || price <= 0 || !isFinite(price)) {
+      console.log(`⚠️ INVALID: ${symbol} price ${price} is not a valid number`);
       return false;
     }
     
-    // Für Ethereum: Preise über $10000 sind unwahrscheinlich (außer bekannte Tokens)
-    if (chainId === '0x1' && price > 10000) {
-      console.log(`⚠️ SUSPICIOUS: ${symbol} price $${price} on Ethereum seems extreme`);
-      return false;
-    }
-    
-    return true;
+    return true; // Alle anderen Preise sind gültig
   }
 
   /**
