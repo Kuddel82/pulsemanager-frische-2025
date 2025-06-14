@@ -253,7 +253,13 @@ export class CentralDataService {
               const tokenAddress = token.token_address?.toLowerCase();
               const tokenSymbol = token.symbol?.toUpperCase();
               
-              console.log(`📊 PROCESSING: ${tokenSymbol} = ${balanceReadable.toLocaleString()} tokens`);
+              console.log(`📊 PROCESSING: ${tokenSymbol} = ${balanceReadable.toLocaleString()} tokens (${tokenAddress})`);
+              
+              // 🚨 CRITICAL: Block falschen DOMINANCE Token  
+              if (tokenSymbol === 'DOMINANCE' && tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea') {
+                console.warn(`🚨 BLOCKED FAKE DOMINANCE: ${tokenAddress} - Only 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea allowed`);
+                return null;
+              }
               
               // Skip Zero-Balance Tokens
               if (balanceReadable === 0) {

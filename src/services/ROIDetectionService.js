@@ -170,7 +170,11 @@ export class ROIDetectionService {
     try {
       console.log(`📥 Loading transaction history for ${address} on ${chain}`);
       
-      const response = await fetch(this.API_BASE, {
+      // 🔧 DEBUG: Explicit API endpoint logging
+      const apiEndpoint = `/api/moralis-transactions`;
+      console.log(`🔧 ROI DEBUG: Using API endpoint ${apiEndpoint}`);
+      
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -178,28 +182,36 @@ export class ROIDetectionService {
         body: JSON.stringify({
           address,
           chain,
-          limit
+          limit: Math.min(limit, 50) // Kleinere Batches für Stabilität
         })
       });
       
       if (!response.ok) {
+        console.error(`🚨 ROI API ERROR: ${response.status} ${response.statusText}`);
         throw new Error(`Transaction API failed: ${response.status}`);
       }
       
       const data = await response.json();
       
       if (data._error) {
+        console.error(`🚨 ROI API ERROR: ${data._error}`);
         throw new Error(`Transaction API error: ${data._error}`);
       }
       
       const transactions = data.result || [];
-      console.log(`✅ Loaded ${transactions.length} transactions for ROI analysis`);
+      console.log(`✅ ROI TRANSACTIONS: Loaded ${transactions.length} transactions for analysis`);
+      
+      // 🔧 DEBUG: Log some sample transactions
+      if (transactions.length > 0) {
+        console.log(`🔧 ROI SAMPLE TX:`, JSON.stringify(transactions[0], null, 2));
+      }
       
       return transactions;
       
     } catch (error) {
-      console.error('Failed to load transaction history:', error);
-      return [];
+      console.error('💥 ROI TRANSACTION LOAD ERROR:', error);
+      console.log('🔧 ROI FALLBACK: Returning empty transactions array');
+      return []; // Fallback: leeres Array statt Fehler
     }
   }
   

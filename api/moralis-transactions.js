@@ -20,6 +20,9 @@ async function moralisFetch(endpoint, params = {}) {
 
     console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    
     const res = await fetch(url.toString(), {
       method: 'GET',
       headers: {
@@ -27,8 +30,10 @@ async function moralisFetch(endpoint, params = {}) {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      timeout: 30000 // 30 second timeout
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -118,16 +123,18 @@ export default async function handler(req, res) {
     const chainId = chainMap[chain.toLowerCase()] || chain;
     console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
 
-    // Build Moralis API parameters
+    // Build Moralis API parameters - KLEINERE PAGES für Stabilität
     const moralisParams = { 
       chain: chainId,
-      limit: Math.min(parseInt(limit) || 100, 100) // Max 100 per request
+      limit: Math.min(parseInt(limit) || 50, 50) // Max 50 per request (reduziert von 100)
     };
 
     // Add optional parameters
     if (cursor) moralisParams.cursor = cursor;
     if (from_date) moralisParams.from_date = from_date;
     if (to_date) moralisParams.to_date = to_date;
+    
+    console.log(`🔧 PAGE SIZE: Limited to ${moralisParams.limit} items per request for stability`);
 
     // Load ERC20 transfers from Moralis
     console.log(`🚀 FETCHING TRANSFERS: ${address} on ${chainId}`);
