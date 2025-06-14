@@ -329,7 +329,9 @@ export class CentralDataService {
           const wgepLike = rawTokens.filter(token => 
             token.symbol?.toUpperCase().includes('WG') || 
             token.name?.toUpperCase().includes('WGEP') ||
-            token.name?.toUpperCase().includes('GREEN')
+            token.name?.toUpperCase().includes('GREEN') ||
+            token.token_address?.toLowerCase() === '0xfca88920ca5639ad5e954ea776e73dec54fdc065' || // WGEP Contract
+            token.symbol?.includes('🖨️') // WGEP Printer Emoji
           );
           
           if (wgepLike.length > 0) {
@@ -406,7 +408,9 @@ export class CentralDataService {
               }
               
               // 🔍 DEBUG: Log ALLE Token für bessere Diagnose
-              if (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP' || tokenSymbol.includes('WG')) {
+              if (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP' || tokenSymbol.includes('WG') || 
+                  tokenAddress === '0xfca88920ca5639ad5e954ea776e73dec54fdc065' || 
+                  tokenSymbol?.includes('🖨️')) {
                 console.log(`🔍 DEBUG TOKEN: ${tokenSymbol} - Balance: ${balanceReadable}, Price: $${finalPrice}, Value: $${totalUsd}, Address: ${tokenAddress}, Source: ${priceSource}`);
               }
               
