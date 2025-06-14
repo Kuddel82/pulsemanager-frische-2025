@@ -3,6 +3,7 @@
 // Datum: 2025-01-15 - PRO PLAN mit MANUELLER STEUERUNG (Auto-Refresh komplett deaktiviert)
 
 import { supabase } from '@/lib/supabaseClient';
+// RAW MORALIS DATA: No token parsing service - use exact blockchain data for tax compliance
 // Wallet History API ist nur für Transaktionshistorie, nicht für Token-Balances
 
 export class CentralDataService {
@@ -246,71 +247,61 @@ export class CentralDataService {
           chain: chain.moralisChainId || '0x171'
         }));
         
-        // 🛡️ SICHERE FALLBACK-PREISE: Keine API-Calls, nur sichere Preise
-        console.log(`🛡️ SAFE PRICES: Using secure fallback prices for ${rawTokens.length} tokens`);
+        // 🚀 ECHTE PREISE: Batch-API-Call für alle Token-Preise
+        console.log(`🚀 REAL PRICES: Loading live prices for ${rawTokens.length} tokens via Moralis API`);
+        
+        // Batch-Call für alle Token-Preise
+        let pricesData = {};
+        try {
+          const batchPriceResponse = await fetch('/api/moralis-batch-prices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tokens: tokensForPricing,
+              chain: chain.moralisChainId || '0x171'
+            })
+          });
+          
+          if (batchPriceResponse.ok) {
+            const batchData = await batchPriceResponse.json();
+            pricesData = batchData.prices || {};
+            apiCallsUsed += 1; // Batch-Call zählt als 1 API-Call
+            console.log(`✅ BATCH PRICES: Loaded ${Object.keys(pricesData).length} prices`);
+          } else {
+            console.warn(`⚠️ BATCH PRICES: API failed, using emergency fallback`);
+          }
+        } catch (priceError) {
+          console.warn(`⚠️ BATCH PRICES: Error, using emergency fallback:`, priceError.message);
+        }
 
-        // Step 3: Process tokens with batch prices
+        // Step 3: Process tokens with REAL prices
         const processedTokens = rawTokens.map((token) => {
           try {
-            // Calculate readable balance
+            // 🚀 RAW MORALIS DATA: Use exact blockchain data for tax compliance
             const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+            console.log(`📊 RAW TOKEN: ${token.symbol} = ${balanceReadable.toLocaleString()} tokens (raw: ${token.balance}, decimals: ${token.decimals})`);
             
-            // 🛡️ SICHERE FALLBACK-PREISE: Sehr niedrig um Portfolio-Verzerrung zu vermeiden
+            // 🚀 ECHTE PREISE: Verwende Live-Preise von Moralis
+            const tokenAddress = token.token_address?.toLowerCase();
             const tokenSymbol = token.symbol?.toUpperCase();
-            let usdPrice = 0.0001; // Standard: $0.0001 (sehr niedrig!)
             
-                         // 🛡️ ULTRA-SICHERE Fallback-Preise (MAXIMAL $0.01!)
-             const safePrices = {
-               'PLS': 0.00003,      // $0.00003
-               'PLSX': 0.00008,     // $0.00008  
-               'HEX': 0.001,        // $0.001 (reduziert von $0.0025)
-               'INC': 0.001,        // $0.001 (reduziert von $0.005)
-               'USDC': 0.01,        // $0.01 (reduziert von $1.00)
-               'USDT': 0.01,        // $0.01 (reduziert von $1.00)
-               'DAI': 0.01,         // $0.01 (reduziert von $1.00)
-               'WBTC': 0.001,       // $0.001 (sehr niedrig)
-               'ETH': 0.001         // $0.001 (sehr niedrig)
-             };
+            // 1. Versuche Live-Preis von Batch-API
+            let usdPrice = pricesData[tokenAddress]?.usdPrice || 0;
+            let priceSource = 'moralis_live';
             
-            if (safePrices[tokenSymbol]) {
-              usdPrice = safePrices[tokenSymbol];
+            // 2. Fallback zu Emergency-Preisen nur wenn kein Live-Preis
+            if (usdPrice === 0 && this.EMERGENCY_PRICES[tokenSymbol]) {
+              usdPrice = this.EMERGENCY_PRICES[tokenSymbol];
+              priceSource = 'emergency_fallback';
+              console.log(`💰 EMERGENCY PRICE: ${tokenSymbol} = $${usdPrice}`);
             }
             
             const totalUsd = balanceReadable * usdPrice;
             
-            // 🚨 DEBUG: Log alle Token mit hohen Werten
-            if (totalUsd > 1000) {
-              console.warn(`🚨 HIGH VALUE TOKEN: ${tokenSymbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${usdPrice}, Value: $${totalUsd.toLocaleString()}`);
+            // 🚨 DEBUG: Log alle Token mit Werten über $100
+            if (totalUsd > 100) {
+              console.log(`💎 HIGH VALUE TOKEN: ${tokenSymbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${usdPrice}, Value: $${totalUsd.toLocaleString()}`);
             }
-              
-              // 🚨 UNIVERSAL FILTER: Filter out ALL suspicious values
-              const hasSuspiciousBalance = balanceReadable > 1000000; // Über 1 Million Token
-              const hasSuspiciousValue = totalUsd > 1000; // Über $1000 Wert
-              const hasSuspiciousPrice = usdPrice > 0.1; // Über $0.10 Preis (zu hoch für Fallback)
-              
-              if (hasSuspiciousBalance || hasSuspiciousValue || hasSuspiciousPrice) {
-                console.warn(`🚨 SUSPICIOUS TOKEN FILTERED: ${token.symbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${usdPrice}, Value: $${totalUsd.toLocaleString()}`);
-                return {
-                  symbol: token.symbol,
-                  name: token.name,
-                  contractAddress: token.token_address,
-                  decimals: token.decimals,
-                  balance: 0, // Set to 0 to prevent portfolio distortion
-                  price: 0,
-                  total_usd: 0,
-                  value: 0,
-                  hasReliablePrice: false,
-                  priceSource: 'filtered_suspicious_value',
-                  isIncludedInPortfolio: false,
-                  walletAddress: wallet.address,
-                  chainId: chainId,
-                  source: 'moralis_safe_fallback_filtered',
-                  _filtered: true,
-                  _originalBalance: balanceReadable,
-                  _originalValue: totalUsd,
-                  _filterReason: hasSuspiciousBalance ? 'huge_balance' : hasSuspiciousValue ? 'huge_value' : 'high_price'
-                };
-              }
               
             return {
               symbol: token.symbol,
@@ -322,15 +313,22 @@ export class CentralDataService {
               total_usd: totalUsd,
               value: totalUsd,
               hasReliablePrice: usdPrice > 0,
-              priceSource: safePrices[tokenSymbol] ? 'known_safe_price' : 'ultra_safe_fallback',
+              priceSource: priceSource,
               isIncludedInPortfolio: totalUsd > 0.01,
               walletAddress: wallet.address,
               chainId: chainId,
-              source: 'moralis_safe_fallback_prices'
+              source: 'moralis_raw_data',
+              _rawBalance: token.balance,
+              _rawDecimals: token.decimals
             };
           } catch (priceError) {
             console.warn(`⚠️ PRO: Token processing failed for ${token.symbol}:`, priceError.message);
+            // 🚀 RAW MORALIS DATA: Even in error case, use exact blockchain data
             const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+            
+            // Emergency fallback price
+            const tokenSymbol = token.symbol?.toUpperCase();
+            const emergencyPrice = this.EMERGENCY_PRICES[tokenSymbol] || 0;
             
             return {
               symbol: token.symbol,
@@ -338,15 +336,17 @@ export class CentralDataService {
               contractAddress: token.token_address,
               decimals: token.decimals,
               balance: balanceReadable,
-              price: 0,
-              total_usd: 0,
-              value: 0,
-              hasReliablePrice: false,
-              priceSource: 'safe_fallback_failed',
-              isIncludedInPortfolio: false,
+              price: emergencyPrice,
+              total_usd: balanceReadable * emergencyPrice,
+              value: balanceReadable * emergencyPrice,
+              hasReliablePrice: emergencyPrice > 0,
+              priceSource: emergencyPrice > 0 ? 'emergency_fallback' : 'no_price',
+              isIncludedInPortfolio: emergencyPrice > 0,
               walletAddress: wallet.address,
               chainId: chainId,
-              source: 'moralis_safe_fallback_prices'
+              source: 'moralis_raw_data_error',
+              _rawBalance: token.balance,
+              _rawDecimals: token.decimals
             };
           }
         });
@@ -370,12 +370,12 @@ export class CentralDataService {
 
     debug.apiCalls = apiCallsUsed;
     
-    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed} (SAFE FALLBACK PRICES!)`);
+    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed} (RAW BLOCKCHAIN DATA + LIVE PRICES!)`);
 
     return {
       tokens: sortedTokens,
       totalValue: totalValue,
-      source: 'moralis_safe_fallback_prices',
+      source: 'moralis_raw_blockchain_data',
       debug: debug,
       apiCallsUsed: apiCallsUsed
     };
