@@ -308,7 +308,7 @@ export class CentralDataService {
           console.warn(`⚠️ BATCH PRICES: Error, using emergency fallback:`, priceError.message);
         }
 
-        // Step 3: Process tokens with REAL prices
+        // Step 3: Process tokens with REAL prices - FILTER OUT FAKE TOKENS
         const processedTokens = rawTokens.map((token) => {
           try {
             // 🚀 RAW MORALIS DATA: Use exact blockchain data for tax compliance
@@ -318,6 +318,18 @@ export class CentralDataService {
             // 🚀 ECHTE PREISE: Verwende Live-Preise von Moralis
             const tokenAddress = token.token_address?.toLowerCase();
             const tokenSymbol = token.symbol?.toUpperCase();
+            
+            // 🚨 FAKE TOKEN DETECTION: Blockiere Fake-DOMINANCE KOMPLETT
+            const isFakeDominance = (
+              tokenSymbol === 'DOMINANCE' && 
+              tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea'
+            );
+            
+            if (isFakeDominance) {
+              console.error(`🚨 FAKE DOMINANCE COMPLETELY REMOVED: Contract ${tokenAddress} is NOT the verified DOMINANCE token!`);
+              console.error(`✅ REAL DOMINANCE: 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea`);
+              return null; // KOMPLETT ENTFERNEN aus der Liste
+            }
             
             // 1. Versuche Live-Preis von Batch-API
             let rawPrice = pricesData[tokenAddress]?.usdPrice || 0;
@@ -330,30 +342,18 @@ export class CentralDataService {
             let maxAllowedPrice = verifiedToken?.maxPrice || 50; // Default: $50 für unbekannte Token
             let maxAllowedBalance = verifiedToken?.maxBalance || 1000000; // Default: 1M Token
             
-            // 🚨 FAKE TOKEN DETECTION: Blockiere Fake-DOMINANCE
-            const isFakeDominance = (
-              tokenSymbol === 'DOMINANCE' && 
-              tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea'
-            );
-            
-            // 🚨 PREIS-VALIDIERUNG: Verwende Token-spezifische Limits
+            // 🚨 PREIS-VALIDIERUNG: Verwende Token-spezifische Limits (ohne Fake-DOMINANCE)
             const isExtremePriceError = (
               rawPrice > maxAllowedPrice || // Token-spezifisches Preis-Limit
-              balanceReadable > maxAllowedBalance || // Token-spezifisches Balance-Limit
-              isFakeDominance // Fake DOMINANCE blockieren
+              balanceReadable > maxAllowedBalance // Token-spezifisches Balance-Limit
             ) && !['WBTC', 'ETH', 'WETH', 'BTC'].includes(tokenSymbol); // Außer bekannte High-Value Token
             
             if (isExtremePriceError) {
-              if (isFakeDominance) {
-                console.error(`🚨 FAKE DOMINANCE BLOCKED: Contract ${tokenAddress} is NOT the verified DOMINANCE token!`);
-                console.error(`✅ REAL DOMINANCE: 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea`);
-              } else {
-                console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice}, balance ${balanceReadable.toLocaleString()}`);
-                console.error(`📊 LIMITS: Max Price: $${maxAllowedPrice}, Max Balance: ${maxAllowedBalance.toLocaleString()}`);
-              }
+              console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice}, balance ${balanceReadable.toLocaleString()}`);
+              console.error(`📊 LIMITS: Max Price: $${maxAllowedPrice}, Max Balance: ${maxAllowedBalance.toLocaleString()}`);
               
               usdPrice = 0; // Setze auf 0 um Portfolio-Verzerrung zu vermeiden
-              priceSource = isFakeDominance ? 'fake_token_blocked' : 'moralis_price_error';
+              priceSource = 'moralis_price_error';
             }
             
             // 2. Fallback zu Emergency-Preisen oder Verified Token-Preisen
@@ -422,7 +422,7 @@ export class CentralDataService {
               _rawDecimals: token.decimals
             };
           }
-        });
+        }).filter(token => token !== null); // ENTFERNE NULL-WERTE (fake tokens)
         
         allTokens.push(...processedTokens);
         totalValue += processedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
