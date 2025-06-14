@@ -203,7 +203,7 @@ const ROITrackerView = () => {
       {/* Portfolio Overview Cards */}
       {portfolioData && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Total Portfolio Value */}
             <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
               <CardContent className="p-6">
@@ -227,33 +227,15 @@ const ROITrackerView = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-green-100 text-sm font-medium">Täglich ROI</p>
+                    <p className="text-green-100 text-sm font-medium">24h ROI</p>
                     <p className="text-2xl font-bold">
                       {formatCurrency(portfolioData.dailyROI)}
                     </p>
                     <p className="text-green-200 text-sm">
-                      Letzte 24h
+                      Letzte 24 Stunden
                     </p>
                   </div>
                   <TrendingUp className="h-8 w-8 text-green-200" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Weekly ROI */}
-            <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100 text-sm font-medium">Wöchentlich ROI</p>
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(portfolioData.weeklyROI)}
-                    </p>
-                    <p className="text-purple-200 text-sm">
-                      Letzte 7 Tage
-                    </p>
-                  </div>
-                  <Calendar className="h-8 w-8 text-purple-200" />
                 </div>
               </CardContent>
             </Card>
@@ -263,7 +245,7 @@ const ROITrackerView = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-orange-100 text-sm font-medium">Monatlich ROI</p>
+                    <p className="text-orange-100 text-sm font-medium">30 Tage ROI</p>
                     <p className="text-2xl font-bold">
                       {formatCurrency(portfolioData.monthlyROI)}
                     </p>
@@ -290,60 +272,84 @@ const ROITrackerView = () => {
             </CardHeader>
             <CardContent>
               {portfolioData.roiTransactions.length > 0 ? (
-                <div className="space-y-2">
-                  {portfolioData.roiTransactions.slice(0, 10).map((tx, index) => (
-                    <div key={`${tx.txHash}-${index}`} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                <div className="space-y-3">
+                  {portfolioData.roiTransactions.slice(0, 15).map((tx, index) => (
+                    <div key={`${tx.txHash}-${index}`} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex items-center space-x-4">
-                        <div className="text-sm font-mono text-gray-500">
-                          #{index + 1}
+                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <span className="text-green-600 font-bold text-lg">{tx.tokenSymbol?.charAt(0) || '?'}</span>
                         </div>
                         
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="font-semibold">{tx.tokenSymbol}</span>
-                            <Badge variant={tx.roiType === 'daily_roi' ? 'default' : 'secondary'} className="text-xs">
-                              {tx.roiType === 'daily_roi' ? 'Daily' : 'Weekly'}
+                            <span className="font-semibold text-lg">{tx.tokenSymbol}</span>
+                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                              ROI Earnings
                             </Badge>
                           </div>
                           <div className="text-sm text-gray-600">
-                            {tx.tokenName || 'Unknown Token'}
+                            {tx.tokenName || 'Token Rewards'}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {formatDate(tx.timestamp)}
+                            {(() => {
+                              const now = new Date();
+                              const txTime = new Date(tx.timestamp);
+                              const diffHours = Math.floor((now - txTime) / (1000 * 60 * 60));
+                              
+                              if (diffHours < 1) return 'vor wenigen Minuten';
+                              if (diffHours === 1) return '1 Stunde her';
+                              if (diffHours < 24) return `${diffHours} Stunden her`;
+                              
+                              const diffDays = Math.floor(diffHours / 24);
+                              if (diffDays === 1) return '1 Tag her';
+                              return `${diffDays} Tage her`;
+                            })()}
                           </div>
                         </div>
                       </div>
                       
                       <div className="text-right">
-                        <div className="font-semibold text-green-600">
+                        <div className="font-bold text-green-600 text-lg">
                           +{formatCurrency(tx.value)}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {formatCrypto(tx.amount, tx.tokenSymbol)}
+                          +{formatCrypto(tx.amount, tx.tokenSymbol)}
                         </div>
-                        <div className="flex items-center space-x-1 mt-1">
-                          <a 
-                            href={tx.explorerUrl}
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-700"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
+                        <div className="flex items-center space-x-2 mt-1">
+                          {tx.explorerUrl && (
+                            <a 
+                              href={tx.explorerUrl}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:text-blue-700 transition-colors"
+                              title="Im Explorer anzeigen"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          )}
                           {tx.dexScreenerUrl && (
                             <a 
                               href={tx.dexScreenerUrl}
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-green-500 hover:text-green-700"
+                              className="text-green-500 hover:text-green-700 transition-colors"
+                              title="DexScreener Chart"
                             >
-                              <BarChart3 className="h-3 w-3" />
+                              <BarChart3 className="h-4 w-4" />
                             </a>
                           )}
                         </div>
                       </div>
                     </div>
                   ))}
+                  
+                  {portfolioData.roiTransactions.length > 15 && (
+                    <div className="text-center pt-4">
+                      <p className="text-sm text-gray-500">
+                        ... und {portfolioData.roiTransactions.length - 15} weitere ROI-Transaktionen
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-8">

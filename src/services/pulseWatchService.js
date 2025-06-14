@@ -175,7 +175,7 @@ export class PulseWatchService {
   static calculateROIStats(roiTransactions) {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
     const dailyROI = roiTransactions
       .filter(tx => 
@@ -184,8 +184,8 @@ export class PulseWatchService {
       )
       .reduce((sum, tx) => sum + (tx.value || 0), 0);
     
-    const weeklyROI = roiTransactions
-      .filter(tx => tx.timestamp >= oneWeekAgo)
+    const monthlyROI = roiTransactions
+      .filter(tx => tx.timestamp >= thirtyDaysAgo)
       .reduce((sum, tx) => sum + (tx.value || 0), 0);
     
     const totalROITransactions = roiTransactions.length;
@@ -193,7 +193,7 @@ export class PulseWatchService {
     
     return {
       dailyROI,
-      weeklyROI,
+      monthlyROI,
       totalTransactions: totalROITransactions,
       uniqueTokens,
       lastUpdate: new Date()
@@ -262,7 +262,7 @@ export class PulseWatchService {
     });
     
     const stats = this.calculateROIStats(transactions);
-    console.log(`📊 ROI STATS: Daily: $${stats.dailyROI.toFixed(2)}, Weekly: $${stats.weeklyROI.toFixed(2)}, Tokens: ${stats.uniqueTokens}`);
+    console.log(`📊 ROI STATS: Daily: $${stats.dailyROI.toFixed(2)}, Monthly: $${stats.monthlyROI.toFixed(2)}, Tokens: ${stats.uniqueTokens}`);
   }
 }
 

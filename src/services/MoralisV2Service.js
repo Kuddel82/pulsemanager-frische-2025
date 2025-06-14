@@ -439,7 +439,6 @@ export class MoralisV2Service {
       roiAnalysis: {
         transactionROI: {
           dailyROI: 0,
-          weeklyROI: 0,
           monthlyROI: 0
         },
         defiROI: {
@@ -450,7 +449,6 @@ export class MoralisV2Service {
         portfolioROI: {
           totalValue: parseFloat(portfolioResult.total_networth_usd || '0'),
           dailyChange: 0,
-          weeklyChange: 0,
           monthlyChange: 0
         },
         combinedMetrics: {
@@ -506,7 +504,6 @@ export class MoralisV2Service {
   static analyzeTransactionROI(transactions) {
     return {
       dailyROI: 0,
-      weeklyROI: 0, 
       monthlyROI: 0
     }; // Deaktiviert
   }
@@ -518,7 +515,6 @@ export class MoralisV2Service {
     return {
       totalValue: parseFloat(portfolioResult?.total_networth_usd || '0'),
       dailyChange: 0,
-      weeklyChange: 0,
       monthlyChange: 0
     }; // Deaktiviert
   }

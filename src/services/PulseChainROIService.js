@@ -164,7 +164,6 @@ export class PulseChainROIService {
     
     return {
       daily: expectedDailyROI,
-      weekly: expectedDailyROI * 7,
       monthly: expectedMonthlyROI,
       yearly: expectedMonthlyROI * 12,
       

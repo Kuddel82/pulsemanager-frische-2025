@@ -134,7 +134,7 @@ export class CentralDataService {
       const tokenData = await this.loadTokenBalancesPro(wallets);
       
       // 🚨 COST REDUCTION: Only load ROI/Tax when explicitly requested
-      let roiData = { transactions: [], dailyROI: 0, weeklyROI: 0, monthlyROI: 0, totalApiCalls: 0 };
+      let roiData = { transactions: [], dailyROI: 0, monthlyROI: 0, totalApiCalls: 0 };
       let taxData = { transactions: [], totalApiCalls: 0 };
       
       if (includeROI) {
@@ -161,7 +161,6 @@ export class CentralDataService {
         // ROI Data (empty unless requested)
         roiTransactions: roiData.transactions || [],
         dailyROI: roiData.dailyROI || 0,
-        weeklyROI: roiData.weeklyROI || 0,
         monthlyROI: roiData.monthlyROI || 0,
         
         // Tax Data (empty unless requested)
@@ -684,42 +683,29 @@ export class CentralDataService {
       }
     }
     
-    // 📊 ROI CALCULATION
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
+    // 📊 ROI-Statistiken berechnen (nur 24h und 30 Tage)
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     
-    const dailyTransactions = allROITransactions.filter(tx => 
-      (parseInt(tx.timeStamp) * 1000) > (now - dayMs)
+    const dailyTransactions = allROITransactions.filter(tx =>
+      new Date(tx.timestamp) >= oneDayAgo
     );
-    const weeklyTransactions = allROITransactions.filter(tx => 
-      (parseInt(tx.timeStamp) * 1000) > (now - 7 * dayMs)
-    );
-    const monthlyTransactions = allROITransactions.filter(tx => 
-      (parseInt(tx.timeStamp) * 1000) > (now - 30 * dayMs)
+    
+    const monthlyTransactions = allROITransactions.filter(tx =>
+      new Date(tx.timestamp) >= thirtyDaysAgo
     );
     
     const dailyROI = dailyTransactions.reduce((sum, tx) => sum + tx.value, 0);
-    const weeklyROI = weeklyTransactions.reduce((sum, tx) => sum + tx.value, 0);
     const monthlyROI = monthlyTransactions.reduce((sum, tx) => sum + tx.value, 0);
     
-    console.log(`🏆 ULTIMATE ROI SCAN COMPLETE: ${allROITransactions.length} total transactions`);
-    console.log(`📊 ROI STATS: Daily: $${dailyROI.toFixed(2)}, Weekly: $${weeklyROI.toFixed(2)}, Monthly: $${monthlyROI.toFixed(2)}`);
-    console.log(`⏱️ ROI LOAD TIME: ${totalLoadTime}s, API Calls: ${totalApiCalls}`);
+    console.log(`📊 ROI STATS: Daily: $${dailyROI.toFixed(2)}, Monthly: $${monthlyROI.toFixed(2)}`);
     
-    return { 
-      transactions: allROITransactions, 
-      dailyROI, 
-      weeklyROI, 
-      monthlyROI, 
-      source: 'pulsechain_ultimate_roi_scan',
-      totalApiCalls,
-      totalLoadTime,
-      scanResult: {
-        totalWallets: wallets.length,
-        maxCapacityPerWallet: 50000,
-        extendedTimeRange: '90 days',
-        transactionStats: ScanTransactionService.calculateTransactionStats(allROITransactions)
-      }
+    return {
+      transactions: allROITransactions,
+      dailyROI,
+      monthlyROI,
+      totalApiCalls: totalApiCalls
     };
   }
 

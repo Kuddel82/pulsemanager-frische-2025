@@ -149,19 +149,16 @@ const ROITrackerV2View = () => {
   const getCombinedROIStats = () => {
     const portfolioROI = {
       daily: portfolioData?.dailyROI || 0,
-      weekly: portfolioData?.weeklyROI || 0,
       monthly: portfolioData?.monthlyROI || 0
     };
     
     const defiROI = {
       daily: defiData?.positions?.roiAnalysis?.totalDailyROI || 0,
-      weekly: (defiData?.positions?.roiAnalysis?.totalDailyROI || 0) * 7,
       monthly: defiData?.positions?.roiAnalysis?.estimatedMonthlyROI || 0
     };
     
     const totalROI = {
       daily: portfolioROI.daily + defiROI.daily,
-      weekly: portfolioROI.weekly + defiROI.weekly,
       monthly: portfolioROI.monthly + defiROI.monthly
     };
     

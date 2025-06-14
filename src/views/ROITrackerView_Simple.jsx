@@ -36,7 +36,7 @@ const ROITrackerView = () => {
   const [roiData, setROIData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [timeFrame, setTimeFrame] = useState('30'); // 24h, 7d, 30d
+  const [timeFrame, setTimeFrame] = useState('30'); // 24h, 30d
   const [lastUpdate, setLastUpdate] = useState(null);
 
   // Load ROI Data
@@ -260,16 +260,16 @@ const ROITrackerView = () => {
           <CardTitle>Zeitraum auswählen</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex space-x-2">
-            {['1', '7', '30'].map((days) => (
+          <div className="flex space-x-2 mb-4">
+            {['1', '30'].map((days) => (
               <Button
                 key={days}
                 variant={timeFrame === days ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setTimeFrame(days)}
-                className="flex items-center space-x-1"
+                className="text-xs"
               >
-                <Calendar className="h-4 w-4" />
-                <span>{days === '1' ? '24h' : days === '7' ? '7 Tage' : '30 Tage'}</span>
+                <span>{days === '1' ? '24h' : '30 Tage'}</span>
               </Button>
             ))}
           </div>
