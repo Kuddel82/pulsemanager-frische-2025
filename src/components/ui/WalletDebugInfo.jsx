@@ -5,6 +5,7 @@ import CentralDataService from '@/services/CentralDataService';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Wallet, Database, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { formatTime } from '@/lib/utils';
 
 const WalletDebugInfo = () => {
   const { user } = useAuth();
@@ -99,7 +100,7 @@ const WalletDebugInfo = () => {
         <div className="space-y-4">
           <div className="text-sm pulse-text-secondary mb-4">
             Gefunden: {wallets.length} Wallet(s) • 
-            Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
+            Letzte Aktualisierung: {lastUpdate ? formatTime(lastUpdate) : 'Nie'}
           </div>
           
           {wallets.map((wallet, index) => (

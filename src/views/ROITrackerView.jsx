@@ -27,7 +27,7 @@ import {
   PieChart,
   BarChart3
 } from 'lucide-react';
-import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatPercentage, formatTime } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
 import { DirectMoralisService } from '../services/DirectMoralisService';
@@ -613,7 +613,7 @@ const ROITrackerView = () => {
               <div className="p-3 bg-purple-500/10 border border-purple-400/20 rounded">
                 <span className="font-medium text-purple-400">📅 Letzter ROI Cache:</span>
                 <p className="text-white font-mono">
-                  {lastDefiUpdate ? lastDefiUpdate.toLocaleTimeString('de-DE') : 'Nie'}
+                  {lastDefiUpdate ? formatTime(lastDefiUpdate) : 'Nie'}
                 </p>
                 <p className="text-xs text-purple-400">
                   {defiData ? 'DeFi analysiert' : 'Keine DeFi-Daten'}

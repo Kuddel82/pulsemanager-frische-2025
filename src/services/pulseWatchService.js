@@ -258,7 +258,7 @@ export class PulseWatchService {
     console.log(`📊 ROI TRANSACTIONS LOADED: ${transactions.length} total`);
     
     transactions.slice(0, 5).forEach(tx => {
-      console.log(`💰 ROI: ${tx.token} +${tx.amount.toFixed(4)} ($${tx.value.toFixed(2)}) - ${tx.type} - ${tx.timestamp.toLocaleTimeString()}`);
+              console.log(`💰 ROI: ${tx.token} +${tx.amount.toFixed(4)} ($${tx.value.toFixed(2)}) - ${tx.type} - ${new Date(tx.timestamp).toLocaleString('de-DE')}`);
     });
     
     const stats = this.calculateROIStats(transactions);

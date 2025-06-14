@@ -18,6 +18,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import CentralDataService from '@/services/CentralDataService';
 import TaxReportDownload from '../tax/TaxReportDownload';
+import { formatTime } from '@/lib/utils';
 
 const TaxReportView = () => {
   const { user } = useAuth();
@@ -498,7 +499,7 @@ const TaxReportView = () => {
                       <td className="p-2 text-sm">
                         {formatDate(tx.blockTimestamp)}
                         <div className="text-xs text-gray-500">
-                          {new Date(tx.blockTimestamp).toLocaleTimeString('de-DE')}
+                          {formatTime(tx.blockTimestamp)}
                         </div>
                       </td>
                       

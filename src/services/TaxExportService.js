@@ -355,7 +355,7 @@ export class TaxExportService {
       case 'date':
         return date.toLocaleDateString('de-DE');
       case 'time':
-        return date.toLocaleTimeString('de-DE');
+        return new Date(date).toLocaleString('de-DE');
       case 'datetime':
       default:
         return date.toLocaleString('de-DE');

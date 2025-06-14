@@ -26,7 +26,7 @@ import {
   Clock,
   Globe
 } from 'lucide-react';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatTime } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
 import CUMonitor from '@/components/ui/CUMonitor';
 import { TaxService } from '@/services/TaxService';
@@ -576,7 +576,7 @@ const TaxReportView = () => {
           <div>
             <h1 className="text-3xl font-bold pulse-title">Steuer Report</h1>
             <p className="pulse-text-secondary">
-              DSGVO-konforme Steuerdaten • Letzte Aktualisierung: {lastUpdate?.toLocaleTimeString('de-DE')}
+                              DSGVO-konforme Steuerdaten • Letzte Aktualisierung: {lastUpdate ? formatTime(lastUpdate) : 'Nie'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -774,7 +774,7 @@ const TaxReportView = () => {
                 <div className="p-3 bg-purple-500/10 border border-purple-400/20 rounded">
                   <span className="font-medium text-purple-400">📅 Letzter Tax Cache:</span>
                   <p className="text-white font-mono">
-                    {lastUpdate ? lastUpdate.toLocaleTimeString('de-DE') : 'Nie'}
+                    {lastUpdate ? formatTime(lastUpdate) : 'Nie'}
                   </p>
                   <p className="text-xs text-purple-400">
                     {cacheInfo?.cacheHit ? '💾 Cache Hit' : '🌐 Fresh Load'}
@@ -1024,7 +1024,7 @@ const TaxReportView = () => {
                             {new Date(tx.blockTimestamp).toLocaleDateString('de-DE')}
                           </div>
                           <div className="text-xs pulse-text-secondary">
-                            {new Date(tx.blockTimestamp).toLocaleTimeString('de-DE')}
+                            {formatTime(tx.blockTimestamp)}
                           </div>
                         </td>
                         <td className="py-3 px-2">

@@ -26,7 +26,7 @@ import {
   Calculator,
   AlertOctagon
 } from 'lucide-react';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatTime } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -623,7 +623,7 @@ const DebugView = () => {
               </div>
               <div className="text-right text-sm text-green-600">
                 <Clock className="h-4 w-4 inline mr-1" />
-                {new Date().toLocaleTimeString('de-DE')}
+                                  {formatTime(new Date())}
               </div>
             </div>
           </CardContent>

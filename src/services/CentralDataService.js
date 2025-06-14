@@ -159,7 +159,7 @@ export class CentralDataService {
         
         // Debug Information for CU tracking
         debug: tokenData.debug || {
-          pricesUpdated: new Date().toLocaleTimeString('de-DE'),
+          pricesUpdated: new Date().toLocaleString('de-DE'),
           priceSource: 'moralis_pro_separate_calls',
           apiCalls: tokenData.apiCallsUsed || 0,
           lastPriceUpdate: new Date().toISOString()
@@ -210,7 +210,7 @@ export class CentralDataService {
     let totalValue = 0;
     let apiCallsUsed = 0;
     const debug = {
-      pricesUpdated: new Date().toLocaleTimeString('de-DE'),
+              pricesUpdated: new Date().toLocaleString('de-DE'),
       priceSource: 'moralis_pro_separate_calls',
       apiCalls: 0,
       lastPriceUpdate: new Date().toISOString()

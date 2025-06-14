@@ -23,7 +23,7 @@ import {
   PlusCircle,
   Wallet
 } from 'lucide-react';
-import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils';
+import { formatCurrency, formatNumber, formatPercentage, formatTime } from '@/lib/utils';
 import { usePortfolioContext } from '@/contexts/PortfolioContext';
 import CUMonitor from '@/components/ui/CUMonitor';
 import { useAuth } from '@/contexts/AuthContext';
@@ -216,7 +216,7 @@ const PortfolioView = () => {
               <span className="text-green-400">✅ Manuelle Steuerung aktiv</span>
               {isCached && <span className="text-blue-400">💾 Aus Cache geladen</span>}
               {lastUpdate && (
-                <span>Letzte Aktualisierung: {lastUpdate.toLocaleTimeString('de-DE')}</span>
+                <span>Letzte Aktualisierung: {formatTime(lastUpdate)}</span>
               )}
               {isStale && (
                 <Badge variant="outline" className="border-yellow-400 text-yellow-600">
@@ -292,7 +292,7 @@ const PortfolioView = () => {
               <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
                 <span className="font-medium text-blue-400">📅 Letzter erfolgreicher Cache:</span>
                 <p className="text-white font-mono">
-                  {lastUpdate ? lastUpdate.toLocaleTimeString('de-DE') : 'Nicht geladen'}
+                  {lastUpdate ? formatTime(lastUpdate) : 'Nicht geladen'}
                 </p>
                 <p className="text-xs text-blue-400">
                   {isCached ? '💾 Aus Cache' : '🌐 Fresh Load'}
@@ -335,7 +335,7 @@ const PortfolioView = () => {
                 </div>
                 <div>
                   <span className="font-medium pulse-text-secondary">Letzte Preis-Update:</span>
-                  <p className="pulse-text">{new Date(portfolioData.debug.lastPriceUpdate).toLocaleTimeString('de-DE')}</p>
+                  <p className="pulse-text">{formatTime(portfolioData.debug.lastPriceUpdate)}</p>
                 </div>
               </div>
             )}
