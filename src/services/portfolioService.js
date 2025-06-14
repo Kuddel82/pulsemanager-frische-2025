@@ -10,34 +10,105 @@ export async function restoreLastPortfolio(userId) {
   try {
     console.log(`💾 RESTORE: Loading last portfolio for user ${userId}`);
 
+    // 🔄 FALLBACK: Try localStorage first (temporary solution)
+    const localStorageKey = `portfolio_cache_${userId}`;
+    const cachedData = localStorage.getItem(localStorageKey);
+    
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        const ageMinutes = Math.round((Date.now() - new Date(parsed.timestamp).getTime()) / (1000 * 60));
+        
+        console.log(`✅ RESTORE: Found localStorage cache (${ageMinutes} minutes old)`);
+        
+        return {
+          success: true,
+          data: parsed.portfolioData,
+          lastUpdate: parsed.timestamp,
+          ageMinutes: ageMinutes,
+          source: 'localStorage_cache',
+          stats: {
+            totalTokens: parsed.portfolioData?.length || 0
+          }
+        };
+      } catch (parseError) {
+        console.warn('⚠️ RESTORE: localStorage parse error, removing bad cache');
+        localStorage.removeItem(localStorageKey);
+      }
+    }
+
     // Hole letzten Cache aus Supabase - KEIN API Call an Moralis!
     const response = await fetch(`/api/portfolio-restore?userId=${userId}`);
     
     if (!response.ok) {
       console.log('📭 RESTORE: No cached portfolio found');
-      return { data: null, lastUpdate: null, source: null };
+      return { 
+        success: false,
+        data: null, 
+        source: 'no_cache',
+        message: 'No cached portfolio available'
+      };
     }
-
+    
     const result = await response.json();
     
-    if (!result.success || !result.data) {
-      console.log('📭 RESTORE: No valid cached data');
-      return { data: null, lastUpdate: null, source: null };
+    if (result.success && result.data) {
+      console.log(`✅ RESTORE: Portfolio restored from Supabase cache`);
+      
+      // Also store in localStorage for faster access
+      const cacheData = {
+        portfolioData: result.data,
+        timestamp: result.lastUpdate || new Date().toISOString()
+      };
+      localStorage.setItem(localStorageKey, JSON.stringify(cacheData));
+      
+      return {
+        success: true,
+        data: result.data,
+        lastUpdate: result.lastUpdate,
+        ageMinutes: result.ageMinutes,
+        source: 'supabase_cache',
+        stats: result.stats
+      };
+    } else {
+      console.log('📭 RESTORE: No portfolio cache available');
+      return { 
+        success: false,
+        data: null, 
+        source: 'no_cache',
+        message: result.message || 'No cached portfolio found'
+      };
     }
-
-    console.log(`✅ RESTORE: Portfolio restored from ${result.lastUpdate} (${result.ageMinutes} min old)`);
     
-    return {
-      data: result.data,
-      lastUpdate: new Date(result.lastUpdate),
-      source: 'restored',
-      cacheAge: result.ageMinutes * 60, // Convert to seconds
-      stats: result.stats || null
-    };
-
   } catch (error) {
-    console.error('💥 Portfolio restore error:', error);
-    return { data: null, lastUpdate: null, source: null };
+    console.error('💥 Restore Error:', error);
+    return { 
+      success: false,
+      data: null, 
+      source: 'error',
+      error: error.message 
+    };
+  }
+}
+
+/**
+ * 💾 Portfolio in localStorage speichern (temporäre Lösung)
+ * @param {string} userId - User ID
+ * @param {Array} portfolioData - Portfolio data to cache
+ */
+export function savePortfolioToLocalCache(userId, portfolioData) {
+  try {
+    const localStorageKey = `portfolio_cache_${userId}`;
+    const cacheData = {
+      portfolioData: portfolioData,
+      timestamp: new Date().toISOString()
+    };
+    
+    localStorage.setItem(localStorageKey, JSON.stringify(cacheData));
+    console.log(`💾 CACHE: Portfolio saved to localStorage (${portfolioData?.length || 0} tokens)`);
+    
+  } catch (error) {
+    console.warn('⚠️ CACHE: Failed to save to localStorage:', error);
   }
 }
 

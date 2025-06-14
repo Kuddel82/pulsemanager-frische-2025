@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import CentralDataService from '@/services/CentralDataService';
-import { restoreLastPortfolio } from '@/services/portfolioService';
+import { restoreLastPortfolio, savePortfolioToLocalCache } from '@/services/portfolioService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const PortfolioContext = createContext();
@@ -108,10 +108,10 @@ export const PortfolioProvider = ({ children }) => {
       console.log('🔄 MANUAL PORTFOLIO LOAD: Fresh API call...');
       
       // 🚨 COST OPTIMIZED: Only load basic portfolio data (no ROI/Tax)
-    const data = await CentralDataService.loadCompletePortfolio(user.id, { 
-      includeROI: false,
-      includeTax: false 
-    });
+          const data = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeROI: false,
+        includeTax: false 
+      });
       
       if (!data.success && !data.isLoaded && data.error) {
         setError(data.error);
@@ -120,12 +120,17 @@ export const PortfolioProvider = ({ children }) => {
       
       const loadDuration = Date.now() - startTime;
       
-      // 💾 SAVE TO CACHE
+      // 💾 SAVE TO CACHE (both localStorage and new function)
       const cacheData = {
         data,
         timestamp: now
       };
       localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+      
+      // NEW: Save to portfolio service cache
+      if (data.tokens && data.tokens.length > 0) {
+        savePortfolioToLocalCache(user.id, data.tokens);
+      }
       
       setPortfolioData(data);
       setLastUpdate(new Date());
@@ -190,12 +195,12 @@ export const PortfolioProvider = ({ children }) => {
     if (!user) {
       // User logged out - clear data
       clearData();
-    } else if (user?.id && !portfolioData) {
-      // User logged in but no portfolio - try to restore
+    } else if (user?.id && !portfolioData && !loading) {
+      // User logged in but no portfolio - try to restore (only if not already loading)
       console.log('👤 LOGIN DETECTED: Attempting portfolio restore...');
       restorePortfolioOnLogin();
     }
-  }, [user, clearData]);
+  }, [user, clearData, portfolioData, loading]);
 
   // 💾 RESTORE Portfolio on Login (OHNE API-Calls!)
   const restorePortfolioOnLogin = useCallback(async () => {

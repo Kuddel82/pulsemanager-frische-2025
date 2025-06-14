@@ -120,13 +120,13 @@ export class DirectMoralisService {
         // 1. Von Null-Address (echtes Minting)
         const fromZeroAddress = fromAddress === '0x0000000000000000000000000000000000000000';
         
-        // 2. Bekannte ROI-Token mit angemessenen Beträgen
+        // 2. Bekannte ROI-Token (erweitert)
         const tokenSymbol = transfer.token_symbol?.toUpperCase();
-        const isROIToken = ['HEX', 'INC', 'PLSX'].includes(tokenSymbol);
+        const isROIToken = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISSER'].includes(tokenSymbol);
         
         // 3. ROI-typische Beträge (erweitert für bessere Erkennung)
         const amount = parseFloat(transfer.value) / Math.pow(10, parseInt(transfer.token_decimals) || 18);
-        const isROIAmount = amount > 0 && amount < 10000; // Unter 10k Token
+        const isROIAmount = amount > 0 && amount < 100000; // Unter 100k Token (erweitert)
         
         // 4. Nicht von eigener Wallet
         const notSelfTransfer = fromAddress !== address.toLowerCase();
@@ -138,9 +138,12 @@ export class DirectMoralisService {
                            fromAddress !== address.toLowerCase() &&
                            !fromAddress.startsWith('0x000000000000000000000000000000000000');
         
-        // ROI = Minting ODER (ROI-Token UND ROI-Betrag UND von Contract UND nicht Self-Transfer)
+        // 6. Erweiterte ROI-Erkennung: Kleine regelmäßige Beträge von Contracts
+        const isSmallReward = amount > 0 && amount < 10000 && fromContract;
+        
+        // ROI = Minting ODER ROI-Token von Contract ODER kleine Rewards von Contract
         return isIncoming && hasValue && notSelfTransfer &&
-               (fromZeroAddress || (isROIToken && isROIAmount && fromContract));
+               (fromZeroAddress || (isROIToken && fromContract) || isSmallReward);
       });
       
       console.log(`✅ DIRECT: ${transfers.length} transfers, ${roiTransfers.length} potential ROI`);

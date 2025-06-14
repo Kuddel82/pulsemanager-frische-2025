@@ -183,14 +183,30 @@ const TaxReportView = () => {
 
   // Calculate tax statistics with ROI classification
   const calculateTaxStats = (transfers) => {
-    // 🎯 ROI-CLASSIFICATION: Classify all transfers
+    // 🎯 ROI-CLASSIFICATION: Classify all transfers (SIMPLIFIED for now)
     const classifiedTransfers = transfers.map(transfer => {
-      const roiClassification = ROIMappingService.classifyROI(transfer, user?.id);
+      // Simple ROI detection fallback (until ROIMappingService is fully deployed)
+      const isIncoming = transfer.to_address?.toLowerCase() === transfer.walletAddress?.toLowerCase();
+      const fromAddress = transfer.from_address?.toLowerCase();
+      const tokenSymbol = transfer.token_symbol?.toUpperCase();
+      
+      // Basic ROI patterns
+      const fromZeroAddress = fromAddress === '0x0000000000000000000000000000000000000000';
+      const isKnownROIToken = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISSER'].includes(tokenSymbol);
+      const fromContract = fromAddress && fromAddress.length === 42 && fromAddress !== transfer.walletAddress?.toLowerCase();
+      
+      const isROI = isIncoming && (fromZeroAddress || (isKnownROIToken && fromContract));
+      
       return {
         ...transfer,
-        roiClassification,
-        isROI: roiClassification.isROI,
-        roiType: roiClassification.roiType
+        roiClassification: {
+          isROI,
+          roiType: isROI ? (fromZeroAddress ? 'MINTING' : 'TOKEN_REWARD') : 'REGULAR',
+          confidence: isROI ? 85 : 30,
+          source: 'simplified_detection'
+        },
+        isROI,
+        roiType: isROI ? (fromZeroAddress ? 'MINTING' : 'TOKEN_REWARD') : null
       };
     });
     
