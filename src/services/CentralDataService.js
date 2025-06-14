@@ -68,7 +68,41 @@ export class CentralDataService {
     'ETH': 2400,
     'USDC': 1.0,
     'USDT': 1.0,
-    'DAI': 1.0
+    'DAI': 1.0,
+    'DOMINANCE': 0.32
+  };
+
+  // 🎯 VERIFIED TOKEN CONTRACTS - Echte Token mit korrekten Limits
+  static VERIFIED_TOKENS = {
+    // ECHTER DOMINANCE TOKEN (von PulseWatch bestätigt)
+    '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea': {
+      symbol: 'DOMINANCE',
+      name: 'DOMINANCE',
+      maxPrice: 1.0,        // Nie über $1
+      maxBalance: 50000,    // Nie über 50k Token
+      expectedPrice: 0.32,  // Aktueller Marktpreis
+      decimals: 18,
+      isVerified: true
+    },
+    
+    // Weitere bekannte Token können hier hinzugefügt werden
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': {
+      symbol: 'HEX',
+      name: 'HEX',
+      maxPrice: 0.01,
+      expectedPrice: 0.0025,
+      decimals: 8,
+      isVerified: true
+    },
+    
+    '0x95b303987a60c71504d99aa1b13b4da07b0790ab': {
+      symbol: 'PLSX',
+      name: 'PulseX',
+      maxPrice: 0.001,
+      expectedPrice: 0.00008,
+      decimals: 18,
+      isVerified: true
+    }
   };
 
   static getChainConfig(chainId) {
@@ -290,34 +324,49 @@ export class CentralDataService {
             let usdPrice = rawPrice;
             let priceSource = 'moralis_live';
             
-            // 🚨 PREIS-VALIDIERUNG: Erkenne extreme Moralis-Fehler
-            const isExtremePriceError = (
-              rawPrice > 50 || // Über $50 pro Token ist verdächtig für PulseChain (reduziert von $100)
-              (rawPrice > 1 && ['DOMINANCE', 'PLSX', 'HEX', 'INC', 'PLS'].includes(tokenSymbol)) // Diese Token sollten nie über $1 sein
-            ) && !['WBTC', 'ETH', 'WETH', 'BTC'].includes(tokenSymbol); // Außer bekannte High-Value Token
+            // 🎯 VERIFIED TOKEN CHECK: Prüfe gegen Whitelist
+            const verifiedToken = this.VERIFIED_TOKENS[tokenAddress];
+            let isVerifiedToken = !!verifiedToken;
+            let maxAllowedPrice = verifiedToken?.maxPrice || 50; // Default: $50 für unbekannte Token
+            let maxAllowedBalance = verifiedToken?.maxBalance || 1000000; // Default: 1M Token
             
-            // 🚨 SPEZIELLE DOMINANCE-VALIDIERUNG: Beide Contracts prüfen
-            const isDominanceError = (
+            // 🚨 FAKE TOKEN DETECTION: Blockiere Fake-DOMINANCE
+            const isFakeDominance = (
               tokenSymbol === 'DOMINANCE' && 
-              (rawPrice > 1 || balanceReadable > 50000) // DOMINANCE sollte nie über $1 oder über 50k Token sein
+              tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea'
             );
             
-            if (isExtremePriceError || isDominanceError) {
-              console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice}, balance ${balanceReadable.toLocaleString()} - likely Moralis API error!`);
-              usdPrice = 0; // Setze auf 0 um Portfolio-Verzerrung zu vermeiden
-              priceSource = 'moralis_price_error';
-              
-              // Spezielle Logs für DOMINANCE
-              if (isDominanceError) {
-                console.error(`🚨 DOMINANCE ERROR DETECTED: Contract ${tokenAddress}, Price: $${rawPrice}, Balance: ${balanceReadable.toLocaleString()}`);
+            // 🚨 PREIS-VALIDIERUNG: Verwende Token-spezifische Limits
+            const isExtremePriceError = (
+              rawPrice > maxAllowedPrice || // Token-spezifisches Preis-Limit
+              balanceReadable > maxAllowedBalance || // Token-spezifisches Balance-Limit
+              isFakeDominance // Fake DOMINANCE blockieren
+            ) && !['WBTC', 'ETH', 'WETH', 'BTC'].includes(tokenSymbol); // Außer bekannte High-Value Token
+            
+            if (isExtremePriceError) {
+              if (isFakeDominance) {
+                console.error(`🚨 FAKE DOMINANCE BLOCKED: Contract ${tokenAddress} is NOT the verified DOMINANCE token!`);
+                console.error(`✅ REAL DOMINANCE: 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea`);
+              } else {
+                console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice}, balance ${balanceReadable.toLocaleString()}`);
+                console.error(`📊 LIMITS: Max Price: $${maxAllowedPrice}, Max Balance: ${maxAllowedBalance.toLocaleString()}`);
               }
+              
+              usdPrice = 0; // Setze auf 0 um Portfolio-Verzerrung zu vermeiden
+              priceSource = isFakeDominance ? 'fake_token_blocked' : 'moralis_price_error';
             }
             
-            // 2. Fallback zu Emergency-Preisen nur wenn kein Live-Preis oder Preis-Fehler
-            if (usdPrice === 0 && this.EMERGENCY_PRICES[tokenSymbol]) {
-              usdPrice = this.EMERGENCY_PRICES[tokenSymbol];
-              priceSource = 'emergency_fallback';
-              console.log(`💰 EMERGENCY PRICE: ${tokenSymbol} = $${usdPrice}`);
+            // 2. Fallback zu Emergency-Preisen oder Verified Token-Preisen
+            if (usdPrice === 0) {
+              if (verifiedToken?.expectedPrice) {
+                usdPrice = verifiedToken.expectedPrice;
+                priceSource = 'verified_token_price';
+                console.log(`✅ VERIFIED PRICE: ${tokenSymbol} = $${usdPrice} (from whitelist)`);
+              } else if (this.EMERGENCY_PRICES[tokenSymbol]) {
+                usdPrice = this.EMERGENCY_PRICES[tokenSymbol];
+                priceSource = 'emergency_fallback';
+                console.log(`💰 EMERGENCY PRICE: ${tokenSymbol} = $${usdPrice}`);
+              }
             }
             
             const totalUsd = balanceReadable * usdPrice;
