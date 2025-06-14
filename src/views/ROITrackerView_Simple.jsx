@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { DirectMoralisService } from '../services/DirectMoralisService';
-import { TokenPriceService } from '../services/tokenPriceService';
+import { WalletHistoryService } from '../services/walletHistoryService';
 import { supabase } from '../lib/supabaseClient';
 
 const ROITrackerView = () => {
@@ -134,27 +134,18 @@ const ROITrackerView = () => {
       };
     }
 
-    // 🚀 LIVE PRICES: Sammle alle einzigartigen Token-Adressen
-    const uniqueTokens = [...new Set(recentTransfers.map(transfer => ({
-      address: transfer.token_address,
-      symbol: transfer.token_symbol,
-      chain: '0x171' // PulseChain
-    })))];
+    // 🚀 SICHERE FALLBACK-PREISE für ROI-Berechnung
+    const safePrices = {
+      'PLS': 0.00003,
+      'PLSX': 0.00008,
+      'HEX': 0.0025,
+      'INC': 0.005,
+      'USDC': 1.0,
+      'USDT': 1.0,
+      'DAI': 1.0
+    };
 
-    console.log(`🚀 ROI: Fetching live prices for ${uniqueTokens.length} unique tokens`);
-
-    try {
-      // 🎯 BATCH-PREISE von Moralis holen
-      const livePrices = await TokenPriceService.getMultipleTokenPrices(uniqueTokens);
-      
-      // Erstelle Price-Map für schnelle Suche
-      const priceMap = {};
-      livePrices.forEach(priceData => {
-        priceMap[priceData.address?.toLowerCase()] = priceData.price;
-        priceMap[priceData.symbol?.toUpperCase()] = priceData.price;
-      });
-
-      console.log(`✅ ROI: Got live prices for ${livePrices.length} tokens`);
+    console.log(`🚀 ROI: Using safe fallback prices for ${recentTransfers.length} transfers`);
 
       // Calculate values with LIVE PRICES
       let totalROIValue = 0;
@@ -165,25 +156,16 @@ const ROITrackerView = () => {
         const decimals = parseInt(transfer.token_decimals || transfer.decimals) || 18;
         const amount = parseFloat(transfer.value) / Math.pow(10, decimals);
         
-        // 🎯 LIVE PRICE LOOKUP
+        // 🛡️ SICHERE PREIS-LOOKUP
         const tokenSymbol = transfer.token_symbol?.toUpperCase();
-        const tokenAddress = transfer.token_address?.toLowerCase();
-        
-        let tokenPrice = priceMap[tokenAddress] || priceMap[tokenSymbol];
-        
-        // 🛡️ Fallback wenn kein Live-Preis verfügbar
-        if (!tokenPrice || tokenPrice <= 0) {
-          const fallbackPrice = TokenPriceService.getEmergencyFallbackPrice(tokenSymbol);
-          tokenPrice = fallbackPrice.price;
-          console.warn(`⚠️ Using fallback price for ${tokenSymbol}: $${tokenPrice}`);
-        }
+        let tokenPrice = safePrices[tokenSymbol] || 0.0001; // Sehr niedriger Fallback
         
         const tokenValue = amount * tokenPrice;
         totalROIValue += tokenValue;
         
         // Debug: Log significant ROI values
         if (tokenValue > 1) {
-          console.log(`💰 ROI LIVE: ${amount.toFixed(4)} ${tokenSymbol} × $${tokenPrice} = $${tokenValue.toFixed(2)}`);
+          console.log(`💰 ROI SAFE: ${amount.toFixed(4)} ${tokenSymbol} × $${tokenPrice} = $${tokenValue.toFixed(2)}`);
         }
       });
       
@@ -193,37 +175,9 @@ const ROITrackerView = () => {
         avgPerTransfer: transferCount > 0 ? totalROIValue / transferCount : 0,
         dailyAvg: totalROIValue / parseInt(days),
         period: `${days} Tage`,
-        livePricesUsed: livePrices.length,
-        priceSource: 'moralis_live_batch'
+        safePricesUsed: Object.keys(safePrices).length,
+        priceSource: 'safe_fallback_prices'
       };
-
-    } catch (error) {
-      console.error('🚨 ROI: Live price fetch failed, using fallbacks:', error);
-      
-      // 🛡️ FALLBACK: Verwende Emergency Prices
-      let totalROIValue = 0;
-      let transferCount = recentTransfers.length;
-      
-      recentTransfers.forEach(transfer => {
-        const decimals = parseInt(transfer.token_decimals || transfer.decimals) || 18;
-        const amount = parseFloat(transfer.value) / Math.pow(10, decimals);
-        const tokenSymbol = transfer.token_symbol?.toUpperCase();
-        
-        const fallbackPrice = TokenPriceService.getEmergencyFallbackPrice(tokenSymbol);
-        const tokenValue = amount * fallbackPrice.price;
-        totalROIValue += tokenValue;
-      });
-      
-      return {
-        totalValue: totalROIValue,
-        transferCount: transferCount,
-        avgPerTransfer: transferCount > 0 ? totalROIValue / transferCount : 0,
-        dailyAvg: totalROIValue / parseInt(days),
-        period: `${days} Tage`,
-        priceSource: 'fallback_only',
-        error: error.message
-      };
-    }
   };
 
   // Format functions
