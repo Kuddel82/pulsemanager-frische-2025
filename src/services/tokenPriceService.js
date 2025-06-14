@@ -44,6 +44,11 @@ export class TokenPriceService {
       });
 
       if (!response.ok) {
+        // 🛡️ SPEZIELLE BEHANDLUNG für 404 (Token nicht gefunden)
+        if (response.status === 404) {
+          console.warn(`⚠️ Token ${symbol} not found on chain ${chain}, using fallback price`);
+          return this.getEmergencyFallbackPrice(symbol);
+        }
         throw new Error(`Moralis API Error: ${response.status}`);
       }
 
@@ -90,8 +95,13 @@ export class TokenPriceService {
     }
 
     try {
-      // 🚀 MORALIS BATCH PRICE API - Alle Token in einem Call!
-      const response = await fetch(`${MORALIS_BASE_URL}/erc20/prices`, {
+      // 🚀 MORALIS BATCH PRICE API - Korrigiertes Format!
+      const chainId = tokens[0]?.chain || '0x171'; // PulseChain als Standard
+      const tokenAddresses = tokens.map(token => token.address).filter(addr => addr);
+      
+      console.log(`🚀 BATCH API: Requesting ${tokenAddresses.length} tokens on chain ${chainId}`);
+      
+      const response = await fetch(`${MORALIS_BASE_URL}/erc20/prices?chain=${chainId}&include=percent_change`, {
         method: 'POST',
         headers: {
           'X-API-Key': apiKey,
@@ -99,10 +109,8 @@ export class TokenPriceService {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          chain: tokens[0]?.chain || '0x171', // PulseChain als Standard
-          include: "percent_change",
-          tokens: tokens.map(token => ({
-            tokenAddress: token.address
+          tokens: tokenAddresses.map(address => ({
+            token_address: address
           }))
         }),
         timeout: this.API_TIMEOUT
@@ -113,14 +121,18 @@ export class TokenPriceService {
       }
 
       const batchData = await response.json();
+      console.log(`🔍 BATCH RESPONSE: Got ${Array.isArray(batchData) ? batchData.length : 'invalid'} price entries`);
       
       // 🎯 Verarbeite Batch-Antwort und mappe zu unserem Format
       const results = tokens.map(token => {
-        const priceData = batchData.find(item => 
-          item.tokenAddress?.toLowerCase() === token.address?.toLowerCase()
-        );
+        // Suche nach Preis-Daten für dieses Token
+        const priceData = Array.isArray(batchData) ? 
+          batchData.find(item => 
+            item.token_address?.toLowerCase() === token.address?.toLowerCase()
+          ) : null;
 
         if (priceData && priceData.usdPrice > 0) {
+          console.log(`✅ BATCH: Found price for ${token.symbol}: $${priceData.usdPrice}`);
           return {
             price: priceData.usdPrice,
             symbol: token.symbol || priceData.tokenSymbol,
@@ -135,7 +147,7 @@ export class TokenPriceService {
           };
         } else {
           // Fallback für Token ohne Preis
-          console.warn(`⚠️ No price found for ${token.symbol}, using fallback`);
+          console.warn(`⚠️ BATCH: No price found for ${token.symbol} (${token.address}), using fallback`);
           return this.getEmergencyFallbackPrice(token.symbol);
         }
       });
@@ -260,6 +272,14 @@ export class TokenPriceService {
       'WWPP': 0.03,         // $0.03 (PulseWatch)
       'WORLDS WORST': 0.03, // Vollständiger Name
       'TREASURY BILL': 3.36e-4, // $3.36e-4 (PulseWatch)
+      
+      // 🔥 NEUE TOKEN (aus den 404-Fehlern)
+      'HOUSE': 0.001,       // Fallback für HOUSE Token
+      '💤': 0.0001,         // Sleep Token Fallback
+      'SⒶT': 0.0001,        // SAT Token Fallback  
+      '🚀': 0.0001,         // Rocket Token Fallback
+      'FLEXOR': 0.0002,     // FLEXOR Token Fallback
+      
       // Standard Tokens
       'USDT': 1.0,          // $1.00 (Stablecoin)
       'USDC': 1.0,          // $1.00 (Stablecoin)
