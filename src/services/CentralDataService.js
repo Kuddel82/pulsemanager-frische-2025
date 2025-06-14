@@ -458,48 +458,127 @@ export class CentralDataService {
         
         console.log(`💰 ROI WALLET: Loading ${wallet.address} on ${chain.name}`);
         
-        // 🔄 DIREKTE MORALIS TRANSACTIONS API (einfacher & robuster)
-        const response = await fetch(`/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=200&from_date=${currentMonthStart.toISOString()}`);
-        totalApiCalls++;
+        // 🚀 ROI MASSIVE PAGINATION: Load ALL transactions from current month
+        let cursor = null;
+        let walletROITransactions = [];
+        let pageNumber = 0;
+        const MAX_ROI_PAGES = 1000; // 1000 * 50 = 50k max für ROI
+        let consecutiveEmptyPages = 0;
+        const MAX_EMPTY_PAGES = 3;
         
-        if (response.ok) {
-          const data = await response.json();
+        do {
+          pageNumber++;
+          console.log(`💰 ROI PAGE ${pageNumber}: Loading batch for ${wallet.address}... (ROI so far: ${walletROITransactions.length})`);
           
-          if (data.result && Array.isArray(data.result)) {
-            // 🔍 ROI DETECTION: Alle eingehenden Transfers analysieren
-            const roiTransactions = data.result
-              .filter(tx => {
-                // Eingehende Transaktionen (to_address = wallet)
-                return tx.to_address && tx.to_address.toLowerCase() === wallet.address.toLowerCase();
-              })
-              .map(tx => {
-                // ROI Value berechnen
-                const value = parseFloat(tx.value) || 0;
-                const usdValue = this.calculateTransactionValue(tx, priceMap);
-                
-                return {
-                  ...tx,
-                  walletAddress: wallet.address,
-                  chainId: chainId,
-                  value: usdValue,
-                  timestamp: tx.block_timestamp,
-                  type: 'ROI_INCOMING',
-                  token: tx.token_symbol || 'Unknown',
-                  amount: value / Math.pow(10, parseInt(tx.token_decimals) || 18)
-                };
-              })
-              .filter(tx => {
-                // Nur laufender Monat
-                const txDate = new Date(tx.timestamp);
-                return txDate >= currentMonthStart && tx.value > 0;
-              });
+          try {
+            const apiUrl = `/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=50${cursor ? `&cursor=${cursor}` : ''}&from_date=${currentMonthStart.toISOString()}`;
             
-            allROITransactions.push(...roiTransactions);
-            console.log(`✅ ROI WALLET: ${roiTransactions.length} ROI transactions for ${wallet.address}`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds for ROI
+            
+            const response = await fetch(apiUrl, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            totalApiCalls++;
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (data.result && Array.isArray(data.result)) {
+                // 🔍 ROI DETECTION: Alle eingehenden Transfers analysieren
+                const pageROITransactions = data.result
+                  .filter(tx => {
+                    // Eingehende Transaktionen (to_address = wallet)
+                    return tx.to_address && tx.to_address.toLowerCase() === wallet.address.toLowerCase();
+                  })
+                  .map(tx => {
+                    // ROI Value berechnen
+                    const value = parseFloat(tx.value) || 0;
+                    const usdValue = this.calculateTransactionValue(tx, priceMap);
+                    
+                    return {
+                      ...tx,
+                      walletAddress: wallet.address,
+                      chainId: chainId,
+                      value: usdValue,
+                      timestamp: tx.block_timestamp,
+                      type: 'ROI_INCOMING',
+                      token: tx.token_symbol || 'Unknown',
+                      amount: value / Math.pow(10, parseInt(tx.token_decimals) || 18)
+                    };
+                  })
+                  .filter(tx => {
+                    // Nur laufender Monat und USD value > 0
+                    const txDate = new Date(tx.timestamp);
+                    return txDate >= currentMonthStart && tx.value > 0;
+                  });
+                
+                if (data.result.length === 0) {
+                  consecutiveEmptyPages++;
+                  console.log(`⚠️ ROI PAGE ${pageNumber}: Empty page (${consecutiveEmptyPages}/${MAX_EMPTY_PAGES})`);
+                  
+                  if (consecutiveEmptyPages >= MAX_EMPTY_PAGES) {
+                    console.log(`🛑 ROI STOP: ${MAX_EMPTY_PAGES} consecutive empty pages, stopping`);
+                    break;
+                  }
+                } else {
+                  consecutiveEmptyPages = 0;
+                  walletROITransactions.push(...pageROITransactions);
+                  console.log(`✅ ROI PAGE ${pageNumber}: +${pageROITransactions.length} ROI transactions (${data.result.length} total)`);
+                }
+                
+                // Update cursor for next page
+                cursor = data.cursor;
+                
+                // Stop if no cursor (end of data)
+                if (!cursor) {
+                  console.log(`🏁 ROI COMPLETE: ${wallet.address} - No more pages available`);
+                  break;
+                }
+                
+              } else {
+                console.warn(`⚠️ ROI PAGE ${pageNumber}: No valid result for ${wallet.address}`);
+                break;
+              }
+              
+              // Safety: Stop at max pages
+              if (pageNumber >= MAX_ROI_PAGES) {
+                console.warn(`⚠️ ROI LIMIT: Stopped at ${MAX_ROI_PAGES} pages for ${wallet.address}`);
+                break;
+              }
+              
+            } else {
+              console.error(`❌ ROI PAGE ${pageNumber}: HTTP ${response.status} for ${wallet.address}`);
+              break;
+            }
+            
+          } catch (pageError) {
+            console.error(`💥 ROI PAGE ${pageNumber} ERROR: ${pageError.message}`);
+            
+            // Retry on network errors
+            if (pageError.name === 'AbortError' || pageError.name === 'TimeoutError') {
+              console.log(`🔄 ROI TIMEOUT RETRY: Retrying page ${pageNumber} for ${wallet.address}...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              continue;
+            } else {
+              break;
+            }
           }
-        } else {
-          console.error(`❌ ROI WALLET: HTTP ${response.status} for ${wallet.address}`);
-        }
+          
+          // Rate limiting: 100ms between ROI requests (faster)
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } while (cursor && pageNumber < MAX_ROI_PAGES);
+        
+        allROITransactions.push(...walletROITransactions);
+        console.log(`✅ ROI WALLET COMPLETE: ${walletROITransactions.length} ROI transactions for ${wallet.address} (${pageNumber} pages)`);
+        
       } catch (error) {
         console.error(`💥 ROI WALLET ERROR: ${wallet.address} - ${error.message}`);
       }
@@ -594,16 +673,24 @@ export class CentralDataService {
           console.log(`📄 TAX PAGE ${pageNumber}: Loading batch for ${wallet.address}... (Total so far: ${walletTransactions.length})`);
           
           try {
+            // 🔧 NO DATE FILTER für TAX - wir wollen ALLE Transaktionen ever
             const apiUrl = `/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=50${cursor ? `&cursor=${cursor}` : ''}`;
             
-            // 🔄 EXTENDED TIMEOUT & RETRY LOGIC
+            console.log(`🔍 TAX API CALL: ${apiUrl}`);
+            
+            // 🔄 EXTENDED TIMEOUT & RETRY LOGIC (Browser-compatible)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+            
             const response = await fetch(apiUrl, {
               method: 'GET',
               headers: {
                 'Content-Type': 'application/json'
               },
-              signal: AbortSignal.timeout(90000) // 90 seconds timeout
+              signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             totalApiCalls++;
             
             if (!response.ok) {
