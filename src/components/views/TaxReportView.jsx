@@ -46,20 +46,41 @@ const TaxReportView = () => {
     try {
       console.log('📄 TAX REPORT: Loading tax data with massive pagination & caching');
       
-             // 🔍 SCHRITT 1: GLOBAL CACHE prüfen (Memory + Session Storage)
+             // 🔍 SCHRITT 1: DATABASE PERSISTENT CACHE prüfen (überlebt Page Reloads)
        if (!forceRefresh) {
+         try {
+           const { DatabasePersistentCache } = await import('@/services/DatabasePersistentCache');
+           const cachedData = await DatabasePersistentCache.getTaxReportData(user.id);
+           
+           if (cachedData) {
+             setPortfolioData({
+               ...cachedData,
+               taxTransactions: cachedData.transactions || [],
+               fromCache: true
+             });
+             
+             const cacheHours = Math.round(cachedData.cacheAge / (1000 * 60 * 60));
+             setStatusMessage(`✅ TAX DB CACHE: ${cachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
+             setLoading(false);
+             return;
+           }
+         } catch (cacheError) {
+           console.warn(`⚠️ TAX DB CACHE: ${cacheError.message}`);
+         }
+
+         // 🔍 SCHRITT 1.5: FALLBACK - Session Cache prüfen
          const { GlobalCacheService } = await import('@/services/GlobalCacheService');
-         const cachedData = GlobalCacheService.getTaxReportData(user.id);
+         const sessionCachedData = GlobalCacheService.getTaxReportData(user.id);
          
-         if (cachedData) {
+         if (sessionCachedData) {
            setPortfolioData({
-             ...cachedData,
-             taxTransactions: cachedData.transactions || [],
+             ...sessionCachedData,
+             taxTransactions: sessionCachedData.transactions || [],
              fromCache: true
            });
            
-           const cacheHours = Math.round(cachedData.cacheAge / (1000 * 60 * 60));
-           setStatusMessage(`✅ TAX ${cachedData.cacheType?.toUpperCase()}: ${cachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
+           const cacheHours = Math.round(sessionCachedData.cacheAge / (1000 * 60 * 60));
+           setStatusMessage(`✅ TAX SESSION: ${sessionCachedData.transactions?.length || 0} Transaktionen (${cacheHours}h alt)`);
            setLoading(false);
            return;
          }
@@ -92,7 +113,16 @@ const TaxReportView = () => {
           taxTransactions: taxReportData.transactions
         });
         
-                 // 💾 SCHRITT 3: GLOBAL CACHE für 24h speichern (Memory + Session)  
+                 // 💾 SCHRITT 3: DATABASE PERSISTENT CACHE für 24h speichern
+         try {
+           const { DatabasePersistentCache } = await import('@/services/DatabasePersistentCache');
+           await DatabasePersistentCache.saveTaxReportData(user.id, taxReportData);
+           console.log(`💾 TAX DB: Saved for user ${user.id}`);
+         } catch (cacheError) {
+           console.warn(`⚠️ TAX DB SAVE: ${cacheError.message}`);
+         }
+
+         // 💾 SCHRITT 3.5: FALLBACK - Session Cache speichern
          const { GlobalCacheService } = await import('@/services/GlobalCacheService');
          GlobalCacheService.saveTaxReportData(user.id, taxReportData);
         

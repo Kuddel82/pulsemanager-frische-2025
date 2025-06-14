@@ -42,20 +42,41 @@ const ROITrackerView = () => {
     try {
       console.log('🔄 ROI TRACKER: Loading ROI data with caching');
       
-      // 🔍 SCHRITT 1: GLOBAL CACHE prüfen (Memory + Session Storage)
+      // 🔍 SCHRITT 1: DATABASE PERSISTENT CACHE prüfen (überlebt Page Reloads)
       if (!forceRefresh) {
+        try {
+          const { DatabasePersistentCache } = await import('@/services/DatabasePersistentCache');
+          const cachedData = await DatabasePersistentCache.getROITrackerData(user.id);
+          
+          if (cachedData) {
+            setPortfolioData({
+              ...cachedData,
+              roiTransactions: cachedData.transactions || [],
+              fromCache: true
+            });
+            
+            const cacheMinutes = Math.round(cachedData.cacheAge / (1000 * 60));
+            setStatusMessage(`✅ ROI DB CACHE: ${cachedData.transactions?.length || 0} Transaktionen, $${cachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
+            setLoading(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.warn(`⚠️ ROI DB CACHE: ${cacheError.message}`);
+        }
+
+        // 🔍 SCHRITT 1.5: FALLBACK - Session Cache prüfen
         const { GlobalCacheService } = await import('@/services/GlobalCacheService');
-        const cachedData = GlobalCacheService.getROITrackerData(user.id);
+        const sessionCachedData = GlobalCacheService.getROITrackerData(user.id);
         
-        if (cachedData) {
+        if (sessionCachedData) {
           setPortfolioData({
-            ...cachedData,
-            roiTransactions: cachedData.transactions || [],
+            ...sessionCachedData,
+            roiTransactions: sessionCachedData.transactions || [],
             fromCache: true
           });
           
-          const cacheMinutes = Math.round(cachedData.cacheAge / (1000 * 60));
-          setStatusMessage(`✅ ROI ${cachedData.cacheType?.toUpperCase()}: ${cachedData.transactions?.length || 0} Transaktionen, $${cachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
+          const cacheMinutes = Math.round(sessionCachedData.cacheAge / (1000 * 60));
+          setStatusMessage(`✅ ROI SESSION: ${sessionCachedData.transactions?.length || 0} Transaktionen, $${sessionCachedData.monthlyROI} monthly (${cacheMinutes}min alt)`);
           setLoading(false);
           return;
         }
@@ -92,7 +113,16 @@ const ROITrackerView = () => {
           roiTransactions: roiData.transactions
         });
         
-        // 💾 SCHRITT 3: GLOBAL CACHE für 2h speichern (Memory + Session)
+        // 💾 SCHRITT 3: DATABASE PERSISTENT CACHE für 2h speichern
+        try {
+          const { DatabasePersistentCache } = await import('@/services/DatabasePersistentCache');
+          await DatabasePersistentCache.saveROITrackerData(user.id, roiData);
+          console.log(`💾 ROI DB: Saved for user ${user.id}`);
+        } catch (cacheError) {
+          console.warn(`⚠️ ROI DB SAVE: ${cacheError.message}`);
+        }
+
+        // 💾 SCHRITT 3.5: FALLBACK - Session Cache speichern
         const { GlobalCacheService } = await import('@/services/GlobalCacheService');
         GlobalCacheService.saveROITrackerData(user.id, roiData);
         

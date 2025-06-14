@@ -92,7 +92,30 @@ export class CentralDataService {
     console.log(`🎯 PRO PORTFOLIO: Loading for user ${userId}`);
     
     // 🚨 COST REDUCTION: Don't load ROI/Tax by default (40k CUs saved!)
-    const { includeROI = false, includeTax = false } = options;
+    const { includeROI = false, includeTax = false, forceRefresh = false } = options;
+
+    // 🏛️ DATABASE PERSISTENT CACHE CHECK (außer bei forceRefresh)
+    if (!forceRefresh) {
+      try {
+        const { DatabasePersistentCache } = await import('./DatabasePersistentCache');
+        const cachedPortfolio = await DatabasePersistentCache.getPortfolioData(userId);
+        
+        if (cachedPortfolio) {
+          const cacheMinutes = Math.round(cachedPortfolio.cacheAge / (1000 * 60));
+          console.log(`✅ DB CACHE HIT: Portfolio with ${cachedPortfolio.tokens?.length || 0} tokens, $${cachedPortfolio.totalValue} (${cacheMinutes}min old)`);
+          
+          return {
+            ...cachedPortfolio,
+            loadTime: '0.1',
+            fromCache: true,
+            cacheType: 'database_persistent',
+            cacheInfo: `Database cache (${cacheMinutes}min old)`
+          };
+        }
+      } catch (cacheError) {
+        console.warn(`⚠️ DB CACHE CHECK: ${cacheError.message}`);
+      }
+    }
     
     try {
       // API Key check
@@ -169,6 +192,15 @@ export class CentralDataService {
       };
       
       console.log(`✅ PRO PORTFOLIO: Basic load complete (ROI: ${includeROI}, Tax: ${includeTax}, CUs: ${portfolioResponse.apiCalls})`);
+      
+      // 🏛️ DATABASE PERSISTENT CACHE SAVE
+      try {
+        const { DatabasePersistentCache } = await import('./DatabasePersistentCache');
+        await DatabasePersistentCache.savePortfolioData(userId, portfolioResponse);
+        console.log(`💾 DB CACHE: Portfolio saved for user ${userId}`);
+      } catch (cacheError) {
+        console.warn(`⚠️ DB CACHE SAVE: ${cacheError.message}`);
+      }
       
       return portfolioResponse;
 
