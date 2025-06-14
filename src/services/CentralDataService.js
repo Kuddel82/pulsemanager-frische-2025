@@ -1,10 +1,10 @@
-// 🎯 CENTRAL DATA SERVICE - MORALIS PRO COST OPTIMIZED  
-// REST API calls statt teurer SDK calls für Kostenoptimierung
-// Datum: 2025-01-15 - PRO PLAN mit MANUELLER STEUERUNG (Auto-Refresh komplett deaktiviert)
+// 🎯 CENTRAL DATA SERVICE - SAUBERE PREISLOGIK STRUKTURIERT
+// Stand: 14.06.2025 - Implementierung nach User-Spezifikationen
+// ✅ Moralis First → DexScreener Fallback → PulseWatch Preferred → Emergency Fallback
 
 import { supabase } from '@/lib/supabaseClient';
-// RAW MORALIS DATA: No token parsing service - use exact blockchain data for tax compliance
-// Wallet History API ist nur für Transaktionshistorie, nicht für Token-Balances
+import { TokenPricingService } from './TokenPricingService';
+// 🎯 NEUE PREISLOGIK: Strukturierte Preis-Resolution ohne willkürliche Blockierungen
 
 export class CentralDataService {
   
@@ -59,54 +59,8 @@ export class CentralDataService {
     v2: '/api/moralis-v2'
   };
 
-  // 💰 EMERGENCY FALLBACK PRICES
-  static EMERGENCY_PRICES = {
-    'HEX': 0.0025,
-    'PLSX': 0.00008,
-    'INC': 0.005,
-    'PLS': 0.00005,
-    'ETH': 2400,
-    'USDC': 1.0,
-    'USDT': 1.0,
-    'DAI': 1.0,
-    'DOMINANCE': 0.32
-  };
-
-  // 🎯 VERIFIED TOKEN CONTRACTS - Echte Token mit korrekten Limits (PulseWatch-Preise)
-  static VERIFIED_TOKENS = {
-    // ECHTER DOMINANCE TOKEN (von PulseWatch bestätigt)
-    '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea': {
-      symbol: 'DOMINANCE',
-      name: 'DOMINANCE',
-      maxPrice: 1.0,        // Nie über $1
-      maxBalance: 50000,    // Nie über 50k Token
-      expectedPrice: 0.32,  // PulseWatch: $0.32
-      decimals: 18,
-      isVerified: true
-    },
-    
-
-    
-    // HEX - PulseWatch: $6.16e-3
-    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': {
-      symbol: 'HEX',
-      name: 'HEX',
-      maxPrice: 0.01,
-      expectedPrice: 0.00616,  // PulseWatch-Preis
-      decimals: 8,
-      isVerified: true
-    },
-    
-    // PLSX - PulseWatch: $2.71e-5
-    '0x95b303987a60c71504d99aa1b13b4da07b0790ab': {
-      symbol: 'PLSX',
-      name: 'PulseX',
-      maxPrice: 0.001,
-      expectedPrice: 0.0000271,  // PulseWatch-Preis
-      decimals: 18,
-      isVerified: true
-    }
-  };
+  // 🎯 NEUE STRUKTURIERTE PREISLOGIK - IMPORT TokenPricingService
+  // Verwende den neuen TokenPricingService für saubere Preis-Resolution
 
   static getChainConfig(chainId) {
     for (const [key, config] of Object.entries(this.CHAINS)) {
@@ -242,15 +196,16 @@ export class CentralDataService {
   }
 
   // 🪙 Pro token loading with separate API calls (cost optimized for Pro Plan)
+  // 🎯 NEUE STRUKTURIERTE TOKEN-LOADING-LOGIK
   static async loadTokenBalancesPro(wallets) {
-    console.log(`🪙 PRO: Loading tokens for ${wallets.length} wallets (separate API strategy)`);
+    console.log(`🎯 STRUCTURED: Loading tokens for ${wallets.length} wallets`);
     
     const allTokens = [];
     let totalValue = 0;
     let apiCallsUsed = 0;
     const debug = {
       pricesUpdated: new Date().toLocaleString('de-DE'),
-      priceSource: 'moralis_pro_batch_prices',
+      priceSource: 'structured_token_pricing_service',
       apiCalls: 0,
       lastPriceUpdate: new Date().toISOString()
     };
@@ -260,240 +215,129 @@ export class CentralDataService {
         const chainId = wallet.chain_id || 369;
         const chain = this.getChainConfig(chainId);
         
-        // Step 1: Get token balances (1 API call per wallet)
+        // 🚀 SCHRITT 1: Wallet Tokens via Moralis laden (nur Balances!)
+        console.log(`📊 TOKENS: Loading balances for ${wallet.address.slice(0,8)}... on ${chain.name}`);
+        
         const tokensResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=erc20`);
         apiCallsUsed++;
         
         if (!tokensResponse.ok) {
-          console.error(`⚠️ PRO: Token fetch failed for ${wallet.address}: ${tokensResponse.status}`);
+          console.error(`⚠️ TOKENS: Failed to load for ${wallet.address}: ${tokensResponse.status}`);
           continue;
         }
         
         const tokensData = await tokensResponse.json();
         const rawTokens = tokensData.result || [];
         
-        console.log(`✅ PRO: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)}`);
+        console.log(`✅ TOKENS: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)}`);
         
-        // Step 2: Get prices for ALL tokens in ONE batch call! 🚀
-        console.log(`🚀 BATCH PRICES: Loading prices for ${rawTokens.length} tokens`);
-        
-        // Sammle alle Token für Batch-Call
-        const tokensForPricing = rawTokens.map(token => ({
-          address: token.token_address,
-          symbol: token.symbol,
-          chain: chain.moralisChainId || '0x171'
-        }));
-        
-        // 🚀 ECHTE PREISE: Batch-API-Call für alle Token-Preise
-        console.log(`🚀 REAL PRICES: Loading live prices for ${rawTokens.length} tokens via Moralis API`);
-        
-        // Batch-Call für alle Token-Preise
-        let pricesData = {};
-        try {
-          const batchPriceResponse = await fetch('/api/moralis-batch-prices', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tokens: tokensForPricing,
-              chain: chain.moralisChainId || '0x171'
-            })
-          });
+        // 🚀 SCHRITT 2: Preise über TokenPricingService strukturiert laden
+        if (rawTokens.length > 0) {
+          // Vorbereite Token-Array für Pricing-Service
+          const tokensForPricing = rawTokens.map(token => ({
+            address: token.token_address,
+            symbol: token.symbol,
+            chain: chain.moralisChainId || '0x171'
+          }));
           
-          if (batchPriceResponse.ok) {
-            const batchData = await batchPriceResponse.json();
-            pricesData = batchData.prices || {};
-            apiCallsUsed += 1; // Batch-Call zählt als 1 API-Call
-            console.log(`✅ BATCH PRICES: Loaded ${Object.keys(pricesData).length} prices`);
-          } else {
-            console.warn(`⚠️ BATCH PRICES: API failed, using emergency fallback`);
-          }
-        } catch (priceError) {
-          console.warn(`⚠️ BATCH PRICES: Error, using emergency fallback:`, priceError.message);
-        }
-
-        // 🔍 DEXSCREENER BACKUP: Für fehlende/extreme Preise
-        const missingPrices = [];
-        const extremePrices = [];
-        
-        tokensForPricing.forEach(addr => {
-          const price = pricesData[addr]?.usdPrice || 0;
-          if (price === 0) {
-            missingPrices.push(addr);
-          } else if (price > 10) { // Extreme Preise über $10 (für PulseChain Token unrealistisch)
-            extremePrices.push(addr);
-          }
-        });
-        
-        if (missingPrices.length > 0 || extremePrices.length > 0) {
-          const backupTokens = [...missingPrices, ...extremePrices];
-          console.log(`🔍 DEXSCREENER BACKUP: Checking ${backupTokens.length} tokens (${missingPrices.length} missing, ${extremePrices.length} extreme)`);
+          console.log(`🎯 PRICING: Loading structured prices for ${tokensForPricing.length} tokens`);
           
-          try {
-            const dexScreenerResponse = await fetch(`/api/dexscreener-prices?tokens=${backupTokens.join(',')}`);
-            
-            if (dexScreenerResponse.ok) {
-              const dexData = await dexScreenerResponse.json();
-              const dexPrices = dexData.prices || {};
+          // Verwende den neuen TokenPricingService
+          const pricesData = await TokenPricingService.getTokenPrices(tokensForPricing);
+          
+          // 🚀 SCHRITT 3: Token-Processing ohne willkürliche Blockierungen
+          const processedTokens = rawTokens.map((token) => {
+            try {
+              // Token-Balance berechnen
+              const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+              const tokenAddress = token.token_address?.toLowerCase();
+              const tokenSymbol = token.symbol?.toUpperCase();
               
-              // Merge DexScreener prices
-              Object.keys(dexPrices).forEach(addr => {
-                const dexPrice = dexPrices[addr];
-                const moralisPrice = pricesData[addr]?.usdPrice || 0;
-                
-                // Use DexScreener if Moralis is missing or extreme
-                if (moralisPrice === 0 || moralisPrice > 10) {
-                  pricesData[addr] = {
-                    usdPrice: dexPrice.usdPrice,
-                    source: 'dexscreener_backup',
-                    liquidity: dexPrice.liquidity
-                  };
-                  console.log(`🔄 BACKUP USED: ${addr.slice(0,8)}... = $${dexPrice.usdPrice} (was $${moralisPrice})`);
-                }
-              });
+              console.log(`📊 PROCESSING: ${tokenSymbol} = ${balanceReadable.toLocaleString()} tokens`);
               
-              console.log(`✅ DEXSCREENER BACKUP: Applied ${Object.keys(dexPrices).length} backup prices`);
-            }
-            
-          } catch (error) {
-            console.warn('⚠️ DexScreener backup failed:', error.message);
-          }
-        }
-
-        // Step 3: Process tokens with REAL prices - FILTER OUT FAKE TOKENS
-        const processedTokens = rawTokens.map((token) => {
-          try {
-            // 🚀 RAW MORALIS DATA: Use exact blockchain data for tax compliance
-            const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-            console.log(`📊 RAW TOKEN: ${token.symbol} = ${balanceReadable.toLocaleString()} tokens (raw: ${token.balance}, decimals: ${token.decimals})`);
-            
-            // 🚀 ECHTE PREISE: Verwende Live-Preise von Moralis
-            const tokenAddress = token.token_address?.toLowerCase();
-            const tokenSymbol = token.symbol?.toUpperCase();
-            
-            // 🚨 FAKE TOKEN DETECTION: Blockiere Fake-DOMINANCE KOMPLETT
-            const isFakeDominance = (
-              tokenSymbol === 'DOMINANCE' && 
-              tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea'
-            );
-            
-            if (isFakeDominance) {
-              console.error(`🚨 FAKE DOMINANCE COMPLETELY REMOVED: Contract ${tokenAddress} is NOT the verified DOMINANCE token!`);
-              console.error(`✅ REAL DOMINANCE: 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea`);
-              return null; // KOMPLETT ENTFERNEN aus der Liste
-            }
-            
-            // 1. Versuche Live-Preis von Batch-API (Moralis + DexScreener Backup)
-            let rawPrice = pricesData[tokenAddress]?.usdPrice || 0;
-            let usdPrice = rawPrice;
-            let priceSource = pricesData[tokenAddress]?.source || 'moralis_live';
-            
-            // 🎯 VERIFIED TOKEN CHECK: Prüfe gegen Whitelist
-            const verifiedToken = this.VERIFIED_TOKENS[tokenAddress];
-            let isVerifiedToken = !!verifiedToken;
-            let maxAllowedPrice = verifiedToken?.maxPrice || 50; // Default: $50 für unbekannte Token
-            let maxAllowedBalance = verifiedToken?.maxBalance || 1000000; // Default: 1M Token
-            
-            // 🚨 PREIS-VALIDIERUNG: Verwende Token-spezifische Limits (ohne Fake-DOMINANCE)
-            const isExtremePriceError = (
-              rawPrice > maxAllowedPrice || // Token-spezifisches Preis-Limit
-              balanceReadable > maxAllowedBalance // Token-spezifisches Balance-Limit
-            ) && !['WBTC', 'ETH', 'WETH', 'BTC'].includes(tokenSymbol); // Außer bekannte High-Value Token
-            
-            if (isExtremePriceError) {
-              console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice}, balance ${balanceReadable.toLocaleString()}`);
-              console.error(`📊 LIMITS: Max Price: $${maxAllowedPrice}, Max Balance: ${maxAllowedBalance.toLocaleString()}`);
-              
-              usdPrice = 0; // Setze auf 0 um Portfolio-Verzerrung zu vermeiden
-              priceSource = 'moralis_price_error';
-            }
-            
-            // 🚨 ZUSÄTZLICHE EXTREME-PREIS-KORREKTUR: Alle Preise über $50 blockieren
-            if (rawPrice > 50 && !['WBTC', 'ETH', 'WETH', 'BTC', 'FINVESTA'].includes(tokenSymbol)) {
-              console.error(`🚨 EXTREME PRICE BLOCKED: ${tokenSymbol} had price $${rawPrice}, setting to $0`);
-              usdPrice = 0;
-              priceSource = 'blocked_extreme_price';
-            }
-            
-            // 2. Fallback zu Emergency-Preisen oder Verified Token-Preisen
-            if (usdPrice === 0) {
-              if (verifiedToken?.expectedPrice) {
-                usdPrice = verifiedToken.expectedPrice;
-                priceSource = 'verified_token_price';
-                console.log(`✅ VERIFIED PRICE: ${tokenSymbol} = $${usdPrice} (from whitelist)`);
-              } else if (this.EMERGENCY_PRICES[tokenSymbol]) {
-                usdPrice = this.EMERGENCY_PRICES[tokenSymbol];
-                priceSource = 'emergency_fallback';
-                console.log(`💰 EMERGENCY PRICE: ${tokenSymbol} = $${usdPrice}`);
+              // Skip Zero-Balance Tokens
+              if (balanceReadable === 0) {
+                console.log(`⚪ SKIPPING: ${tokenSymbol} has zero balance`);
+                return null;
               }
-            }
-            
-            const totalUsd = balanceReadable * usdPrice;
-            
-            // 🚨 DEBUG: Log alle Token mit Werten über $100
-            if (totalUsd > 100) {
-              console.log(`💎 HIGH VALUE TOKEN: ${tokenSymbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${usdPrice}, Value: $${totalUsd.toLocaleString()}`);
-            }
               
-            return {
-              symbol: token.symbol,
-              name: token.name,
-              contractAddress: token.token_address,
-              decimals: token.decimals,
-              balance: balanceReadable,
-              price: usdPrice,
-              total_usd: totalUsd,
-              value: totalUsd,
-              hasReliablePrice: usdPrice > 0,
-              priceSource: priceSource,
-              isIncludedInPortfolio: totalUsd > 0.01,
-              walletAddress: wallet.address,
-              chainId: chainId,
-              source: 'moralis_raw_data',
-              _rawBalance: token.balance,
-              _rawDecimals: token.decimals
-            };
-          } catch (priceError) {
-            console.warn(`⚠️ PRO: Token processing failed for ${token.symbol}:`, priceError.message);
-            // 🚀 RAW MORALIS DATA: Even in error case, use exact blockchain data
-            const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-            
-            // Emergency fallback price
-            const tokenSymbol = token.symbol?.toUpperCase();
-            const emergencyPrice = this.EMERGENCY_PRICES[tokenSymbol] || 0;
-            
-            return {
-              symbol: token.symbol,
-              name: token.name,
-              contractAddress: token.token_address,
-              decimals: token.decimals,
-              balance: balanceReadable,
-              price: emergencyPrice,
-              total_usd: balanceReadable * emergencyPrice,
-              value: balanceReadable * emergencyPrice,
-              hasReliablePrice: emergencyPrice > 0,
-              priceSource: emergencyPrice > 0 ? 'emergency_fallback' : 'no_price',
-              isIncludedInPortfolio: emergencyPrice > 0,
-              walletAddress: wallet.address,
-              chainId: chainId,
-              source: 'moralis_raw_data_error',
-              _rawBalance: token.balance,
-              _rawDecimals: token.decimals
-            };
-          }
-        }).filter(token => token !== null); // ENTFERNE NULL-WERTE (fake tokens)
-        
-        allTokens.push(...processedTokens);
-        totalValue += processedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
+              // Hole strukturierte Preis-Daten
+              const priceData = pricesData[tokenAddress] || {};
+              const finalPrice = priceData.final || 0;
+              const priceSource = priceData.source || 'no_price';
+              const isReliable = priceData.status === 'verified';
+              
+              const totalUsd = balanceReadable * finalPrice;
+              
+              // 📈 DEBUG: Log alle Token mit Werten über $100
+              if (totalUsd > 100) {
+                console.log(`💎 HIGH VALUE: ${tokenSymbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${finalPrice} (${priceSource}), Value: $${totalUsd.toLocaleString()}`);
+              }
+              
+              return {
+                symbol: token.symbol,
+                name: token.name,
+                contractAddress: token.token_address,
+                decimals: token.decimals,
+                balance: balanceReadable,
+                price: finalPrice,
+                total_usd: totalUsd,
+                value: totalUsd,
+                hasReliablePrice: isReliable,
+                priceSource: `${priceSource} (${priceData.token || tokenSymbol})`,
+                isIncludedInPortfolio: totalUsd > 0.01,
+                walletAddress: wallet.address,
+                chainId: chainId,
+                source: 'structured_pricing_service',
+                _rawBalance: token.balance,
+                _rawDecimals: token.decimals,
+                _priceData: priceData // Vollständige Preis-Informationen
+              };
+              
+            } catch (tokenError) {
+              console.warn(`⚠️ TOKEN PROCESSING: Error for ${token.symbol} - ${tokenError.message}`);
+              
+              // Fallback für fehlerhafte Token
+              const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+              const tokenSymbol = token.symbol?.toUpperCase();
+              
+              return {
+                symbol: token.symbol,
+                name: token.name,
+                contractAddress: token.token_address,
+                decimals: token.decimals,
+                balance: balanceReadable,
+                price: 0,
+                total_usd: 0,
+                value: 0,
+                hasReliablePrice: false,
+                priceSource: 'processing_error',
+                isIncludedInPortfolio: false,
+                walletAddress: wallet.address,
+                chainId: chainId,
+                source: 'error_fallback',
+                _rawBalance: token.balance,
+                _rawDecimals: token.decimals,
+                _error: tokenError.message
+              };
+            }
+          }).filter(token => token !== null); // Entferne null-Werte
+          
+          allTokens.push(...processedTokens);
+          totalValue += processedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
+          
+          console.log(`✅ WALLET: ${processedTokens.length} tokens processed for ${wallet.address.slice(0,8)}`);
+        }
         
       } catch (error) {
-        console.error(`⚠️ PRO: Token load failed for ${wallet.address}:`, error.message);
+        console.error(`⚠️ WALLET LOAD: Failed for ${wallet.address} - ${error.message}`);
       }
     }
 
-    // 📊 Calculate portfolio statistics
+    // 📊 Portfolio-Statistiken berechnen
     const sortedTokens = allTokens.sort((a, b) => (b.value || 0) - (a.value || 0));
     
-    // Add ranking and percentage
+    // Ranking und Prozent-Anteil hinzufügen
     sortedTokens.forEach((token, index) => {
       token.holdingRank = index + 1;
       token.percentageOfPortfolio = totalValue > 0 ? (token.value / totalValue) * 100 : 0;
@@ -501,25 +345,12 @@ export class CentralDataService {
 
     debug.apiCalls = apiCallsUsed;
     
-    // 🚨 PORTFOLIO-VALIDIERUNG: Warne vor extremen Gesamtwerten
-    if (totalValue > 1000000) { // Über $1 Million
-      console.error(`🚨 EXTREME PORTFOLIO VALUE: $${totalValue.toLocaleString()} - likely contains price errors!`);
-      
-      // Zeige die Top-Token die das Portfolio dominieren
-      const topTokens = sortedTokens.slice(0, 3);
-      topTokens.forEach(token => {
-        if (token.value > totalValue * 0.5) { // Token macht über 50% des Portfolios aus
-          console.error(`🚨 DOMINANT TOKEN: ${token.symbol} = $${token.value.toLocaleString()} (${token.percentageOfPortfolio.toFixed(1)}% of portfolio) - Price: $${token.price}`);
-        }
-      });
-    }
-
-    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed} (RAW BLOCKCHAIN DATA + LIVE PRICES!)`);
+    console.log(`✅ PORTFOLIO: ${sortedTokens.length} tokens, $${totalValue.toFixed(2)} total value, ${apiCallsUsed} API calls`);
 
     return {
       tokens: sortedTokens,
       totalValue: totalValue,
-      source: 'moralis_raw_blockchain_data',
+      source: 'structured_token_pricing_service',
       debug: debug,
       apiCallsUsed: apiCallsUsed
     };
