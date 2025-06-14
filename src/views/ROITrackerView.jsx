@@ -380,10 +380,16 @@ const ROITrackerView = () => {
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
+        {/* 🚨 LIVE TEST BANNER */}
+        <div className="bg-gradient-to-r from-pink-500 to-purple-600 text-white p-4 rounded-lg text-center mb-6">
+          <h2 className="text-xl font-bold">🎯 PULSEWATCH STYLE AKTIV! 🚀</h2>
+          <p className="text-sm">Live Test - Wenn du das siehst, funktionieren die Änderungen!</p>
+        </div>
+
         {/* Header mit Portfolio-Status */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold pulse-title">ROI Tracker</h1>
+            <h1 className="text-3xl font-bold pulse-title">🎯 ROI Tracker - PULSEWATCH STYLE 🚀</h1>
             <div className="flex items-center space-x-4 text-sm pulse-text-secondary">
               <span>💰 MORALIS PRO MODUS</span>
               <span className="text-green-400">✅ Globaler Portfolio-State</span>
