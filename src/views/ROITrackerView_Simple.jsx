@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { DirectMoralisService } from '../services/DirectMoralisService';
+import { TokenPriceService } from '../services/tokenPriceService';
 import { supabase } from '../lib/supabaseClient';
 
 const ROITrackerView = () => {
@@ -89,8 +90,8 @@ const ROITrackerView = () => {
         }
       }
       
-      // Calculate ROI by timeframe
-      const roiStats = calculateROIStats(allROITransfers, timeFrame);
+      // Calculate ROI by timeframe with LIVE PRICES
+      const roiStats = await calculateROIStats(allROITransfers, timeFrame);
       
       setROIData({
         transfers: allROITransfers,
@@ -98,11 +99,11 @@ const ROITrackerView = () => {
         walletCount: wallets.length,
         cuUsed: totalCUs,
         timeFrame: timeFrame,
-        source: 'direct_moralis_pro_roi'
+        source: 'direct_moralis_pro_roi_live_prices'
       });
       
       setLastUpdate(new Date());
-      console.log('✅ ROI Data loaded:', roiStats);
+      console.log('✅ ROI Data loaded with LIVE PRICES:', roiStats);
       
     } catch (error) {
       console.error('💥 ROI loading error:', error);
@@ -112,8 +113,8 @@ const ROITrackerView = () => {
     }
   };
 
-  // Calculate ROI statistics
-  const calculateROIStats = (transfers, days) => {
+  // Calculate ROI statistics with LIVE PRICES
+  const calculateROIStats = async (transfers, days) => {
     const now = new Date();
     const cutoffDate = new Date(now.getTime() - (parseInt(days) * 24 * 60 * 60 * 1000));
     
@@ -123,50 +124,106 @@ const ROITrackerView = () => {
       return transferDate >= cutoffDate;
     });
     
-    // Calculate values
-    let totalROIValue = 0;
-    let transferCount = recentTransfers.length;
-    
-    recentTransfers.forEach(transfer => {
-      // Estimate value based on transfer amount
-      const decimals = parseInt(transfer.token_decimals || transfer.decimals) || 18;
-      const amount = parseFloat(transfer.value) / Math.pow(10, decimals);
-      
-      // 🎯 ECHTE TOKEN-PREISE für ROI-Berechnung (basierend auf aktuellen Marktpreisen)
-      const tokenSymbol = transfer.token_symbol?.toUpperCase();
-      const realTokenPrices = {
-        'HEX': 0.007,      // ~$0.007 (echte HEX Preise)
-        'INC': 0.012,      // ~$0.012 (echte INC Preise)
-        'PLSX': 0.000045,  // ~$0.000045 (echte PLSX Preise)
-        'LOAN': 0.0001,    // ~$0.0001 (echte LOAN Preise)
-        'FLEX': 0.0002,    // ~$0.0002 (echte FLEX Preise)
-        'WGEP': 0.0001,    // ~$0.0001 (echte WGEP Preise)
-        'MISSER': 0.00001, // ~$0.00001 (echte MISSER Preise)
-        'PLS': 0.00012,    // ~$0.00012 (echte PLS Preise)
-        'WPLS': 0.00012,   // ~$0.00012 (echte WPLS Preise)
-        'USDC': 1.0,       // $1.00 (Stablecoin)
-        'USDT': 1.0,       // $1.00 (Stablecoin)
-        'DAI': 1.0         // $1.00 (Stablecoin)
+    if (recentTransfers.length === 0) {
+      return {
+        totalValue: 0,
+        transferCount: 0,
+        avgPerTransfer: 0,
+        dailyAvg: 0,
+        period: `${days} Tage`
       };
+    }
+
+    // 🚀 LIVE PRICES: Sammle alle einzigartigen Token-Adressen
+    const uniqueTokens = [...new Set(recentTransfers.map(transfer => ({
+      address: transfer.token_address,
+      symbol: transfer.token_symbol,
+      chain: '0x171' // PulseChain
+    })))];
+
+    console.log(`🚀 ROI: Fetching live prices for ${uniqueTokens.length} unique tokens`);
+
+    try {
+      // 🎯 BATCH-PREISE von Moralis holen
+      const livePrices = await TokenPriceService.getMultipleTokenPrices(uniqueTokens);
       
-      const tokenPrice = realTokenPrices[tokenSymbol] || 0.001; // Fallback für unbekannte Token
-      const tokenValue = amount * tokenPrice;
+      // Erstelle Price-Map für schnelle Suche
+      const priceMap = {};
+      livePrices.forEach(priceData => {
+        priceMap[priceData.address?.toLowerCase()] = priceData.price;
+        priceMap[priceData.symbol?.toUpperCase()] = priceData.price;
+      });
+
+      console.log(`✅ ROI: Got live prices for ${livePrices.length} tokens`);
+
+      // Calculate values with LIVE PRICES
+      let totalROIValue = 0;
+      let transferCount = recentTransfers.length;
       
-      totalROIValue += tokenValue;
+      recentTransfers.forEach(transfer => {
+        // Estimate value based on transfer amount
+        const decimals = parseInt(transfer.token_decimals || transfer.decimals) || 18;
+        const amount = parseFloat(transfer.value) / Math.pow(10, decimals);
+        
+        // 🎯 LIVE PRICE LOOKUP
+        const tokenSymbol = transfer.token_symbol?.toUpperCase();
+        const tokenAddress = transfer.token_address?.toLowerCase();
+        
+        let tokenPrice = priceMap[tokenAddress] || priceMap[tokenSymbol];
+        
+        // 🛡️ Fallback wenn kein Live-Preis verfügbar
+        if (!tokenPrice || tokenPrice <= 0) {
+          const fallbackPrice = TokenPriceService.getEmergencyFallbackPrice(tokenSymbol);
+          tokenPrice = fallbackPrice.price;
+          console.warn(`⚠️ Using fallback price for ${tokenSymbol}: $${tokenPrice}`);
+        }
+        
+        const tokenValue = amount * tokenPrice;
+        totalROIValue += tokenValue;
+        
+        // Debug: Log significant ROI values
+        if (tokenValue > 1) {
+          console.log(`💰 ROI LIVE: ${amount.toFixed(4)} ${tokenSymbol} × $${tokenPrice} = $${tokenValue.toFixed(2)}`);
+        }
+      });
       
-      // Debug: Log significant ROI values
-      if (tokenValue > 1) {
-        console.log(`💰 ROI: ${amount.toFixed(4)} ${tokenSymbol} × $${tokenPrice} = $${tokenValue.toFixed(2)}`);
-      }
-    });
-    
-    return {
-      totalValue: totalROIValue,
-      transferCount: transferCount,
-      avgPerTransfer: transferCount > 0 ? totalROIValue / transferCount : 0,
-      dailyAvg: totalROIValue / parseInt(days),
-      period: `${days} Tage`
-    };
+      return {
+        totalValue: totalROIValue,
+        transferCount: transferCount,
+        avgPerTransfer: transferCount > 0 ? totalROIValue / transferCount : 0,
+        dailyAvg: totalROIValue / parseInt(days),
+        period: `${days} Tage`,
+        livePricesUsed: livePrices.length,
+        priceSource: 'moralis_live_batch'
+      };
+
+    } catch (error) {
+      console.error('🚨 ROI: Live price fetch failed, using fallbacks:', error);
+      
+      // 🛡️ FALLBACK: Verwende Emergency Prices
+      let totalROIValue = 0;
+      let transferCount = recentTransfers.length;
+      
+      recentTransfers.forEach(transfer => {
+        const decimals = parseInt(transfer.token_decimals || transfer.decimals) || 18;
+        const amount = parseFloat(transfer.value) / Math.pow(10, decimals);
+        const tokenSymbol = transfer.token_symbol?.toUpperCase();
+        
+        const fallbackPrice = TokenPriceService.getEmergencyFallbackPrice(tokenSymbol);
+        const tokenValue = amount * fallbackPrice.price;
+        totalROIValue += tokenValue;
+      });
+      
+      return {
+        totalValue: totalROIValue,
+        transferCount: transferCount,
+        avgPerTransfer: transferCount > 0 ? totalROIValue / transferCount : 0,
+        dailyAvg: totalROIValue / parseInt(days),
+        period: `${days} Tage`,
+        priceSource: 'fallback_only',
+        error: error.message
+      };
+    }
   };
 
   // Format functions
