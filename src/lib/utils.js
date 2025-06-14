@@ -132,6 +132,29 @@ export function formatDateTime(date) {
 }
 
 /**
+ * 🔧 SICHERE Zeit-Formatierung (verhindert toLocaleTimeString Crashes)
+ * @param {Date|string|number} date - Das zu formatierende Datum
+ * @returns {string} Formatierte Zeit
+ */
+export function formatTime(date) {
+  if (!date) return 'N/A';
+  
+  try {
+    const dateObj = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return 'Invalid Date';
+    
+    return dateObj.toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch (error) {
+    console.warn('formatTime error:', error, 'Input:', date);
+    return 'Format Error';
+  }
+}
+
+/**
  * Kürzt eine Adresse für die Anzeige
  * @param {string} address - Die zu kürzende Adresse
  * @param {number} startChars - Anzahl der Zeichen am Anfang (default: 6)

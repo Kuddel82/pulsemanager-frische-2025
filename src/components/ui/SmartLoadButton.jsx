@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatTime } from '@/lib/utils';
 import { 
   RefreshCw, 
   Clock, 
@@ -113,7 +114,7 @@ const SmartLoadButton = ({
           {lastUpdate && (
             <div className="flex items-center space-x-1 text-gray-600 dark:text-gray-400">
               <CheckCircle2 className="h-3 w-3" />
-              <span>Zuletzt: {lastUpdate.toLocaleTimeString('de-DE')}</span>
+              <span>Zuletzt: {formatTime(lastUpdate)}</span>
             </div>
           )}
           

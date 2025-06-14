@@ -253,6 +253,33 @@ export class CentralDataService {
               const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
               const totalUsd = balanceReadable * usdPrice;
               
+              // 🚨 DOMINANCE TOKEN FIX: Filter out suspicious DOMINANCE values
+              const isDominanceToken = token.symbol?.toUpperCase() === 'DOMINANCE';
+              const hasSuspiciousValue = isDominanceToken && (balanceReadable > 50000 || totalUsd > 10000);
+              
+              if (hasSuspiciousValue) {
+                console.warn(`🚨 DOMINANCE FILTER: Suspicious ${token.symbol} value detected - Balance: ${balanceReadable.toLocaleString()}, Value: $${totalUsd.toLocaleString()}`);
+                return {
+                  symbol: token.symbol,
+                  name: token.name,
+                  contractAddress: token.token_address,
+                  decimals: token.decimals,
+                  balance: 0, // Set to 0 to prevent portfolio distortion
+                  price: 0,
+                  total_usd: 0,
+                  value: 0,
+                  hasReliablePrice: false,
+                  priceSource: 'filtered_suspicious_value',
+                  isIncludedInPortfolio: false,
+                  walletAddress: wallet.address,
+                  chainId: chainId,
+                  source: 'moralis_pro_separate_filtered',
+                  _filtered: true,
+                  _originalBalance: balanceReadable,
+                  _originalValue: totalUsd
+                };
+              }
+              
               return {
                 symbol: token.symbol,
                 name: token.name,
