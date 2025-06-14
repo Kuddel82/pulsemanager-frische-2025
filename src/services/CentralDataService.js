@@ -3,6 +3,7 @@
 // Datum: 2025-01-15 - PRO PLAN mit MANUELLER STEUERUNG (Auto-Refresh komplett deaktiviert)
 
 import { supabase } from '@/lib/supabaseClient';
+import { TokenPriceService } from './tokenPriceService';
 
 export class CentralDataService {
   
@@ -160,7 +161,7 @@ export class CentralDataService {
         // Debug Information for CU tracking
         debug: tokenData.debug || {
           pricesUpdated: new Date().toLocaleString('de-DE'),
-          priceSource: 'moralis_pro_separate_calls',
+          priceSource: 'moralis_pro_batch_prices',
           apiCalls: tokenData.apiCallsUsed || 0,
           lastPriceUpdate: new Date().toISOString()
         },
@@ -210,8 +211,8 @@ export class CentralDataService {
     let totalValue = 0;
     let apiCallsUsed = 0;
     const debug = {
-              pricesUpdated: new Date().toLocaleString('de-DE'),
-      priceSource: 'moralis_pro_separate_calls',
+      pricesUpdated: new Date().toLocaleString('de-DE'),
+      priceSource: 'moralis_pro_batch_prices',
       apiCalls: 0,
       lastPriceUpdate: new Date().toISOString()
     };
@@ -235,23 +236,53 @@ export class CentralDataService {
         
         console.log(`✅ PRO: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)}`);
         
-        // Step 2: Get prices for each token (1 API call per token)
-        const processedTokens = await Promise.all(
-          rawTokens.map(async (token) => {
-            try {
-              // Get price for this specific token
-              const priceResponse = await fetch(`/api/moralis-v2?address=${token.token_address}&chain=${chain.name.toLowerCase()}&endpoint=token-price`);
-              apiCallsUsed++;
-              
-              let usdPrice = 0;
-              if (priceResponse.ok) {
-                const priceData = await priceResponse.json();
-                usdPrice = priceData.usdPrice || 0;
-              }
-              
-              // Calculate readable balance
-              const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-              const totalUsd = balanceReadable * usdPrice;
+        // Step 2: Get prices for ALL tokens in ONE batch call! 🚀
+        console.log(`🚀 BATCH PRICES: Loading prices for ${rawTokens.length} tokens`);
+        
+        // Sammle alle Token für Batch-Call
+        const tokensForPricing = rawTokens.map(token => ({
+          address: token.token_address,
+          symbol: token.symbol,
+          chain: chain.moralisChainId || '0x171'
+        }));
+        
+        // 🎯 BATCH-PREISE von TokenPriceService holen
+        let priceMap = {};
+        try {
+          const batchPrices = await TokenPriceService.getMultipleTokenPrices(tokensForPricing);
+          apiCallsUsed += 1; // Nur 1 Batch-Call statt N einzelne Calls!
+          
+          // Erstelle Price-Map für schnelle Suche
+          batchPrices.forEach(priceData => {
+            priceMap[priceData.address?.toLowerCase()] = priceData.price;
+            priceMap[priceData.symbol?.toUpperCase()] = priceData.price;
+          });
+          
+          console.log(`✅ BATCH PRICES: Got ${batchPrices.length} prices in 1 API call (saved ${rawTokens.length - 1} calls!)`);
+        } catch (error) {
+          console.error('🚨 BATCH PRICES failed, using fallbacks:', error);
+        }
+
+        // Step 3: Process tokens with batch prices
+        const processedTokens = rawTokens.map((token) => {
+          try {
+            // Calculate readable balance
+            const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+            
+            // 🎯 LIVE PRICE LOOKUP from batch
+            const tokenSymbol = token.symbol?.toUpperCase();
+            const tokenAddress = token.token_address?.toLowerCase();
+            
+            let usdPrice = priceMap[tokenAddress] || priceMap[tokenSymbol];
+            
+            // 🛡️ Fallback wenn kein Live-Preis verfügbar
+            if (!usdPrice || usdPrice <= 0) {
+              const fallbackPrice = TokenPriceService.getEmergencyFallbackPrice(tokenSymbol);
+              usdPrice = fallbackPrice.price;
+              console.warn(`⚠️ Using fallback price for ${tokenSymbol}: $${usdPrice}`);
+            }
+            
+            const totalUsd = balanceReadable * usdPrice;
               
               // 🚨 DOMINANCE TOKEN FIX: Filter out suspicious DOMINANCE values
               const isDominanceToken = token.symbol?.toUpperCase() === 'DOMINANCE';
@@ -280,45 +311,44 @@ export class CentralDataService {
                 };
               }
               
-              return {
-                symbol: token.symbol,
-                name: token.name,
-                contractAddress: token.token_address,
-                decimals: token.decimals,
-                balance: balanceReadable,
-                price: usdPrice,
-                total_usd: totalUsd,
-                value: totalUsd,
-                hasReliablePrice: usdPrice > 0,
-                priceSource: this.getPriceSourceDisplay('moralis_pro_separate', usdPrice),
-                isIncludedInPortfolio: totalUsd > 0.01,
-                walletAddress: wallet.address,
-                chainId: chainId,
-                source: 'moralis_pro_separate'
-              };
-            } catch (priceError) {
-              console.warn(`⚠️ PRO: Price failed for ${token.symbol}:`, priceError.message);
-              const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-              
-              return {
-                symbol: token.symbol,
-                name: token.name,
-                contractAddress: token.token_address,
-                decimals: token.decimals,
-                balance: balanceReadable,
-                price: 0,
-                total_usd: 0,
-                value: 0,
-                hasReliablePrice: false,
-                priceSource: 'moralis_pro_no_price',
-                isIncludedInPortfolio: false,
-                walletAddress: wallet.address,
-                chainId: chainId,
-                source: 'moralis_pro_separate'
-              };
-            }
-          })
-        );
+            return {
+              symbol: token.symbol,
+              name: token.name,
+              contractAddress: token.token_address,
+              decimals: token.decimals,
+              balance: balanceReadable,
+              price: usdPrice,
+              total_usd: totalUsd,
+              value: totalUsd,
+              hasReliablePrice: usdPrice > 0,
+              priceSource: this.getPriceSourceDisplay('moralis_pro_batch', usdPrice),
+              isIncludedInPortfolio: totalUsd > 0.01,
+              walletAddress: wallet.address,
+              chainId: chainId,
+              source: 'moralis_pro_batch_prices'
+            };
+          } catch (priceError) {
+            console.warn(`⚠️ PRO: Price processing failed for ${token.symbol}:`, priceError.message);
+            const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+            
+            return {
+              symbol: token.symbol,
+              name: token.name,
+              contractAddress: token.token_address,
+              decimals: token.decimals,
+              balance: balanceReadable,
+              price: 0,
+              total_usd: 0,
+              value: 0,
+              hasReliablePrice: false,
+              priceSource: 'moralis_batch_failed',
+              isIncludedInPortfolio: false,
+              walletAddress: wallet.address,
+              chainId: chainId,
+              source: 'moralis_pro_batch_prices'
+            };
+          }
+        });
         
         allTokens.push(...processedTokens);
         totalValue += processedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
@@ -339,12 +369,12 @@ export class CentralDataService {
 
     debug.apiCalls = apiCallsUsed;
     
-    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed}`);
+    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed} (BATCH OPTIMIZED!)`);
 
     return {
       tokens: sortedTokens,
       totalValue: totalValue,
-      source: 'moralis_pro_separate_calls',
+      source: 'moralis_pro_batch_prices',
       debug: debug,
       apiCallsUsed: apiCallsUsed
     };
