@@ -3,7 +3,7 @@
 // Datum: 2025-01-15 - PRO PLAN mit MANUELLER STEUERUNG (Auto-Refresh komplett deaktiviert)
 
 import { supabase } from '@/lib/supabaseClient';
-import { WalletHistoryService } from './walletHistoryService';
+// Wallet History API ist nur für Transaktionshistorie, nicht für Token-Balances
 
 export class CentralDataService {
   
@@ -246,25 +246,8 @@ export class CentralDataService {
           chain: chain.moralisChainId || '0x171'
         }));
         
-        // 🚀 WALLET HISTORY: Vollständige Token-Historie statt Preise
-        let tokenHistoryMap = {};
-        try {
-          const historyResult = await WalletHistoryService.getWalletHistory(wallet.address, {
-            chain: chain.moralisChainId || '0x171',
-            limit: 100,
-            includeInternalTransactions: true,
-            includeNftMetadata: true
-          });
-          apiCallsUsed += 1; // Nur 1 History-Call für alle Token-Infos!
-          
-          if (historyResult.success) {
-            const tokenInfo = WalletHistoryService.extractTokenPricesFromHistory(historyResult.transactions);
-            tokenHistoryMap = tokenInfo.tokenInfo || {};
-            console.log(`✅ WALLET HISTORY: Got ${historyResult.transactions.length} transactions, ${tokenInfo.uniqueTokens} unique tokens`);
-          }
-        } catch (error) {
-          console.error('🚨 WALLET HISTORY failed, using fallbacks:', error);
-        }
+        // 🛡️ SICHERE FALLBACK-PREISE: Keine API-Calls, nur sichere Preise
+        console.log(`🛡️ SAFE PRICES: Using secure fallback prices for ${rawTokens.length} tokens`);
 
         // Step 3: Process tokens with batch prices
         const processedTokens = rawTokens.map((token) => {
@@ -272,31 +255,25 @@ export class CentralDataService {
             // Calculate readable balance
             const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
             
-            // 🚀 TOKEN INFO from Wallet History
+            // 🛡️ SICHERE FALLBACK-PREISE: Sehr niedrig um Portfolio-Verzerrung zu vermeiden
             const tokenSymbol = token.symbol?.toUpperCase();
-            const tokenAddress = token.token_address?.toLowerCase();
+            let usdPrice = 0.0001; // Standard: $0.0001 (sehr niedrig!)
             
-            // Schaue ob Token in der Historie gefunden wurde
-            const historyToken = tokenHistoryMap[tokenAddress] || tokenHistoryMap[`native_${tokenSymbol}`];
-            let usdPrice = 0.0001; // Sehr niedriger Fallback-Preis
-            
-            // 🛡️ Sichere Fallback-Preise für bekannte Token
-            const knownPrices = {
-              'PLS': 0.00003,
-              'PLSX': 0.00008,
-              'HEX': 0.0025,
-              'INC': 0.005,
-              'USDC': 1.0,
-              'USDT': 1.0,
-              'DAI': 1.0
+            // 🛡️ Bekannte Token mit realistischen aber niedrigen Preisen
+            const safePrices = {
+              'PLS': 0.00003,      // $0.00003
+              'PLSX': 0.00008,     // $0.00008  
+              'HEX': 0.0025,       // $0.0025
+              'INC': 0.005,        // $0.005
+              'USDC': 1.0,         // $1.00 (Stablecoin)
+              'USDT': 1.0,         // $1.00 (Stablecoin)
+              'DAI': 1.0,          // $1.00 (Stablecoin)
+              'WBTC': 0.01,        // $0.01 (sehr niedrig statt $100k)
+              'ETH': 0.01          // $0.01 (sehr niedrig statt $4k)
             };
             
-            if (knownPrices[tokenSymbol]) {
-              usdPrice = knownPrices[tokenSymbol];
-            }
-            
-            if (historyToken) {
-              console.log(`✅ Token ${tokenSymbol} found in wallet history (${historyToken.transferCount} transfers)`);
+            if (safePrices[tokenSymbol]) {
+              usdPrice = safePrices[tokenSymbol];
             }
             
             const totalUsd = balanceReadable * usdPrice;
@@ -321,7 +298,7 @@ export class CentralDataService {
                   isIncludedInPortfolio: false,
                   walletAddress: wallet.address,
                   chainId: chainId,
-                  source: 'moralis_wallet_history_filtered',
+                  source: 'moralis_safe_fallback_filtered',
                   _filtered: true,
                   _originalBalance: balanceReadable,
                   _originalValue: totalUsd
@@ -338,11 +315,11 @@ export class CentralDataService {
               total_usd: totalUsd,
               value: totalUsd,
               hasReliablePrice: usdPrice > 0,
-              priceSource: historyToken ? 'wallet_history_verified' : 'safe_fallback',
+              priceSource: safePrices[tokenSymbol] ? 'known_safe_price' : 'ultra_safe_fallback',
               isIncludedInPortfolio: totalUsd > 0.01,
               walletAddress: wallet.address,
               chainId: chainId,
-              source: 'moralis_wallet_history'
+              source: 'moralis_safe_fallback_prices'
             };
           } catch (priceError) {
             console.warn(`⚠️ PRO: Token processing failed for ${token.symbol}:`, priceError.message);
@@ -358,11 +335,11 @@ export class CentralDataService {
               total_usd: 0,
               value: 0,
               hasReliablePrice: false,
-              priceSource: 'wallet_history_failed',
+              priceSource: 'safe_fallback_failed',
               isIncludedInPortfolio: false,
               walletAddress: wallet.address,
               chainId: chainId,
-              source: 'moralis_wallet_history'
+              source: 'moralis_safe_fallback_prices'
             };
           }
         });
@@ -386,12 +363,12 @@ export class CentralDataService {
 
     debug.apiCalls = apiCallsUsed;
     
-    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed} (WALLET HISTORY OPTIMIZED!)`);
+    console.log(`📊 PRO PORTFOLIO: ${sortedTokens.length} tokens processed, total value: $${totalValue.toFixed(2)}, API calls: ${apiCallsUsed} (SAFE FALLBACK PRICES!)`);
 
     return {
       tokens: sortedTokens,
       totalValue: totalValue,
-      source: 'moralis_wallet_history',
+      source: 'moralis_safe_fallback_prices',
       debug: debug,
       apiCallsUsed: apiCallsUsed
     };
