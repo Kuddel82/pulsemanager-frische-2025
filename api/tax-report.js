@@ -434,9 +434,16 @@ export default async function handler(req, res) {
       const type = isFromWallet ? 'Verkauf' : 
                    roiClassification.isROI ? 'ROI' : 'Kauf';
 
-      // Kaufhistorie für Haltefrist-Berechnung
+      // Kaufhistorie für Haltefrist-Berechnung (nur bei Käufen)
       if (type === 'Kauf') {
-        kaufHistorie[tokenAddr] = datum;
+        if (!kaufHistorie[tokenAddr]) {
+          kaufHistorie[tokenAddr] = [];
+        }
+        kaufHistorie[tokenAddr].push({
+          datum: datum,
+          amount: amount,
+          preis: usdPrice || 0
+        });
       }
 
       // 5. PREISFINDUNG: Batch First, dann Fallbacks
@@ -459,6 +466,27 @@ export default async function handler(req, res) {
       let usdPrice = priceInfo?.price || null;
       let hasReliablePrice = !!usdPrice;
 
+      // 🛡️ PREIS-VALIDIERUNG: Extreme Preise filtern
+      if (usdPrice !== null) {
+        // Unrealistische Preise abfangen
+        if (usdPrice > 1000000) { // > 1 Million USD
+          console.warn(`🚨 EXTREME PRICE DETECTED: ${token} = $${usdPrice} - REJECTED!`);
+          usdPrice = null;
+          hasReliablePrice = false;
+          priceSource += '_rejected_extreme';
+        } else if (usdPrice < 0) { // Negative Preise
+          console.warn(`🚨 NEGATIVE PRICE DETECTED: ${token} = $${usdPrice} - REJECTED!`);
+          usdPrice = null;
+          hasReliablePrice = false;
+          priceSource += '_rejected_negative';
+        } else if (isNaN(usdPrice) || !isFinite(usdPrice)) { // NaN/Infinity
+          console.warn(`🚨 INVALID PRICE DETECTED: ${token} = ${usdPrice} - REJECTED!`);
+          usdPrice = null;
+          hasReliablePrice = false;
+          priceSource += '_rejected_invalid';
+        }
+      }
+
       // 5c. FALLBACK: DEXScreener für ungepaarte Tokens
       if (usdPrice === null) {
         console.log(`⚠️ Token ${token} nicht in Moralis - versuche DEXScreener...`);
@@ -467,6 +495,14 @@ export default async function handler(req, res) {
         dexscreenerCallsUsed++;
         priceSource = 'dexscreener';
         hasReliablePrice = !!usdPrice;
+        
+        // Nochmalige Preis-Validierung für DEXScreener
+        if (usdPrice !== null && (usdPrice > 1000000 || usdPrice < 0 || isNaN(usdPrice) || !isFinite(usdPrice))) {
+          console.warn(`🚨 EXTREME DEXSCREENER PRICE: ${token} = $${usdPrice} - REJECTED!`);
+          usdPrice = null;
+          hasReliablePrice = false;
+          priceSource += '_rejected_extreme';
+        }
         
         // Wenn auch DEXScreener fehlschlägt -> ungepaarte Liste
         if (usdPrice === null) {
@@ -490,9 +526,19 @@ export default async function handler(req, res) {
         }
       }
 
-      // 6. STEUERPFLICHTIGKEIT BERECHNEN
-      const haltefristTage = kaufHistorie[tokenAddr] ? 
-        (datum - kaufHistorie[tokenAddr]) / (1000 * 60 * 60 * 24) : 0;
+      // 6. STEUERPFLICHTIGKEIT BERECHNEN mit verbesserter Haltefrist
+      let haltefristTage = 0;
+      let kaufDatum = null;
+      
+      if (type === 'Verkauf' && kaufHistorie[tokenAddr] && kaufHistorie[tokenAddr].length > 0) {
+        // FIFO-Prinzip: Ältester Kauf zuerst
+        const aeltesterKauf = kaufHistorie[tokenAddr][0];
+        kaufDatum = aeltesterKauf.datum;
+        haltefristTage = (datum - kaufDatum) / (1000 * 60 * 60 * 24);
+      } else if (type === 'ROI') {
+        // ROI ist immer sofort steuerpflichtig
+        haltefristTage = 0;
+      }
       
       const isSteuerpflichtig = type === 'ROI' || 
         (type === 'Verkauf' && haltefristTage < 365);
