@@ -1,6 +1,6 @@
 // 🎯 CENTRAL DATA SERVICE - SAUBERE PREISLOGIK STRUKTURIERT
 // Stand: 14.06.2025 - Implementierung nach User-Spezifikationen
-// ✅ Moralis First → DexScreener Fallback → PulseWatch Preferred → Emergency Fallback
+// ✅ Moralis First → PulseWatch Preferred (DexScreener/Emergency entfernt)
 
 import { supabase } from '@/lib/supabaseClient';
 import { TokenPricingService } from './TokenPricingService';
@@ -139,12 +139,12 @@ export class CentralDataService {
       
       if (includeROI) {
         console.log('🚀 LOADING ROI DATA (explicitly requested)...');
-        roiData = await this.loadROITransactionsMoralisOnly(wallets, {});
+        roiData = await this.loadROITransactionsScanAPI(wallets, {});
       }
       
       if (includeTax) {
         console.log('🚀 LOADING TAX DATA (explicitly requested)...');
-        taxData = await this.loadTaxTransactionsMoralisOnly(wallets, {});
+        taxData = await this.loadTaxTransactionsScanAPI(wallets, {});
       }
       
       // Portfolio response with optional ROI/Tax data
@@ -519,154 +519,119 @@ export class CentralDataService {
   }
 
   // 🎯 ROI/Tax REAL IMPLEMENTATIONS for Tax & ROI Views
-  static async loadROITransactionsMoralisOnly(wallets, priceMap) {
-    console.log(`🚀 ROI ULTRA-SIMPLE: Loading ROI for ${wallets.length} wallets (LAST 30 DAYS)`);
+  static async loadROITransactionsScanAPI(wallets, priceMap) {
+    console.log(`🔗 ROI SCAN API: Loading ROI via PulseScan for ${wallets.length} wallets (LAST 30 DAYS)`);
+    
+    // Import PulseScan Service
+    const { ScanTransactionService } = await import('./scanTransactionService.js');
     
     const allROITransactions = [];
     let totalApiCalls = 0;
     
-    // 📅 LETZTE 30 TAGE (einfacher als "laufender Monat")
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
     for (const wallet of wallets) {
       try {
-        const chainId = wallet.chain_id || 369;
-        const chain = this.getChainConfig(chainId);
+        console.log(`💰 ROI SCAN: Loading ${wallet.address}`);
         
-        console.log(`💰 ROI SIMPLE: Loading ${wallet.address} on ${chain.name}`);
+        // 🔗 PulseScan API - Lade ERC20 + Native Transfers
+        const scanResult = await ScanTransactionService.getFullTransactionHistory(wallet.address, {
+          offset: 500 // Mehr als vorher
+        });
         
-        // 🔥 MEGA-SIMPLE: Nur 5 Seiten laden (5 * 50 = 250 Transaktionen)
-        let cursor = null;
-        let walletROITransactions = [];
-        const MAX_PAGES = 5;
+        totalApiCalls += 2; // ERC20 + Native API Calls
         
-        for (let page = 1; page <= MAX_PAGES; page++) {
-          try {
-            const apiUrl = `/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=50${cursor ? `&cursor=${cursor}` : ''}`;
+        // 🔍 Filter für ROI: Nur eingehende Transfers der letzten 30 Tage
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        
+        const roiTransactions = scanResult.allTransactions
+          .filter(tx => {
+            // Nur eingehende Transaktionen
+            const isIncoming = tx.direction === 'IN';
+            // Letzte 30 Tage
+            const isRecent = (parseInt(tx.timeStamp) * 1000) >= thirtyDaysAgo;
+            // Hat Wert
+            const hasValue = tx.value && tx.value !== '0';
             
-            const response = await fetch(apiUrl);
-            totalApiCalls++;
+            return isIncoming && isRecent && hasValue;
+          })
+          .map(tx => {
+            // USD Wert berechnen
+            const rawValue = parseFloat(tx.value) || 0;
+            const tokenDecimals = tx.tokenDecimal || 18;
+            const tokenAmount = rawValue / Math.pow(10, tokenDecimals);
             
-            if (!response.ok) {
-              console.error(`❌ ROI PAGE ${page}: HTTP ${response.status}`);
-              break;
+            // Einfache Preis-Schätzung
+            let usdValue = 0;
+            const tokenSymbol = tx.tokenSymbol?.toUpperCase() || 'PLS';
+            
+            if (tx.type === 'NATIVE_TRANSFER') {
+              // PLS = $0.0001
+              usdValue = tokenAmount * 0.0001;
+            } else {
+              // ERC20 Token
+              const simplePrices = {
+                'PLSX': 0.001,
+                'HEX': 0.004,
+                'INC': 0.002,
+                'DOMINANCE': 0.1,
+                'USDC': 1.0,
+                'USDT': 1.0,
+                'DAI': 1.0
+              };
+              
+              const price = simplePrices[tokenSymbol] || 0.001;
+              usdValue = tokenAmount * price;
             }
             
-            const data = await response.json();
-            
-            if (!data.result || !Array.isArray(data.result)) {
-              console.warn(`⚠️ ROI PAGE ${page}: No result data`);
-              break;
-            }
-
-            // 🔥 ULTRA-SIMPLE ROI DETECTION: ALLE eingehenden Transfers = ROI
-            const pageROITransactions = data.result
-              .filter(tx => {
-                // Nur eingehende Transaktionen
-                const isIncoming = tx.to_address && tx.to_address.toLowerCase() === wallet.address.toLowerCase();
-                const hasValue = tx.value && tx.value !== '0';
-                const isRecent = new Date(tx.block_timestamp) >= thirtyDaysAgo;
-                
-                return isIncoming && hasValue && isRecent;
-              })
-              .map(tx => {
-                // Einfache USD Berechnung
-                const rawValue = parseFloat(tx.value) || 0;
-                const tokenDecimals = parseInt(tx.token_decimals) || 18;
-                const tokenAmount = rawValue / Math.pow(10, tokenDecimals);
-                
-                // Sehr einfache Preis-Schätzung
-                let usdValue = 0;
-                const tokenSymbol = (tx.token_symbol || 'NATIVE').toUpperCase();
-                
-                if (!tx.token_address || tx.token_address === 'native') {
-                  // Native Token (PLS/ETH)
-                  const nativePrice = chainId === 1 ? 2400 : 0.0001; // ETH=2400, PLS=0.0001
-                  usdValue = tokenAmount * nativePrice;
-                } else {
-                  // ERC20 Token - simple defaults
-                  const simplePrices = {
-                    'PLSX': 0.001,
-                    'HEX': 0.004,
-                    'INC': 0.002,
-                    'DOMINANCE': 0.1,
-                    'USDC': 1.0,
-                    'USDT': 1.0,
-                    'DAI': 1.0
-                  };
-                  
-                  const price = simplePrices[tokenSymbol] || 0.001; // Default 0.001
-                  usdValue = tokenAmount * price;
-                }
-                
-                return {
-                  token: tokenSymbol,
-                  amount: tokenAmount,
-                  value: usdValue,
-                  timestamp: tx.block_timestamp,
-                  from: tx.from_address,
-                  hash: tx.transaction_hash,
-                  type: 'ROI_INCOMING',
-                  walletAddress: wallet.address,
-                  chainId: chainId
-                };
-              })
-              .filter(tx => tx.value >= 0.01); // Min $0.01
-            
-            walletROITransactions.push(...pageROITransactions);
-            
-            console.log(`✅ ROI PAGE ${page}: +${pageROITransactions.length} ROI transactions (${data.result.length} total)`);
-            
-            cursor = data.cursor;
-            if (!cursor) {
-              console.log(`🏁 ROI COMPLETE: No more pages for ${wallet.address}`);
-              break;
-            }
-            
-          } catch (pageError) {
-            console.error(`💥 ROI PAGE ${page} ERROR: ${pageError.message}`);
-            break;
-          }
-          
-          // Rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+            return {
+              ...tx,
+              token: tokenSymbol,
+              amount: tokenAmount,
+              value: usdValue,
+              type: 'ROI_INCOMING',
+              source: 'pulsechain_scan_roi'
+            };
+          })
+          .filter(tx => tx.value >= 0.01); // Min $0.01
         
-        allROITransactions.push(...walletROITransactions);
-        console.log(`✅ ROI WALLET: ${walletROITransactions.length} transactions for ${wallet.address}`);
+        allROITransactions.push(...roiTransactions);
+        console.log(`✅ ROI SCAN: ${roiTransactions.length} ROI transactions for ${wallet.address} (from ${scanResult.totalCount} total)`);
         
       } catch (error) {
-        console.error(`💥 ROI WALLET ERROR: ${wallet.address} - ${error.message}`);
+        console.error(`💥 ROI SCAN ERROR: ${wallet.address} - ${error.message}`);
       }
     }
     
-    // 📊 SIMPLE ROI CALCULATION
+    // 📊 ROI CALCULATION
     const now = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
     
     const dailyTransactions = allROITransactions.filter(tx => 
-      new Date(tx.timestamp).getTime() > (now - dayMs)
+      (parseInt(tx.timeStamp) * 1000) > (now - dayMs)
     );
     const weeklyTransactions = allROITransactions.filter(tx => 
-      new Date(tx.timestamp).getTime() > (now - 7 * dayMs)
+      (parseInt(tx.timeStamp) * 1000) > (now - 7 * dayMs)
     );
     const monthlyTransactions = allROITransactions.filter(tx => 
-      new Date(tx.timestamp).getTime() > (now - 30 * dayMs)
+      (parseInt(tx.timeStamp) * 1000) > (now - 30 * dayMs)
     );
     
     const dailyROI = dailyTransactions.reduce((sum, tx) => sum + tx.value, 0);
     const weeklyROI = weeklyTransactions.reduce((sum, tx) => sum + tx.value, 0);
     const monthlyROI = monthlyTransactions.reduce((sum, tx) => sum + tx.value, 0);
     
-    console.log(`✅ ROI ULTRA-SIMPLE: ${allROITransactions.length} total, Daily: $${dailyROI.toFixed(2)}, Weekly: $${weeklyROI.toFixed(2)}, Monthly: $${monthlyROI.toFixed(2)}`);
+    console.log(`✅ ROI SCAN API: ${allROITransactions.length} total, Daily: $${dailyROI.toFixed(2)}, Weekly: $${weeklyROI.toFixed(2)}, Monthly: $${monthlyROI.toFixed(2)}`);
     
     return { 
       transactions: allROITransactions, 
       dailyROI, 
       weeklyROI, 
       monthlyROI, 
-      source: 'ultra_simple_roi',
-      totalApiCalls
+      source: 'pulsechain_scan_api',
+      totalApiCalls,
+      scanResult: {
+        totalWallets: wallets.length,
+        transactionStats: ScanTransactionService.calculateTransactionStats(allROITransactions)
+      }
     };
   }
 
@@ -720,155 +685,84 @@ export class CentralDataService {
     }
   }
 
-  static async loadTaxTransactionsMoralisOnly(wallets, priceMap) {
-    console.log(`🚀 TAX BRUTAL: Loading MAXIMUM transactions for ${wallets.length} wallets`);
+  static async loadTaxTransactionsScanAPI(wallets, priceMap) {
+    console.log(`🔗 TAX SCAN API: Loading complete tax history via PulseScan for ${wallets.length} wallets`);
+    
+    // Import PulseScan Service
+    const { ScanTransactionService } = await import('./scanTransactionService.js');
     
     const allTaxTransactions = [];
     let totalApiCalls = 0;
     
     for (const wallet of wallets) {
       try {
-        const chainId = wallet.chain_id || 369;
-        const chain = this.getChainConfig(chainId);
+        console.log(`📊 TAX SCAN: Loading massive history for ${wallet.address}`);
         
-        console.log(`📊 TAX BRUTAL: Loading ${wallet.address} on ${chain.name}`);
+        // 🔗 PulseScan API - Massive Loading (bis 100 Seiten = 10k pro Wallet)
+        const scanResult = await ScanTransactionService.getMassiveTransactionHistory(wallet.address, 100);
         
-        // 🔥 BRUTAL FORCE: 1000 Seiten = 50k Transaktionen
-        let cursor = null;
-        let walletTransactions = [];
-        const MAX_PAGES = 1000;
-        let emptyPages = 0;
+        totalApiCalls += scanResult.pagesLoaded.erc20 + scanResult.pagesLoaded.native;
         
-        for (let page = 1; page <= MAX_PAGES; page++) {
-          try {
-            const apiUrl = `/api/moralis-transactions?address=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=50${cursor ? `&cursor=${cursor}` : ''}`;
+        // 🔄 Alle Transaktionen für Tax verwenden (IN + OUT)
+        const taxTransactions = scanResult.allTransactions.map(tx => {
+          // USD Wert berechnen
+          const rawValue = parseFloat(tx.value) || 0;
+          const tokenDecimals = tx.tokenDecimal || 18;
+          const tokenAmount = rawValue / Math.pow(10, tokenDecimals);
+          
+          // Einfache Preis-Schätzung
+          let usdValue = 0;
+          const tokenSymbol = tx.tokenSymbol?.toUpperCase() || 'PLS';
+          
+          if (tx.type === 'NATIVE_TRANSFER') {
+            // PLS = $0.0001
+            usdValue = tokenAmount * 0.0001;
+          } else {
+            // ERC20 Token
+            const simplePrices = {
+              'PLSX': 0.001,
+              'HEX': 0.004,
+              'INC': 0.002,
+              'DOMINANCE': 0.1,
+              'USDC': 1.0,
+              'USDT': 1.0,
+              'DAI': 1.0
+            };
             
-            const response = await fetch(apiUrl);
-            totalApiCalls++;
-            
-            if (!response.ok) {
-              console.error(`❌ TAX PAGE ${page}: HTTP ${response.status}`);
-              
-              // 🔥 IGNORE ERRORS - KEEP GOING
-              if (response.status >= 500) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                continue; // Skip this page, keep going
-              }
-              break;
-            }
-            
-            const data = await response.json();
-            
-            if (!data.result || !Array.isArray(data.result)) {
-              console.warn(`⚠️ TAX PAGE ${page}: No result data`);
-              break;
-            }
-            
-            if (data.result.length === 0) {
-              emptyPages++;
-              console.log(`⚠️ TAX PAGE ${page}: Empty page (${emptyPages}/3)`);
-              
-              if (emptyPages >= 3) {
-                console.log(`🛑 TAX STOP: 3 empty pages`);
-                break;
-              }
-              
-              // Even with empty page, continue if we have cursor
-              if (data.cursor) {
-                cursor = data.cursor;
-                continue;
-              } else {
-                break;
-              }
-            }
-            
-            // Reset empty counter if we got data
-            emptyPages = 0;
-            
-            // 🔥 TAKE ALL TRANSACTIONS RAW
-            const pageTransactions = data.result.map(tx => {
-              const rawValue = parseFloat(tx.value) || 0;
-              const tokenDecimals = parseInt(tx.token_decimals) || 18;
-              const tokenAmount = rawValue / Math.pow(10, tokenDecimals);
-              
-              // Simple USD calc
-              let usdValue = 0;
-              const tokenSymbol = (tx.token_symbol || 'NATIVE').toUpperCase();
-              
-              if (!tx.token_address || tx.token_address === 'native') {
-                const nativePrice = chainId === 1 ? 2400 : 0.0001;
-                usdValue = tokenAmount * nativePrice;
-              } else {
-                const simplePrices = {
-                  'PLSX': 0.001,
-                  'HEX': 0.004,
-                  'INC': 0.002,
-                  'DOMINANCE': 0.1,
-                  'USDC': 1.0,
-                  'USDT': 1.0,
-                  'DAI': 1.0
-                };
-                const price = simplePrices[tokenSymbol] || 0.001;
-                usdValue = tokenAmount * price;
-              }
-              
-              const isIncoming = tx.to_address && tx.to_address.toLowerCase() === wallet.address.toLowerCase();
-              
-              return {
-                ...tx,
-                token: tokenSymbol,
-                amount: tokenAmount,
-                value: usdValue,
-                direction: isIncoming ? 'IN' : 'OUT',
-                type: isIncoming ? 'TAX_INCOMING' : 'TAX_OUTGOING',
-                walletAddress: wallet.address,
-                chainId: chainId
-              };
-            });
-            
-            walletTransactions.push(...pageTransactions);
-            
-            // 🔥 AGGRESSIVE LOGGING
-            if (page % 50 === 0) {
-              console.log(`🔥 TAX MILESTONE: Page ${page} | Total: ${walletTransactions.length} transactions`);
-            } else {
-              console.log(`✅ TAX PAGE ${page}: +${pageTransactions.length} | Total: ${walletTransactions.length}`);
-            }
-            
-            cursor = data.cursor;
-            if (!cursor) {
-              console.log(`🏁 TAX COMPLETE: No more data after ${page} pages`);
-              break;
-            }
-            
-          } catch (pageError) {
-            console.error(`💥 TAX PAGE ${page} ERROR: ${pageError.message}`);
-            // DON'T BREAK - KEEP GOING
-            await new Promise(resolve => setTimeout(resolve, 500));
-            continue;
+            const price = simplePrices[tokenSymbol] || 0.001;
+            usdValue = tokenAmount * price;
           }
           
-          // Minimal rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+          return {
+            ...tx,
+            token: tokenSymbol,
+            amount: tokenAmount,
+            value: usdValue,
+            type: tx.direction === 'IN' ? 'TAX_INCOMING' : 'TAX_OUTGOING',
+            source: 'pulsechain_scan_tax'
+          };
+        });
         
-        allTaxTransactions.push(...walletTransactions);
-        console.log(`✅ TAX WALLET BRUTAL: ${walletTransactions.length} transactions for ${wallet.address}`);
+        allTaxTransactions.push(...taxTransactions);
+        console.log(`✅ TAX SCAN: ${taxTransactions.length} tax transactions for ${wallet.address} (${scanResult.totalCount} total loaded)`);
         
       } catch (error) {
-        console.error(`💥 TAX WALLET ERROR: ${wallet.address} - ${error.message}`);
-        // DON'T BREAK - CONTINUE WITH NEXT WALLET
+        console.error(`💥 TAX SCAN ERROR: ${wallet.address} - ${error.message}`);
       }
     }
     
-    console.log(`🔥 TAX BRUTAL COMPLETE: ${allTaxTransactions.length} TOTAL transactions with ${totalApiCalls} API calls`);
+    console.log(`✅ TAX SCAN API: ${allTaxTransactions.length} TOTAL tax transactions with ${totalApiCalls} API calls`);
     
     return { 
       transactions: allTaxTransactions, 
-      source: 'brutal_force_tax',
+      source: 'pulsechain_scan_api',
       totalApiCalls,
       totalTransactions: allTaxTransactions.length,
-      walletsProcessed: wallets.length
+      walletsProcessed: wallets.length,
+      scanResult: {
+        transactionStats: ScanTransactionService.calculateTransactionStats(allTaxTransactions),
+        averagePerWallet: Math.round(allTaxTransactions.length / wallets.length)
+      }
     };
   }
 
