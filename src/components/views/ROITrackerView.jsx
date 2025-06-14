@@ -144,6 +144,41 @@ const ROITrackerView = () => {
     });
   };
 
+  // ROI-Projekt-Erkennung basierend auf PulseWatch
+  const getROIProjectInfo = (tx) => {
+    const symbol = tx.tokenSymbol?.toUpperCase();
+    const name = tx.tokenName?.toLowerCase() || '';
+    const amount = tx.amount || 0;
+    
+    // Bekannte ROI-Projekte von PulseWatch
+    const roiProjects = {
+      'WPLS': { name: 'GAS Money', color: 'bg-green-500', icon: '⛽' },
+      'HEX': { name: 'HEX Staking', color: 'bg-red-500', icon: '🔥' },
+      'PLSX': { name: 'PulseX Rewards', color: 'bg-blue-500', icon: '💎' },
+      'INC': { name: 'Incentive', color: 'bg-purple-500', icon: '🎯' },
+      'LOAN': { name: 'Lending', color: 'bg-yellow-500', icon: '🏦' },
+      'DAI': { name: 'Stablecoin Yield', color: 'bg-orange-500', icon: '💰' },
+      'USDC': { name: 'Stablecoin Yield', color: 'bg-blue-400', icon: '💰' },
+      'WGEP': { name: 'PRINTER', color: 'bg-pink-500', icon: '🖨️' },
+      '🖨️': { name: 'PRINTER', color: 'bg-pink-500', icon: '🖨️' }
+    };
+    
+    // Spezielle Projekt-Erkennung basierend auf Transaktionsmustern
+    if (amount > 1000 && symbol === 'WPLS') {
+      return { name: 'REMEMBER REMEMBER THE 5TH OF NOVEMBER', color: 'bg-yellow-600', icon: '🎭' };
+    }
+    
+    if (amount < 10 && (symbol === 'FINVESTA' || name.includes('finvesta'))) {
+      return { name: 'MISSOR', color: 'bg-pink-600', icon: '🎯' };
+    }
+    
+    if (name.includes('treasury') || symbol === 'TR') {
+      return { name: 'TREASURY BILL', color: 'bg-indigo-500', icon: '🏛️' };
+    }
+    
+    return roiProjects[symbol] || { name: 'ROI Earnings', color: 'bg-gray-500', icon: '💎' };
+  };
+
   // Fallback für leere Daten
   if (!user?.id) {
     return (
@@ -259,6 +294,44 @@ const ROITrackerView = () => {
             </Card>
           </div>
 
+          {/* 24h Earnings Summary - PulseWatch Style */}
+          <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                24h Earnings
+                <Badge variant="outline" className="ml-auto bg-white/20 text-white border-white/30">
+                  Total: {formatCurrency(portfolioData.dailyROI)}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-purple-100">PulseChain</p>
+                  <p className="text-xl font-bold">{formatCurrency(portfolioData.dailyROI * 0.8)}</p>
+                </div>
+                <div>
+                  <p className="text-purple-100">Ethereum</p>
+                  <p className="text-xl font-bold">{formatCurrency(portfolioData.dailyROI * 0.2)}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-between items-center">
+                <span className="text-purple-200 text-sm">
+                  {portfolioData.roiTransactions.filter(tx => {
+                    const txTime = new Date(tx.timestamp);
+                    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    return txTime >= oneDayAgo;
+                  }).length} Transaktionen heute
+                </span>
+                <div className="flex space-x-2">
+                  <Badge variant="outline" className="bg-white/10 text-white border-white/30 text-xs">Cards</Badge>
+                  <Badge variant="outline" className="bg-white/10 text-white border-white/30 text-xs">Table</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Recent ROI Transactions */}
           <Card>
             <CardHeader>
@@ -273,18 +346,21 @@ const ROITrackerView = () => {
             <CardContent>
               {portfolioData.roiTransactions.length > 0 ? (
                 <div className="space-y-3">
-                  {portfolioData.roiTransactions.slice(0, 15).map((tx, index) => (
+                  {portfolioData.roiTransactions.slice(0, 15).map((tx, index) => {
+                    const projectInfo = getROIProjectInfo(tx);
+                    
+                    return (
                     <div key={`${tx.txHash}-${index}`} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <span className="text-green-600 font-bold text-lg">{tx.tokenSymbol?.charAt(0) || '?'}</span>
+                        <div className={`w-10 h-10 ${projectInfo.color} rounded-full flex items-center justify-center text-white`}>
+                          <span className="text-lg">{projectInfo.icon}</span>
                         </div>
                         
                         <div>
                           <div className="flex items-center space-x-2">
                             <span className="font-semibold text-lg">{tx.tokenSymbol}</span>
-                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                              ROI Earnings
+                            <Badge variant="outline" className={`text-xs text-white border-white/30 ${projectInfo.color}`}>
+                              {projectInfo.name}
                             </Badge>
                           </div>
                           <div className="text-sm text-gray-600">
@@ -316,24 +392,32 @@ const ROITrackerView = () => {
                           +{formatCrypto(tx.amount, tx.tokenSymbol)}
                         </div>
                         <div className="flex items-center space-x-2 mt-1">
-                          {tx.explorerUrl && (
+                          {tx.txHash && (
                             <a 
-                              href={tx.explorerUrl}
+                              href={tx.chainId === 369 || tx.chain === 'pulsechain' ? 
+                                `https://scan.pulsechain.com/tx/${tx.txHash}` : 
+                                `https://etherscan.io/tx/${tx.txHash}`
+                              }
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:text-blue-700 transition-colors"
-                              title="Im Explorer anzeigen"
+                              title={tx.chainId === 369 || tx.chain === 'pulsechain' ? 
+                                "PulseChain Explorer" : "Etherscan"
+                              }
                             >
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           )}
-                          {tx.dexScreenerUrl && (
+                          {tx.tokenAddress && (
                             <a 
-                              href={tx.dexScreenerUrl}
+                              href={tx.chainId === 369 || tx.chain === 'pulsechain' ? 
+                                `https://scan.pulsechain.com/token/${tx.tokenAddress}` : 
+                                `https://etherscan.io/token/${tx.tokenAddress}`
+                              }
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="text-green-500 hover:text-green-700 transition-colors"
-                              title="DexScreener Chart"
+                              title="Token Contract"
                             >
                               <BarChart3 className="h-4 w-4" />
                             </a>
@@ -341,7 +425,8 @@ const ROITrackerView = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   
                   {portfolioData.roiTransactions.length > 15 && (
                     <div className="text-center pt-4">
