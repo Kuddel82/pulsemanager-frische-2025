@@ -237,65 +237,81 @@ export class TokenPriceService {
    */
   static getEmergencyFallbackPrice(symbol) {
     const fallbackPrices = {
-      // 🔥 UPDATED: Echte Preise von PulseWatch Portfolio
+      // 🛡️ SICHERE FALLBACK-PREISE (deutlich reduziert um Portfolio-Verzerrung zu vermeiden)
       'MISSER': 0.00958,    // $9.58e-3 (PulseWatch aktuell)
       'MISSOR': 0.00958,    // $9.58e-3 (Alternative Schreibweise)
       'REMEMBER REMEMBER THE 5TH OF NOVEMBER': 5.49e-10, // $5.49e-10 (PulseWatch)
       'REMEMBER': 5.49e-10, // Kurze Version
       'SOIL': 0.10,         // $0.10 (PulseWatch)
-      'FINVESTA': 24.36,    // $24.36 (PulseWatch)
+      'FINVESTA': 0.01,     // 🔧 REDUZIERT: War $24.36, jetzt sicher
       'FLEXMAS': 0.31,      // $0.31 (PulseWatch)
       'DOMINANCE': 0.32,    // $0.32 (PulseWatch)
       'BEAST': 0.61,        // $0.61 (PulseWatch)
       'GAS MONEY': 2.09e-4, // $2.09e-4 (PulseWatch)
       'GAS': 2.09e-4,       // Kurze Version
-      'FINFIRE': 3.42,      // $3.42 (PulseWatch)
-      'FINANCE ON FIRE': 3.42, // Vollständiger Name
+      'FINFIRE': 0.01,      // 🔧 REDUZIERT: War $3.42, jetzt sicher
+      'FINANCE ON FIRE': 0.01, // 🔧 REDUZIERT: War $3.42, jetzt sicher
       'PLS': 3.10e-5,       // $3.10e-5 (PulseWatch aktuell)
       'WPLS': 3.10e-5,      // $3.10e-5 (gleich wie PLS)
       'SAVANT': 0.30,       // $0.30 (PulseWatch)
-      'WBTC': 462.34,       // $462.34 (PulseWatch)
+      'WBTC': 0.01,         // 🔧 REDUZIERT: War $462.34, viel zu hoch!
       'DAI': 0.00273,       // $2.73e-3 (PulseWatch aktuell)
       'PLSX': 2.70e-5,      // $2.70e-5 (PulseWatch aktuell)
-      'WORLDS GREATEST PDAI PRINTER': 71.89, // $71.89 (PulseWatch)
-      'PDAI': 71.89,        // Kurze Version
+      'WORLDS GREATEST PDAI PRINTER': 0.01, // 🔧 REDUZIERT: War $71.89, zu hoch!
+      'PDAI': 0.01,         // 🔧 REDUZIERT: War $71.89, zu hoch!
       'HEX': 0.0061,        // $6.10e-3 (PulseWatch aktuell)
-      'PLSPUP': 148.02,     // $148.02 (PulseWatch)
-      'PLSPUPPY': 148.02,   // Vollständiger Name
+      'PLSPUP': 0.01,       // 🔧 REDUZIERT: War $148.02, viel zu hoch!
+      'PLSPUPPY': 0.01,     // 🔧 REDUZIERT: War $148.02, viel zu hoch!
       'SECRET': 1.43e-5,    // $1.43e-5 (PulseWatch)
       'CONSPIRACY': 1.43e-5, // Vollständiger Name
       'MNEMONICS': 0.41,    // $0.41 (PulseWatch)
-      'INC': 1.46,          // $1.46 (PulseWatch aktuell - viel höher!)
-      'INCENTIVE': 1.46,    // Vollständiger Name
+      'INC': 0.01,          // 🔧 REDUZIERT: War $1.46, sicherer Fallback
+      'INCENTIVE': 0.01,    // 🔧 REDUZIERT: War $1.46, sicherer Fallback
       'RESERVE TEH': 1.05e-4, // $1.05e-4 (PulseWatch)
       'EXPLOITED': 0.02,    // $0.02 (PulseWatch)
       'WWPP': 0.03,         // $0.03 (PulseWatch)
       'WORLDS WORST': 0.03, // Vollständiger Name
       'TREASURY BILL': 3.36e-4, // $3.36e-4 (PulseWatch)
       
-      // 🔥 NEUE TOKEN (aus den 404-Fehlern)
-      'HOUSE': 0.001,       // Fallback für HOUSE Token
+      // 🔥 NEUE TOKEN (aus den 404-Fehlern) - SICHERE PREISE
+      'HOUSE': 0.0001,      // Sicherer Fallback
       '💤': 0.0001,         // Sleep Token Fallback
       'SⒶT': 0.0001,        // SAT Token Fallback  
       '🚀': 0.0001,         // Rocket Token Fallback
-      'FLEXOR': 0.0002,     // FLEXOR Token Fallback
+      'FLEXOR': 0.0001,     // FLEXOR Token Fallback
+      'FLEXBOOST': 0.0001,  // FLEXBOOST Token Fallback
+      '😂': 0.0001,         // Laugh Token Fallback
+      '🖨️': 0.0001,         // Printer Token Fallback
+      'QUBIT™⚗️': 0.0001,   // Qubit Token Fallback
+      '🎭': 0.0001,         // Theater Token Fallback
+      'IYKYK': 0.0001,      // IYKYK Token Fallback
+      '$GROKP': 0.0001,     // GROKP Token Fallback
+      'PETROLAO': 0.0001,   // PETROLAO Token Fallback
+      'RSI': 0.0001,        // RSI Token Fallback
+      '⛽': 0.0001,         // Gas Token Fallback
+      '⛽⛽': 0.0001,        // Double Gas Token Fallback
+      '🏧': 0.0001,         // ATM Token Fallback
+      '🧠': 0.0001,         // Brain Token Fallback
+      'SⒶV': 0.0001,        // SAV Token Fallback
+      'BALLOONOMICS': 0.0001, // Balloonomics Token Fallback
+      'F㉾D': 0.0001,        // F㉾D Token Fallback
       
-      // Standard Tokens
+      // Standard Tokens - SICHERE FALLBACKS
       'USDT': 1.0,          // $1.00 (Stablecoin)
       'USDC': 1.0,          // $1.00 (Stablecoin)
-      'ETH': 3000,          // ~$3000 (Ethereum)
+      'ETH': 0.01,          // 🔧 REDUZIERT: War $3000, viel zu hoch für Fallback!
       // Legacy Token (falls noch verwendet)
-      'WGEP': 0.001,
+      'WGEP': 0.0001,
       'LOAN': 0.0001,
-      'FLEX': 0.0002
+      'FLEX': 0.0001
     };
 
     return {
-      price: fallbackPrices[symbol?.toUpperCase()] || 0.01, // Höherer Fallback basierend auf PulseWatch Durchschnitt
+      price: fallbackPrices[symbol?.toUpperCase()] || 0.0001, // 🔧 REDUZIERT: Von $0.01 auf $0.0001
       symbol: symbol,
       timestamp: new Date().toISOString(),
-      source: 'fallback_pulsewatch_based',
-      _warning: 'Using PulseWatch-based fallback price - API unavailable'
+      source: 'fallback_safe_prices',
+      _warning: 'Using SAFE fallback price - API unavailable'
     };
   }
 
