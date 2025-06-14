@@ -292,14 +292,25 @@ export class CentralDataService {
             
             // 🚨 PREIS-VALIDIERUNG: Erkenne extreme Moralis-Fehler
             const isExtremePriceError = (
-              rawPrice > 100 && // Über $100 pro Token ist verdächtig für PulseChain
-              !['WBTC', 'ETH', 'WETH'].includes(tokenSymbol) // Außer bekannte High-Value Token
+              rawPrice > 50 || // Über $50 pro Token ist verdächtig für PulseChain (reduziert von $100)
+              (rawPrice > 1 && ['DOMINANCE', 'PLSX', 'HEX', 'INC', 'PLS'].includes(tokenSymbol)) // Diese Token sollten nie über $1 sein
+            ) && !['WBTC', 'ETH', 'WETH', 'BTC'].includes(tokenSymbol); // Außer bekannte High-Value Token
+            
+            // 🚨 SPEZIELLE DOMINANCE-VALIDIERUNG: Beide Contracts prüfen
+            const isDominanceError = (
+              tokenSymbol === 'DOMINANCE' && 
+              (rawPrice > 1 || balanceReadable > 50000) // DOMINANCE sollte nie über $1 oder über 50k Token sein
             );
             
-            if (isExtremePriceError) {
-              console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice} - likely Moralis API error!`);
+            if (isExtremePriceError || isDominanceError) {
+              console.error(`🚨 EXTREME PRICE ERROR: ${tokenSymbol} has price $${rawPrice}, balance ${balanceReadable.toLocaleString()} - likely Moralis API error!`);
               usdPrice = 0; // Setze auf 0 um Portfolio-Verzerrung zu vermeiden
               priceSource = 'moralis_price_error';
+              
+              // Spezielle Logs für DOMINANCE
+              if (isDominanceError) {
+                console.error(`🚨 DOMINANCE ERROR DETECTED: Contract ${tokenAddress}, Price: $${rawPrice}, Balance: ${balanceReadable.toLocaleString()}`);
+              }
             }
             
             // 2. Fallback zu Emergency-Preisen nur wenn kein Live-Preis oder Preis-Fehler
