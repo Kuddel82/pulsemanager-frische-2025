@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import CentralDataService from '@/services/CentralDataService';
+import { restoreLastPortfolio } from '@/services/portfolioService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const PortfolioContext = createContext();
@@ -184,12 +185,47 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, [user?.id]);
 
-  // 🚪 CLEAR ON LOGOUT (ONLY ON LOGOUT!)
+  // 🚪 LIFECYCLE: Clear on logout, Restore on login
   useEffect(() => {
     if (!user) {
+      // User logged out - clear data
       clearData();
+    } else if (user?.id && !portfolioData) {
+      // User logged in but no portfolio - try to restore
+      console.log('👤 LOGIN DETECTED: Attempting portfolio restore...');
+      restorePortfolioOnLogin();
     }
   }, [user, clearData]);
+
+  // 💾 RESTORE Portfolio on Login (OHNE API-Calls!)
+  const restorePortfolioOnLogin = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      console.log('💾 AUTO-RESTORE: Checking for cached portfolio...');
+      const restored = await restoreLastPortfolio(user.id);
+      
+      if (restored.data && restored.data.length > 0) {
+        console.log(`✅ AUTO-RESTORE: Portfolio restored! ${restored.data.length} tokens, ${Math.round(restored.cacheAge / 60)} min old`);
+        
+        setPortfolioData(restored.data);
+        setLastUpdate(restored.lastUpdate);
+        setStats(prev => ({
+          ...prev,
+          fromCache: true,
+          totalLoads: prev.totalLoads + 1,
+          lastLoadDuration: 0, // No API call
+          apiCallsUsed: 0      // No API call
+        }));
+        setError(null);
+      } else {
+        console.log('📭 AUTO-RESTORE: No cached portfolio found - ready for manual load');
+      }
+    } catch (error) {
+      console.error('💥 AUTO-RESTORE ERROR:', error);
+      // Kein Error setzen - User kann manuell laden
+    }
+  }, [user?.id]);
   
   const contextValue = {
     // Portfolio Data
@@ -207,6 +243,7 @@ export const PortfolioProvider = ({ children }) => {
     // Methods
     loadPortfolioData,
     checkAndLoadCache, // 🚀 NEW: Manual cache check
+    restorePortfolioData: restorePortfolioOnLogin, // 🚀 NEW: Manual restore
     clearPortfolioData: () => {
       setPortfolioData(null);
       setError(null);

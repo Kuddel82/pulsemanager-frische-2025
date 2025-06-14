@@ -453,8 +453,8 @@ export class CentralDataService {
         const chainId = wallet.chain_id || 369;
         const chain = this.getChainConfig(chainId);
         
-        // Call tax-report API
-        const response = await fetch(`/api/tax-report?wallet=${wallet.address}&chain=${chain.name.toLowerCase()}&limit=200`);
+        // Call tax-report API with full pagination
+        const response = await fetch(`/api/tax-report?wallet=${wallet.address}&chain=${chain.name.toLowerCase()}&getAllPages=true&maxTransactions=100000`);
         totalApiCalls++;
         
         if (response.ok) {

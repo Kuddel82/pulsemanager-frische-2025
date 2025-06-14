@@ -2,6 +2,46 @@
 // Verwendung: const { data: portfolio, source } = await getOrLoadPortfolio(user.id, walletAddress);
 
 /**
+ * 💾 Portfolio vom letzten Login wiederherstellen (OHNE API-Calls!)
+ * @param {string} userId - User ID aus Auth
+ * @returns {object} { data: portfolio, lastUpdate, source: 'restored'|null }
+ */
+export async function restoreLastPortfolio(userId) {
+  try {
+    console.log(`💾 RESTORE: Loading last portfolio for user ${userId}`);
+
+    // Hole letzten Cache aus Supabase - KEIN API Call an Moralis!
+    const response = await fetch(`/api/portfolio-restore?userId=${userId}`);
+    
+    if (!response.ok) {
+      console.log('📭 RESTORE: No cached portfolio found');
+      return { data: null, lastUpdate: null, source: null };
+    }
+
+    const result = await response.json();
+    
+    if (!result.success || !result.data) {
+      console.log('📭 RESTORE: No valid cached data');
+      return { data: null, lastUpdate: null, source: null };
+    }
+
+    console.log(`✅ RESTORE: Portfolio restored from ${result.lastUpdate} (${result.ageMinutes} min old)`);
+    
+    return {
+      data: result.data,
+      lastUpdate: new Date(result.lastUpdate),
+      source: 'restored',
+      cacheAge: result.ageMinutes * 60, // Convert to seconds
+      stats: result.stats || null
+    };
+
+  } catch (error) {
+    console.error('💥 Portfolio restore error:', error);
+    return { data: null, lastUpdate: null, source: null };
+  }
+}
+
+/**
  * 🚀 Portfolio mit intelligentem Caching laden
  * @param {string} userId - User ID aus Auth
  * @param {string} walletAddress - Wallet-Adresse (z.B. '0xDEINEWALLET')

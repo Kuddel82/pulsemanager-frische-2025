@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { DirectMoralisService } from '../services/DirectMoralisService';
+import ROIMappingService from '../services/ROIMappingService';
+import ROIOverrideModal from '../components/ui/ROIOverrideModal';
 import { supabase } from '../lib/supabaseClient';
 
 const TaxReportView = () => {
@@ -41,6 +43,11 @@ const TaxReportView = () => {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
   const [debugInfo, setDebugInfo] = useState({});
+  
+  // 🎯 ROI OVERRIDE MODAL STATE
+  const [roiModalOpen, setROIModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [roiOverrides, setROIOverrides] = useState(new Map());
 
   // Load Tax Data
   const loadTaxData = async () => {
@@ -86,7 +93,7 @@ const TaxReportView = () => {
         const result = await DirectMoralisService.getTaxData(wallet.address, chain, {
           getAllPages: true,
           limit: 100,
-          maxTransactions: 200000
+          maxTransactions: 100000  // 🚀 INCREASED: Load up to 100k transactions per wallet
         });
         
         if (result.success) {
@@ -174,13 +181,26 @@ const TaxReportView = () => {
     }
   };
 
-  // Calculate tax statistics
+  // Calculate tax statistics with ROI classification
   const calculateTaxStats = (transfers) => {
-    // Taxable: Incoming transfers from zero address (minting/rewards)
-    const taxableTransfers = transfers.filter(transfer => {
+    // 🎯 ROI-CLASSIFICATION: Classify all transfers
+    const classifiedTransfers = transfers.map(transfer => {
+      const roiClassification = ROIMappingService.classifyROI(transfer, user?.id);
+      return {
+        ...transfer,
+        roiClassification,
+        isROI: roiClassification.isROI,
+        roiType: roiClassification.roiType
+      };
+    });
+    
+    // Taxable: ROI transfers + incoming transfers from known patterns
+    const taxableTransfers = classifiedTransfers.filter(transfer => {
       const isIncoming = transfer.to_address?.toLowerCase() === transfer.walletAddress?.toLowerCase();
       const fromZeroAddress = transfer.from_address === '0x0000000000000000000000000000000000000000';
-      return isIncoming && fromZeroAddress;
+      
+      // Use ROI classification if available, otherwise fallback to old logic
+      return transfer.isROI || (isIncoming && fromZeroAddress);
     });
     
     // Purchases: Outgoing transfers
@@ -219,6 +239,31 @@ const TaxReportView = () => {
       purchaseCount: purchases.length,
       salesCount: sales.length
     };
+  };
+
+  // 🎯 ROI OVERRIDE FUNCTIONS
+  const handleROIOverride = (transaction) => {
+    setSelectedTransaction(transaction);
+    setROIModalOpen(true);
+  };
+
+  const handleSaveROIOverride = async (transactionHash, override) => {
+    try {
+      // Save override using ROIMappingService
+      await ROIMappingService.setUserOverride(user.id, transactionHash, override);
+      
+      // Update local state
+      const newOverrides = new Map(roiOverrides);
+      newOverrides.set(transactionHash, override);
+      setROIOverrides(newOverrides);
+      
+      // Reload tax data to reflect changes
+      await loadTaxData();
+      
+      console.log(`✅ ROI Override saved for ${transactionHash}`);
+    } catch (error) {
+      console.error('💥 Failed to save ROI override:', error);
+    }
   };
 
   // Get filtered transactions based on category
@@ -543,6 +588,15 @@ const TaxReportView = () => {
           Letzte Aktualisierung: {lastUpdate.toLocaleString('de-DE')}
         </div>
       )}
+      
+      {/* 🎯 ROI OVERRIDE MODAL */}
+      <ROIOverrideModal
+        isOpen={roiModalOpen}
+        onClose={() => setROIModalOpen(false)}
+        transaction={selectedTransaction}
+        currentClassification={selectedTransaction?.roiClassification}
+        onSaveOverride={handleSaveROIOverride}
+      />
     </div>
   );
 };

@@ -1,17 +1,152 @@
-// 📊 TAX REPORT API - MORALIS + DEXSCREENER INTEGRATION
-// Erweiterte Steuerberichte mit intelligenter Preisfindung
+// 📊 TAX REPORT API - MORALIS + DEXSCREENER + ROI MAPPING INTEGRATION
+// Erweiterte Steuerberichte mit intelligenter Preisfindung und ROI-Klassifikation
 
 import { format } from 'date-fns';
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
 
-// 🏭 BEKANNTE MINTER-ADRESSEN (für ROI-Klassifikation)
-const KNOWN_MINTERS = [
-  '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
-  '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC  
-  '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1'  // PLSX
-];
+// 🎯 ROI MAPPING & CLASSIFICATION SYSTEM
+const ROI_MAPPINGS = {
+  // Direct Minter ROIs (eindeutig)
+  DIRECT_MINTERS: {
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': 'HEX_STAKING',    // HEX Contract
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': 'INC_REWARDS',    // INC Contract  
+    '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1': 'PLSX_REWARDS'   // PLSX Contract
+  },
+  
+  // Token-basierte ROI-Mappings (Token A → ROI von Token B)
+  TOKEN_REWARDS: {
+    'MISSER': {
+      sourceToken: 'FLEX',
+      roiType: 'FARMING_REWARDS',
+      description: 'MISSER Farming Rewards von FLEX Staking',
+      taxCategory: 'farming_income'
+    },
+    'WGEP': {
+      sourceToken: 'PLSX',
+      roiType: 'TREASURY_REWARDS', 
+      description: 'WGEP Treasury Rewards',
+      taxCategory: 'dividend_income'
+    },
+    'LOAN': {
+      sourceToken: 'HEX',
+      roiType: 'STAKING_REWARDS',
+      description: 'LOAN Token aus HEX Ecosystem',
+      taxCategory: 'staking_income'
+    }
+  }
+};
+
+// 🏭 LEGACY SUPPORT: Bekannte Minter-Adressen (für Rückwärtskompatibilität)
+const KNOWN_MINTERS = Object.keys(ROI_MAPPINGS.DIRECT_MINTERS);
+
+// 🎯 ROI TRANSACTION CLASSIFIER
+function classifyROITransaction(transaction, userWallet) {
+  const { from_address, token_symbol, token_address, value, token_decimals } = transaction;
+  const fromAddr = from_address?.toLowerCase();
+  const tokenSymbol = token_symbol?.toUpperCase();
+  
+  // 1. DIRECT MINTER CHECK (höchste Priorität)
+  const directMinterType = ROI_MAPPINGS.DIRECT_MINTERS[fromAddr];
+  if (directMinterType) {
+    return {
+      isROI: true,
+      roiType: directMinterType,
+      sourceToken: tokenSymbol,
+      taxCategory: 'minting_rewards',
+      confidence: 95,
+      source: 'direct_minter',
+      description: `Direct Minting von ${directMinterType}`
+    };
+  }
+  
+  // 2. TOKEN REWARD MAPPING (mittlere Priorität)
+  const tokenMapping = ROI_MAPPINGS.TOKEN_REWARDS[tokenSymbol];
+  if (tokenMapping) {
+    return {
+      isROI: true,
+      roiType: tokenMapping.roiType,
+      sourceToken: tokenMapping.sourceToken,
+      taxCategory: tokenMapping.taxCategory,
+      confidence: 85,
+      source: 'token_mapping',
+      description: tokenMapping.description
+    };
+  }
+  
+  // 3. HEURISTIC ANALYSIS (niedrige Priorität)
+  const decimals = parseInt(token_decimals) || 18;
+  const amount = parseFloat(value) / Math.pow(10, decimals);
+  
+  // Small amounts from contracts (possible rewards)
+  if (amount > 0 && amount < 10000 && fromAddr && fromAddr.length === 42 && !fromAddr.startsWith('0x000000')) {
+    return {
+      isROI: true,
+      roiType: 'UNKNOWN_REWARDS',
+      sourceToken: 'UNKNOWN',
+      taxCategory: 'other_income',
+      confidence: 60,
+      source: 'heuristic',
+      description: `Possible reward: small amount (${amount.toFixed(4)}) from contract`
+    };
+  }
+  
+  // 4. NO ROI DETECTED
+  return {
+    isROI: false,
+    roiType: null,
+    sourceToken: null,
+    taxCategory: 'regular_transfer',
+    confidence: 30,
+    source: 'no_match',
+    description: 'Kein ROI-Pattern erkannt'
+  };
+}
+
+// 📊 ENHANCED TAX CLASSIFICATION
+function getEnhancedTaxClassification(transactionType, roiClassification, haltefristTage, amount) {
+  // ROI-Transaktionen sind IMMER steuerpflichtig (§ 22 EStG)
+  if (roiClassification.isROI) {
+    const germanTaxCodes = {
+      'minting_rewards': '§ 22 Nr. 3 EStG (Private Veräußerungsgeschäfte)',
+      'staking_income': '§ 22 Nr. 3 EStG (Sonstige Einkünfte)',
+      'farming_income': '§ 22 Nr. 3 EStG (Sonstige Einkünfte)', 
+      'dividend_income': '§ 20 Abs. 1 Nr. 1 EStG (Dividenden)',
+      'other_income': '§ 22 Nr. 3 EStG (Sonstige Einkünfte)'
+    };
+    
+    return {
+      isTaxable: true,
+      category: roiClassification.taxCategory,
+      reason: `ROI: ${roiClassification.description} (Confidence: ${roiClassification.confidence}%)`,
+      germanTaxCode: germanTaxCodes[roiClassification.taxCategory] || '§ 22 Nr. 3 EStG'
+    };
+  }
+  
+  // Verkäufe: Spekulationssteuer bei < 1 Jahr Haltefrist
+  if (transactionType === 'Verkauf') {
+    const isSpeculationTax = haltefristTage < 365;
+    return {
+      isTaxable: isSpeculationTax,
+      category: isSpeculationTax ? 'speculation_tax' : 'tax_free_sale',
+      reason: isSpeculationTax ? 
+        `Spekulationssteuer: Haltefrist ${haltefristTage} Tage < 365 Tage` :
+        `Steuerfrei: Haltefrist ${haltefristTage} Tage ≥ 365 Tage`,
+      germanTaxCode: isSpeculationTax ? 
+        '§ 23 Abs. 1 Nr. 2 EStG (Spekulationsgeschäfte)' :
+        'Steuerfrei nach § 23 Abs. 1 Nr. 2 EStG'
+    };
+  }
+  
+  // Käufe sind in der Regel nicht steuerpflichtig
+  return {
+    isTaxable: false,
+    category: 'purchase',
+    reason: 'Kauf/Erwerb - nicht steuerpflichtig',
+    germanTaxCode: 'Nicht steuerpflichtig'
+  };
+}
 
 // 🌐 MORALIS API HELPER
 async function moralisFetch(endpoint) {
@@ -145,13 +280,19 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { wallet, chain = 'pulsechain', limit = 100 } = req.query;
+  const { 
+    wallet, 
+    chain = 'pulsechain', 
+    limit = 100,
+    getAllPages = 'true',
+    maxTransactions = 50000  // 🚀 NEW: Configurabel max limit
+  } = req.query;
 
   // Validation
   if (!wallet) {
     return res.status(400).json({ 
       error: 'Wallet-Adresse fehlt',
-      usage: '/api/tax-report?wallet=0x...&chain=pulsechain'
+      usage: '/api/tax-report?wallet=0x...&chain=pulsechain&getAllPages=true&maxTransactions=50000'
     });
   }
 
@@ -179,24 +320,78 @@ export default async function handler(req, res) {
   
   console.log(`🔍 Chain ${chainId} - Batch API supported: ${isBatchSupported}`);
 
-  console.log(`🔍 Loading transfers for ${wallet} on chain ${chainId}`);
+  const shouldGetAllPages = getAllPages === 'true' || getAllPages === true;
+  const maxTxLimit = parseInt(maxTransactions) || 50000;
+
+  console.log(`🔍 Loading transfers for ${wallet} on chain ${chainId} - AllPages: ${shouldGetAllPages}, Max: ${maxTxLimit}`);
 
   try {
-    // 1. LADE ALLE TOKEN-TRANSFERS
-    const txData = await moralisFetch(`/${wallet}/erc20/transfers?chain=${chainId}&limit=${limit}`);
-    
-    if (!txData?.result) {
+    // 🚀 1. VOLLSTÄNDIGES PAGINATION SYSTEM - LÄDT ALLE TRANSAKTIONEN!
+    let allTransfers = [];
+    let cursor = null;
+    let hasMore = true;
+    let pageCount = 0;
+    let totalApiCalls = 0;
+
+    console.log(`🚀 VOLLSTÄNDIGE PAGINATION: Starte unbegrenztes Laden...`);
+
+    while (hasMore && allTransfers.length < maxTxLimit) {
+      pageCount++;
+      console.log(`📄 TAX PAGE ${pageCount}: Loading transfers... (current total: ${allTransfers.length})`);
+      
+      // Build API URL with pagination
+      let endpoint = `/${wallet}/erc20/transfers?chain=${chainId}&limit=${Math.min(100, maxTxLimit - allTransfers.length)}`;
+      if (cursor) {
+        endpoint += `&cursor=${cursor}`;
+      }
+
+      // API Call with rate limiting
+      const txData = await moralisFetch(endpoint);
+      totalApiCalls++;
+      
+      if (!txData?.result || txData.result.length === 0) {
+        console.log(`📄 TAX PAGE ${pageCount}: No more transfers found`);
+        break;
+      }
+
+      // Add transfers to collection
+      allTransfers.push(...txData.result);
+      cursor = txData.cursor;
+      hasMore = shouldGetAllPages && !!cursor && txData.result.length >= 100;
+      
+      console.log(`✅ TAX PAGE ${pageCount}: Loaded ${txData.result.length} transfers (total: ${allTransfers.length}, cursor: ${cursor ? 'yes' : 'no'})`);
+      
+      // Break conditions
+      if (!shouldGetAllPages) {
+        console.log(`📄 SINGLE PAGE: Stopping at page 1 as requested`);
+        break;
+      }
+      
+      if (allTransfers.length >= maxTxLimit) {
+        console.log(`📄 MAX LIMIT REACHED: Stopping at ${allTransfers.length} transfers`);
+        break;
+      }
+
+      // Rate limiting between pages (100ms)
+      if (hasMore) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`🎯 PAGINATION COMPLETE: ${allTransfers.length} transfers loaded across ${pageCount} pages with ${totalApiCalls} API calls`);
+
+    if (allTransfers.length === 0) {
       return res.status(404).json({ 
         error: 'Keine Token-Transfers gefunden',
         wallet,
-        chain: chainId
+        chain: chainId,
+        pagesChecked: pageCount,
+        apiCalls: totalApiCalls
       });
     }
 
-    console.log(`📊 Found ${txData.result.length} token transfers`);
-
     // 2. SAMMLE ALLE UNIQUE TOKEN-ADRESSEN für Batch-Loading
-    const uniqueTokens = [...new Set(txData.result.map(tx => tx.token_address.toLowerCase()))];
+    const uniqueTokens = [...new Set(allTransfers.map(tx => tx.token_address.toLowerCase()))];
     console.log(`📊 Found ${uniqueTokens.length} unique tokens for batch price loading`);
 
     // 3. 🚀 BATCH PRICE LOADING (nur auf Mainnet Chains!)
@@ -223,7 +418,7 @@ export default async function handler(req, res) {
     const ungepaarteTokens = [];
     const kaufHistorie = {};
 
-    for (const tx of txData.result) {
+    for (const tx of allTransfers) {
       const token = tx.token_symbol || 'Unknown';
       const tokenAddr = tx.token_address.toLowerCase();
       const decimals = parseInt(tx.token_decimal) || 18;
@@ -231,12 +426,13 @@ export default async function handler(req, res) {
       const datum = new Date(tx.block_timestamp);
       const dateFormatted = format(datum, 'yyyy-MM-dd HH:mm:ss');
       
-      // Transaktionstyp bestimmen
+      // 🎯 ERWEITERTE ROI-KLASSIFIKATION
       const isFromWallet = tx.from_address.toLowerCase() === wallet.toLowerCase();
-      const isFromMinter = KNOWN_MINTERS.includes(tx.from_address.toLowerCase());
+      const roiClassification = classifyROITransaction(tx, wallet);
       
+      // Transaktionstyp basierend auf ROI-Klassifikation
       const type = isFromWallet ? 'Verkauf' : 
-                   isFromMinter ? 'ROI' : 'Kauf';
+                   roiClassification.isROI ? 'ROI' : 'Kauf';
 
       // Kaufhistorie für Haltefrist-Berechnung
       if (type === 'Kauf') {
@@ -301,7 +497,15 @@ export default async function handler(req, res) {
       const isSteuerpflichtig = type === 'ROI' || 
         (type === 'Verkauf' && haltefristTage < 365);
 
-      // 7. TRANSAKTION SPEICHERN (mit erweiterten Preis-Infos)
+      // 7. ERWEITERTE STEUERPFLICHTIGKEIT mit ROI-Klassifikation
+      const enhancedTaxClassification = getEnhancedTaxClassification(
+        type, 
+        roiClassification, 
+        haltefristTage, 
+        amount
+      );
+
+      // 8. TRANSAKTION SPEICHERN (mit ROI-Klassifikation & erweiterten Steuer-Infos)
       transactions.push({
         type,
         token,
@@ -313,12 +517,26 @@ export default async function handler(req, res) {
         valueUSD: usdPrice * amount,
         priceEUR: usdPrice * 0.92, // Grober EUR Kurs
         valueEUR: usdPrice * amount * 0.92,
-        steuerpflichtig: isSteuerpflichtig,
+        
+        // 🎯 ROI-KLASSIFIKATION
+        roiClassification: roiClassification,
+        isROI: roiClassification.isROI,
+        roiType: roiClassification.roiType,
+        roiSourceToken: roiClassification.sourceToken,
+        roiConfidence: roiClassification.confidence,
+        
+        // 📊 ERWEITERTE STEUER-KLASSIFIKATION
+        steuerpflichtig: enhancedTaxClassification.isTaxable,
+        taxCategory: enhancedTaxClassification.category,
+        taxReason: enhancedTaxClassification.reason,
+        germanTaxCode: enhancedTaxClassification.germanTaxCode,
+        
         haltefristTage: Math.round(haltefristTage),
         priceSource,
         hasReliablePrice,
         hash: tx.transaction_hash,
         tokenAddress: tokenAddr,
+        
         // Zusätzliche Moralis-Daten
         priceChange24h: priceInfo?.change24h,
         verifiedContract: priceInfo?.verified,
@@ -326,21 +544,48 @@ export default async function handler(req, res) {
       });
     }
 
-    // 7. STATISTIKEN BERECHNEN
+    // 9. ERWEITERTE STATISTIKEN BERECHNEN
     const steuerpflichtigeTransaktionen = transactions.filter(t => t.steuerpflichtig);
     const gesamtwertSteuerpflichtig = steuerpflichtigeTransaktionen.reduce((sum, t) => sum + t.valueEUR, 0);
     
-    const roiTransaktionen = transactions.filter(t => t.type === 'ROI');
+    // ROI-Statistiken nach Klassifikation
+    const roiTransaktionen = transactions.filter(t => t.isROI);
     const roiWert = roiTransaktionen.reduce((sum, t) => sum + t.valueEUR, 0);
+    
+    // ROI-Aufschlüsselung nach Typ
+    const roiByType = roiTransaktionen.reduce((acc, t) => {
+      const type = t.roiType || 'UNKNOWN';
+      if (!acc[type]) {
+        acc[type] = { count: 0, value: 0, confidence: [] };
+      }
+      acc[type].count++;
+      acc[type].value += t.valueEUR;
+      acc[type].confidence.push(t.roiConfidence);
+      return acc;
+    }, {});
+    
+    // Durchschnittliche Confidence pro ROI-Typ
+    Object.keys(roiByType).forEach(type => {
+      const confidences = roiByType[type].confidence;
+      roiByType[type].avgConfidence = confidences.length > 0 ? 
+        Math.round(confidences.reduce((sum, c) => sum + c, 0) / confidences.length) : 0;
+      delete roiByType[type].confidence; // Remove array for cleaner output
+    });
 
-    // 🚀 BATCH-OPTIMIERUNG STATISTIKEN
-    const estimatedCUsUsed = moralisCallsUsed * 25; // ~25 CUs pro Call
-    const oldSystemCUs = uniqueTokens.length * 25; // Was das alte System gekostet hätte
+    // 🚀 PAGINATION & BATCH STATISTIKEN
+    const paginationApiCalls = totalApiCalls; // API calls für Transfer-Loading
+    const priceApiCalls = moralisCallsUsed; // API calls für Preis-Loading
+    const totalMoralisApiCalls = paginationApiCalls + priceApiCalls;
+    
+    const estimatedCUsUsed = totalMoralisApiCalls * 25; // ~25 CUs pro Call
+    const oldSystemCUs = (allTransfers.length + uniqueTokens.length) * 25; // Individual calls
     const cuSavings = Math.max(0, oldSystemCUs - estimatedCUsUsed);
     const efficiencyPercent = oldSystemCUs > 0 ? Math.round((cuSavings / oldSystemCUs) * 100) : 0;
 
-    console.log(`✅ TAX REPORT: ${transactions.length} transactions, ${ungepaarteTokens.length} ungepaart`);
-    console.log(`📊 API Calls: ${moralisCallsUsed} Moralis (${estimatedCUsUsed} CUs), ${dexscreenerCallsUsed} DEXScreener`);
+    console.log(`✅ TAX REPORT COMPLETE:`);
+    console.log(`📊 TRANSACTIONS: ${allTransfers.length} total transfers → ${transactions.length} processed, ${ungepaarteTokens.length} ungepaart`);
+    console.log(`📊 PAGINATION: ${pageCount} pages loaded with ${paginationApiCalls} API calls`);
+    console.log(`📊 PRICING: ${priceApiCalls} Moralis + ${dexscreenerCallsUsed} DEXScreener calls`);
     
     if (isBatchSupported && batchPrices) {
       console.log(`🚀 BATCH EFFICIENCY: ${efficiencyPercent}% CU savings (${cuSavings} CUs saved vs old system)`);
@@ -364,13 +609,23 @@ export default async function handler(req, res) {
       ungepaarteTokens,
       ungepaarteCount: ungepaarteTokens.length,
       
-      // Statistiken
+      // Erweiterte Statistiken mit Pagination
       statistics: {
+        // Transfer-Loading Stats
+        totalTransfersLoaded: allTransfers.length,
+        pagesLoaded: pageCount,
+        paginationApiCalls: paginationApiCalls,
+        maxTransactionsLimit: maxTxLimit,
+        allPagesRequested: shouldGetAllPages,
+        
+        // Processing Stats  
         gesamtTransaktionen: transactions.length + ungepaarteTokens.length,
+        processedTransactions: transactions.length,
         steuerpflichtigeTransaktionen: steuerpflichtigeTransaktionen.length,
         gesamtwertSteuerpflichtig: gesamtwertSteuerpflichtig,
         roiTransaktionen: roiTransaktionen.length,
         roiWert: roiWert,
+        roiClassificationBreakdown: roiByType,
         ungepaarteTokens: ungepaarteTokens.length
       },
       
