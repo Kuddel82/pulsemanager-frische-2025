@@ -788,7 +788,7 @@ const TaxReportView = () => {
               Klicken Sie hier um Ihre Transaktionshistorie für die Steuerberechnung zu laden.<br/>
               <span className="text-green-400">✅ Kostenoptimiert - nur bei Bedarf</span>
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <Button 
                 onClick={loadTaxData} 
                 className="bg-green-500 hover:bg-green-600"
@@ -806,6 +806,21 @@ const TaxReportView = () => {
               >
                 <Globe className={`h-5 w-5 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
                 Mit Moralis Preisen
+              </Button>
+              
+              {/* 🔥 NEUER TAX REPORT - IMMER SICHTBAR */}
+              <Button
+                onClick={() => {
+                  console.log('🔥🔥🔥 NEUER TAX REPORT BUTTON GEKLICKT! 🔥🔥🔥');
+                  console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
+                  generateRebuildTaxReport();
+                }}
+                disabled={rebuildLoading}
+                className="bg-purple-600 hover:bg-purple-700 border-2 border-yellow-400"
+                size="lg"
+              >
+                <FileText className={`h-5 w-5 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
+                🔥 NEUER TAX REPORT (REBUILD)
               </Button>
             </div>
           </div>
