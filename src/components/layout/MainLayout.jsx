@@ -49,6 +49,13 @@ const MainLayout = () => {
       icon: FileText,
       path: '/tax-report',
       description: 'Export Reports'
+    },
+    {
+      id: 'tax-new',
+      label: '🔥 NEUER STEUERREPORT',
+      icon: FileText,
+      path: '/tax-report-new',
+      description: 'Deutsches Steuerrecht & PDF'
     }
   ];
 
