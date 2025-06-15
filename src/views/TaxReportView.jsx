@@ -692,12 +692,17 @@ const TaxReportView = () => {
             </Button>
             
             <Button
-              onClick={generateRebuildTaxReport}
+              onClick={() => {
+                console.log('🔥🔥🔥 NEUER TAX REPORT BUTTON GEKLICKT! 🔥🔥🔥');
+                console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
+                generateRebuildTaxReport();
+              }}
               disabled={rebuildLoading}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-purple-600 hover:bg-purple-700 border-2 border-yellow-400"
+              size="lg"
             >
               <FileText className={`h-4 w-4 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
-              🚀 NEUER TAX REPORT
+              🔥 NEUER TAX REPORT (DEBUG)
             </Button>
             
             <Button
