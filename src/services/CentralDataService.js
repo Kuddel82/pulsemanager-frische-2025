@@ -488,7 +488,8 @@ export class CentralDataService {
               const priceData = pricesData[tokenAddress] || {};
               const finalPrice = priceData.final || 0;
               const priceSource = priceData.source || 'no_price';
-              const isReliable = priceData.status === 'verified';
+              // 🔧 FIXED: Lockere Preis-Validierung - Preis > 0 ist ausreichend
+              const isReliable = finalPrice > 0 && priceSource !== 'no_price' && priceSource !== 'unknown';
               
               const totalUsd = balanceReadable * finalPrice;
               
