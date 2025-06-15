@@ -647,7 +647,6 @@ export class ROIDetectionService {
       
       // ROI Calculations
       totalDailyROI,
-      totalWeeklyROI: totalDailyROI * 7,
       totalMonthlyROI: totalDailyROI * 30,
       
       // ROI Quality Assessment

@@ -331,19 +331,16 @@ const ROITrackerView = () => {
     
     const portfolioROI = {
       daily: portfolioData?.dailyROI || 0,
-      weekly: portfolioData?.weeklyROI || 0,
       monthly: portfolioData?.monthlyROI || 0
     };
     
     const defiROI = {
       daily: defiData?.positions?.roiAnalysis?.totalDailyROI || 0,
-      weekly: (defiData?.positions?.roiAnalysis?.totalDailyROI || 0) * 7,
       monthly: defiData?.positions?.roiAnalysis?.estimatedMonthlyROI || 0
     };
     
     const totalROI = {
       daily: portfolioROI.daily + defiROI.daily,
-      weekly: portfolioROI.weekly + defiROI.weekly,
       monthly: portfolioROI.monthly + defiROI.monthly
     };
     
@@ -383,10 +380,16 @@ const ROITrackerView = () => {
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
         
+        {/* 🚨 LIVE TEST BANNER */}
+        <div className="bg-gradient-to-r from-pink-500 to-purple-600 text-white p-4 rounded-lg text-center mb-6">
+          <h2 className="text-xl font-bold">🎯 PULSEWATCH STYLE AKTIV! 🚀</h2>
+          <p className="text-sm">Live Test - Wenn du das siehst, funktionieren die Änderungen!</p>
+        </div>
+
         {/* Header mit Portfolio-Status */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold pulse-title">ROI Tracker</h1>
+            <h1 className="text-3xl font-bold pulse-title">🎯 ROI Tracker - PULSEWATCH STYLE 🚀</h1>
             <div className="flex items-center space-x-4 text-sm pulse-text-secondary">
               <span>💰 MORALIS PRO MODUS</span>
               <span className="text-green-400">✅ Globaler Portfolio-State</span>
@@ -772,18 +775,16 @@ const ROITrackerView = () => {
         {!showEmptyState && (
           <div className="flex justify-center mb-6">
             <div className="pulse-card p-1 flex">
-              {['daily', 'weekly', 'monthly'].map((tf) => (
-                <button
+              {['daily', 'monthly'].map((tf) => (
+                <Button
                   key={tf}
+                  variant={timeFrame === tf ? 'default' : 'outline'}
+                  size="sm"
                   onClick={() => setTimeFrame(tf)}
-                  className={`px-4 py-2 rounded-lg transition-all ${
-                    timeFrame === tf 
-                      ? 'bg-green-500 text-white' 
-                      : 'pulse-text hover:bg-white/5'
-                  }`}
+                  className="pulse-button"
                 >
-                  {tf === 'daily' ? 'Täglich' : tf === 'weekly' ? 'Wöchentlich' : 'Monatlich'}
-                </button>
+                  {tf === 'daily' ? 'Täglich' : 'Monatlich'}
+                </Button>
               ))}
             </div>
           </div>
@@ -821,7 +822,7 @@ const ROITrackerView = () => {
             <div className="pulse-card p-6">
               <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
                 <DollarSign className="h-5 w-5 mr-2 text-green-400" />
-                {timeFrame === 'daily' ? 'Täglicher' : timeFrame === 'weekly' ? 'Wöchentlicher' : 'Monatlicher'} ROI Überblick
+                {timeFrame === 'daily' ? 'Täglicher' : 'Monatlicher'} ROI Überblick
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center">

@@ -462,7 +462,6 @@ export class DatabaseCacheService {
         data: roiData,
         transactionCount: roiData.transactions?.length || 0,
         dailyROI: roiData.dailyROI || 0,
-        weeklyROI: roiData.weeklyROI || 0,
         monthlyROI: roiData.monthlyROI || 0,
         totalApiCalls: roiData.totalApiCalls || 0,
         lastCalculated: new Date().toISOString(),

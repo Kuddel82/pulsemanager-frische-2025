@@ -10,18 +10,7 @@ export class TokenPricingService {
   static priceCache = new Map();
   static CACHE_TTL = 10 * 60 * 1000; // 10 Minuten
   
-  // 💰 EMERGENCY FALLBACK PRICES
-  static EMERGENCY_PRICES = {
-    'HEX': 0.0025,
-    'PLSX': 0.00008,
-    'INC': 0.005,
-    'PLS': 0.00005,
-    'ETH': 2400,
-    'USDC': 1.0,
-    'USDT': 1.0,
-    'DAI': 1.0,
-    'DOMINANCE': 0.32
-  };
+  // EMERGENCY FALLBACK PRICES ENTFERNT (laut Arbeitsanweisung)
 
   // 🎯 PULSEWATCH PREFERRED PRICES (überschreiben andere Quellen)
   static PULSEWATCH_PRICES = {
@@ -103,16 +92,7 @@ export class TokenPricingService {
       }
     }
     
-    // 3. DexScreener Fallback (nur bei fehlenden/fragwürdigen Moralis-Preisen)
-    if (!isReliable) {
-      const dexPrice = await this.fetchDexScreenerPrice(tokenAddress, chainId);
-      if (dexPrice > 0) {
-        finalPrice = dexPrice;
-        priceSource = 'dexscreener';
-        isReliable = true;
-        console.log(`🔄 DEXSCREENER: ${tokenSymbol} = $${dexPrice}`);
-      }
-    }
+    // 3. DexScreener Fallback ENTFERNT (laut Arbeitsanweisung)
     
     // 4. PulseWatch Preferred (überschreibt andere Quellen wenn verfügbar)
     if (this.PULSEWATCH_PRICES[tokenSymbol]) {
@@ -122,19 +102,13 @@ export class TokenPricingService {
       console.log(`⭐ PULSEWATCH: ${tokenSymbol} = $${finalPrice} (preferred)`);
     }
     
-    // 5. Emergency Fallback
-    if (!isReliable && this.EMERGENCY_PRICES[tokenSymbol]) {
-      finalPrice = this.EMERGENCY_PRICES[tokenSymbol];
-      priceSource = 'emergency_fallback';
-      isReliable = true;
-      console.log(`🚨 EMERGENCY: ${tokenSymbol} = $${finalPrice}`);
-    }
+    // 5. Emergency Fallback ENTFERNT (laut Arbeitsanweisung)
     
     const result = {
       token: tokenSymbol,
       contract: tokenAddress,
       moralis: moralisPrice,
-      dexscreener: null, // wird bei Bedarf gefüllt
+      // dexscreener: ENTFERNT
       pulsewatch: this.PULSEWATCH_PRICES[tokenSymbol] || null,
       final: finalPrice,
       source: priceSource,
@@ -195,39 +169,7 @@ export class TokenPricingService {
     }
   }
 
-  /**
-   * 🔄 DexScreener Einzelpreis-Fallback
-   * @param {String} tokenAddress - Token Contract Address
-   * @param {String} chainId - Chain ID
-   * @returns {Number} - Preis oder 0
-   */
-  static async fetchDexScreenerPrice(tokenAddress, chainId) {
-    try {
-      console.log(`🔍 DEXSCREENER: Fetching ${tokenAddress}`);
-      
-      const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
-      const data = await response.json();
-      
-      if (data.pairs && data.pairs.length > 0) {
-        // Bevorzuge PulseChain-Pairs für PulseChain-Abfragen
-        const pulsePairs = data.pairs.filter(p => p.chainId === 'pulsechain');
-        const bestPair = pulsePairs.length > 0 ? pulsePairs[0] : data.pairs[0];
-        
-        const price = parseFloat(bestPair.priceUsd) || 0;
-        if (price > 0) {
-          console.log(`✅ DEXSCREENER: $${price} (liquidity: $${bestPair.liquidity?.usd || 0})`);
-          return price;
-        }
-      }
-      
-      console.log(`⚠️ DEXSCREENER: No valid price found`);
-      return 0;
-      
-    } catch (error) {
-      console.error(`❌ DEXSCREENER: Error - ${error.message}`);
-      return 0;
-    }
-  }
+  // fetchDexScreenerPrice ENTFERNT (laut Arbeitsanweisung)
 
   /**
    * 📊 Tokens nach Chain gruppieren
