@@ -5,8 +5,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import MainApp from './MainApp';
 import ErrorBoundary from '@/components/ErrorBoundary'; 
-import { logger } from '@/lib/logger'; // Assuming logger is initialized elsewhere
 import '@/index.css';
+import { wrapConsole } from '../utils/logger.js'
+
+// 🔇 PRODUCTION LOGGER: Console-Bereinigung aktivieren
+wrapConsole();
 
 // The main App component now includes Router and all Providers
 // So we can simplify main.jsx significantly.
