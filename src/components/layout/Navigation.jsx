@@ -15,7 +15,8 @@ const Navigation = () => {
   const navItems = [
     { path: '/', label: 'Dashboard' },
     { path: '/portfolio', label: 'Portfolio' },
-    { path: '/tax-report', label: 'Steuer-Report' }
+    { path: '/tax-report', label: 'Steuer-Report' },
+    { path: '/tax-report-new', label: '🔥 NEUER STEUERREPORT 🔥' }
   ];
 
   return (
