@@ -30,6 +30,7 @@ import { formatCurrency, formatNumber, formatTime } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
 import CUMonitor from '@/components/ui/CUMonitor';
 import { TaxService } from '@/services/TaxService';
+import { TaxReportService_Rebuild } from '@/services/TaxReportService_Rebuild';
 import { useAuth } from '@/contexts/AuthContext';
 import WalletDebugInfo from '@/components/ui/WalletDebugInfo';
 
@@ -54,6 +55,11 @@ const TaxReportView = () => {
           // 🛡️ Rate Limiting für Moralis/PulseScan calls
   const [canLoadMoralis, setCanLoadMoralis] = useState(true);
   const [remainingTime, setRemainingTime] = useState(0);
+  
+  // 🚀 NEW: Tax Report Rebuild Service
+  const [rebuildLoading, setRebuildLoading] = useState(false);
+  const [rebuildData, setRebuildData] = useState(null);
+  const [rebuildError, setRebuildError] = useState(null);
 
   // 🚀 TAX SERVICE: Lade Wallets + vollständige Transaktionshistorie  
   const loadTaxData = async () => {
@@ -122,6 +128,83 @@ const TaxReportView = () => {
       setError(`Fehler beim Laden der Steuerdaten: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🚀 NEW: Tax Report Rebuild Service (VOLLSTÄNDIG NEUER STEUERKONFORMER SERVICE)
+  const generateRebuildTaxReport = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setRebuildLoading(true);
+      setRebuildError(null);
+      
+      console.log('🎯 TAX REPORT REBUILD: Generiere vollständig neuen steuerkonformen Report...');
+      
+      // 1. Lade User-Wallets
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeROI: false,
+        includeTax: false
+      });
+      
+      const wallets = portfolioData?.wallets || [];
+      
+      if (wallets.length === 0) {
+        setRebuildError('Keine Wallets gefunden. Fügen Sie zuerst Ihre Wallet-Adressen hinzu.');
+        return;
+      }
+      
+      console.log(`📊 Generiere Tax Report für ${wallets.length} Wallets...`);
+      
+      // 2. Für jedes Wallet einen vollständigen Tax Report generieren
+      const reports = [];
+      
+      for (const wallet of wallets) {
+        console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
+        
+        try {
+          const report = await TaxReportService_Rebuild.generateTaxReport(wallet.address, {
+            startDate: '2025-01-01',
+            endDate: '2025-12-31',
+            debugMode: true
+          });
+          
+          reports.push({
+            wallet: wallet.address,
+            report
+          });
+          
+          console.log(`✅ Tax Report für ${wallet.address} erfolgreich generiert`);
+          
+        } catch (walletError) {
+          console.error(`❌ Fehler bei Wallet ${wallet.address}:`, walletError);
+          reports.push({
+            wallet: wallet.address,
+            error: walletError.message
+          });
+        }
+      }
+      
+      // 3. Kombiniere alle Reports
+      const combinedReport = {
+        totalWallets: wallets.length,
+        successfulReports: reports.filter(r => !r.error).length,
+        failedReports: reports.filter(r => r.error).length,
+        reports,
+        generatedAt: new Date().toISOString(),
+        version: '2.0.0-rebuild'
+      };
+      
+      setRebuildData(combinedReport);
+      
+      console.log('✅ TAX REPORT REBUILD: Alle Reports erfolgreich generiert!');
+      console.log(`📊 Erfolgreich: ${combinedReport.successfulReports}/${combinedReport.totalWallets} Wallets`);
+      
+    } catch (error) {
+      console.error('❌ TAX REPORT REBUILD FEHLER:', error);
+      setRebuildError(`Fehler beim Generieren des Tax Reports: ${error.message}`);
+    } finally {
+      setRebuildLoading(false);
     }
   };
 
@@ -606,6 +689,15 @@ const TaxReportView = () => {
               {remainingTime > 0 && (
                 <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
               )}
+            </Button>
+            
+            <Button
+              onClick={generateRebuildTaxReport}
+              disabled={rebuildLoading}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <FileText className={`h-4 w-4 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
+              🚀 NEUER TAX REPORT
             </Button>
             
             <Button
@@ -1259,6 +1351,112 @@ const TaxReportView = () => {
                 <Download className="h-4 w-4 mr-2" />
                 Jetzt exportieren
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 🚀 TAX REPORT REBUILD RESULTS */}
+        {rebuildData && (
+          <div className="pulse-card p-6 mt-6 border-l-4 border-purple-400">
+            <h3 className="text-lg font-bold pulse-text mb-4 flex items-center">
+              <FileText className="h-5 w-5 mr-2 text-purple-400" />
+              🚀 Neuer Tax Report - Ergebnisse
+              <Badge className="ml-2 bg-purple-500">Version 2.0.0-rebuild</Badge>
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-green-500/20 border border-green-400/30 rounded-lg p-4">
+                <div className="text-2xl font-bold text-green-400">
+                  {rebuildData.successfulReports}
+                </div>
+                <div className="text-sm text-green-300">
+                  Erfolgreiche Reports
+                </div>
+              </div>
+              <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-4">
+                <div className="text-2xl font-bold text-red-400">
+                  {rebuildData.failedReports}
+                </div>
+                <div className="text-sm text-red-300">
+                  Fehlgeschlagene Reports
+                </div>
+              </div>
+              <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-4">
+                <div className="text-2xl font-bold text-blue-400">
+                  {rebuildData.totalWallets}
+                </div>
+                <div className="text-sm text-blue-300">
+                  Verarbeitete Wallets
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {rebuildData.reports.map((report, index) => (
+                <div key={index} className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-mono pulse-text">
+                      {report.wallet.slice(0, 12)}...{report.wallet.slice(-8)}
+                    </div>
+                    <Badge variant={report.error ? 'destructive' : 'default'}>
+                      {report.error ? 'Fehler' : 'Erfolgreich'}
+                    </Badge>
+                  </div>
+                  
+                  {report.error ? (
+                    <div className="text-red-400 text-sm">
+                      ❌ {report.error}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="pulse-text-secondary">Transaktionen</div>
+                        <div className="font-bold pulse-text">
+                          {report.report?.transactions?.length || 0}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="pulse-text-secondary">Steuerpflichtig</div>
+                        <div className="font-bold text-orange-400">
+                          {report.report?.summary?.taxableTransactions || 0}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="pulse-text-secondary">ROI Einkommen</div>
+                        <div className="font-bold text-green-400">
+                          ${(report.report?.summary?.roiIncome || 0).toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="pulse-text-secondary">PDF erstellt</div>
+                        <div className="font-bold text-blue-400">
+                          ✅ Downloads
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 p-4 bg-purple-500/10 border border-purple-400/20 rounded-lg">
+              <h4 className="font-medium pulse-text mb-2">📄 PDF-Export Info:</h4>
+              <p className="text-sm pulse-text-secondary">
+                Für jedes erfolgreich verarbeitete Wallet wurde automatisch eine PDF-Datei in Ihrem Downloads-Ordner erstellt.
+                Die Dateien folgen dem Format: <code>PulseManager_Steuerreport_[Wallet]_[Datum].pdf</code>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {rebuildError && (
+          <div className="pulse-card p-6 mt-6 border-l-4 border-red-400">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2 text-red-400" />
+              <h3 className="text-lg font-bold pulse-text">❌ Tax Report Rebuild Fehler</h3>
+            </div>
+            <div className="mt-4 text-red-400">
+              {rebuildError}
             </div>
           </div>
         )}
