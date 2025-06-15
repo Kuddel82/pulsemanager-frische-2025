@@ -35,7 +35,8 @@ export const PREMIUM_ONLY_VIEWS = [
   'roiTracker',     // ROI Tracker - PREMIUM ONLY (kein Trial!)
   'roi-tracker',    // ROI Tracker (URL format) - PREMIUM ONLY (kein Trial!)
   'taxReport',      // Tax Report - PREMIUM ONLY (kein Trial!)
-  'tax-report'      // Tax Report (URL format) - PREMIUM ONLY (kein Trial!)
+  'tax-report',     // Tax Report (URL format) - PREMIUM ONLY (kein Trial!)
+  'tax-report-new'  // Neuer Tax Report - PREMIUM ONLY (kein Trial!)
 ];
 
 // 🆓 TRIAL FEATURES (3 Tage kostenlos für registrierte User) - KORRIGIERT
@@ -55,7 +56,8 @@ export const PREMIUM_VIEWS_OBJECT = [
   { id: 'roi-tracker', icon: BarChart2, translationKey: 'roiTrackerTitle', isSidebarLink: true },
   { id: 'roiTracker', icon: BarChart2, translationKey: 'roiTrackerTitle', isSidebarLink: true },
   { id: 'tax-report', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
-  { id: 'taxReport', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true }
+  { id: 'taxReport', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
+  { id: 'tax-report-new', icon: FileText, translationKey: 'taxReportNewTitle', isSidebarLink: true }
 ];
 
 // 🚫 LEER - Keine kostenlosen Features mehr

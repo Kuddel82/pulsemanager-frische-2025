@@ -266,13 +266,23 @@ export class TaxReportService_Rebuild {
                             usdPrice = priceCache.get(cacheKey);
                         } else {
                             try {
-                                // Preis von TokenPricingService holen
-                                const priceData = await TokenPricingService.getTokenPrice(
-                                    tx.token_address || 'native',
-                                    new Date(tx.block_timestamp || tx.timestamp)
-                                );
+                                // Preis über CoinGecko API holen (Fallback da Moralis Utils nicht verfügbar)
+                                if (tx.token_address && tx.token_address !== 'native') {
+                                    // Für Token: Versuche über CoinGecko
+                                    const response = await fetch(`https://api.coingecko.com/api/v3/simple/token_price/pulsechain?contract_addresses=${tx.token_address}&vs_currencies=usd`);
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        usdPrice = data[tx.token_address.toLowerCase()]?.usd || 0;
+                                    }
+                                } else {
+                                    // Für PLS: Aktueller Preis (historische Preise schwer verfügbar)
+                                    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=pulsechain&vs_currencies=usd');
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        usdPrice = data.pulsechain?.usd || 0;
+                                    }
+                                }
                                 
-                                usdPrice = priceData?.price || 0;
                                 priceCache.set(cacheKey, usdPrice); // In Cache speichern
                             } catch (priceError) {
                                 console.warn(`⚠️ Preis nicht verfügbar für ${tx.hash}:`, priceError.message);
