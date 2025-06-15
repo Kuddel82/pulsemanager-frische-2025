@@ -266,7 +266,7 @@ export class TaxReportService_Rebuild {
                             usdPrice = priceCache.get(cacheKey);
                         } else {
                             try {
-                                // Preis über BESTEHENDE Moralis API holen
+                                // 1. PRIMARY: Moralis Pro API
                                 if (tx.token_address && tx.token_address !== 'native') {
                                     // Für Token: Verwende Moralis Price API
                                     const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x171&address=${tx.token_address}`);
@@ -280,6 +280,16 @@ export class TaxReportService_Rebuild {
                                     if (response.ok) {
                                         const data = await response.json();
                                         usdPrice = data.usdPrice || 0;
+                                    }
+                                }
+                                
+                                // 2. BACKUP: PulseScan API (falls Moralis 0 zurückgibt)
+                                if (usdPrice === 0 && (!tx.token_address || tx.token_address === 'native')) {
+                                    // PLS-Preis von PulseScan Stats API
+                                    const plsPrice = await PulseScanService.getPLSPrice();
+                                    if (plsPrice > 0) {
+                                        usdPrice = plsPrice;
+                                        console.log(`✅ PULSESCAN BACKUP: PLS = $${plsPrice}`);
                                     }
                                 }
                                 
