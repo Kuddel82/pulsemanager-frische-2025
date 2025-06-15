@@ -661,15 +661,41 @@ const TaxReportView = () => {
           </div>
         )}
         
-        {/* Header */}
+        {/* 🚨 NEUE STEUERREPORT WARNUNG */}
+      <div className="mb-4 p-4 bg-purple-600/20 border-4 border-yellow-400 rounded-lg animate-pulse">
+        <h2 className="text-2xl font-bold text-yellow-400 text-center mb-2">
+          🔥 NEUES STEUERREPORT SYSTEM VERFÜGBAR! 🔥
+        </h2>
+        <p className="text-center text-white">
+          Klicken Sie den violetten Button oben für das neue, steuerrechtlich korrekte System!
+        </p>
+      </div>
+
+      {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold pulse-title">Steuer Report</h1>
+            <h1 className="text-3xl font-bold pulse-title">Steuer Report (Alt)</h1>
             <p className="pulse-text-secondary">
                               DSGVO-konforme Steuerdaten • Letzte Aktualisierung: {lastUpdate ? formatTime(lastUpdate) : 'Nie'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* 🚨🚨🚨 ERSTER BUTTON - HÖCHSTE PRIORITÄT - IMMER SICHTBAR 🚨🚨🚨 */}
+            <Button
+              onClick={() => {
+                console.log('🔥🔥🔥 STEUERREPORT NEU GENERIEREN GEKLICKT! 🔥🔥🔥');
+                console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
+                generateRebuildTaxReport();
+              }}
+              disabled={rebuildLoading}
+              className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl animate-bounce order-first"
+              size="lg"
+              style={{ minWidth: '280px', fontSize: '16px', zIndex: 9999 }}
+            >
+              <FileText className={`h-5 w-5 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
+              🔥 NEU: STEUERREPORT GENERIEREN 🔥
+            </Button>
+            
             <Button
               onClick={loadTaxData}
               disabled={loading}
@@ -689,22 +715,6 @@ const TaxReportView = () => {
               {remainingTime > 0 && (
                 <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
               )}
-            </Button>
-            
-            {/* 🚨 VIOLETTER BUTTON - IMMER SICHTBAR - HÖCHSTE PRIORITÄT */}
-            <Button
-              onClick={() => {
-                console.log('🔥🔥🔥 STEUERREPORT NEU GENERIEREN GEKLICKT! 🔥🔥🔥');
-                console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
-                generateRebuildTaxReport();
-              }}
-              disabled={rebuildLoading}
-              className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl animate-bounce"
-              size="lg"
-              style={{ minWidth: '250px', fontSize: '14px' }}
-            >
-              <FileText className={`h-4 w-4 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
-              🔥 NEU: STEUERREPORT GENERIEREN 🔥
             </Button>
             
             <Button
