@@ -34,8 +34,9 @@ const EMERGENCY_PRICES = {
   'USDT': 1.0,      // Tether (Stablecoin)
   'DAI': 1.0,       // Dai Stablecoin
   
-  // PulseChain Ecosystem Tokens (realistische Schätzungen)
-  'MISSOR': 0.0001,     // MISSOR Token
+  // PulseChain Ecosystem Tokens (EXAKTE SYMBOLE aus Portfolio)
+  '💤': 0.0001,         // MISSOR Token (mit Emoji)
+  'MISSOR': 0.0001,     // MISSOR Token (ohne Emoji)
   'FLEXBOOST': 0.0001,  // FLEXBOOST
   'FLEXMAS': 0.0001,    // FLEXMAS
   'FLEXOR': 0.0001,     // FLEXOR
@@ -43,27 +44,44 @@ const EMERGENCY_PRICES = {
   'HOUSE': 0.0001,      // Housecoin Pulsechain
   'BEAST': 0.0001,      // BEAST
   'SOIL': 0.0001,       // SUN Minimeal
-  'TREASURY BILL': 0.0001, // TREASURY BILL
-  'LFG': 0.0001,        // LFG
-  'ROCKET': 0.0001,     // Rocket Booster
-  'GROKP': 0.0001,      // GROK LAUNCH PULSE
+  'TREASURY BILL ㉾': 0.0001, // TREASURY BILL (mit Emoji)
+  'TREASURY BILL': 0.0001, // TREASURY BILL (ohne Emoji)
+  '😂': 0.0001,         // LFG (mit Emoji)
+  'LFG': 0.0001,        // LFG (ohne Emoji)
+  '🚀': 0.0001,         // Rocket Booster (mit Emoji)
+  'ROCKET': 0.0001,     // Rocket Booster (ohne Emoji)
+  '$GROKP': 0.0001,     // GROK LAUNCH PULSE
+  'GROKP': 0.0001,      // GROK LAUNCH PULSE (ohne $)
   'WWPP': 0.0001,       // Worlds Worst Printer
-  'GAS': 0.0001,        // GAS Money
+  '⛽': 0.0001,         // GAS Money (mit Emoji)
+  'GAS': 0.0001,        // GAS Money (ohne Emoji)
   'SECRET': 0.0001,     // Conspiracy
+  'SⒶT': 0.0001,        // SATISFFECTION (mit Sonderzeichen)
   'SATISFFECTION': 0.0001, // SATISFFECTION
-  'MNEMONICS': 0.0001,  // Mnemonics
+  '🧠': 0.0001,         // Mnemonics (mit Emoji)
+  'MNEMONICS': 0.0001,  // Mnemonics (ohne Emoji)
   'RSI': 0.0001,        // OVERSOLD
+  'Exploited': 0.0001,  // No Value (Großschreibung)
   'EXPLOITED': 0.0001,  // No Value
-  'GASCLUB': 0.0001,    // GAS Club
-  'GASSTATION': 0.0001, // GAS Station
+  '⛽⛽': 0.0001,        // GAS Club (mit Emoji)
+  'GASCLUB': 0.0001,    // GAS Club (ohne Emoji)
+  '🏧': 0.0001,         // GAS Station (mit Emoji)
+  'GASSTATION': 0.0001, // GAS Station (ohne Emoji)
   'PLSPUP': 0.0001,     // PLSPUPPY
   'PETROLAO': 0.0001,   // PETROLAO
+  'SⒶV': 0.0001,        // SAVANT (mit Sonderzeichen)
   'SAVANT': 0.0001,     // SAVANT
+  'Balloonomics': 0.0001, // Balloonomics (Großschreibung)
   'BALLOONOMICS': 0.0001, // Balloonomics
+  'Finvesta': 0.0001,   // Finvesta (Großschreibung)
   'FINVESTA': 0.0001,   // Finvesta
+  'QUBIT™⚗️': 0.0001,   // QUANTUM SUPERPOSITION (mit Emojis)
   'QUBIT': 0.0001,      // QUANTUM SUPERPOSITION
-  'REMEMBER': 0.0001,   // REMEMBER REMEMBER THE 5TH OF NOVEMBER
-  'IYKYK': 0.0001       // IYKYK
+  '🎭': 0.0001,         // REMEMBER REMEMBER (mit Emoji)
+  'REMEMBER': 0.0001,   // REMEMBER REMEMBER
+  'IYKYK': 0.0001,      // IYKYK
+  'F㉾D': 0.0001,       // Reserve Teh (mit Sonderzeichen)
+  '🖨️': 0.0001         // WORLDS GREATEST PDAI PRINTER (mit Emoji)
 };
 
 // 🎯 PRICE MEMORY CACHE (TEMPORÄR DEAKTIVIERT FÜR TESTING)
