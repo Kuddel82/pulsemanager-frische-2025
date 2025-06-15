@@ -796,8 +796,23 @@ const TaxReportView = () => {
                 disabled={loading}
               >
                 <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Steuerdaten laden
+                Tax laden
               </Button>
+              
+              <Button
+                onClick={() => {
+                  console.log('🔥🔥🔥 STEUERREPORT NEU GENERIEREN GEKLICKT! 🔥🔥🔥');
+                  console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
+                  generateRebuildTaxReport();
+                }}
+                disabled={rebuildLoading}
+                className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl animate-pulse"
+                size="lg"
+              >
+                <FileText className={`h-5 w-5 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
+                ⭐ STEUERREPORT NEU GENERIEREN ⭐
+              </Button>
+              
               <Button 
                 onClick={loadMoralisData} 
                 className="bg-blue-500 hover:bg-blue-600"
@@ -806,21 +821,6 @@ const TaxReportView = () => {
               >
                 <Globe className={`h-5 w-5 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
                 Mit Moralis Preisen
-              </Button>
-              
-              {/* 🔥 NEUER TAX REPORT - IMMER SICHTBAR */}
-              <Button
-                onClick={() => {
-                  console.log('🔥🔥🔥 NEUER TAX REPORT BUTTON GEKLICKT! 🔥🔥🔥');
-                  console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
-                  generateRebuildTaxReport();
-                }}
-                disabled={rebuildLoading}
-                className="bg-purple-600 hover:bg-purple-700 border-2 border-yellow-400"
-                size="lg"
-              >
-                <FileText className={`h-5 w-5 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
-                🔥 NEUER TAX REPORT (REBUILD)
               </Button>
             </div>
           </div>
