@@ -3,7 +3,7 @@
 // ✅ Moralis First → PulseWatch Preferred (DexScreener/Emergency entfernt)
 
 import { supabase } from '@/lib/supabaseClient';
-import { TokenPricingService } from './TokenPricingService';
+// import { TokenPricingService } from './TokenPricingService'; // NICHT MEHR VERWENDET - ZURÜCK ZU MORALIS DIRECT
 // 🎯 NEUE PREISLOGIK: Strukturierte Preis-Resolution ohne willkürliche Blockierungen
 
 export class CentralDataService {
@@ -440,10 +440,10 @@ export class CentralDataService {
             chain: chain.moralisChainId || '0x171'
           }));
           
-          console.log(`🎯 PRICING: Loading structured prices for ${tokensForPricing.length} tokens`);
+          console.log(`🎯 PRICING: Loading DIRECT MORALIS prices for ${tokensForPricing.length} tokens`);
           
-          // Verwende den neuen TokenPricingService
-          const pricesData = await TokenPricingService.getTokenPrices(tokensForPricing);
+          // 🚀 ZURÜCK ZU DIREKTEN MORALIS-AUFRUFEN (wie früher)
+          const pricesData = await this.loadTokenPricesMoralisOnly(tokensForPricing);
           
           // 🚀 SCHRITT 3: Token-Processing ohne willkürliche Blockierungen
           const processedTokens = rawTokens.map((token) => {
@@ -996,7 +996,80 @@ export class CentralDataService {
   }
 
   static async loadTokenPricesMoralisOnly(tokens) {
-    return { priceMap: {}, updatedCount: 0, apiCalls: 0, source: 'pro_mode_basic' };
+    console.log(`🚀 MORALIS DIRECT: Loading prices for ${tokens.length} tokens`);
+    
+    if (!tokens || tokens.length === 0) {
+      return {};
+    }
+    
+    const priceMap = {};
+    let apiCalls = 0;
+    
+    try {
+      // 🎯 MORALIS TOKEN PRICES API - DIREKT
+      const tokenAddresses = tokens.map(t => t.address).filter(Boolean);
+      
+      if (tokenAddresses.length === 0) {
+        console.warn('⚠️ MORALIS DIRECT: No valid token addresses found');
+        return {};
+      }
+      
+      const moralisUrl = `https://deep-index.moralis.io/api/v2.2/erc20/prices`;
+      const requestBody = {
+        tokens: tokenAddresses.map(address => ({
+          token_address: address,
+          exchange: "uniswapv2"
+        }))
+      };
+      
+      console.log(`🎯 MORALIS DIRECT: Requesting prices for ${tokenAddresses.length} tokens`);
+      
+      const response = await fetch(moralisUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      apiCalls++;
+      
+      if (!response.ok) {
+        throw new Error(`Moralis API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`✅ MORALIS DIRECT: Received ${data.length || 0} price responses`);
+      
+      // Verarbeite Moralis-Antworten
+      if (data && Array.isArray(data)) {
+        data.forEach(priceData => {
+          if (priceData.tokenAddress && priceData.usdPrice) {
+            const address = priceData.tokenAddress.toLowerCase();
+            const price = parseFloat(priceData.usdPrice);
+            
+            if (price > 0) {
+              priceMap[address] = {
+                final: price,
+                source: 'moralis_direct',
+                name: priceData.tokenName || 'Unknown',
+                symbol: priceData.tokenSymbol || 'Unknown'
+              };
+              console.log(`💰 MORALIS PRICE: ${priceData.tokenSymbol} = $${price} (${address.slice(0,8)}...)`);
+            }
+          }
+        });
+      }
+      
+      console.log(`✅ MORALIS DIRECT COMPLETE: ${Object.keys(priceMap).length} prices loaded, ${apiCalls} API calls`);
+      
+      return priceMap;
+      
+    } catch (error) {
+      console.error(`💥 MORALIS DIRECT ERROR: ${error.message}`);
+      return {};
+    }
   }
 
 }
