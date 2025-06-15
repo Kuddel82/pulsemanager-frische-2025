@@ -698,11 +698,11 @@ const TaxReportView = () => {
                 generateRebuildTaxReport();
               }}
               disabled={rebuildLoading}
-              className="bg-purple-600 hover:bg-purple-700 border-2 border-yellow-400 text-white font-bold shadow-lg"
+              className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl pulse-glow"
               size="lg"
             >
               <FileText className={`h-4 w-4 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
-              🚀 STEUERREPORT GENERIEREN (NEU)
+              ⭐ STEUERREPORT NEU GENERIEREN ⭐
             </Button>
             
             <Button
