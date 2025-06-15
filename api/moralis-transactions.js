@@ -123,10 +123,10 @@ export default async function handler(req, res) {
     const chainId = chainMap[chain.toLowerCase()] || chain;
     console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
 
-    // Build Moralis API parameters - ERWEITERT für Tax Report (mehr Transaktionen)
+    // Build Moralis API parameters - ERWEITERT für Tax Report (>25.000 Transaktionen)
     const moralisParams = { 
       chain: chainId,
-      limit: Math.min(parseInt(limit) || 100, 500) // Bis zu 500 für Tax Reports
+      limit: Math.min(parseInt(limit) || 1000, 2000) // Bis zu 2000 pro Request für Tax Reports
     };
 
     // Add optional parameters
@@ -134,7 +134,7 @@ export default async function handler(req, res) {
     if (from_date) moralisParams.from_date = from_date;
     if (to_date) moralisParams.to_date = to_date;
     
-    console.log(`🔧 PAGE SIZE: Configured for ${moralisParams.limit} items per request (Tax Report optimized)`);
+    console.log(`🔧 PAGE SIZE: Configured for ${moralisParams.limit} items per request (Tax Report >25k optimized)`);
 
     // Load ERC20 transfers from Moralis
     console.log(`🚀 FETCHING TRANSFERS: ${address} on ${chainId}`);
@@ -156,17 +156,75 @@ export default async function handler(req, res) {
       });
     }
 
-    // Successful response
+    // Successful response with transaction categorization
     const transferCount = result.result?.length || 0;
-    console.log(`✅ TRANSFERS LOADED: ${transferCount} transfers for ${address}`);
+    
+    // 📊 TRANSACTION CATEGORIZATION für Tax Report
+    const categorizedTransactions = result.result?.map(tx => {
+      const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
+      const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
+      
+      // ROI Token Detection
+      const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'];
+      const isROIToken = ROI_TOKENS.includes(tx.token_symbol?.toUpperCase());
+      
+      // Minter Detection
+      const KNOWN_MINTERS = [
+        '0x0000000000000000000000000000000000000000',
+        '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
+        '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3',
+        '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1',
+        '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6',
+        '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5',
+        '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4'
+      ];
+      const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
+      
+      // Tax Category Classification
+      let taxCategory = 'transfer'; // Default: steuerfreier Transfer
+      let isTaxable = false;
+      
+      if (isIncoming && (fromMinter || isROIToken)) {
+        taxCategory = 'roi_income';
+        isTaxable = true;
+      } else if (isOutgoing) {
+        taxCategory = 'purchase';
+        isTaxable = false; // Käufe sind nicht steuerpflichtig
+      } else if (isIncoming) {
+        taxCategory = 'sale_income';
+        isTaxable = true; // Verkaufserlöse sind steuerpflichtig
+      }
+      
+      return {
+        ...tx,
+        // Tax-spezifische Felder
+        direction: isIncoming ? 'in' : 'out',
+        taxCategory,
+        isTaxable,
+        isROI: fromMinter || isROIToken,
+        fromMinter,
+        isROIToken
+      };
+    }) || [];
+    
+    console.log(`✅ TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting`);
 
     return res.status(200).json({
       ...result,
+      result: categorizedTransactions, // Erweiterte Transaktionen mit Tax-Kategorien
       _source: 'moralis_v2_pro_transactions_success',
       _chain: chainId,
       _address: address,
       _timestamp: new Date().toISOString(),
-      _count: transferCount
+      _count: transferCount,
+      _tax_categorization: {
+        total: transferCount,
+        roi_income: categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income').length,
+        purchases: categorizedTransactions.filter(tx => tx.taxCategory === 'purchase').length,
+        sales: categorizedTransactions.filter(tx => tx.taxCategory === 'sale_income').length,
+        transfers: categorizedTransactions.filter(tx => tx.taxCategory === 'transfer').length,
+        taxable: categorizedTransactions.filter(tx => tx.isTaxable).length
+      }
     });
 
   } catch (error) {

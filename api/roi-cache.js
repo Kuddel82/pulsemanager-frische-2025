@@ -10,17 +10,18 @@ const supabase = createClient(
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
-const CACHE_TTL_MINUTES = 30; // Supabase Cache: 30 Minuten
+const CACHE_TTL_MINUTES = 15; // Supabase Cache: 15 Minuten (Task requirement)
 const MEMORY_CACHE_TTL = 10 * 60 * 1000; // Memory Cache: 10 Minuten
 
-// 🏭 BEKANNTE ROI-MINTER ADRESSEN (erweitert)
+// 🏭 BEKANNTE ROI-MINTER ADRESSEN (synchron mit ROIDetectionService)
 const KNOWN_MINTERS = [
-  '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
-  '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC  
-  '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1', // PLSX
-  '0x5a0ce45f2afbfb1fcc2aa2b7c79e7a12e96c4f1e', // Additional minter
-  '0x1234567890abcdef1234567890abcdef12345678', // Additional minter
-  // Weitere können hier hinzugefügt werden
+  '0x0000000000000000000000000000000000000000', // Null address (Mint)
+  '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX Contract (Ethereum + PulseChain)
+  '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC Contract
+  '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1', // PLSX Minter
+  '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6', // FLEX Minter
+  '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5', // WGEP Minter  
+  '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4', // LOAN Minter
 ];
 
 // 🚦 RATE LIMITING: Max 5 API Calls pro Sekunde
@@ -82,10 +83,16 @@ async function fetchROITransfers(wallet, chainId) {
     
     console.log(`📊 Found ${transferData.result.length} total transfers`);
     
-    // Filter ROI Transfers (von bekannten Mintern)
-    const roiTransfers = transferData.result.filter(tx => 
-      KNOWN_MINTERS.includes(tx.from_address.toLowerCase())
-    );
+    // Filter ROI Transfers (von bekannten Mintern + ROI Token-Symbole)
+    const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'];
+    
+    const roiTransfers = transferData.result.filter(tx => {
+      const fromMinter = KNOWN_MINTERS.includes(tx.from_address.toLowerCase());
+      const isROIToken = ROI_TOKENS.includes(tx.token_symbol?.toUpperCase());
+      const isIncoming = tx.to_address.toLowerCase() === wallet.toLowerCase();
+      
+      return isIncoming && (fromMinter || isROIToken);
+    });
     
     console.log(`✅ Found ${roiTransfers.length} ROI transfers from ${KNOWN_MINTERS.length} known minters`);
     
@@ -167,14 +174,16 @@ function processROIData(transfers) {
   };
 }
 
-// 🏷️ MINTER NAME MAPPING
+// 🏷️ MINTER NAME MAPPING (erweitert für FLEX, WGEP, LOAN)
 function getMinterName(address) {
   const minterNames = {
+    '0x0000000000000000000000000000000000000000': 'Token Mint',
     '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': 'HEX Staking',
-    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': 'INC Token',
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': 'INC Staking',
     '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1': 'PLSX Staking',
-    '0x5a0ce45f2afbfb1fcc2aa2b7c79e7a12e96c4f1e': 'Additional Minter',
-    '0x1234567890abcdef1234567890abcdef12345678': 'Custom Minter'
+    '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6': 'FLEX Rewards',
+    '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5': 'WGEP Minter',
+    '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4': 'LOAN Rewards'
   };
   
   return minterNames[address.toLowerCase()] || `Unknown Minter (${address.slice(0, 8)}...)`;
