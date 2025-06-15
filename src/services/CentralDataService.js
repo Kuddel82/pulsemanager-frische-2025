@@ -1020,6 +1020,30 @@ export class CentralDataService {
       const pricePromises = tokenAddresses.map(async (address) => {
         try {
           const chain = tokens.find(t => t.address === address)?.chain || '0x171'; // PulseChain default
+          
+          // 🚨 SKIP NATIVE TOKENS - Moralis ERC20 API unterstützt keine "native" Adressen
+          if (address === 'native' || address.toLowerCase() === 'native') {
+            console.log(`⚠️ MORALIS SKIP: Native token ${address} - using hardcoded prices`);
+            
+            // Hardcoded Native Token Preise
+            const nativePrices = {
+              '0x171': { price: 0.00005, symbol: 'PLS', name: 'PulseChain' },  // PulseChain
+              '0x1': { price: 2400, symbol: 'ETH', name: 'Ethereum' },         // Ethereum
+              '0x38': { price: 240, symbol: 'BNB', name: 'BNB Chain' },        // BSC
+              '0x89': { price: 0.4, symbol: 'MATIC', name: 'Polygon' }         // Polygon
+            };
+            
+            const nativeData = nativePrices[chain] || { price: 0.0001, symbol: 'NATIVE', name: 'Native Token' };
+            
+            console.log(`💰 NATIVE PRICE: ${nativeData.symbol} = $${nativeData.price} (chain ${chain})`);
+            return {
+              address: address.toLowerCase(),
+              price: nativeData.price,
+              name: nativeData.name,
+              symbol: nativeData.symbol
+            };
+          }
+          
           const priceUrl = `https://deep-index.moralis.io/api/v2/erc20/${address}/price?chain=${chain}`;
           
           const response = await fetch(priceUrl, {
