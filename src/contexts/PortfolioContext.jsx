@@ -208,29 +208,36 @@ export const PortfolioProvider = ({ children }) => {
 
     try {
       console.log('💾 AUTO-RESTORE: Checking for cached portfolio...');
-      const restored = await restoreLastPortfolio(user.id);
       
-      if (restored.data && restored.data.length > 0) {
-        console.log(`✅ AUTO-RESTORE: Portfolio restored! ${restored.data.length} tokens, ${Math.round(restored.cacheAge / 60)} min old`);
+      // 🔧 FIXED: Prüfe localStorage Cache direkt (wie CentralDataService)
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const age = Date.now() - timestamp;
         
-        setPortfolioData(restored.data);
-        setLastUpdate(restored.lastUpdate);
-        setStats(prev => ({
-          ...prev,
-          fromCache: true,
-          totalLoads: prev.totalLoads + 1,
-          lastLoadDuration: 0, // No API call
-          apiCallsUsed: 0      // No API call
-        }));
-        setError(null);
-      } else {
-        console.log('📭 AUTO-RESTORE: No cached portfolio found - ready for manual load');
+        if (age < CACHE_DURATION && data && data.tokens) {
+          console.log(`✅ AUTO-RESTORE: Portfolio restored! ${data.tokens.length} tokens, ${Math.round(age / 60000)} min old`);
+          
+          setPortfolioData(data);
+          setLastUpdate(new Date(timestamp));
+          setStats(prev => ({
+            ...prev,
+            fromCache: true,
+            totalLoads: prev.totalLoads + 1,
+            lastLoadDuration: 0, // No API call
+            apiCallsUsed: 0      // No API call
+          }));
+          setError(null);
+          return;
+        }
       }
+      
+      console.log('📭 AUTO-RESTORE: No valid cache found - ready for manual load');
     } catch (error) {
       console.error('💥 AUTO-RESTORE ERROR:', error);
       // Kein Error setzen - User kann manuell laden
     }
-  }, [user?.id]);
+  }, [user?.id, CACHE_KEY]);
   
   const contextValue = {
     // Portfolio Data
@@ -244,6 +251,7 @@ export const PortfolioProvider = ({ children }) => {
     remainingTime: getRemainingTime(),
     hasData: !!portfolioData,
     isCached: stats.fromCache,
+    isStale: lastUpdate ? (Date.now() - lastUpdate.getTime()) > (10 * 60 * 1000) : false,
     
     // Methods
     loadPortfolioData,
