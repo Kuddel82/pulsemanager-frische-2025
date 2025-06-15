@@ -683,17 +683,15 @@ const TaxReportView = () => {
             {/* 🚨🚨🚨 ERSTER BUTTON - HÖCHSTE PRIORITÄT - IMMER SICHTBAR 🚨🚨🚨 */}
             <Button
               onClick={() => {
-                console.log('🔥🔥🔥 STEUERREPORT NEU GENERIEREN GEKLICKT! 🔥🔥🔥');
-                console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
-                generateRebuildTaxReport();
+                console.log('🔥 Weiterleitung zur neuen Tax Report Seite...');
+                window.location.href = '/tax-report-new';
               }}
-              disabled={rebuildLoading}
               className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl animate-bounce order-first"
               size="lg"
               style={{ minWidth: '280px', fontSize: '16px', zIndex: 9999 }}
             >
-              <FileText className={`h-5 w-5 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
-              🔥 NEU: STEUERREPORT GENERIEREN 🔥
+              <FileText className="h-5 w-5 mr-2" />
+              🔥 ZUR NEUEN STEUERREPORT SEITE 🔥
             </Button>
             
             <Button
@@ -813,16 +811,14 @@ const TaxReportView = () => {
               
               <Button
                 onClick={() => {
-                  console.log('🔥🔥🔥 STEUERREPORT NEU GENERIEREN GEKLICKT! 🔥🔥🔥');
-                  console.log('🎯 TaxReportService_Rebuild wird aufgerufen...');
-                  generateRebuildTaxReport();
+                  console.log('🔥 Weiterleitung zur neuen Tax Report Seite...');
+                  window.location.href = '/tax-report-new';
                 }}
-                disabled={rebuildLoading}
                 className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl animate-pulse"
                 size="lg"
               >
-                <FileText className={`h-5 w-5 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
-                ⭐ STEUERREPORT NEU GENERIEREN ⭐
+                <FileText className="h-5 w-5 mr-2" />
+                ⭐ ZUR NEUEN STEUERREPORT SEITE ⭐
               </Button>
               
               <Button 
