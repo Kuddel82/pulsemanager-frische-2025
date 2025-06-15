@@ -1006,7 +1006,7 @@ export class CentralDataService {
     let apiCalls = 0;
     
     try {
-      // 🎯 MORALIS TOKEN PRICES API - DIREKT
+      // 🎯 MORALIS EINZELNE TOKEN PREISE - WIE FRÜHER
       const tokenAddresses = tokens.map(t => t.address).filter(Boolean);
       
       if (tokenAddresses.length === 0) {
@@ -1014,53 +1014,66 @@ export class CentralDataService {
         return {};
       }
       
-      const moralisUrl = `https://deep-index.moralis.io/api/v2.2/erc20/prices`;
-      const requestBody = {
-        tokens: tokenAddresses.map(address => ({
-          token_address: address,
-          exchange: "uniswapv2"
-        }))
-      };
+      console.log(`🎯 MORALIS DIRECT: Requesting individual prices for ${tokenAddresses.length} tokens`);
       
-      console.log(`🎯 MORALIS DIRECT: Requesting prices for ${tokenAddresses.length} tokens`);
-      
-      const response = await fetch(moralisUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      apiCalls++;
-      
-      if (!response.ok) {
-        throw new Error(`Moralis API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log(`✅ MORALIS DIRECT: Received ${data.length || 0} price responses`);
-      
-      // Verarbeite Moralis-Antworten
-      if (data && Array.isArray(data)) {
-        data.forEach(priceData => {
-          if (priceData.tokenAddress && priceData.usdPrice) {
-            const address = priceData.tokenAddress.toLowerCase();
+      // 🚀 PARALLEL PRICE REQUESTS - Wie früher
+      const pricePromises = tokenAddresses.map(async (address) => {
+        try {
+          const chain = tokens.find(t => t.address === address)?.chain || '0x171'; // PulseChain default
+          const priceUrl = `https://deep-index.moralis.io/api/v2/erc20/${address}/price?chain=${chain}`;
+          
+          const response = await fetch(priceUrl, {
+            method: 'GET',
+            headers: {
+              'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY
+            }
+          });
+          
+          apiCalls++;
+          
+          if (!response.ok) {
+            console.warn(`⚠️ MORALIS PRICE: Failed for ${address.slice(0,8)}... - ${response.status}`);
+            return null;
+          }
+          
+          const priceData = await response.json();
+          
+          if (priceData && priceData.usdPrice) {
             const price = parseFloat(priceData.usdPrice);
             
             if (price > 0) {
-              priceMap[address] = {
-                final: price,
-                source: 'moralis_direct',
+              console.log(`💰 MORALIS PRICE: ${address.slice(0,8)}... = $${price}`);
+              return {
+                address: address.toLowerCase(),
+                price: price,
                 name: priceData.tokenName || 'Unknown',
                 symbol: priceData.tokenSymbol || 'Unknown'
               };
-              console.log(`💰 MORALIS PRICE: ${priceData.tokenSymbol} = $${price} (${address.slice(0,8)}...)`);
             }
           }
-        });
-      }
+          
+          return null;
+          
+        } catch (error) {
+          console.warn(`⚠️ MORALIS PRICE ERROR: ${address.slice(0,8)}... - ${error.message}`);
+          return null;
+        }
+      });
+      
+      // Warte auf alle Preis-Anfragen
+      const priceResults = await Promise.all(pricePromises);
+      
+      // Verarbeite Ergebnisse
+      priceResults.forEach(result => {
+        if (result) {
+          priceMap[result.address] = {
+            final: result.price,
+            source: 'moralis_direct',
+            name: result.name,
+            symbol: result.symbol
+          };
+        }
+      });
       
       console.log(`✅ MORALIS DIRECT COMPLETE: ${Object.keys(priceMap).length} prices loaded, ${apiCalls} API calls`);
       
