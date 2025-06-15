@@ -1025,12 +1025,12 @@ export class CentralDataService {
           if (address === 'native' || address.toLowerCase() === 'native') {
             console.log(`⚠️ MORALIS SKIP: Native token ${address} - using hardcoded prices`);
             
-            // Hardcoded Native Token Preise
+            // 🎯 AKTUELLE NATIVE TOKEN PREISE (wie PulseWatch)
             const nativePrices = {
-              '0x171': { price: 0.00005, symbol: 'PLS', name: 'PulseChain' },  // PulseChain
-              '0x1': { price: 2400, symbol: 'ETH', name: 'Ethereum' },         // Ethereum
-              '0x38': { price: 240, symbol: 'BNB', name: 'BNB Chain' },        // BSC
-              '0x89': { price: 0.4, symbol: 'MATIC', name: 'Polygon' }         // Polygon
+              '0x171': { price: 0.0000292, symbol: 'PLS', name: 'PulseChain' },  // PulseChain - aktueller Preis
+              '0x1': { price: 3200, symbol: 'ETH', name: 'Ethereum' },          // Ethereum - aktueller Preis
+              '0x38': { price: 240, symbol: 'BNB', name: 'BNB Chain' },         // BSC
+              '0x89': { price: 0.4, symbol: 'MATIC', name: 'Polygon' }          // Polygon
             };
             
             const nativeData = nativePrices[chain] || { price: 0.0001, symbol: 'NATIVE', name: 'Native Token' };
