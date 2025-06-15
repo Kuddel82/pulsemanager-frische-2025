@@ -156,12 +156,23 @@ export class CentralDataService {
       return 'moralis_blocked';
     }
     
-    // Map API sources to display names
+    // 🎯 PHASE 3: Neue Preis-Quellen-Mapping
     const sourceMap = {
+      // Neue structured-token-pricing API Quellen
+      'moralis': 'moralis_live',
+      'pulsewatch': 'pulsex_manual', 
+      'pulsescan': 'fallback_minimal',
+      'emergency_fallback': 'fallback_minimal',
+      
+      // Legacy Moralis Quellen (Fallback)
       'moralis_pro_rest': 'moralis_live',
       'moralis_pro_rest_no_price': 'moralis_blocked',
       'moralis_v2_pro': 'moralis_live',
-      'moralis_v2_pro_price': 'moralis_realtime'
+      'moralis_v2_pro_price': 'moralis_realtime',
+      
+      // Unbekannte Quellen
+      'unknown': 'moralis_blocked',
+      'no_price': 'moralis_blocked'
     };
     
     return sourceMap[apiSource] || 'moralis_live';
@@ -533,7 +544,7 @@ export class CentralDataService {
                 total_usd: totalUsd, // Kann durch ETH-Fix überschrieben werden
                 value: totalUsd, // Kann durch ETH-Fix überschrieben werden
                 hasReliablePrice: isReliable,
-                priceSource: `${priceData.source || priceSource} (${tokenSymbol})`,
+                priceSource: this.getPriceSourceDisplay(priceData.source || 'unknown', finalPrice),
                 isIncludedInPortfolio: totalUsd > 0.01,
                 walletAddress: wallet.address,
                 chainId: chainId,
