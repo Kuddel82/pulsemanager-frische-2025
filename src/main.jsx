@@ -7,6 +7,7 @@ import MainApp from './MainApp';
 import ErrorBoundary from '@/components/ErrorBoundary'; 
 import '@/index.css';
 import { wrapConsole } from '../utils/logger.js'
+import { logger } from '@/lib/logger'
 
 // 🔇 PRODUCTION LOGGER: Console-Bereinigung aktivieren
 wrapConsole();
