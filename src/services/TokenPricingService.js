@@ -185,6 +185,7 @@ export class TokenPricingService {
   static async fetchStructuredPrices(tokens) {
     try {
       console.log(`🎯 STRUCTURED API: Loading prices for ${tokens.length} tokens`);
+      console.log(`🎯 STRUCTURED API: Sample tokens:`, tokens.slice(0, 3));
       
       const response = await fetch('/api/structured-token-pricing', {
         method: 'POST',
@@ -192,17 +193,22 @@ export class TokenPricingService {
         body: JSON.stringify({ tokens })
       });
       
+      console.log(`🎯 STRUCTURED API: Response status: ${response.status}`);
+      
       if (response.ok) {
         const data = await response.json();
         console.log(`✅ STRUCTURED API: ${data.pricesResolved} prices loaded`);
+        console.log(`✅ STRUCTURED API: Sample prices:`, Object.keys(data.prices || {}).slice(0, 3));
         return data.prices || {};
       }
       
-      console.warn(`⚠️ STRUCTURED API: Failed with ${response.status}`);
+      const errorText = await response.text();
+      console.warn(`⚠️ STRUCTURED API: Failed with ${response.status} - ${errorText}`);
       return {};
       
     } catch (error) {
       console.error(`❌ STRUCTURED API: Error - ${error.message}`);
+      console.error(`❌ STRUCTURED API: Stack:`, error.stack);
       return {};
     }
   }
