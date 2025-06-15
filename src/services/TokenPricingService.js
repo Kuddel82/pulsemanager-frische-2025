@@ -1,8 +1,10 @@
-// 🎯 TOKEN PRICING SERVICE - STRUKTURIERTE PREISLOGIK
-// Stand: 14.06.2025 - Saubere Implementierung nach User-Spezifikationen
-// ✅ Moralis First → DexScreener Fallback → PulseWatch Preferred → Emergency Fallback
+// 🎯 TOKEN PRICING SERVICE - PHASE 3 UPDATE
+// Stand: 16.06.2025 - Finalisierte Preis-Logik nach User-Spezifikationen
+// ✅ Moralis Pro → PulseWatch Preferred → PulseScan Fallback → Emergency Fallback
+// ❌ DexScreener ENTFERNT (nicht mehr nutzen)
 
 import { supabase } from '@/lib/supabaseClient';
+import { PulseScanService } from './PulseScanService';
 
 export class TokenPricingService {
   
@@ -21,9 +23,11 @@ export class TokenPricingService {
     'PLS': 0.00005,
     'WBTC': 96000, // Bitcoin Wrapper ca. $96k
     'WETH': 2400,  // Ethereum Wrapper ca. $2.4k
-    'USDC': 1.0,   // USD Coin
-    'USDT': 1.0,   // Tether
-    'DAI': 1.0     // Dai Stablecoin
+    'USDC': 1.0,   // USD Coin (Stablecoin)
+    'USDT': 1.0,   // Tether (Stablecoin)
+    'DAI': 1.0,    // Dai Stablecoin
+    'WGEP': 0.85,  // WGEP Token
+    'ETH': 2400    // Ethereum
   };
 
   // 🎯 ROI MINTER MAPPING für ROI-Tracking
@@ -92,7 +96,22 @@ export class TokenPricingService {
       }
     }
     
-    // 3. DexScreener Fallback ENTFERNT (laut Arbeitsanweisung)
+    // 3. PulseScan Fallback (für PLS-Preis und Token-Verifizierung)
+    if (!isReliable || tokenSymbol === 'PLS') {
+      try {
+        if (tokenSymbol === 'PLS') {
+          const plsPrice = await PulseScanService.getPLSPrice();
+          if (plsPrice > 0) {
+            finalPrice = plsPrice;
+            priceSource = 'pulsescan';
+            isReliable = true;
+            console.log(`✅ PULSESCAN: PLS = $${plsPrice}`);
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ PULSESCAN: Error - ${error.message}`);
+      }
+    }
     
     // 4. PulseWatch Preferred (überschreibt andere Quellen wenn verfügbar)
     if (this.PULSEWATCH_PRICES[tokenSymbol]) {
@@ -102,13 +121,32 @@ export class TokenPricingService {
       console.log(`⭐ PULSEWATCH: ${tokenSymbol} = $${finalPrice} (preferred)`);
     }
     
-    // 5. Emergency Fallback ENTFERNT (laut Arbeitsanweisung)
+    // 5. Minimal Emergency Fallback (nur kritische Assets)
+    if (!isReliable) {
+      const emergencyPrices = {
+        'PLS': 0.00005,   // PulseChain Native
+        'ETH': 2400,      // Ethereum
+        'WETH': 2400,     // Wrapped Ethereum
+        'USDC': 1.0,      // USD Coin (Stablecoin)
+        'USDT': 1.0,      // Tether (Stablecoin)
+        'DAI': 1.0,       // Dai Stablecoin
+        'BUSD': 1.0,      // Binance USD (Stablecoin)
+        'WGEP': 0.85      // WGEP Token
+      };
+      
+      if (emergencyPrices[tokenSymbol]) {
+        finalPrice = emergencyPrices[tokenSymbol];
+        priceSource = 'emergency_fallback';
+        isReliable = true;
+        console.log(`🚨 EMERGENCY: ${tokenSymbol} = $${finalPrice}`);
+      }
+    }
     
     const result = {
       token: tokenSymbol,
       contract: tokenAddress,
       moralis: moralisPrice,
-      // dexscreener: ENTFERNT
+      pulsescan: priceSource === 'pulsescan' ? finalPrice : null,
       pulsewatch: this.PULSEWATCH_PRICES[tokenSymbol] || null,
       final: finalPrice,
       source: priceSource,

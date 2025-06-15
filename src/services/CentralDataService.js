@@ -30,7 +30,7 @@ export class CentralDataService {
     }
   }
 
-  // 🌐 PRO CONFIGURATION
+  // 🌐 PRO CONFIGURATION - MULTI-CHAIN SUPPORT
   static CHAINS = {
     PULSECHAIN: {
       id: 369,
@@ -38,7 +38,8 @@ export class CentralDataService {
       nativeSymbol: 'PLS',
       moralisChainId: '0x171',
       explorerBase: 'https://scan.pulsechain.com',
-      moralisSupported: true
+      moralisSupported: true,
+      stablecoins: ['USDC', 'USDT', 'DAI']
     },
     ETHEREUM: {
       id: 1,
@@ -46,7 +47,26 @@ export class CentralDataService {
       nativeSymbol: 'ETH',
       moralisChainId: '0x1',
       explorerBase: 'https://etherscan.io',
-      moralisSupported: true
+      moralisSupported: true,
+      stablecoins: ['USDC', 'USDT', 'DAI', 'BUSD']
+    },
+    POLYGON: {
+      id: 137,
+      name: 'Polygon',
+      nativeSymbol: 'MATIC',
+      moralisChainId: '0x89',
+      explorerBase: 'https://polygonscan.com',
+      moralisSupported: true,
+      stablecoins: ['USDC', 'USDT', 'DAI']
+    },
+    BSC: {
+      id: 56,
+      name: 'Binance Smart Chain',
+      nativeSymbol: 'BNB',
+      moralisChainId: '0x38',
+      explorerBase: 'https://bscscan.com',
+      moralisSupported: true,
+      stablecoins: ['USDC', 'USDT', 'BUSD']
     }
   };
 
@@ -64,9 +84,40 @@ export class CentralDataService {
 
   static getChainConfig(chainId) {
     for (const [key, config] of Object.entries(this.CHAINS)) {
-      if (config.id === chainId) return config;
+      if (config.id === chainId || config.moralisChainId === chainId) return config;
     }
     return this.CHAINS.PULSECHAIN;
+  }
+
+  // 💰 STABLECOIN DETECTION & PRICING
+  static isStablecoin(tokenSymbol, chainId = '0x171') {
+    const chainConfig = this.getChainConfig(chainId);
+    const stablecoins = chainConfig?.stablecoins || ['USDC', 'USDT', 'DAI'];
+    
+    return stablecoins.includes(tokenSymbol?.toUpperCase());
+  }
+
+  static getStablecoinPrice(tokenSymbol) {
+    const stablecoins = ['USDC', 'USDT', 'DAI', 'BUSD', 'FRAX', 'LUSD'];
+    return stablecoins.includes(tokenSymbol?.toUpperCase()) ? 1.0 : null;
+  }
+
+  // 🔗 MULTI-CHAIN TOKEN SUPPORT
+  static isNativeToken(tokenSymbol, chainId = '0x171') {
+    const chainConfig = this.getChainConfig(chainId);
+    return tokenSymbol?.toUpperCase() === chainConfig?.nativeSymbol;
+  }
+
+  static getWrappedTokenMapping(tokenSymbol) {
+    const wrappedTokens = {
+      'WETH': 'ETH',
+      'WBTC': 'BTC',
+      'WMATIC': 'MATIC',
+      'WBNB': 'BNB',
+      'WPLS': 'PLS'
+    };
+    
+    return wrappedTokens[tokenSymbol?.toUpperCase()] || null;
   }
 
   // 💎 PREIS-QUELLE DISPLAY MAPPING

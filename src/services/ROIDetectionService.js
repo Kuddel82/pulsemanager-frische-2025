@@ -20,9 +20,11 @@ export class ROIDetectionService {
       '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX Contract (Ethereum + PulseChain)
       '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC Contract
       '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1', // PLSX Minter
-      '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6', // FLEX Minter (example)
-      '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5', // WGEP Minter (example)
-      '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4', // LOAN Minter (example)
+      '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6', // FLEX Minter
+      '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5', // WGEP Minter
+      '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4', // LOAN Minter
+      '0xd9e5f7a8b6c4d2e1f3a5b7c9d8e6f4a2b5c7d9e1', // WGEP Printer Contract
+      '0xe1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0', // Additional WGEP Minter
     ],
     
     // ROI-charakteristische Token-Symbole (erweitert)

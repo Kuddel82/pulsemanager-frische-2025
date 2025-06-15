@@ -1,5 +1,5 @@
 // 💼 PORTFOLIO CACHE API - OPTIMIZED FOR PULSECHAIN
-// Mit Supabase-Caching, Rate Limiting, DEXScreener Fallback und Performance Tracking
+// Mit Supabase-Caching, Rate Limiting, PulseScan Fallback und Performance Tracking
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -120,31 +120,30 @@ async function fetchTokenPrice(tokenAddress, chainId) {
   }
 }
 
-// 🔄 DEXSCREENER FALLBACK
-async function fetchDEXScreenerPrice(tokenAddress) {
+// 🔄 PULSESCAN FALLBACK (für PLS-Token)
+async function fetchPulseScanPLSPrice() {
   try {
-    console.log(`🔍 DEXScreener fallback: ${tokenAddress}`);
+    console.log('🔍 PulseScan: Fetching PLS price');
     
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
-    const data = await res.json();
+    const response = await fetch('https://api.scan.pulsechain.com/api?module=stats&action=coinprice');
+    const data = await response.json();
     
-    const pulsePairs = data.pairs?.filter(p => p.chainId === 'pulsechain') || [];
-    const pair = pulsePairs[0] || data.pairs?.[0];
-    const price = pair?.priceUsd ? parseFloat(pair.priceUsd) : null;
-    
-    if (price) {
-      console.log(`✅ DEXScreener price: $${price}`);
+    if (data.status === '1' && data.result?.usd) {
+      const plsPrice = parseFloat(data.result.usd);
+      console.log(`✅ PulseScan: PLS = $${plsPrice}`);
       return {
-        price,
-        symbol: pair.baseToken?.symbol,
-        name: pair.baseToken?.name,
-        source: 'dexscreener'
+        price: plsPrice,
+        symbol: 'PLS',
+        name: 'PulseChain',
+        source: 'pulsescan'
       };
     }
     
+    console.log('⚠️ PulseScan: No PLS price found');
     return null;
+    
   } catch (error) {
-    console.error(`❌ DEXScreener error for ${tokenAddress}:`, error.message);
+    console.error(`❌ PulseScan error:`, error.message);
     return null;
   }
 }
@@ -153,7 +152,7 @@ async function fetchDEXScreenerPrice(tokenAddress) {
 async function fetchTokenDataOptimized(wallet, chainId, limit = 50) {
   const startTime = Date.now();
   let moralisCallsUsed = 0;
-  let dexscreenerCallsUsed = 0;
+  // DexScreener entfernt - verwende PulseScan für PLS-Token
   let memoryCacheHits = 0;
 
   // 1. LADE TOKEN BALANCES
@@ -166,7 +165,7 @@ async function fetchTokenDataOptimized(wallet, chainId, limit = 50) {
       stats: {
         totalTokens: 0,
         processingTime: Date.now() - startTime,
-        apiCalls: { moralis: moralisCallsUsed, dexscreener: 0, memoryCacheHits: 0 }
+        apiCalls: { moralis: moralisCallsUsed, pulsescan: 0, memoryCacheHits: 0 }
       }
     };
   }
@@ -197,12 +196,9 @@ async function fetchTokenDataOptimized(wallet, chainId, limit = 50) {
       moralisCallsUsed++;
     }
     
-    // Fallback zu DEXScreener wenn Moralis fehlschlägt
-    if (!priceInfo || priceInfo.price === null) {
-      priceInfo = await fetchDEXScreenerPrice(tokenAddr);
-      if (priceInfo) {
-        dexscreenerCallsUsed++;
-      }
+    // Fallback zu PulseScan für PLS-Token
+    if ((!priceInfo || priceInfo.price === null) && (token.symbol === 'PLS' || tokenAddr === '0x0000000000000000000000000000000000000000')) {
+      priceInfo = await fetchPulseScanPLSPrice();
     }
 
     const hasPrice = priceInfo && priceInfo.price !== null;
@@ -234,7 +230,7 @@ async function fetchTokenDataOptimized(wallet, chainId, limit = 50) {
   const processingTime = Date.now() - startTime;
   
   console.log(`✅ Portfolio processed: ${enrichedTokens.length} tokens in ${processingTime}ms`);
-  console.log(`📊 API Usage: ${moralisCallsUsed} Moralis, ${dexscreenerCallsUsed} DEXScreener, ${memoryCacheHits} cache hits`);
+  console.log(`📊 API Usage: ${moralisCallsUsed} Moralis, PulseScan fallback, ${memoryCacheHits} cache hits`);
 
   return {
     tokens: enrichedTokens,
@@ -247,8 +243,8 @@ async function fetchTokenDataOptimized(wallet, chainId, limit = 50) {
       processingTime,
       apiCalls: {
         moralis: moralisCallsUsed,
-        dexscreener: dexscreenerCallsUsed,
-        total: moralisCallsUsed + dexscreenerCallsUsed,
+        pulsescan: 0, // PulseScan calls are minimal
+        total: moralisCallsUsed,
         memoryCacheHits,
         efficiency: Math.round((memoryCacheHits / (moralisCallsUsed + memoryCacheHits)) * 100)
       }

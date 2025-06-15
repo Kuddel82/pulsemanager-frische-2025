@@ -1,4 +1,4 @@
-// 📊 TAX REPORT API - MORALIS + DEXSCREENER + ROI MAPPING INTEGRATION
+// 📊 TAX REPORT API - MORALIS + PULSESCAN + ROI MAPPING INTEGRATION
 // Erweiterte Steuerberichte mit intelligenter Preisfindung und ROI-Klassifikation
 
 import { format } from 'date-fns';
@@ -241,30 +241,26 @@ async function getPriceMoralis(tokenAddress, chain) {
   }
 }
 
-// 🔄 DEXSCREENER FALLBACK
-async function getPriceDEXScreener(tokenAddress, chain) {
+// 🔄 PULSESCAN FALLBACK (für PLS-Preis)
+async function getPulseScanPLSPrice() {
   try {
-    console.log(`🔍 DEXScreener lookup: ${tokenAddress}`);
+    console.log('🔍 PulseScan: Fetching PLS price');
     
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
-    const data = await res.json();
+    const response = await fetch('https://api.scan.pulsechain.com/api?module=stats&action=coinprice');
+    const data = await response.json();
     
-    // Finde PulseChain-spezifische Pairs wenn möglich
-    const pulsePairs = data.pairs?.filter(p => p.chainId === 'pulsechain') || [];
-    const pair = pulsePairs[0] || data.pairs?.[0];
-    
-    const price = pair?.priceUsd ? parseFloat(pair.priceUsd) : null;
-    
-    if (price) {
-      console.log(`✅ DEXScreener price found: $${price}`);
-    } else {
-      console.log(`⚠️ DEXScreener: No price found`);
+    if (data.status === '1' && data.result?.usd) {
+      const plsPrice = parseFloat(data.result.usd);
+      console.log(`✅ PulseScan: PLS = $${plsPrice}`);
+      return plsPrice;
     }
     
-    return price;
+    console.log('⚠️ PulseScan: No PLS price found');
+    return 0;
+    
   } catch (error) {
-    console.error(`❌ DEXScreener error for ${tokenAddress}:`, error.message);
-    return null;
+    console.error(`❌ PulseScan error:`, error.message);
+    return 0;
   }
 }
 
@@ -397,7 +393,7 @@ export default async function handler(req, res) {
     // 3. 🚀 BATCH PRICE LOADING (nur auf Mainnet Chains!)
     let batchPrices = null;
     let moralisCallsUsed = 0;
-    let dexscreenerCallsUsed = 0;
+    // DexScreener entfernt - verwende PulseScan für PLS-Token
 
     if (uniqueTokens.length > 0 && isBatchSupported) {
       console.log(`🚀 MAINNET DETECTED: Using Batch API for ${uniqueTokens.length} tokens`);
@@ -487,43 +483,34 @@ export default async function handler(req, res) {
         }
       }
 
-      // 5c. FALLBACK: DEXScreener für ungepaarte Tokens
-      if (usdPrice === null) {
-        console.log(`⚠️ Token ${token} nicht in Moralis - versuche DEXScreener...`);
+      // 5c. FALLBACK: PulseScan für PLS-Token
+      if (usdPrice === null && (token === 'PLS' || tokenAddr.toLowerCase() === '0x0000000000000000000000000000000000000000')) {
+        console.log(`⚠️ PLS Token detected - versuche PulseScan...`);
         
-        usdPrice = await getPriceDEXScreener(tokenAddr, chainId);
-        dexscreenerCallsUsed++;
-        priceSource = 'dexscreener';
+        usdPrice = await getPulseScanPLSPrice();
+        priceSource = 'pulsescan';
         hasReliablePrice = !!usdPrice;
-        
-        // Nochmalige Preis-Validierung für DEXScreener
-        if (usdPrice !== null && (usdPrice > 1000000 || usdPrice < 0 || isNaN(usdPrice) || !isFinite(usdPrice))) {
-          console.warn(`🚨 EXTREME DEXSCREENER PRICE: ${token} = $${usdPrice} - REJECTED!`);
-          usdPrice = null;
-          hasReliablePrice = false;
-          priceSource += '_rejected_extreme';
-        }
-        
-        // Wenn auch DEXScreener fehlschlägt -> ungepaarte Liste
-        if (usdPrice === null) {
-          ungepaarteTokens.push({
-            token,
-            symbol: token,
-            amount,
-            tokenAddress: tokenAddr,
-            date: dateFormatted,
-            type,
-            moralisPrice: null,
-            dexscreenerPrice: null,
-            manualPrice: null,
-            valueEUR: 0,
-            source: 'manual_required',
-            note: 'Preis manuell eingeben erforderlich',
-            steuerpflichtig: type === 'ROI' || (type === 'Verkauf'),
-            hash: tx.transaction_hash
-          });
-          continue;
-        }
+      }
+      
+      // 5d. Wenn alle Fallbacks fehlschlagen -> ungepaarte Liste
+      if (usdPrice === null) {
+        ungepaarteTokens.push({
+          token,
+          symbol: token,
+          amount,
+          tokenAddress: tokenAddr,
+          date: dateFormatted,
+          type,
+          moralisPrice: null,
+          pulsescanPrice: token === 'PLS' ? 'attempted' : null,
+          manualPrice: null,
+          valueEUR: 0,
+          source: 'manual_required',
+          note: 'Preis manuell eingeben erforderlich',
+          steuerpflichtig: type === 'ROI' || (type === 'Verkauf'),
+          hash: tx.transaction_hash
+        });
+        continue;
       }
 
       // 6. STEUERPFLICHTIGKEIT BERECHNEN mit verbesserter Haltefrist
@@ -631,7 +618,7 @@ export default async function handler(req, res) {
     console.log(`✅ TAX REPORT COMPLETE:`);
     console.log(`📊 TRANSACTIONS: ${allTransfers.length} total transfers → ${transactions.length} processed, ${ungepaarteTokens.length} ungepaart`);
     console.log(`📊 PAGINATION: ${pageCount} pages loaded with ${paginationApiCalls} API calls`);
-    console.log(`📊 PRICING: ${priceApiCalls} Moralis + ${dexscreenerCallsUsed} DEXScreener calls`);
+    console.log(`📊 PRICING: ${priceApiCalls} Moralis + PulseScan fallback calls`);
     
     if (isBatchSupported && batchPrices) {
       console.log(`🚀 BATCH EFFICIENCY: ${efficiencyPercent}% CU savings (${cuSavings} CUs saved vs old system)`);
@@ -678,8 +665,8 @@ export default async function handler(req, res) {
       // API Usage & Batch-Optimierung
       apiUsage: {
         moralisCallsUsed,
-        dexscreenerCallsUsed,
-        totalCalls: moralisCallsUsed + dexscreenerCallsUsed,
+        pulsescanCallsUsed: 0, // PulseScan calls are minimal
+        totalCalls: moralisCallsUsed,
         // 🚀 Batch-Optimierung Details
         batchOptimization: {
           enabled: !!batchPrices,

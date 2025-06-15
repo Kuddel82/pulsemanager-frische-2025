@@ -49,13 +49,29 @@ const SwapView = () => {
             {t.tokenTradeInterfaceDescription}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow p-0 md:p-2 flex flex-col">
-          <iframe
-            src={pulseXUrl}
-            title="PulseX Trade"
-            className="w-full flex-grow border-0 rounded-b-lg md:rounded-lg min-h-[600px]"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          />
+        <CardContent className="flex-grow p-6 flex flex-col items-center justify-center">
+          <div className="text-center space-y-6">
+            <div className="text-6xl mb-4">💱</div>
+            <h3 className="text-2xl font-bold text-foreground">
+              {t.tokenTradeRedirectTitle || "PulseX Trading Interface"}
+            </h3>
+            <p className="text-lg text-muted-foreground max-w-md">
+              {t.tokenTradeRedirectDescription || "Click the button below to access PulseX trading in a new tab."}
+            </p>
+            <Button 
+              size="lg" 
+              onClick={() => window.open(pulseXUrl, '_blank', 'noopener,noreferrer')}
+              className="px-8 py-3 text-lg"
+            >
+              <ExternalLink className="mr-2 h-5 w-5" />
+              {t.tokenTradeOpenInNewTab}
+            </Button>
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                💡 {t.tokenTradeNoIframeNote || "For security reasons, PulseX opens in a new tab to prevent CORS issues."}
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
        <div className="mt-6 p-4 text-sm text-muted-foreground text-center">

@@ -44,14 +44,14 @@ const TaxReportView = () => {
   const [downloadingCSV, setDownloadingCSV] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
   
-  // 🚀 NEW: Moralis + DEXScreener Integration
+          // 🚀 NEW: Moralis + PulseScan Integration
   const [moralisLoading, setMoralisLoading] = useState(false);
   const [moralisData, setMoralisData] = useState(null);
   const [ungepaarteTokens, setUngepaarteTokens] = useState([]);
   const [lastMoralisUpdate, setLastMoralisUpdate] = useState(null);
   const [editingToken, setEditingToken] = useState(null);
   
-  // 🛡️ Rate Limiting für Moralis/DEXScreener calls
+          // 🛡️ Rate Limiting für Moralis/PulseScan calls
   const [canLoadMoralis, setCanLoadMoralis] = useState(true);
   const [remainingTime, setRemainingTime] = useState(0);
 
@@ -125,7 +125,7 @@ const TaxReportView = () => {
     }
   };
 
-  // 🚀 REPAIRED: Moralis + DEXScreener Integration (NOW COMPATIBLE WITH TAXSERVICE)
+              // 🚀 REPAIRED: Moralis + PulseScan Integration (NOW COMPATIBLE WITH TAXSERVICE)
   const loadMoralisData = async () => {
     if (!user?.id || !canLoadMoralis) return;
     

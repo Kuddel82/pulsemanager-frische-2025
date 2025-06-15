@@ -1,10 +1,14 @@
-// 🎯 STRUCTURED TOKEN PRICING API
-// Stand: 14.06.2025 - Saubere Preis-Resolution nach User-Spezifikationen
-// ✅ Moralis First → DexScreener Fallback → PulseWatch Preferred → Emergency Fallback
+// 🎯 STRUCTURED TOKEN PRICING API - PHASE 3 UPDATE
+// Stand: 16.06.2025 - Neue Preis-Resolution nach User-Spezifikationen
+// ✅ Moralis Pro → PulseWatch Preferred → PulseScan Fallback → Emergency Fallback
+// ❌ DexScreener ENTFERNT (nicht mehr nutzen)
 
 // 🔑 MORALIS API CONFIGURATION
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
+
+// 🔑 PULSESCAN API CONFIGURATION
+const PULSESCAN_BASE_URL = 'https://api.scan.pulsechain.com/api';
 
 // 🎯 PULSEWATCH PREFERRED PRICES (überschreiben andere Quellen)
 const PULSEWATCH_PRICES = {
@@ -12,20 +16,22 @@ const PULSEWATCH_PRICES = {
   'HEX': 0.00616,
   'PLSX': 0.0000271,
   'INC': 0.005,
-  'PLS': 0.00005
+  'PLS': 0.00005,
+  'WBTC': 96000, // Bitcoin Wrapper ca. $96k
+  'WETH': 2400,  // Ethereum Wrapper ca. $2.4k
+  'USDC': 1.0,   // USD Coin (Stablecoin)
+  'USDT': 1.0,   // Tether (Stablecoin)
+  'DAI': 1.0,    // Dai Stablecoin
+  'WGEP': 0.85   // WGEP Token
 };
 
-// 💰 EMERGENCY FALLBACK PRICES
+// 💰 MINIMAL EMERGENCY FALLBACK PRICES (Phase 3: Nur kritische Tokens)
 const EMERGENCY_PRICES = {
-  'HEX': 0.0025,
-  'PLSX': 0.00008,
-  'INC': 0.005,
-  'PLS': 0.00005,
-  'ETH': 2400,
-  'USDC': 1.0,
-  'USDT': 1.0,
-  'DAI': 1.0,
-  'DOMINANCE': 0.32
+  'PLS': 0.00005,   // Native PulseChain Token
+  'ETH': 2400,      // Ethereum
+  'USDC': 1.0,      // USD Coin (Stablecoin)
+  'USDT': 1.0,      // Tether (Stablecoin)
+  'DAI': 1.0        // Dai Stablecoin
 };
 
 // 🎯 PRICE MEMORY CACHE (10 Minuten TTL)
@@ -67,7 +73,7 @@ function validateMoralisPrice(price, symbol, chainId) {
 }
 
 /**
- * 🚀 Moralis Batch-Preise laden
+ * 🚀 Moralis Batch-Preise laden (Multi-Chain Support)
  */
 async function fetchMoralisBatchPrices(tokens, chainId) {
   try {
@@ -76,6 +82,10 @@ async function fetchMoralisBatchPrices(tokens, chainId) {
     const prices = {};
     const batchSize = 25; // Batch-Size für Moralis API
     
+    // Map Chain-IDs für Moralis
+    const moralisChainId = mapToMoralisChainId(chainId);
+    console.log(`📊 CHAIN MAPPING: ${chainId} → ${moralisChainId}`);
+    
     // Process tokens in batches
     for (let i = 0; i < tokens.length; i += batchSize) {
       const batch = tokens.slice(i, i + batchSize);
@@ -83,7 +93,7 @@ async function fetchMoralisBatchPrices(tokens, chainId) {
       await Promise.all(batch.map(async (token) => {
         try {
           const result = await moralisFetch(`erc20/${token.address}/price`, { 
-            chain: chainId 
+            chain: moralisChainId 
           });
           
           if (result && result.usdPrice) {
@@ -92,12 +102,13 @@ async function fetchMoralisBatchPrices(tokens, chainId) {
               source: 'moralis',
               symbol: result.tokenSymbol || token.symbol,
               name: result.tokenName,
-              verified: result.verifiedContract
+              verified: result.verifiedContract,
+              chain: chainId
             };
           }
           
         } catch (error) {
-          console.warn(`⚠️ MORALIS: Error fetching ${token.address} - ${error.message}`);
+          console.warn(`⚠️ MORALIS: Error fetching ${token.address} on ${chainId} - ${error.message}`);
         }
       }));
       
@@ -107,48 +118,89 @@ async function fetchMoralisBatchPrices(tokens, chainId) {
       }
     }
     
-    console.log(`✅ MORALIS BATCH: ${Object.keys(prices).length}/${tokens.length} prices loaded`);
+    console.log(`✅ MORALIS BATCH: ${Object.keys(prices).length}/${tokens.length} prices loaded for ${chainId}`);
     return prices;
     
   } catch (error) {
-    console.error(`❌ MORALIS BATCH: Error - ${error.message}`);
+    console.error(`❌ MORALIS BATCH: Error for chain ${chainId} - ${error.message}`);
     return {};
   }
 }
 
 /**
- * 🔄 DexScreener Einzelpreis-Fallback
+ * 🔗 Chain-ID Mapping für Moralis API
  */
-async function fetchDexScreenerPrice(tokenAddress, chainId) {
+function mapToMoralisChainId(chainId) {
+  const chainMap = {
+    '0x171': 'pulsechain',          // PulseChain
+    '0x1': 'eth',                   // Ethereum
+    '0x89': 'polygon',              // Polygon
+    '0xa86a': 'avalanche',          // Avalanche
+    '0x38': 'bsc',                  // Binance Smart Chain
+    '369': 'pulsechain',            // PulseChain (decimal)
+    '1': 'eth',                     // Ethereum (decimal)
+    '137': 'polygon',               // Polygon (decimal)
+    '43114': 'avalanche',           // Avalanche (decimal)
+    '56': 'bsc'                     // BSC (decimal)
+  };
+  
+  return chainMap[chainId] || chainId;
+}
+
+/**
+ * 🔄 PulseScan Token-Info Fallback
+ */
+async function fetchPulseScanTokenInfo(tokenAddress) {
   try {
-    console.log(`🔍 DEXSCREENER: Fetching ${tokenAddress}`);
+    console.log(`🔍 PULSESCAN: Fetching token info for ${tokenAddress.slice(0,10)}...`);
     
-    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
+    const response = await fetch(
+      `${PULSESCAN_BASE_URL}?module=token&action=getToken&contractaddress=${tokenAddress}`
+    );
     const data = await response.json();
     
-    if (data.pairs && data.pairs.length > 0) {
-      // Bevorzuge PulseChain-Pairs für PulseChain-Abfragen
-      const pulsePairs = data.pairs.filter(p => p.chainId === 'pulsechain');
-      const bestPair = pulsePairs.length > 0 ? pulsePairs[0] : data.pairs[0];
-      
-      const price = parseFloat(bestPair.priceUsd) || 0;
-      if (price > 0) {
-        console.log(`✅ DEXSCREENER: $${price} (liquidity: $${bestPair.liquidity?.usd || 0})`);
-        return {
-          usdPrice: price,
-          source: 'dexscreener',
-          liquidity: bestPair.liquidity?.usd || 0,
-          volume24h: bestPair.volume?.h24 || 0
-        };
-      }
+    if (data.status === '1' && data.result) {
+      console.log(`✅ PULSESCAN: Token ${data.result.symbol} info loaded`);
+      return {
+        symbol: data.result.symbol,
+        name: data.result.name,
+        decimals: parseInt(data.result.decimals),
+        verified: data.result.contractVerified === 'True',
+        source: 'pulsescan'
+      };
     }
     
-    console.log(`⚠️ DEXSCREENER: No valid price found`);
+    console.log(`⚠️ PULSESCAN: No token info found`);
     return null;
     
   } catch (error) {
-    console.error(`❌ DEXSCREENER: Error - ${error.message}`);
+    console.error(`❌ PULSESCAN: Error - ${error.message}`);
     return null;
+  }
+}
+
+/**
+ * 💰 PulseScan PLS Preis laden
+ */
+async function fetchPulseScanPLSPrice() {
+  try {
+    console.log('🔍 PULSESCAN: Fetching PLS price from stats API');
+    
+    const response = await fetch(`${PULSESCAN_BASE_URL}?module=stats&action=coinprice`);
+    const data = await response.json();
+    
+    if (data.status === '1' && data.result?.usd) {
+      const plsPrice = parseFloat(data.result.usd);
+      console.log(`✅ PULSESCAN: PLS = $${plsPrice}`);
+      return plsPrice;
+    }
+    
+    console.warn('⚠️ PULSESCAN: No valid PLS price found');
+    return 0;
+    
+  } catch (error) {
+    console.error(`❌ PULSESCAN: PLS price error - ${error.message}`);
+    return 0;
   }
 }
 
@@ -173,7 +225,7 @@ async function resolveSingleTokenPrice(token, batchPrices, chainId) {
   let priceSource = 'no_price';
   let isReliable = false;
   let moralisPrice = 0;
-  let dexscreenerPrice = null;
+  let pulsescanInfo = null;
   
   // 2. Moralis Batch-Preis prüfen
   const moralisData = batchPrices[tokenAddress];
@@ -193,15 +245,19 @@ async function resolveSingleTokenPrice(token, batchPrices, chainId) {
     }
   }
   
-  // 3. DexScreener Fallback (nur bei fehlenden/fragwürdigen Moralis-Preisen)
-  if (!isReliable) {
-    const dexData = await fetchDexScreenerPrice(tokenAddress, chainId);
-    if (dexData && dexData.usdPrice > 0) {
-      dexscreenerPrice = dexData.usdPrice;
-      finalPrice = dexscreenerPrice;
-      priceSource = 'dexscreener';
-      isReliable = true;
-      console.log(`🔄 DEXSCREENER: ${tokenSymbol} = $${dexscreenerPrice}`);
+  // 3. PulseScan Info Fallback (für Token-Verifizierung und PLS-Preis)
+  if (!isReliable || tokenSymbol === 'PLS') {
+    pulsescanInfo = await fetchPulseScanTokenInfo(tokenAddress);
+    
+    // Für PLS-Token: Verwende PulseScan PLS-Preis
+    if (tokenSymbol === 'PLS' || (pulsescanInfo && pulsescanInfo.symbol === 'PLS')) {
+      const plsPrice = await fetchPulseScanPLSPrice();
+      if (plsPrice > 0) {
+        finalPrice = plsPrice;
+        priceSource = 'pulsescan';
+        isReliable = true;
+        console.log(`✅ PULSESCAN: PLS = $${plsPrice}`);
+      }
     }
   }
   
@@ -213,7 +269,7 @@ async function resolveSingleTokenPrice(token, batchPrices, chainId) {
     console.log(`⭐ PULSEWATCH: ${tokenSymbol} = $${finalPrice} (preferred)`);
   }
   
-  // 5. Emergency Fallback
+  // 5. Emergency Fallback (laut Phase 3 Anforderung reduziert)
   if (!isReliable && EMERGENCY_PRICES[tokenSymbol]) {
     finalPrice = EMERGENCY_PRICES[tokenSymbol];
     priceSource = 'emergency_fallback';
@@ -225,7 +281,7 @@ async function resolveSingleTokenPrice(token, batchPrices, chainId) {
     token: tokenSymbol,
     contract: tokenAddress,
     moralis: moralisPrice,
-    dexscreener: dexscreenerPrice,
+    pulsescan: pulsescanInfo ? pulsescanInfo.verified : null,
     pulsewatch: PULSEWATCH_PRICES[tokenSymbol] || null,
     final: finalPrice,
     source: priceSource,
