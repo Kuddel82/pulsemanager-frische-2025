@@ -63,6 +63,50 @@ export class MoralisV2Service {
   }
   
   /**
+   * 📄 WALLET TRANSACTIONS BATCH (für Tax Report Rebuild)
+   * Unterstützt bis zu 300.000 Transaktionen mit Cursor-Pagination
+   */
+  static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1') {
+    try {
+      console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit})`);
+      
+      let url = `/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=${limit}`;
+      if (cursor) url += `&cursor=${cursor}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data._error) {
+        console.warn('⚠️ V2 Batch API Error:', data._error.message);
+        return { 
+          success: false, 
+          error: data._error.message,
+          result: [],
+          cursor: null
+        };
+      }
+      
+      return {
+        success: true,
+        result: data.result || [],
+        cursor: data.cursor || null,
+        hasMore: !!(data.cursor),
+        count: data.result?.length || 0,
+        source: 'moralis_v2_batch'
+      };
+      
+    } catch (error) {
+      console.error('💥 V2 Batch Service Error:', error);
+      return { 
+        success: false, 
+        error: error.message,
+        result: [],
+        cursor: null
+      };
+    }
+  }
+
+  /**
    * 📈 COMPLETE TRANSACTION HISTORY
    * Ersetzt: Separate ERC20 + Native + NFT calls
    */

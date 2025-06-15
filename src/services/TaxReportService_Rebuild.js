@@ -155,21 +155,57 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 🔄 SCHRITT 1: Vollständige Transaktionshistorie laden
+    // 🔄 SCHRITT 1: Vollständige Transaktionshistorie laden (OPTIMIERT für 300K+ Transaktionen)
     static async fetchCompleteTransactionHistory(walletAddress) {
         const transactions = [];
         
         try {
-            // Primär: Moralis API nutzen
-            console.log('🔍 Lade Transaktionen von Moralis...');
-            const moralisTransactions = await MoralisV2Service.getWalletTransactions(walletAddress);
+            console.log('🔍 Lade Transaktionen von Moralis (UNLIMITED)...');
             
-            if (moralisTransactions && moralisTransactions.length > 0) {
-                transactions.push(...moralisTransactions);
-                console.log(`✅ Moralis: ${moralisTransactions.length} Transaktionen geladen`);
+            // 🚀 OPTIMIERT: Batch-Loading für große Wallets
+            const batchSize = 100;
+            let cursor = null;
+            let pageCount = 0;
+            let hasMore = true;
+            
+            // Primär: Moralis API mit Pagination
+            while (hasMore && pageCount < 3000) { // Max 300.000 Transaktionen (100 * 3000)
+                try {
+                    console.log(`📄 Lade Page ${pageCount + 1}...`);
+                    
+                    const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
+                        walletAddress, 
+                        batchSize, 
+                        cursor
+                    );
+                    
+                    if (batchResult && batchResult.result && batchResult.result.length > 0) {
+                        transactions.push(...batchResult.result);
+                        cursor = batchResult.cursor;
+                        hasMore = !!cursor;
+                        pageCount++;
+                        
+                        console.log(`✅ Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length})`);
+                        
+                        // Rate limiting für große Wallets
+                        if (pageCount % 10 === 0) {
+                            console.log(`⏳ Rate limiting: Pause nach ${pageCount} Pages...`);
+                            await this.delay(1000); // 1s Pause alle 10 Pages
+                        }
+                        
+                    } else {
+                        hasMore = false;
+                    }
+                    
+                } catch (batchError) {
+                    console.error(`❌ Fehler bei Page ${pageCount + 1}:`, batchError);
+                    hasMore = false;
+                }
             }
+            
+            console.log(`✅ Moralis: ${transactions.length} Transaktionen geladen (${pageCount} Pages)`);
 
-            // Fallback: PulseScan API
+            // Fallback: PulseScan API nur wenn Moralis leer
             if (transactions.length === 0) {
                 console.log('🔄 Fallback zu PulseScan...');
                 const pulseScanTransactions = await PulseScanService.getTransactionHistory(walletAddress);
@@ -200,57 +236,82 @@ export class TaxReportService_Rebuild {
         });
     }
 
-    // 🏷️ SCHRITT 3: Steuerliche Kategorisierung
+    // 🏷️ SCHRITT 3: Steuerliche Kategorisierung (OPTIMIERT für 300K+ Transaktionen)
     static async categorizeTransactionsForTax(transactions, walletAddress) {
         const categorized = [];
+        const priceCache = new Map(); // Cache für Preise
 
         console.log(`🏷️ Kategorisiere ${transactions.length} Transaktionen...`);
 
-        for (const tx of transactions) {
-            try {
-                // Transaktionstyp bestimmen
-                const taxCategory = this.parseTransactionType(tx, walletAddress);
-                
-                // USD-Preis zur Transaktionszeit ermitteln
-                let usdPrice = 0;
-                let usdValue = 0;
-                
-                if (tx.value && tx.value !== '0') {
-                    try {
-                        // Preis von TokenPricingService holen
-                        const priceData = await TokenPricingService.getTokenPrice(
-                            tx.token_address || 'native',
-                            new Date(tx.block_timestamp || tx.timestamp)
-                        );
+        // 🚀 BATCH PROCESSING für Performance
+        const batchSize = 1000;
+        for (let i = 0; i < transactions.length; i += batchSize) {
+            const batch = transactions.slice(i, i + batchSize);
+            console.log(`🔄 Verarbeite Batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(transactions.length/batchSize)} (${batch.length} Transaktionen)`);
+            
+            for (const tx of batch) {
+                try {
+                    // Transaktionstyp bestimmen
+                    const taxCategory = this.parseTransactionType(tx, walletAddress);
+                    
+                    // USD-Preis zur Transaktionszeit ermitteln (MIT CACHE)
+                    let usdPrice = 0;
+                    let usdValue = 0;
+                    
+                    if (tx.value && tx.value !== '0') {
+                        const cacheKey = `${tx.token_address || 'native'}_${tx.block_timestamp}`;
                         
-                        usdPrice = priceData?.price || 0;
+                        if (priceCache.has(cacheKey)) {
+                            // Aus Cache
+                            usdPrice = priceCache.get(cacheKey);
+                        } else {
+                            try {
+                                // Preis von TokenPricingService holen
+                                const priceData = await TokenPricingService.getTokenPrice(
+                                    tx.token_address || 'native',
+                                    new Date(tx.block_timestamp || tx.timestamp)
+                                );
+                                
+                                usdPrice = priceData?.price || 0;
+                                priceCache.set(cacheKey, usdPrice); // In Cache speichern
+                            } catch (priceError) {
+                                console.warn(`⚠️ Preis nicht verfügbar für ${tx.hash}:`, priceError.message);
+                                priceCache.set(cacheKey, 0); // 0 cachen um wiederholte Aufrufe zu vermeiden
+                            }
+                        }
+                        
                         usdValue = (parseFloat(tx.value) / Math.pow(10, tx.decimals || 18)) * usdPrice;
-                    } catch (priceError) {
-                        console.warn(`⚠️ Preis nicht verfügbar für ${tx.hash}:`, priceError.message);
                     }
+
+                    const categorizedTx = {
+                        ...tx,
+                        taxCategory,
+                        usdPrice,
+                        usdValue,
+                        amount: parseFloat(tx.value) / Math.pow(10, tx.decimals || 18),
+                        symbol: tx.token_symbol || 'PLS',
+                        isTaxRelevant: this.isTaxRelevant(taxCategory),
+                        processedAt: new Date().toISOString()
+                    };
+
+                    categorized.push(categorizedTx);
+
+                } catch (error) {
+                    console.error(`❌ Fehler bei Kategorisierung von ${tx.hash}:`, error);
                 }
-
-                const categorizedTx = {
-                    ...tx,
-                    taxCategory,
-                    usdPrice,
-                    usdValue,
-                    amount: parseFloat(tx.value) / Math.pow(10, tx.decimals || 18),
-                    symbol: tx.token_symbol || 'PLS',
-                    isTaxRelevant: this.isTaxRelevant(taxCategory),
-                    processedAt: new Date().toISOString()
-                };
-
-                categorized.push(categorizedTx);
-
-                // Rate limiting für API-Aufrufe
-                await this.delay(100);
-
-            } catch (error) {
-                console.error(`❌ Fehler bei Kategorisierung von ${tx.hash}:`, error);
             }
+            
+            // Rate limiting nur zwischen Batches
+            if (i + batchSize < transactions.length) {
+                await this.delay(500); // 0.5s Pause zwischen Batches
+            }
+            
+            // Progress Update
+            const progress = Math.round(((i + batchSize) / transactions.length) * 100);
+            console.log(`📊 Progress: ${progress}% (${categorized.length}/${transactions.length})`);
         }
 
+        console.log(`✅ Kategorisierung abgeschlossen: ${categorized.length} Transaktionen, Cache: ${priceCache.size} Preise`);
         return categorized;
     }
 
