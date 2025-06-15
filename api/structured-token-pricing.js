@@ -261,12 +261,12 @@ async function resolveSingleTokenPrice(token, batchPrices, chainId) {
     }
   }
   
-  // 4. PulseWatch Preferred (überschreibt andere Quellen wenn verfügbar)
-  if (PULSEWATCH_PRICES[tokenSymbol]) {
+  // 4. PulseWatch Fallback (nur wenn kein Moralis-Preis verfügbar)
+  if (!isReliable && PULSEWATCH_PRICES[tokenSymbol]) {
     finalPrice = PULSEWATCH_PRICES[tokenSymbol];
     priceSource = 'pulsewatch';
     isReliable = true;
-    console.log(`⭐ PULSEWATCH: ${tokenSymbol} = $${finalPrice} (preferred)`);
+    console.log(`🔄 PULSEWATCH FALLBACK: ${tokenSymbol} = $${finalPrice} (no live price available)`);
   }
   
   // 5. Emergency Fallback (laut Phase 3 Anforderung reduziert)
