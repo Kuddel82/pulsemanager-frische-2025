@@ -3,6 +3,9 @@
 
 import { supabase } from '@/lib/supabaseClient';
 
+// 🚨 TEMPORARY DISABLED: cache_data table not exists in production
+const CACHE_DISABLED = true;
+
 export class DatabasePersistentCache {
   
   // 🕐 Cache TTL Settings (in Milliseconds)
@@ -19,6 +22,11 @@ export class DatabasePersistentCache {
    * @param {Object} portfolioData - Portfolio Daten
    */
   static async savePortfolioData(userId, portfolioData) {
+    if (CACHE_DISABLED) {
+      console.log(`💾 DB PORTFOLIO: Cache disabled - table not exists (${portfolioData.tokens?.length || 0} tokens, $${portfolioData.totalValue})`);
+      return true;
+    }
+    
     try {
       const cacheData = {
         user_id: userId,
@@ -54,6 +62,11 @@ export class DatabasePersistentCache {
    * @returns {Object|null} - Portfolio Data oder null
    */
   static async getPortfolioData(userId) {
+    if (CACHE_DISABLED) {
+      console.log(`💾 DB PORTFOLIO: Cache disabled - table not exists for user ${userId}`);
+      return null;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('cache_data')

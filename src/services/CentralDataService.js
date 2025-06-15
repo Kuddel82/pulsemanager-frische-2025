@@ -533,7 +533,7 @@ export class CentralDataService {
                 total_usd: totalUsd, // Kann durch ETH-Fix überschrieben werden
                 value: totalUsd, // Kann durch ETH-Fix überschrieben werden
                 hasReliablePrice: isReliable,
-                priceSource: `${priceSource} (${priceData.token || tokenSymbol})`,
+                priceSource: `${priceData.source || priceSource} (${tokenSymbol})`,
                 isIncludedInPortfolio: totalUsd > 0.01,
                 walletAddress: wallet.address,
                 chainId: chainId,
@@ -580,7 +580,7 @@ export class CentralDataService {
           }).filter(token => token !== null); // Entferne null-Werte
           
           allTokens.push(...processedTokens);
-          totalValue += processedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
+          // totalValue wird bereits in processedTokens korrekt berechnet - keine doppelte Addition!
           
           console.log(`✅ WALLET: ${processedTokens.length} tokens processed for ${wallet.address.slice(0,8)}`);
         }
@@ -592,6 +592,9 @@ export class CentralDataService {
 
     // 📊 Portfolio-Statistiken berechnen
     const sortedTokens = allTokens.sort((a, b) => (b.value || 0) - (a.value || 0));
+    
+    // 🔧 TOTAL VALUE KORREKT BERECHNEN (einmalig am Ende)
+    totalValue = sortedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
     
     // Ranking und Prozent-Anteil hinzufügen
     sortedTokens.forEach((token, index) => {
