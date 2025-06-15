@@ -266,20 +266,20 @@ export class TaxReportService_Rebuild {
                             usdPrice = priceCache.get(cacheKey);
                         } else {
                             try {
-                                // Preis über CoinGecko API holen (Fallback da Moralis Utils nicht verfügbar)
+                                // Preis über BESTEHENDE Moralis API holen
                                 if (tx.token_address && tx.token_address !== 'native') {
-                                    // Für Token: Versuche über CoinGecko
-                                    const response = await fetch(`https://api.coingecko.com/api/v3/simple/token_price/pulsechain?contract_addresses=${tx.token_address}&vs_currencies=usd`);
+                                    // Für Token: Verwende Moralis Price API
+                                    const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x171&address=${tx.token_address}`);
                                     if (response.ok) {
                                         const data = await response.json();
-                                        usdPrice = data[tx.token_address.toLowerCase()]?.usd || 0;
+                                        usdPrice = data.usdPrice || 0;
                                     }
                                 } else {
-                                    // Für PLS: Aktueller Preis (historische Preise schwer verfügbar)
-                                    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=pulsechain&vs_currencies=usd');
+                                    // Für PLS: Verwende Moralis für Native Token
+                                    const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000');
                                     if (response.ok) {
                                         const data = await response.json();
-                                        usdPrice = data.pulsechain?.usd || 0;
+                                        usdPrice = data.usdPrice || 0;
                                     }
                                 }
                                 
