@@ -34,9 +34,9 @@ const EMERGENCY_PRICES = {
   'DAI': 1.0        // Dai Stablecoin
 };
 
-// 🎯 PRICE MEMORY CACHE (10 Minuten TTL)
+// 🎯 PRICE MEMORY CACHE (TEMPORÄR DEAKTIVIERT FÜR TESTING)
 const priceCache = new Map();
-const CACHE_TTL = 10 * 60 * 1000; // 10 Minuten
+const CACHE_TTL = 0; // CACHE DEAKTIVIERT - 10 * 60 * 1000; // 10 Minuten
 
 /**
  * 🚀 Moralis API Helper

@@ -28,9 +28,9 @@ export const PortfolioProvider = ({ children }) => {
     apiCallsUsed: 0
   });
 
-  // 💾 LOCAL STORAGE CACHING
+  // 💾 LOCAL STORAGE CACHING (TEMPORÄR DEAKTIVIERT FÜR TESTING)
   const CACHE_KEY = `portfolio_${user?.id}`;
-  const CACHE_DURATION = 10 * 60 * 1000; // 10 Minuten
+  const CACHE_DURATION = 0; // CACHE DEAKTIVIERT - 10 * 60 * 1000; // 10 Minuten
 
   // ❌ KOMPLETT DEAKTIVIERT: KEINE AUTOMATISCHEN CACHE-LOADS MEHR!
   // 🚨 Das war der Grund für die ungewollten API-Calls beim Homepage-Load!

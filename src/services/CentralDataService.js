@@ -185,8 +185,8 @@ export class CentralDataService {
     // 🚨 COST REDUCTION: Don't load ROI/Tax by default (40k CUs saved!)
     const { includeROI = false, includeTax = false, forceRefresh = false } = options;
 
-    // 🏛️ DATABASE PERSISTENT CACHE CHECK (außer bei forceRefresh)
-    if (!forceRefresh) {
+    // 🏛️ DATABASE PERSISTENT CACHE CHECK (TEMPORÄR DEAKTIVIERT FÜR TESTING)
+    if (false && !forceRefresh) { // CACHE DEAKTIVIERT
       try {
         const { DatabasePersistentCache } = await import('./DatabasePersistentCache');
         const cachedPortfolio = await DatabasePersistentCache.getPortfolioData(userId);
