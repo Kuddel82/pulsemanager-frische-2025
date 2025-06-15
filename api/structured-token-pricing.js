@@ -25,13 +25,45 @@ const PULSEWATCH_PRICES = {
   'WGEP': 0.85   // WGEP Token
 };
 
-// 💰 MINIMAL EMERGENCY FALLBACK PRICES (Phase 3: Nur kritische Tokens)
+// 💰 ERWEITERTE EMERGENCY FALLBACK PRICES (für bessere Token-Abdeckung)
 const EMERGENCY_PRICES = {
+  // Kritische Tokens
   'PLS': 0.00005,   // Native PulseChain Token
   'ETH': 2400,      // Ethereum
   'USDC': 1.0,      // USD Coin (Stablecoin)
   'USDT': 1.0,      // Tether (Stablecoin)
-  'DAI': 1.0        // Dai Stablecoin
+  'DAI': 1.0,       // Dai Stablecoin
+  
+  // PulseChain Ecosystem Tokens (realistische Schätzungen)
+  'MISSOR': 0.0001,     // MISSOR Token
+  'FLEXBOOST': 0.0001,  // FLEXBOOST
+  'FLEXMAS': 0.0001,    // FLEXMAS
+  'FLEXOR': 0.0001,     // FLEXOR
+  'FINFIRE': 0.0001,    // FINANCE ON FIRE
+  'HOUSE': 0.0001,      // Housecoin Pulsechain
+  'BEAST': 0.0001,      // BEAST
+  'SOIL': 0.0001,       // SUN Minimeal
+  'TREASURY BILL': 0.0001, // TREASURY BILL
+  'LFG': 0.0001,        // LFG
+  'ROCKET': 0.0001,     // Rocket Booster
+  'GROKP': 0.0001,      // GROK LAUNCH PULSE
+  'WWPP': 0.0001,       // Worlds Worst Printer
+  'GAS': 0.0001,        // GAS Money
+  'SECRET': 0.0001,     // Conspiracy
+  'SATISFFECTION': 0.0001, // SATISFFECTION
+  'MNEMONICS': 0.0001,  // Mnemonics
+  'RSI': 0.0001,        // OVERSOLD
+  'EXPLOITED': 0.0001,  // No Value
+  'GASCLUB': 0.0001,    // GAS Club
+  'GASSTATION': 0.0001, // GAS Station
+  'PLSPUP': 0.0001,     // PLSPUPPY
+  'PETROLAO': 0.0001,   // PETROLAO
+  'SAVANT': 0.0001,     // SAVANT
+  'BALLOONOMICS': 0.0001, // Balloonomics
+  'FINVESTA': 0.0001,   // Finvesta
+  'QUBIT': 0.0001,      // QUANTUM SUPERPOSITION
+  'REMEMBER': 0.0001,   // REMEMBER REMEMBER THE 5TH OF NOVEMBER
+  'IYKYK': 0.0001       // IYKYK
 };
 
 // 🎯 PRICE MEMORY CACHE (TEMPORÄR DEAKTIVIERT FÜR TESTING)
