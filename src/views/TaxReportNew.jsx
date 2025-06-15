@@ -44,7 +44,7 @@ const TaxReportNew = () => {
       
       console.log(`📊 Generiere Tax Report für ${wallets.length} Wallets...`);
       
-      // 2. Für jedes Wallet einen vollständigen Tax Report generieren
+      // 2. Für jedes Wallet einen vollständigen Tax Report generieren (OHNE automatische PDF-Generierung)
       const reports = [];
       
       for (const wallet of wallets) {
@@ -54,7 +54,8 @@ const TaxReportNew = () => {
           const report = await TaxReportService_Rebuild.generateTaxReport(wallet.address, {
             startDate: '2025-01-01',
             endDate: '2025-12-31',
-            debugMode: true
+            debugMode: true,
+            generatePDF: false // 🔥 WICHTIG: Keine automatische PDF-Generierung
           });
           
           reports.push({
@@ -82,14 +83,7 @@ const TaxReportNew = () => {
         failedReports: reports.filter(r => !r.success).length,
         reports,
         generatedAt: new Date().toISOString(),
-        version: '2.0.0-rebuild',
-        taxSummary: {
-          totalTransactions: reports.reduce((sum, r) => sum + (r.report?.transactions?.length || 0), 0),
-          taxableTransactions: reports.reduce((sum, r) => sum + (r.report?.summary?.taxableTransactions || 0), 0),
-          roiIncome: reports.reduce((sum, r) => sum + (r.report?.summary?.roiIncome || 0), 0),
-          purchases: reports.reduce((sum, r) => sum + (r.report?.summary?.purchases || 0), 0),
-          sales: reports.reduce((sum, r) => sum + (r.report?.summary?.sales || 0), 0)
-        }
+        version: '2.0.0-rebuild'
       };
       
       setData(combinedReport);
@@ -99,9 +93,34 @@ const TaxReportNew = () => {
       
     } catch (error) {
       console.error('❌ NEUES TAX SYSTEM FEHLER:', error);
-      setError(`Fehler beim Generieren des neuen Tax Reports: ${error.message}`);
+      setError(`Fehler beim Generieren des Tax Reports: ${error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 📄 NEUE FUNKTION: PDF manuell generieren
+  const generatePDFManually = async () => {
+    if (!data || data.reports.length === 0) {
+      alert('Bitte generieren Sie zuerst einen Tax Report!');
+      return;
+    }
+    
+    try {
+      console.log('📄 Generiere PDFs für alle Wallets...');
+      
+      for (const reportData of data.reports) {
+        if (reportData.report && reportData.success) {
+          await TaxReportService_Rebuild.generatePDFManually(reportData.report);
+          console.log(`✅ PDF für Wallet ${reportData.wallet} generiert`);
+        }
+      }
+      
+      alert('✅ Alle PDFs wurden erfolgreich im Downloads-Ordner gespeichert!');
+      
+    } catch (error) {
+      console.error('❌ PDF-Generierung fehlgeschlagen:', error);
+      alert(`❌ Fehler bei PDF-Generierung: ${error.message}`);
     }
   };
 
@@ -127,12 +146,24 @@ const TaxReportNew = () => {
           <Button
             onClick={generateNewTaxReport}
             disabled={loading}
-            className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl animate-bounce px-8 py-4 text-xl"
+            className="bg-purple-600 hover:bg-purple-700 border-4 border-yellow-400 text-white font-bold shadow-xl animate-bounce px-8 py-4 text-xl mr-4"
             size="lg"
           >
             <FileText className={`h-6 w-6 mr-3 ${loading ? 'animate-spin' : ''}`} />
             {loading ? '🔄 GENERIERE STEUERREPORT...' : '🔥 STEUERREPORT JETZT GENERIEREN 🔥'}
           </Button>
+
+          {/* 📄 PDF BUTTON */}
+          {data && data.successfulReports > 0 && (
+            <Button
+              onClick={generatePDFManually}
+              className="bg-green-600 hover:bg-green-700 border-4 border-green-400 text-white font-bold shadow-xl px-6 py-4 text-lg"
+              size="lg"
+            >
+              <Download className="h-5 w-5 mr-2" />
+              📄 PDFs GENERIEREN
+            </Button>
+          )}
         </div>
 
         {/* ERROR */}
@@ -171,15 +202,21 @@ const TaxReportNew = () => {
                 <div className="text-green-300">Erfolgreiche Reports</div>
               </div>
               <div className="bg-blue-600/20 border-2 border-blue-400 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-blue-400">{data.taxSummary.totalTransactions}</div>
+                <div className="text-3xl font-bold text-blue-400">
+                  {data.reports.reduce((sum, r) => sum + (r.report?.transactions?.length || 0), 0)}
+                </div>
                 <div className="text-blue-300">Transaktionen</div>
               </div>
               <div className="bg-orange-600/20 border-2 border-orange-400 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-orange-400">{data.taxSummary.taxableTransactions}</div>
+                <div className="text-3xl font-bold text-orange-400">
+                  {data.reports.reduce((sum, r) => sum + (r.report?.summary?.taxableTransactions || 0), 0)}
+                </div>
                 <div className="text-orange-300">Steuerpflichtig</div>
               </div>
               <div className="bg-purple-600/20 border-2 border-purple-400 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-purple-400">${data.taxSummary.roiIncome.toFixed(2)}</div>
+                <div className="text-3xl font-bold text-purple-400">
+                  ${data.reports.reduce((sum, r) => sum + (r.report?.summary?.roiIncome || 0), 0).toFixed(2)}
+                </div>
                 <div className="text-purple-300">ROI Einkommen</div>
               </div>
             </div>
@@ -227,9 +264,9 @@ const TaxReportNew = () => {
                           </div>
                         </div>
                         <div>
-                          <div className="text-gray-400">PDF erstellt</div>
+                          <div className="text-gray-400">Status</div>
                           <div className="text-blue-400 font-bold">
-                            ✅ Downloads
+                            ✅ Bereit für PDF
                           </div>
                         </div>
                       </div>
@@ -245,8 +282,9 @@ const TaxReportNew = () => {
               <div className="mt-6 p-4 bg-blue-600/10 border border-blue-400/20 rounded-lg">
                 <h4 className="font-bold text-blue-400 mb-2">📄 PDF-Export Info:</h4>
                 <p className="text-blue-300 text-sm">
-                  Für jedes erfolgreich verarbeitete Wallet wurde automatisch eine PDF-Datei in Ihrem Downloads-Ordner erstellt.
-                  Die Dateien folgen dem Format: <code>PulseManager_Steuerreport_[Wallet]_[Datum].pdf</code>
+                  Nach erfolgreicher Report-Generierung können Sie mit dem grünen "📄 PDFs GENERIEREN" Button 
+                  für alle Wallets PDF-Dateien erstellen. Diese werden in Ihrem Downloads-Ordner gespeichert.
+                  Format: <code>PulseManager_Steuerreport_[Wallet]_[Datum].pdf</code>
                 </p>
               </div>
             </div>

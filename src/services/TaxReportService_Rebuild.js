@@ -96,7 +96,8 @@ export class TaxReportService_Rebuild {
             startDate = `${new Date().getFullYear()}-01-01`,
             endDate = `${new Date().getFullYear()}-12-31`,
             includeTransfers = false,
-            debugMode = false
+            debugMode = false,
+            generatePDF = false // 🔥 NEU: PDF nur auf Anfrage generieren
         } = options;
 
         console.log(`🎯 Tax Report Rebuild - Start für Wallet: ${walletAddress}`);
@@ -133,8 +134,13 @@ export class TaxReportService_Rebuild {
             // SCHRITT 5: Tax Table erstellen
             const taxTable = this.buildTaxTable(taxCalculatedTransactions);
 
-            // SCHRITT 6: PDF automatisch generieren und speichern
-            await this.generateAndSavePDF(taxTable, walletAddress, { startDate, endDate });
+            // SCHRITT 6: PDF nur generieren wenn explizit angefordert
+            let pdfGenerated = false;
+            if (generatePDF) {
+                await this.generateAndSavePDF(taxTable, walletAddress, { startDate, endDate });
+                pdfGenerated = true;
+                console.log('✅ PDF wurde automatisch generiert und gespeichert');
+            }
 
             const report = {
                 walletAddress,
@@ -143,7 +149,8 @@ export class TaxReportService_Rebuild {
                 table: taxTable,
                 summary: this.calculateTaxSummary(taxCalculatedTransactions),
                 generatedAt: new Date().toISOString(),
-                version: '2.0.0-rebuild'
+                version: '2.0.0-rebuild',
+                pdfGenerated
             };
 
             console.log(`✅ Tax Report erfolgreich generiert!`);
@@ -168,8 +175,8 @@ export class TaxReportService_Rebuild {
             let pageCount = 0;
             let hasMore = true;
             
-            // Primär: Moralis API mit Pagination
-            while (hasMore && pageCount < 3000) { // Max 300.000 Transaktionen (100 * 3000)
+            // Primär: Moralis API mit Pagination - ERHÖHTES LIMIT
+            while (hasMore && pageCount < 10000) { // Max 1.000.000 Transaktionen (100 * 10000)
                 try {
                     console.log(`📄 Lade Page ${pageCount + 1}...`);
                     
@@ -187,10 +194,10 @@ export class TaxReportService_Rebuild {
                         
                         console.log(`✅ Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length})`);
                         
-                        // Rate limiting für große Wallets
-                        if (pageCount % 10 === 0) {
+                        // Rate limiting für große Wallets - REDUZIERT
+                        if (pageCount % 20 === 0) {
                             console.log(`⏳ Rate limiting: Pause nach ${pageCount} Pages...`);
-                            await this.delay(1000); // 1s Pause alle 10 Pages
+                            await this.delay(500); // 0.5s Pause alle 20 Pages
                         }
                         
                     } else {
@@ -199,7 +206,14 @@ export class TaxReportService_Rebuild {
                     
                 } catch (batchError) {
                     console.error(`❌ Fehler bei Page ${pageCount + 1}:`, batchError);
-                    hasMore = false;
+                    // Bei Fehler nicht sofort aufhören, sondern 3x versuchen
+                    if (pageCount > 0) {
+                        console.log('🔄 Versuche nächste Page...');
+                        await this.delay(2000);
+                        continue;
+                    } else {
+                        hasMore = false;
+                    }
                 }
             }
             
@@ -266,30 +280,62 @@ export class TaxReportService_Rebuild {
                             usdPrice = priceCache.get(cacheKey);
                         } else {
                             try {
-                                // 1. PRIMARY: Moralis Pro API
+                                // 1. PRIMARY: Moralis Pro API - VERBESSERTE FEHLERBEHANDLUNG
                                 if (tx.token_address && tx.token_address !== 'native') {
                                     // Für Token: Verwende Moralis Price API
-                                    const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x171&address=${tx.token_address}`);
+                                    const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x171&address=${tx.token_address}`, {
+                                        method: 'GET',
+                                        headers: {
+                                            'Accept': 'application/json',
+                                            'Content-Type': 'application/json'
+                                        }
+                                    });
+                                    
                                     if (response.ok) {
-                                        const data = await response.json();
-                                        usdPrice = data.usdPrice || 0;
+                                        const contentType = response.headers.get('content-type');
+                                        if (contentType && contentType.includes('application/json')) {
+                                            const data = await response.json();
+                                            usdPrice = data.usdPrice || 0;
+                                        } else {
+                                            console.warn(`⚠️ MORALIS PRICE: Ungültige Antwort für ${tx.token_address.slice(0, 8)}... - Kein JSON`);
+                                        }
+                                    } else {
+                                        console.warn(`⚠️ MORALIS PRICE: Failed for ${tx.token_address.slice(0, 8)}... - ${response.status}`);
                                     }
                                 } else {
                                     // Für PLS: Verwende Moralis für Native Token
-                                    const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000');
+                                    const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000', {
+                                        method: 'GET',
+                                        headers: {
+                                            'Accept': 'application/json',
+                                            'Content-Type': 'application/json'
+                                        }
+                                    });
+                                    
                                     if (response.ok) {
-                                        const data = await response.json();
-                                        usdPrice = data.usdPrice || 0;
+                                        const contentType = response.headers.get('content-type');
+                                        if (contentType && contentType.includes('application/json')) {
+                                            const data = await response.json();
+                                            usdPrice = data.usdPrice || 0;
+                                        } else {
+                                            console.warn(`⚠️ MORALIS PRICE: Ungültige Antwort für PLS - Kein JSON`);
+                                        }
+                                    } else {
+                                        console.warn(`⚠️ MORALIS PRICE: Failed for PLS - ${response.status}`);
                                     }
                                 }
                                 
                                 // 2. BACKUP: PulseScan API (falls Moralis 0 zurückgibt)
                                 if (usdPrice === 0 && (!tx.token_address || tx.token_address === 'native')) {
-                                    // PLS-Preis von PulseScan Stats API
-                                    const plsPrice = await PulseScanService.getPLSPrice();
-                                    if (plsPrice > 0) {
-                                        usdPrice = plsPrice;
-                                        console.log(`✅ PULSESCAN BACKUP: PLS = $${plsPrice}`);
+                                    try {
+                                        // PLS-Preis von PulseScan Stats API
+                                        const plsPrice = await PulseScanService.getPLSPrice();
+                                        if (plsPrice > 0) {
+                                            usdPrice = plsPrice;
+                                            console.log(`✅ PULSESCAN BACKUP: PLS = $${plsPrice}`);
+                                        }
+                                    } catch (pulseScanError) {
+                                        console.warn(`⚠️ PULSESCAN BACKUP: Fehler beim PLS-Preis laden:`, pulseScanError.message);
                                     }
                                 }
                                 
@@ -466,6 +512,24 @@ export class TaxReportService_Rebuild {
         }
         
         return 'Nicht steuerrelevant';
+    }
+
+    // 📄 SEPARATE FUNKTION: PDF manuell generieren (ohne automatische Ausführung)
+    static async generatePDFManually(taxReport, options = {}) {
+        try {
+            const { walletAddress, table: taxTable, period } = taxReport;
+            
+            console.log('📄 Generiere PDF-Steuerreport manuell...');
+            
+            await this.generateAndSavePDF(taxTable, walletAddress, period);
+            
+            console.log('✅ PDF manuell generiert und gespeichert');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Manuelle PDF-Generierung fehlgeschlagen:', error);
+            throw error;
+        }
     }
 
     // 📄 SCHRITT 6: PDF automatisch generieren und speichern

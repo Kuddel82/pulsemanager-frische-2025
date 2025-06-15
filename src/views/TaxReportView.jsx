@@ -156,7 +156,7 @@ const TaxReportView = () => {
       
       console.log(`📊 Generiere Tax Report für ${wallets.length} Wallets...`);
       
-      // 2. Für jedes Wallet einen vollständigen Tax Report generieren
+      // 2. Für jedes Wallet einen vollständigen Tax Report generieren (OHNE automatische PDF-Generierung)
       const reports = [];
       
       for (const wallet of wallets) {
@@ -166,7 +166,8 @@ const TaxReportView = () => {
           const report = await TaxReportService_Rebuild.generateTaxReport(wallet.address, {
             startDate: '2025-01-01',
             endDate: '2025-12-31',
-            debugMode: true
+            debugMode: true,
+            generatePDF: false // 🔥 WICHTIG: Keine automatische PDF-Generierung
           });
           
           reports.push({
@@ -197,7 +198,7 @@ const TaxReportView = () => {
       
       setRebuildData(combinedReport);
       
-      console.log('✅ TAX REPORT REBUILD: Alle Reports erfolgreich generiert!');
+      console.log('✅ NEUES TAX SYSTEM: Alle Reports erfolgreich generiert!');
       console.log(`📊 Erfolgreich: ${combinedReport.successfulReports}/${combinedReport.totalWallets} Wallets`);
       
     } catch (error) {
@@ -205,6 +206,31 @@ const TaxReportView = () => {
       setRebuildError(`Fehler beim Generieren des Tax Reports: ${error.message}`);
     } finally {
       setRebuildLoading(false);
+    }
+  };
+
+  // 📄 NEUE FUNKTION: PDF manuell generieren
+  const generatePDFManually = async () => {
+    if (!rebuildData || rebuildData.reports.length === 0) {
+      alert('Bitte generieren Sie zuerst einen Tax Report!');
+      return;
+    }
+    
+    try {
+      console.log('📄 Generiere PDFs für alle Wallets...');
+      
+      for (const reportData of rebuildData.reports) {
+        if (reportData.report && !reportData.error) {
+          await TaxReportService_Rebuild.generatePDFManually(reportData.report);
+          console.log(`✅ PDF für Wallet ${reportData.wallet} generiert`);
+        }
+      }
+      
+      alert('✅ Alle PDFs wurden erfolgreich im Downloads-Ordner gespeichert!');
+      
+    } catch (error) {
+      console.error('❌ PDF-Generierung fehlgeschlagen:', error);
+      alert(`❌ Fehler bei PDF-Generierung: ${error.message}`);
     }
   };
 
@@ -573,7 +599,7 @@ const TaxReportView = () => {
                 disabled={moralisLoading || !canLoadMoralis}
               >
                 <Globe className={`h-5 w-5 mr-2 ${moralisLoading ? 'animate-spin' : ''}`} />
-                Moralis + Preise laden
+                Moralis + Preise
                 {remainingTime > 0 && (
                   <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
                 )}
@@ -714,6 +740,16 @@ const TaxReportView = () => {
                 <span className="ml-1 text-xs text-yellow-400">({remainingTime}s)</span>
               )}
             </Button>
+
+            {/* 🔥 REBUILD TAX REPORT BUTTON */}
+            <Button
+              onClick={generateRebuildTaxReport}
+              disabled={rebuildLoading}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <FileText className={`h-4 w-4 mr-2 ${rebuildLoading ? 'animate-spin' : ''}`} />
+              {rebuildLoading ? 'Generiere...' : '🔥 REBUILD TAX REPORT'}
+            </Button>
             
             <Button
               onClick={downloadCSV}
@@ -723,6 +759,17 @@ const TaxReportView = () => {
               <Download className={`h-4 w-4 mr-2 ${downloadingCSV ? 'animate-spin' : ''}`} />
               CSV Export
             </Button>
+
+            {/* 📄 PDF BUTTON für Rebuild Tax Report */}
+            {rebuildData && rebuildData.successfulReports > 0 && (
+              <Button
+                onClick={generatePDFManually}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                📄 PDFs GENERIEREN
+              </Button>
+            )}
             
             <Button
               variant="outline"
@@ -867,377 +914,53 @@ const TaxReportView = () => {
           </div>
         )}
 
-        {/* 🔍 PRO PLAN TAX DEBUG INFORMATION */}
-        {showDebug && (
-          <div className="space-y-6 mb-6">
-            {/* CU TRACKING FOR TAX */}
-            <div className="pulse-card p-6 border-l-4 border-orange-500">
-              <h3 className="flex items-center text-lg font-bold pulse-text mb-4">
-                <FileText className="h-5 w-5 mr-2 text-orange-400" />
-                🔍 Tax Report Pro Debug
-              </h3>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
-                <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
-                  <span className="font-medium text-green-400">💰 Basic Tax CUs:</span>
-                  <p className="text-white font-mono text-lg">
-                    {taxData?.apiCalls || 0} CUs
-                  </p>
-                  <p className="text-xs text-green-400">
-                    {lastUpdate ? 'Tax Data geladen' : 'Nicht geladen'}
-                  </p>
-                </div>
-                
-                <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
-                  <span className="font-medium text-blue-400">🌐 Moralis CUs:</span>
-                  <p className="text-white font-mono text-lg">
-                    {moralisData?.apiUsage?.totalCalls || 0} CUs
-                  </p>
-                  <p className="text-xs text-blue-400">
-                    {lastMoralisUpdate ? 'Moralis geladen' : 'Nicht geladen'}
-                  </p>
-                </div>
-                
-                <div className="p-3 bg-purple-500/10 border border-purple-400/20 rounded">
-                  <span className="font-medium text-purple-400">📅 Letzter Tax Cache:</span>
-                  <p className="text-white font-mono">
-                    {lastUpdate ? formatTime(lastUpdate) : 'Nie'}
-                  </p>
-                  <p className="text-xs text-purple-400">
-                    {cacheInfo?.cacheHit ? '💾 Cache Hit' : '🌐 Fresh Load'}
-                  </p>
-                </div>
-                
-                <div className="p-3 bg-orange-500/10 border border-orange-400/20 rounded">
-                  <span className="font-medium text-orange-400">📊 Steuer Herkunft:</span>
-                  <p className="text-white">
-                    {taxData ? '📄 TaxService' : '❌ Keine Daten'}
-                  </p>
-                  <p className="text-xs text-orange-400">
-                    Transaction-based Tax
-                  </p>
-                </div>
+        {/* 🔥 REBUILD TAX REPORT RESULTS */}
+        {rebuildData && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-orange-500">
+            <h3 className="text-lg font-bold pulse-text mb-4 flex items-center">
+              <FileText className="h-5 w-5 mr-2 text-orange-400" />
+              🔥 Rebuild Tax Report Ergebnisse
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">{rebuildData.successfulReports}</div>
+                <div className="text-sm pulse-text-secondary">Erfolgreiche Reports</div>
               </div>
-              
-              {/* ENTERPRISE FEATURES STATUS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded">
-                  <span className="font-medium text-blue-400">🚀 Moralis Pro APIs verwendet:</span>
-                  <ul className="text-xs text-blue-400 mt-2 space-y-1">
-                    <li>• /wallets/{address}/erc20 (Token Detection)</li>
-                    <li>• /erc20/{token}/price (Price Lookup)</li>
-                    <li>• /wallets/{address}/erc20/transfers (Transfers)</li>
-                  </ul>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">
+                  {rebuildData.reports.reduce((sum, r) => sum + (r.report?.transactions?.length || 0), 0)}
                 </div>
-                
-                <div className="p-3 bg-green-500/10 border border-green-400/20 rounded">
-                  <span className="font-medium text-green-400">✅ Pro Plan Tax Features:</span>
-                  <ul className="text-xs text-green-400 mt-2 space-y-1">
-                    <li>• Manual Refresh Controls</li>
-                    <li>• Transfer-based Tax Analysis</li>
-                    <li>• ROI Detection via Patterns</li>
-                  </ul>
-                </div>
+                <div className="text-sm pulse-text-secondary">Transaktionen</div>
               </div>
-              
-              {/* RAW DATA BUTTONS */}
-              <div className="flex justify-between items-center pt-4 border-t border-white/10">
-                <div className="text-xs text-gray-400">
-                  💡 Tax Debug: Optimiert für Standard Moralis APIs
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-400">
+                  {rebuildData.reports.reduce((sum, r) => sum + (r.report?.summary?.taxableTransactions || 0), 0)}
                 </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      console.log('🔍 TAX DATA RAW:', taxData);
-                      alert('Tax-Rohdaten in Konsole geloggt (F12 → Console)');
-                    }}
-                    className="text-xs"
-                  >
-                    📄 Tax Raw
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      console.log('🔍 MORALIS TAX DATA:', moralisData);
-                      alert('Moralis Tax-Daten in Konsole geloggt (F12 → Console)');
-                    }}
-                    className="text-xs"
-                  >
-                    🌐 Moralis Raw
-                  </Button>
+                <div className="text-sm pulse-text-secondary">Steuerpflichtig</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-400">
+                  ${rebuildData.reports.reduce((sum, r) => sum + (r.report?.summary?.roiIncome || 0), 0).toFixed(2)}
                 </div>
+                <div className="text-sm pulse-text-secondary">ROI Einkommen</div>
               </div>
             </div>
-
-            {/* Wallet Debug Info - ALWAYS show in debug mode */}
-            <WalletDebugInfo />
-            
-            {/* Detailed Tax Data Debug - only when tax data loaded */}
-            {taxData && (
-              <div className="pulse-card p-6">
-                <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
-                  <AlertCircle className="h-5 w-5 mr-2 text-blue-400" />
-                  Detaillierte Tax Service Debug Information
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Alle Transaktionen:</span>
-                    <p className="pulse-text font-mono text-green-400">{taxData.allTransactions?.length || 0}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Steuerpflichtig (ROI):</span>
-                    <p className="pulse-text font-mono text-orange-400">{taxData.taxableTransactions?.length || 0}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Käufe:</span>
-                    <p className="pulse-text font-mono text-blue-400">{taxData.purchases?.length || 0}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Verkäufe:</span>
-                    <p className="pulse-text font-mono text-purple-400">{taxData.sales?.length || 0}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Cache Hit:</span>
-                    <p className="pulse-text">{cacheInfo?.cacheHit ? '✅ Ja' : '❌ Nein'}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Geladen:</span>
-                    <p className="pulse-text">{cacheInfo?.totalLoaded || 0}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Gefiltert ({filterCategory}):</span>
-                    <p className="pulse-text">{filteredTransactions.length}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium pulse-text-secondary">Steuerpflichtiges Einkommen:</span>
-                    <p className="pulse-text font-mono text-red-400">{formatCurrency(taxStats.taxableIncome)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="text-xs pulse-text-secondary">
+              Generiert am: {new Date(rebuildData.generatedAt).toLocaleString('de-DE')} • Version: {rebuildData.version}
+            </div>
           </div>
         )}
 
-        {/* DSGVO Notice */}
-        <div className="pulse-card p-4 mb-6 border-l-4 border-blue-400">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium pulse-text">DSGVO-Hinweis</p>
-              <p className="pulse-text-secondary">
-                Diese Steuerdaten werden nur lokal verarbeitet und nicht an Dritte weitergegeben. 
-                Der CSV-Export erfolgt direkt in Ihrem Browser ohne Server-Upload.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter & Tax Summary */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          
-          {/* Filter */}
-          <div className="pulse-card p-6">
-            <h3 className="flex items-center text-lg font-bold pulse-title mb-4">
-              <Filter className="h-5 w-5 mr-2 text-green-400" />
-              Filter
+        {/* 🚨 REBUILD ERROR */}
+        {rebuildError && (
+          <div className="pulse-card p-6 mb-6 border-l-4 border-red-500 bg-red-500/10">
+            <h3 className="text-lg font-bold text-red-400 mb-2 flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              Rebuild Tax Report Fehler
             </h3>
-            <div className="space-y-2">
-              {[
-                { key: 'all', label: 'Alle Transaktionen', count: taxData?.allTransactions?.length || 0 },
-                { key: 'taxable', label: 'Steuerpflichtig (ROI)', count: taxData?.taxableTransactions?.length || 0 },
-                { key: 'purchases', label: 'Käufe', count: taxData?.purchases?.length || 0 },
-                { key: 'sales', label: 'Verkäufe', count: taxData?.sales?.length || 0 }
-              ].map(filter => (
-                <Button
-                  key={filter.key}
-                  variant={filterCategory === filter.key ? 'default' : 'outline'}
-                  className="w-full justify-between"
-                  onClick={() => setFilterCategory(filter.key)}
-                >
-                  <span>{filter.label}</span>
-                  <Badge variant="secondary">{filter.count}</Badge>
-                </Button>
-              ))}
-            </div>
+            <p className="text-red-300">{rebuildError}</p>
           </div>
-
-          {/* Tax Summary - NEUE STEUERLOGIK */}
-          <div className="pulse-card p-6 lg:col-span-2">
-            <h3 className="text-lg font-bold pulse-title mb-4">Steuer Übersicht ({new Date().getFullYear()})</h3>
-            <div className="space-y-4">
-              
-              {/* STEUERPFLICHTIG: Nur ROI/Minting nach § 22 EStG */}
-              <div className="flex justify-between items-center p-3 bg-green-500/10 border border-green-400/20 rounded-lg">
-                <div>
-                  <span className="font-medium pulse-text">ROI/Minting Einkommen</span>
-                  <p className="text-xs pulse-text-secondary">§ 22 EStG - Sonstige Einkünfte</p>
-                </div>
-                <span className="font-bold text-green-400">{formatCurrency(taxStats.taxableIncome)}</span>
-              </div>
-              
-              {/* NICHT STEUERPFLICHTIG: Käufe */}
-              <div className="flex justify-between items-center p-3 bg-blue-500/10 border border-blue-400/20 rounded-lg">
-                <div>
-                  <span className="font-medium pulse-text">Käufe/Transfers</span>
-                  <p className="text-xs pulse-text-secondary">Nicht steuerpflichtig ({taxStats.purchasesCount} Transaktionen)</p>
-                </div>
-                <span className="font-bold text-blue-400">{formatCurrency(taxStats.purchases)}</span>
-              </div>
-              
-              {/* VERKÄUFE: Separate Besteuerung */}
-              <div className="flex justify-between items-center p-3 bg-orange-500/10 border border-orange-400/20 rounded-lg">
-                <div>
-                  <span className="font-medium pulse-text">Verkäufe</span>
-                  <p className="text-xs pulse-text-secondary">Separate Besteuerung ({taxStats.salesCount} Transaktionen)</p>
-                </div>
-                <span className="font-bold text-orange-400">{formatCurrency(taxStats.sales)}</span>
-              </div>
-              
-              <div className="border-t border-white/10 pt-3">
-                <div className="flex justify-between items-center text-lg">
-                  <div>
-                    <span className="font-bold pulse-text">Steuerpflichtiges Einkommen</span>
-                    <p className="text-xs pulse-text-secondary">{taxData?.taxSummary?.taxNote || 'Basierend auf § 22 EStG'}</p>
-                  </div>
-                  <span className="font-bold text-red-400">{formatCurrency(taxStats.taxableIncome)}</span>
-                </div>
-              </div>
-              
-              {/* Steuerhinweis */}
-              <div className="text-xs pulse-text-secondary p-2 bg-yellow-500/10 border border-yellow-400/20 rounded">
-                ⚖️ {taxData?.taxSummary?.disclaimerNote || 'Steuerrechtliche Beratung durch einen Experten empfohlen'}
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Transactions Table */}
-        <div className="pulse-card p-6">
-                      <h3 className="text-lg font-bold pulse-title mb-4">
-              Transaktionen ({filteredTransactions.length})
-              {filterCategory !== 'all' && (
-                <Badge className="ml-2" variant="secondary">
-                  {filterCategory === 'taxable' ? 'Steuerpflichtig (ROI)' : 
-                   filterCategory === 'purchases' ? 'Käufe' : 
-                   filterCategory === 'sales' ? 'Verkäufe' : filterCategory}
-                </Badge>
-              )}
-            </h3>
-            {filteredTransactions.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="text-left py-3 px-2 pulse-text-secondary">Datum</th>
-                      <th className="text-left py-3 px-2 pulse-text-secondary">Token</th>
-                      <th className="text-right py-3 px-2 pulse-text-secondary">Menge</th>
-                      <th className="text-right py-3 px-2 pulse-text-secondary">Preis</th>
-                      <th className="text-right py-3 px-2 pulse-text-secondary">Wert (USD)</th>
-                      <th className="text-center py-3 px-2 pulse-text-secondary">Richtung</th>
-                      <th className="text-center py-3 px-2 pulse-text-secondary">Kategorie</th>
-                      <th className="text-center py-3 px-2 pulse-text-secondary">ROI</th>
-                      <th className="text-center py-3 px-2 pulse-text-secondary">Links</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTransactions.map((tx, index) => (
-                      <tr key={index} className="border-b border-white/5 hover:bg-white/5">
-                        <td className="py-3 px-2">
-                          <div className="text-sm pulse-text">
-                            {new Date(tx.blockTimestamp).toLocaleDateString('de-DE')}
-                          </div>
-                          <div className="text-xs pulse-text-secondary">
-                            {formatTime(tx.blockTimestamp)}
-                          </div>
-                        </td>
-                        <td className="py-3 px-2">
-                          <div>
-                            <div className="font-medium pulse-text">{tx.tokenSymbol}</div>
-                            <div className="text-sm pulse-text-secondary">{tx.tokenName}</div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-2 text-right">
-                          <div className="font-mono text-sm pulse-text">
-                            {formatNumber(tx.amount, 6)}
-                          </div>
-                        </td>
-                        <td className="py-3 px-2 text-right">
-                          <div className="font-mono text-sm pulse-text">
-                            {tx.price > 0 ? formatCurrency(tx.price, 8) : 'N/A'}
-                          </div>
-                        </td>
-                        <td className="py-3 px-2 text-right">
-                          <div className="font-bold pulse-text">
-                            {formatCurrency(tx.valueUSD)}
-                          </div>
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          <Badge variant={tx.direction === 'in' ? 'default' : 'secondary'}>
-                            {tx.direction === 'in' ? 'Eingehend' : 'Ausgehend'}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          <Badge 
-                            variant={tx.taxCategory === 'income' ? 'default' : 
-                                   tx.taxCategory === 'capital_gain' ? 'destructive' : 'outline'}
-                          >
-                            {tx.taxCategory === 'income' ? 'Einkommen' : 
-                             tx.taxCategory === 'capital_gain' ? 'Kapitalertrag' : 'Transfer'}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          {tx.isROITransaction && (
-                            <Badge variant="outline" className="text-green-600 border-green-600">
-                              ROI
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          <div className="flex justify-center space-x-1">
-                            <a
-                              href={tx.explorerUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:text-blue-700"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                                                    {tx.tokenExplorerUrl && (
-                          <a
-                            href={tx.tokenExplorerUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-green-500 hover:text-green-700"
-                              >
-                                <TrendingUp className="h-4 w-4" />
-                              </a>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {filteredTransactions.length > 100 && (
-                  <div className="text-center py-4 pulse-text-secondary">
-                    <p>Zeige 100 von {filteredTransactions.length} Transaktionen</p>
-                    <p className="text-sm">Exportieren Sie alle Daten mit dem CSV-Download</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 pulse-text-secondary">
-                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Keine Transaktionen in der ausgewählten Kategorie</p>
-                <p className="text-sm mt-2">Ändern Sie den Filter oder fügen Sie Wallet-Adressen hinzu.</p>
-              </div>
-            )}
-        </div>
+        )}
 
         {/* 🚫 UNGEPAARTE TOKENS - SEPARATE SPALTE */}
         {ungepaarteTokens.length > 0 && (
