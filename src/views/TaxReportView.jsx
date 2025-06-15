@@ -216,7 +216,7 @@ const TaxReportView = () => {
       setMoralisLoading(true);
       setError(null);
       
-      console.log('🔄 TAX REPORT: Loading Moralis + DEXScreener data via TaxService...');
+      console.log('🔄 TAX REPORT: Loading Moralis + PulseScan data via TaxService...');
       
       // 1. Lade User-Wallets (BASIC - TaxService macht den Rest)
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
@@ -839,7 +839,7 @@ const TaxReportView = () => {
           <div className="pulse-card p-6 mb-6 border-l-4 border-blue-500">
             <h3 className="text-lg font-bold pulse-text mb-4 flex items-center">
               <Globe className="h-5 w-5 mr-2 text-blue-400" />
-              Moralis + DEXScreener Analyse
+              Moralis + PulseScan Analyse
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
@@ -1248,7 +1248,7 @@ const TaxReportView = () => {
               <Badge className="ml-2 bg-orange-500">Preise manuell vervollständigen</Badge>
             </h3>
             <p className="pulse-text-secondary mb-4">
-              Diese Tokens wurden nicht in Moralis oder DEXScreener gefunden. 
+                              Diese Tokens wurden nicht in Moralis oder PulseScan gefunden. 
               Geben Sie manuell Preise ein oder nutzen Sie andere Quellen.
             </p>
             
@@ -1353,9 +1353,9 @@ const TaxReportView = () => {
             <div className="mt-4 p-4 bg-orange-500/10 border border-orange-400/20 rounded-lg">
               <h4 className="font-medium pulse-text mb-2">💡 Preisfindung-Tipps:</h4>
               <ul className="text-sm pulse-text-secondary space-y-1">
-                <li>• <strong>CoinGecko/CoinMarketCap:</strong> Für etablierte Tokens</li>
-                <li>• <strong>DEXTools/DexScreener:</strong> Für neue PulseChain-Tokens</li>
-                <li>• <strong>PulseX/9mm:</strong> Für lokale PulseChain-Preise</li>
+                <li>• <strong>Moralis Pro API:</strong> Primäre Preisquelle für alle Tokens</li>
+                <li>• <strong>PulseScan Stats API:</strong> Backup für PLS-Preis</li>
+                <li>• <strong>PulseX/9mm:</strong> Für lokale PulseChain-Preise (manuell)</li>
                 <li>• <strong>0 eingeben:</strong> Für wertlose/Spam-Tokens</li>
               </ul>
             </div>
