@@ -30,16 +30,17 @@ const SmartLoadButton = ({
 }) => {
   const [countdown, setCountdown] = useState(remainingTime);
 
+  // ❌ TIMER ENTFERNT - Manual Control Only
   // Update countdown every second when rate limited
   useEffect(() => {
     if (remainingTime > 0) {
       setCountdown(remainingTime);
       
-      const interval = setInterval(() => {
-        setCountdown(prev => Math.max(0, prev - 1));
-      }, 1000);
+      // const interval = setInterval(() => {
+      //   setCountdown(prev => Math.max(0, prev - 1));
+      // }, 1000);
       
-      return () => clearInterval(interval);
+      // return () => clearInterval(interval);
     }
   }, [remainingTime]);
 

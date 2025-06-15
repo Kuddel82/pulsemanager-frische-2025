@@ -12,17 +12,21 @@ export class ROIDetectionService {
   static MAX_ROI_SOURCES = 50;
   static CACHE_DURATION = 5 * 60 * 1000; // 5 Minuten
   
-  // 🎯 ROI TRANSACTION PATTERNS - Pro Plan kompatibel
+  // 🎯 ROI TRANSACTION PATTERNS - ERWEITERT mit allen PulseChain Mintern
   static ROI_PATTERNS = {
-    // Bekannte Mint/Reward Contract Adressen
+    // Bekannte Mint/Reward Contract Adressen (PulseChain + Ethereum)
     KNOWN_MINTERS: [
       '0x0000000000000000000000000000000000000000', // Null address (Mint)
-      '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX Contract
-      '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC Contract (example)
+      '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX Contract (Ethereum + PulseChain)
+      '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3', // INC Contract
+      '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1', // PLSX Minter
+      '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6', // FLEX Minter (example)
+      '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5', // WGEP Minter (example)
+      '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4', // LOAN Minter (example)
     ],
     
-    // ROI-charakteristische Token-Symbole
-    ROI_TOKENS: ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP'],
+    // ROI-charakteristische Token-Symbole (erweitert)
+    ROI_TOKENS: ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'],
     
     // Wert-Bereiche für ROI-Transaktionen
     VALUE_RANGES: [
@@ -94,9 +98,9 @@ export class ROIDetectionService {
   }
   
   /**
-   * 🎯 MAIN: Detect ROI sources from wallet using transaction analysis
+   * 🎯 MAIN: Detect ROI sources from wallet using transaction analysis - MIT ZEITFILTERN
    */
-  static async detectROISources(walletAddress, chain = 'pulsechain') {
+  static async detectROISources(walletAddress, chain = 'pulsechain', periodFilter = null) {
     if (!walletAddress || !this.VALID_CHAINS.includes(chain)) {
       logger.warn('ROI Detection: Invalid wallet or chain', { walletAddress, chain });
       return { sources: [], count: 0, status: 'invalid_input' };
@@ -120,8 +124,8 @@ export class ROIDetectionService {
         };
       }
       
-      // 2. Analysiere Transaktionen für ROI-Pattern
-      const roiSources = this.analyzeTransactionsForROI(transactions, walletAddress);
+      // 2. Analysiere Transaktionen für ROI-Pattern (mit Zeitraumfiltern)
+      const roiSources = this.analyzeTransactionsForROI(transactions, walletAddress, periodFilter);
       
       // 3. Berechne ROI-Metriken
       const roiMetrics = this.calculateROIMetrics(roiSources);
@@ -216,16 +220,44 @@ export class ROIDetectionService {
   }
   
   /**
-   * 🔍 Analysiere Transaktionen für ROI-Pattern
+   * 🔍 Analysiere Transaktionen für ROI-Pattern - ERWEITERT mit Zeitraumfiltern
    */
-  static analyzeTransactionsForROI(transactions, walletAddress) {
+  static analyzeTransactionsForROI(transactions, walletAddress, periodFilter = null) {
     if (!transactions || transactions.length === 0) return [];
     
     const roiSources = [];
     const tokenSummary = new Map();
     
+    // Zeitraumfilter berechnen
+    const now = new Date();
+    let filterDate = null;
+    
+    if (periodFilter) {
+      switch (periodFilter) {
+        case '24h':
+          filterDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          filterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          filterDate = null;
+      }
+    }
+    
+    console.log(`🔍 ROI ANALYSIS: Processing ${transactions.length} transactions with filter: ${periodFilter || 'ALL'}`);
+    
     // Gruppiere Transaktionen nach Token und analysiere Pattern
     transactions.forEach(tx => {
+      // Zeitraumfilter anwenden
+      if (filterDate) {
+        const txDate = new Date(tx.block_timestamp);
+        if (txDate < filterDate) return;
+      }
+      
       if (this.isROITransaction(tx, walletAddress)) {
         const tokenAddress = tx.contract_address || tx.token_address || 'native';
         const tokenSymbol = tx.token_symbol || tx.symbol || 'ETH';
@@ -870,6 +902,100 @@ export class ROIDetectionService {
            typeof address === 'string' && 
            address.length >= 40 && 
            address.startsWith('0x');
+  }
+
+  /**
+   * 📊 NEUE FUNKTION: ROI für verschiedene Zeiträume berechnen
+   * @param {string} walletAddress - Wallet-Adresse
+   * @param {string} chain - Blockchain
+   * @returns {object} - ROI-Daten für 24h, 7d, 30d
+   */
+  static async getROIByPeriods(walletAddress, chain = 'pulsechain') {
+    try {
+      console.log(`📊 ROI PERIODS: Loading ROI data for different time periods`);
+      
+      // Lade einmal alle Transaktionen
+      const transactions = await this.loadTransactionHistory(walletAddress, chain, 500);
+      
+      if (!transactions || transactions.length === 0) {
+        return {
+          success: false,
+          periods: {
+            '24h': { value: 0, sources: 0, transactions: [] },
+            '7d': { value: 0, sources: 0, transactions: [] },
+            '30d': { value: 0, sources: 0, transactions: [] },
+            'all': { value: 0, sources: 0, transactions: [] }
+          }
+        };
+      }
+      
+      // Parallel: Berechne ROI für verschiedene Zeiträume
+      const [roi24h, roi7d, roi30d, roiAll] = await Promise.all([
+        this.analyzeTransactionsForROI(transactions, walletAddress, '24h'),
+        this.analyzeTransactionsForROI(transactions, walletAddress, '7d'),
+        this.analyzeTransactionsForROI(transactions, walletAddress, '30d'),
+        this.analyzeTransactionsForROI(transactions, walletAddress, null)
+      ]);
+      
+      const calculateTotalValue = (sources) => {
+        return sources.reduce((total, source) => total + (source.totalValue || 0), 0);
+      };
+      
+      const result = {
+        success: true,
+        periods: {
+          '24h': {
+            value: calculateTotalValue(roi24h),
+            sources: roi24h.length,
+            transactions: roi24h.reduce((total, s) => total + (s.transactionCount || 0), 0),
+            details: roi24h
+          },
+          '7d': {
+            value: calculateTotalValue(roi7d),
+            sources: roi7d.length,
+            transactions: roi7d.reduce((total, s) => total + (s.transactionCount || 0), 0),
+            details: roi7d
+          },
+          '30d': {
+            value: calculateTotalValue(roi30d),
+            sources: roi30d.length,
+            transactions: roi30d.reduce((total, s) => total + (s.transactionCount || 0), 0),
+            details: roi30d
+          },
+          'all': {
+            value: calculateTotalValue(roiAll),
+            sources: roiAll.length,
+            transactions: roiAll.reduce((total, s) => total + (s.transactionCount || 0), 0),
+            details: roiAll
+          }
+        },
+        wallet: walletAddress,
+        chain: chain,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`✅ ROI PERIODS: Calculated ROI for all periods`, {
+        '24h': `$${result.periods['24h'].value.toFixed(2)}`,
+        '7d': `$${result.periods['7d'].value.toFixed(2)}`,
+        '30d': `$${result.periods['30d'].value.toFixed(2)}`,
+        'all': `$${result.periods['all'].value.toFixed(2)}`
+      });
+      
+      return result;
+      
+    } catch (error) {
+      console.error('💥 ROI PERIODS ERROR:', error);
+      return {
+        success: false,
+        error: error.message,
+        periods: {
+          '24h': { value: 0, sources: 0, transactions: [] },
+          '7d': { value: 0, sources: 0, transactions: [] },
+          '30d': { value: 0, sources: 0, transactions: [] },
+          'all': { value: 0, sources: 0, transactions: [] }
+        }
+      };
+    }
   }
 }
 

@@ -123,10 +123,10 @@ export default async function handler(req, res) {
     const chainId = chainMap[chain.toLowerCase()] || chain;
     console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
 
-    // Build Moralis API parameters - KLEINERE PAGES für Stabilität
+    // Build Moralis API parameters - ERWEITERT für Tax Report (mehr Transaktionen)
     const moralisParams = { 
       chain: chainId,
-      limit: Math.min(parseInt(limit) || 50, 50) // Max 50 per request (reduziert von 100)
+      limit: Math.min(parseInt(limit) || 100, 500) // Bis zu 500 für Tax Reports
     };
 
     // Add optional parameters
@@ -134,7 +134,7 @@ export default async function handler(req, res) {
     if (from_date) moralisParams.from_date = from_date;
     if (to_date) moralisParams.to_date = to_date;
     
-    console.log(`🔧 PAGE SIZE: Limited to ${moralisParams.limit} items per request for stability`);
+    console.log(`🔧 PAGE SIZE: Configured for ${moralisParams.limit} items per request (Tax Report optimized)`);
 
     // Load ERC20 transfers from Moralis
     console.log(`🚀 FETCHING TRANSFERS: ${address} on ${chainId}`);

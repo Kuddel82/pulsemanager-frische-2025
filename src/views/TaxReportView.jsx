@@ -241,16 +241,23 @@ const TaxReportView = () => {
       setCanLoadMoralis(false);
       setRemainingTime(300); // 5 Minuten
       
-      const timer = setInterval(() => {
-        setRemainingTime(prev => {
-          if (prev <= 1) {
-            setCanLoadMoralis(true);
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      // ❌ TIMER ENTFERNT - Manual Control Only
+      // const timer = setInterval(() => {
+      //   setRemainingTime(prev => {
+      //     if (prev <= 1) {
+      //       setCanLoadMoralis(true);
+      //       clearInterval(timer);
+      //       return 0;
+      //     }
+      //     return prev - 1;
+      //   });
+      // }, 1000);
+      
+      // Simple timeout statt timer für Rate Limiting
+      setTimeout(() => {
+        setCanLoadMoralis(true);
+        setRemainingTime(0);
+      }, 300000); // 5 Minuten ohne aktiven Timer
       
     } catch (err) {
       console.error('💥 MORALIS TAX ERROR:', err);
