@@ -82,6 +82,35 @@ export class CentralDataService {
   // 🎯 NEUE STRUKTURIERTE PREISLOGIK - IMPORT TokenPricingService
   // Verwende den neuen TokenPricingService für saubere Preis-Resolution
 
+  // 🔧 TOKEN NAME MAPPING - Bekannte Token-Namen
+  static getKnownTokenName(address, symbol) {
+    const knownTokens = {
+      // Native Tokens
+      'native': symbol === 'ETH' ? 'Ethereum' : symbol === 'PLS' ? 'PulseChain' : 'Native Token',
+      
+      // PulseChain Tokens
+      '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': 'HEX',
+      '0x95b303987a60c71504d99aa1b13b4da07b0790ab': 'PulseX',
+      '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': 'Incentive',
+      '0x02dcdd04e3a455f2b876ed0f699124a3a2504997': 'Incentive',
+      '0xfca88920ca5639ad5e954ea776e73dec54fdc065': 'WGEP Token',
+      '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea': 'Dominance',
+      
+      // Ethereum Tokens
+      '0xa0b86a33e6c5e8aac52c8fd9bc99f87eff44b2e9': 'USD Coin',
+      '0xdac17f958d2ee523a2206206994597c13d831ec7': 'Tether USD',
+      '0x6b175474e89094c44da98b954eedeac495271d0f': 'Dai Stablecoin',
+      '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': 'Wrapped Ether',
+      
+      // Stablecoins
+      '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270': 'Wrapped MATIC',
+      '0x2791bca1f2de4661ed88a30c99a7a9449aa84174': 'USD Coin (PoS)',
+    };
+    
+    const lowerAddress = address?.toLowerCase();
+    return knownTokens[lowerAddress] || null;
+  }
+
   static getChainConfig(chainId) {
     for (const [key, config] of Object.entries(this.CHAINS)) {
       if (config.id === chainId || config.moralisChainId === chainId) return config;
@@ -487,9 +516,16 @@ export class CentralDataService {
                 console.warn(`⚠️ FILTERED OUT: ${tokenSymbol} ($${totalUsd}) below minimum $${MIN_VALUE_FOR_DISPLAY}`);
               }
               
+              // 🔧 TOKEN NAME FALLBACK - Repariert "Unknown Token" Problem
+              const tokenName = token.name || 
+                               priceData.name || 
+                               this.getKnownTokenName(tokenAddress, tokenSymbol) || 
+                               `${tokenSymbol} Token` || 
+                               'Unknown Token';
+              
               return {
                 symbol: token.symbol,
-                name: token.name,
+                name: tokenName,
                 contractAddress: token.token_address,
                 decimals: token.decimals,
                 balance: balanceReadable,
@@ -515,9 +551,15 @@ export class CentralDataService {
               const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
               const tokenSymbol = token.symbol?.toUpperCase();
               
+              // 🔧 TOKEN NAME FALLBACK auch für Fehler-Fall
+              const tokenName = token.name || 
+                               this.getKnownTokenName(token.token_address?.toLowerCase(), tokenSymbol) || 
+                               `${tokenSymbol} Token` || 
+                               'Unknown Token';
+              
               return {
                 symbol: token.symbol,
-                name: token.name,
+                name: tokenName,
                 contractAddress: token.token_address,
                 decimals: token.decimals,
                 balance: balanceReadable,

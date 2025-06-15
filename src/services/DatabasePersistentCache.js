@@ -1,12 +1,7 @@
 // 🏛️ DATABASE PERSISTENT CACHE - Überlebt Page Reloads & Sessions
 // Speichert Portfolio, ROI, Tax Daten in Supabase mit User-Zuordnung
 
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import { supabase } from '@/lib/supabaseClient';
 
 export class DatabasePersistentCache {
   
