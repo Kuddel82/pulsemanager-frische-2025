@@ -71,12 +71,11 @@ export class MoralisV2Service {
       // Debug log removed to prevent console spam
       console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit}, chain: ${chain})`);
       
-      // 🔥 MULTI-ENDPOINT STRATEGY: Versuche verschiedene Endpoints für maximale Abdeckung
+      // 🔥 OPTIMIERTE ENDPOINT STRATEGY: Nur verfügbare Endpoints verwenden
       const endpoints = [
         'transactions',      // Primär: Alle Transaktionen (ETH + Token)
-        'erc20-transfers',   // Sekundär: Token-Transfers
-        'nft-transfers',     // Tertiär: NFT-Transfers
-        'internal-transactions' // Quaternär: Internal Transactions
+        'erc20-transfers'    // Sekundär: Token-Transfers
+        // nft-transfers und internal-transactions entfernt - erzeugen 400 Bad Request Spam
       ];
       
       let bestResult = null;
