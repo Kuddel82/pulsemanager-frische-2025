@@ -875,7 +875,7 @@ export class TaxReportService_Rebuild {
                         } else {
                             try {
                                 // 🔥 VEREINFACHTE PREISABFRAGE: Live-Preise für bessere Performance
-                                const txChain = tx.sourceChain || '0x1'; // Default: Ethereum
+                                const txChain = tx.sourceChain || '0x1'; // Default zu Ethereum
                                 const isEthereum = txChain === '0x1';
                                 
                                 if (tx.token_address && tx.token_address !== 'native') {
@@ -895,7 +895,7 @@ export class TaxReportService_Rebuild {
                                                 const ethData = await ethPriceResponse.json();
                                                 usdPrice = ethData.usdPrice || 3400; // Fallback ETH-Preis
                                                 priceCache.set(ethCacheKey, usdPrice);
-                                                console.log(`💰 LIVE ETH-PREIS: $${usdPrice}`);
+                                                if (this.debugMode) console.log(`💰 LIVE ETH-PREIS: $${usdPrice}`);
                                             } else {
                                                 usdPrice = 3400; // Fallback
                                             }
@@ -914,21 +914,58 @@ export class TaxReportService_Rebuild {
                                 }
                                 
                             } catch (priceError) {
-                                console.warn(`⚠️ Preisabfrage Fehler für ${tx.token_symbol || 'ETH'}:`, priceError.message);
+                                if (this.debugMode) console.log(`⚠️ Preisabfrage Fehler für ${tx.token_symbol || 'ETH'}:`, priceError.message);
                                 usdPrice = isEthereum ? 3400 : 0.0001; // Fallback-Preise
                             }
                         }
                         
-                        // USD-Wert berechnen
+                        // 🔥 SICHERE USD-WERT BERECHNUNG mit Decimal-Validierung
                         let tokenAmount = 0;
-                        if (tx.token_address && tx.token_address !== 'native') {
-                            const decimals = tx.decimals || 18;
-                            tokenAmount = parseFloat(tx.value || '0') / Math.pow(10, decimals);
-                        } else {
-                            tokenAmount = parseFloat(tx.value || '0') / 1e18; // ETH/PLS
-                        }
                         
-                        usdValue = tokenAmount * usdPrice;
+                        try {
+                            if (tx.token_address && tx.token_address !== 'native') {
+                                // Token: Verwende sichere Decimals
+                                const decimals = parseInt(tx.decimals) || 18;
+                                const rawValue = parseFloat(tx.value || '0');
+                                
+                                // 🚨 SICHERHEITSCHECK: Vermeide unrealistische Werte
+                                if (decimals > 30 || decimals < 0) {
+                                    if (this.debugMode) console.log(`⚠️ VERDÄCHTIGE DECIMALS: ${decimals} für ${tx.token_address?.slice(0,8)}...`);
+                                    tokenAmount = 0; // Verhindere astronomische Werte
+                                } else {
+                                    tokenAmount = rawValue / Math.pow(10, decimals);
+                                    
+                                    // 🚨 MEGA-WERT-FILTER: Verhindere unrealistische Token-Mengen
+                                    if (tokenAmount > 1e15) { // Mehr als 1 Billiarde Token
+                                        if (this.debugMode) console.log(`🚫 MEGA-TOKEN-MENGE BLOCKIERT: ${tokenAmount.toExponential(2)} ${tx.token_symbol || 'TOKEN'} - wahrscheinlich Decimal-Bug`);
+                                        tokenAmount = 0;
+                                    }
+                                }
+                            } else {
+                                // Native Token (ETH/PLS): Standard 18 Decimals
+                                tokenAmount = parseFloat(tx.value || '0') / 1e18;
+                                
+                                // 🚨 NATIVE-TOKEN-FILTER: Verhindere unrealistische ETH/PLS-Mengen
+                                if (tokenAmount > 1000000) { // Mehr als 1 Million ETH/PLS
+                                    if (this.debugMode) console.log(`🚫 MEGA-NATIVE-MENGE BLOCKIERT: ${tokenAmount.toFixed(2)} ${tx.token_symbol || 'ETH'} - wahrscheinlich Bug`);
+                                    tokenAmount = 0;
+                                }
+                            }
+                            
+                            // 🔥 FINALE USD-BERECHNUNG mit Sicherheitscheck
+                            usdValue = tokenAmount * usdPrice;
+                            
+                            // 🚨 USD-WERT-FILTER: Verhindere astronomische USD-Werte
+                            if (usdValue > 1e10) { // Mehr als 10 Milliarden USD
+                                if (this.debugMode) console.log(`🚫 ASTRONOMISCHER USD-WERT BLOCKIERT: $${usdValue.toExponential(2)} - Token: ${tokenAmount.toExponential(2)} @ $${usdPrice}`);
+                                usdValue = 0; // Verhindere falsche Milliarden-Werte
+                            }
+                            
+                        } catch (decimalError) {
+                            if (this.debugMode) console.log(`⚠️ Decimal-Berechnung Fehler:`, decimalError.message);
+                            tokenAmount = 0;
+                            usdValue = 0;
+                        }
                     }
 
                     // 🔥 KORREKTES SYMBOL basierend auf Chain

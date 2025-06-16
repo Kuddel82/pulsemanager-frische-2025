@@ -90,6 +90,13 @@ export class MoralisV2Service {
           console.log(`🔍 V2: Versuche ${endpoint} endpoint...`);
           
           const response = await fetch(url);
+          
+          // 🚨 SILENT ERROR HANDLING: Fehlgeschlagene Endpoints nicht als Errors loggen
+          if (!response.ok) {
+            // Stille Behandlung von 400/404/500 Errors - normal für unverfügbare Endpoints
+            continue; // Einfach zum nächsten Endpoint
+          }
+          
           const data = await response.json();
           
           if (data.result && data.result.length > 0) {
@@ -99,14 +106,14 @@ export class MoralisV2Service {
             if (data.result.length > totalTransactions) {
               bestResult = data;
               totalTransactions = data.result.length;
-              // Debug: New best endpoint found
+              console.log(`✅ V2: ${endpoint} erfolgreich - ${data.result.length} Transaktionen`);
             }
-          } else {
-            // Debug: Endpoint failed
           }
           
         } catch (endpointError) {
-          console.warn(`⚠️ V2: ${endpoint} Fehler:`, endpointError.message);
+          // Stille Error-Behandlung - nicht als console.error loggen
+          // Fehlgeschlagene Endpoints sind normal und erwartbar
+          continue;
         }
       }
       
