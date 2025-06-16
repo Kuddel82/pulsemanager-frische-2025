@@ -160,7 +160,7 @@ export class MoralisV2Service {
         success: true,
         result: data.result || [],
         cursor: data.cursor || null,
-        hasMore: !!(data.cursor && data.result?.length === limit), // 🔥 FIX: hasMore nur wenn cursor UND full page
+        hasMore: !!data.cursor, // 🔥 FIX: hasMore wenn cursor existiert (ignoriere limit!)
         count: data.result?.length || 0,
         roiCount: roiTransactions.length,
         source: 'moralis_v2_batch_multi_endpoint'

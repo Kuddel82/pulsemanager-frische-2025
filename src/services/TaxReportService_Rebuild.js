@@ -674,14 +674,14 @@ export class TaxReportService_Rebuild {
         const transactions = [];
         
         try {
-            // 🚀 OPTIMIERT: Batch-Loading für große Wallets (WGEP ROI ENHANCED)
-            const batchSize = forceFullHistory ? 200 : 100; // Größere Batches für vollständige Historie
+            // 🚀 ULTRA-OPTIMIERT: Massive Limits für MILLIONEN-ETH ROI-Wallets
+            const batchSize = forceFullHistory ? 500 : 250; // MASSIV erhöht für ROI-Wallets
             let cursor = null;
             let pageCount = 0;
             let hasMore = true;
             
-            // 🎯 WGEP ROI LIMITS: Erweiterte Limits für bessere ROI-Erkennung
-            const maxPages = forceFullHistory ? 50000 : 10000; // Bis zu 10M Transaktionen für WGEP
+            // 🎯 WGEP ROI MEGA-LIMITS: Für Wallets mit MILLIONEN ETH ROI
+            const maxPages = forceFullHistory ? 100000 : 50000; // Bis zu 25M Transaktionen für WGEP!
             
             console.log(`🔍 ${chainName} WGEP CONFIG: batchSize=${batchSize}, maxPages=${maxPages}, extendedTime=${extendedTimeRange}`);
             
@@ -712,8 +712,8 @@ export class TaxReportService_Rebuild {
                         
                         transactions.push(...batchResult.result);
                         cursor = batchResult.cursor;
-                        // 🔥 FIX: hasMore nur wenn cursor UND full page (sonst letzte Page)
-                        hasMore = !!(cursor && batchResult.result.length === batchSize);
+                        // 🔥 FIX: hasMore wenn cursor existiert (ignoriere batch size!)
+                        hasMore = !!cursor;
                         pageCount++;
                         
                         console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen (${roiCount} potentielle ROI), Total: ${transactions.length}, hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
@@ -1426,7 +1426,7 @@ export class TaxReportService_Rebuild {
         console.log(`🔍 Erweiterte WGEP ROI-Erkennung mit vollständiger Historie...`);
 
         try {
-            // WGEP-optimierte Optionen - ERWEITERTE ZEITSPANNE für alle WGEP ROI
+            // WGEP-optimierte Optionen - MEGA-LIMITS für alle WGEP ROI
             const wgepOptions = {
                 extendedTimeRange: true,
                 forceFullHistory: true,
@@ -1434,7 +1434,8 @@ export class TaxReportService_Rebuild {
                 startDate: '2020-01-01', // 🔥 ERWEITERT: Ab 2020 für alle WGEP ROI
                 endDate: '2025-12-31',   // 🔥 ERWEITERT: Bis Ende 2025
                 includeTransfers: true,
-                wgepMode: true // 🎯 Spezieller WGEP-Modus
+                wgepMode: true, // 🎯 Spezieller WGEP-Modus
+                megaLimits: true // 🚨 ULTRA-LIMITS für deine Wallet!
             };
 
             // Generiere Tax Report mit WGEP-Optimierungen
