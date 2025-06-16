@@ -2230,57 +2230,56 @@ export class TaxReportService_Rebuild {
         return realTimePrices[symbol?.toUpperCase()] || 0;
     }
 
-    // 🗑️ SPAM-TOKEN-FILTER (ERWEITERT für USDC-Probleme)
+    // 🗑️ SPAM-TOKEN-FILTER (REPARIERT - Weniger aggressiv)
     static isSpamToken(transaction) {
         const symbol = transaction.token_symbol?.toUpperCase() || '';
         const amount = transaction.amount ? parseFloat(transaction.amount) : 0;
         const value = transaction.value ? parseFloat(transaction.value) : 0;
         
-        // 🚨 BEKANNTE SPAM-PATTERNS
-        const spamPatterns = [
-            // Klassische Spam-Token
-            'SPAM', 'SCAM', 'FAKE', 'TEST', 'VIRUS',
-            // Verdächtige Namen
-            'VISIT', 'CLAIM', 'FREE', 'BONUS',
-            // Extreme Namen
+        // 🚨 NUR ECHTE SPAM-PATTERNS (viel selektiver)
+        const realSpamPatterns = [
+            'SPAM', 'SCAM', 'FAKE', 'VIRUS', 'PHISHING',
+            'VISIT', 'CLAIM', 'AIRDROP', 'FREE',
             'MILLION', 'BILLION', 'TRILLION'
         ];
         
-        // 🔍 PATTERN-CHECK
-        if (spamPatterns.some(pattern => symbol.includes(pattern))) {
+        // 🔍 PATTERN-CHECK (nur bei klaren Spam-Namen)
+        if (realSpamPatterns.some(pattern => symbol.includes(pattern))) {
+            console.log(`🗑️ SPAM FILTER: Verdächtiger Token-Name ${symbol}`);
             return true;
         }
         
-        // 🚨 SPEZIALFALl: Problematische USDC-Einträge
+        // 🚨 NUR EXTREME SPEZIALFÄLLE für USDC
         if (symbol === 'USDC') {
-            // Filtere unmögliche USDC-Werte
-            if (amount === 0 && value >= 3000) {
-                console.log(`🗑️ SPAM FILTER: USDC mit 0 Amount aber $${value} Wert`);
+            // NUR wenn es WIRKLICH unmöglich ist
+            if (amount === 0 && value > 10000) { // Über $10K bei 0 USDC
+                console.log(`🗑️ SPAM FILTER: USDC mit 0 Amount aber extrem hohem Wert $${value}`);
                 return true;
             }
             
-            // Filtere extrem unrealistische USDC-Preise
+            // NUR völlig unrealistische USDC-Preise
             if (amount > 0) {
                 const pricePerToken = value / amount;
-                if (pricePerToken > 2.00 || pricePerToken < 0.50) {
-                    console.log(`🗑️ SPAM FILTER: USDC mit unrealistischem Preis $${pricePerToken.toFixed(4)}`);
+                if (pricePerToken > 5.00 || pricePerToken < 0.10) { // Viel weiterer Range
+                    console.log(`🗑️ SPAM FILTER: USDC mit völlig unrealistischem Preis $${pricePerToken.toFixed(4)}`);
                     return true;
                 }
             }
         }
         
-        // 🔍 EXTREME VALUE CHECK
-        if (value > 1000000) { // Über $1M
+        // 🔍 NUR EXTREME VALUE CHECK (über $10M)
+        if (value > 10000000) { 
             console.log(`🗑️ SPAM FILTER: Extrem hoher Wert $${value.toFixed(2)}`);
             return true;
         }
         
-        // 🔍 ZERO-AMOUNT BIG-VALUE CHECK
-        if (amount === 0 && value > 100) {
-            console.log(`🗑️ SPAM FILTER: 0 Amount aber hoher Wert $${value.toFixed(2)}`);
+        // 🔍 NUR wenn Amount 0 UND Value über $50K
+        if (amount === 0 && value > 50000) {
+            console.log(`🗑️ SPAM FILTER: 0 Amount aber sehr hoher Wert $${value.toFixed(2)}`);
             return true;
         }
         
+        // ✅ DEFAULT: NICHT SPAM (damit normale Transaktionen durchkommen)
         return false;
     }
 }
