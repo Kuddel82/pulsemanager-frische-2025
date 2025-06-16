@@ -66,18 +66,21 @@ export default async function handler(req, res) {
     // API Endpoint auswählen
     switch (endpoint) {
       case 'transactions':
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
+        // 🚀 ERHÖHTES LIMIT: Bis zu 2000 Transaktionen pro Request für Tax Reports
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 2000)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
       case 'verbose':
         // 🆕 MORALIS TRANSACTION LABELING: /verbose Endpoint für decoded_call/decoded_event
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/verbose?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
+        // 🚀 ERHÖHTES LIMIT: Bis zu 2000 verbose Transaktionen pro Request
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/verbose?chain=${normalizedChain}&limit=${Math.min(limit, 2000)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
       case 'erc20-transfers':
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
+        // 🚀 ERHÖHTES LIMIT: Bis zu 2000 ERC20-Transfers pro Request für vollständige Steuerberichte
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${normalizedChain}&limit=${Math.min(limit, 2000)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
@@ -115,7 +118,8 @@ export default async function handler(req, res) {
         
       case 'wallet-transactions':
         // 🆕 WALLET TRANSACTIONS: Moralis v2.2 Native Transactions mit Labels & Entities
-        apiUrl = `https://deep-index.moralis.io/api/v2.2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 100)}&order=DESC&include=internal_transactions`;
+        // 🚀 ERHÖHTES LIMIT: Bis zu 2000 Wallet-Transaktionen pro Request
+        apiUrl = `https://deep-index.moralis.io/api/v2.2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 2000)}&order=DESC&include=internal_transactions`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         

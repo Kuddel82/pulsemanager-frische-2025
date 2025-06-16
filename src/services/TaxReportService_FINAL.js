@@ -246,56 +246,27 @@ export class TaxReportService_FINAL {
         
         let allTransactions = [];
         
-        // 🔥 STRATEGIE 1: VOLLSTÄNDIGE MORALIS PAGINATION (mit aggressiven Limits)
+        // 🔥 STRATEGIE 1: MASSIVE PARALLEL PAGINATION (ALLE ENDPOINTS GLEICHZEITIG)
         // NFT-TRANSFERS ENTFERNT: Verursacht 400 Bad Request Errors
         const fullEndpoints = ['transactions', 'erc20-transfers', 'verbose', 'wallet-transactions'];
         
-        for (const endpoint of fullEndpoints) {
-            try {
-                console.log(`🔄 VOLLSTÄNDIG: Lade ${endpoint} mit maximaler Pagination...`);
-                let cursor = null;
-                let pageCount = 0;
-                let endpointTransactions = [];
-                
-                // 🚀 AGGRESSIVE PAGINATION: Bis zu 100 Seiten pro Endpoint
-                while (pageCount < 100) {
-                    const response = await this.loadTransactionBatch(walletAddress, endpoint, cursor, 100);
-                    
-                    if (!response.success) {
-                        console.log(`❌ ${endpoint} Page ${pageCount + 1}: API Error`);
-                        break;
-                    }
-                    
-                    if (response.transactions.length === 0) {
-                        console.log(`⚪ ${endpoint} Page ${pageCount + 1}: Keine Daten - Ende erreicht`);
-                        break;
-                    }
-                    
-                    endpointTransactions.push(...response.transactions);
-                    console.log(`✅ ${endpoint} Page ${pageCount + 1}: ${response.transactions.length} Transaktionen (Total: ${endpointTransactions.length})`);
-                    
-                    cursor = response.cursor;
-                    pageCount++;
-                    
-                    // Stoppe wenn kein Cursor mehr da
-                    if (!cursor) {
-                        console.log(`🔄 ${endpoint}: Kein Cursor - alle Daten geladen`);
-                        break;
-                    }
-                    
-                    await this.delay(200); // Rate limiting
-                }
-                
-                allTransactions.push(...endpointTransactions);
-                console.log(`📊 ${endpoint} COMPLETE: ${endpointTransactions.length} Transaktionen über ${pageCount} Seiten`);
-                
-            } catch (error) {
-                console.warn(`⚠️ FALLBACK ${endpoint} failed:`, error.message);
-            }
+        // 🚀 PARALLEL LOADING: Alle Endpoints gleichzeitig für maximale Geschwindigkeit
+        const endpointPromises = fullEndpoints.map(endpoint => 
+            this.loadEndpointWithMassivePagination(walletAddress, endpoint)
+        );
+        
+        const endpointResults = await Promise.all(endpointPromises);
+        
+        // Sammle alle Transaktionen von allen Endpoints
+        for (let i = 0; i < fullEndpoints.length; i++) {
+            const endpoint = fullEndpoints[i];
+            const transactions = endpointResults[i];
+            allTransactions.push(...transactions);
+            console.log(`📊 ${endpoint} COMPLETE: ${transactions.length} Transaktionen geladen`);
         }
         
         // 🔥 STRATEGIE 2: ETHERSCAN FALLBACK (wenn verfügbar)
-        if (allTransactions.length < 200) {
+        if (allTransactions.length < 500) {
             console.log(`🔄 ETHERSCAN FALLBACK: Versuche alternative Ethereum API...`);
             try {
                 const etherscanTxs = await this.loadFromEtherscanAPI(walletAddress);
@@ -311,6 +282,60 @@ export class TaxReportService_FINAL {
         const uniqueTransactions = this.removeDuplicates(allTransactions);
         console.log(`🎯 FALLBACK COMPLETE: ${uniqueTransactions.length} einzigartige Transaktionen (von ${allTransactions.length} total)`);
         return uniqueTransactions;
+    }
+    
+    /**
+     * 🚀 MASSIVE PAGINATION für einen einzelnen Endpoint
+     * LÄDT BIS ZU 500 SEITEN = 50.000 TRANSAKTIONEN PRO ENDPOINT!
+     */
+    static async loadEndpointWithMassivePagination(walletAddress, endpoint) {
+        console.log(`🚀 MASSIVE PAGINATION: Starte ${endpoint} mit bis zu 500 Seiten...`);
+        
+        let allEndpointTransactions = [];
+        let cursor = null;
+        let pageCount = 0;
+        const MAX_PAGES = 500; // DRASTISCH ERHÖHT: 500 Seiten = 1.000.000 Transaktionen
+        const PAGE_SIZE = 2000; // MAXIMALE PAGE SIZE: 2000 Transaktionen pro Request
+        
+        while (pageCount < MAX_PAGES) {
+            const response = await this.loadTransactionBatch(walletAddress, endpoint, cursor, PAGE_SIZE);
+            
+            if (!response.success) {
+                console.log(`❌ ${endpoint} Page ${pageCount + 1}: API Error - stoppe`);
+                break;
+            }
+            
+            if (response.transactions.length === 0) {
+                console.log(`⚪ ${endpoint} Page ${pageCount + 1}: Keine Daten - Ende erreicht`);
+                break;
+            }
+            
+            allEndpointTransactions.push(...response.transactions);
+            pageCount++;
+            
+            // Progress logging alle 10 Seiten
+            if (pageCount % 10 === 0) {
+                console.log(`🔄 ${endpoint} Page ${pageCount}: ${allEndpointTransactions.length} Transaktionen total`);
+            } else {
+                console.log(`✅ ${endpoint} Page ${pageCount}: +${response.transactions.length} (Total: ${allEndpointTransactions.length})`);
+            }
+            
+            cursor = response.cursor;
+            
+            // Stoppe wenn kein Cursor mehr da
+            if (!cursor) {
+                console.log(`🔄 ${endpoint}: Kein Cursor - alle ${allEndpointTransactions.length} Transaktionen geladen nach ${pageCount} Seiten`);
+                break;
+            }
+            
+            // Rate limiting nur alle 5 Requests um schneller zu sein
+            if (pageCount % 5 === 0) {
+                await this.delay(100);
+            }
+        }
+        
+        console.log(`🎯 ${endpoint} MASSIVE PAGINATION COMPLETE: ${allEndpointTransactions.length} Transaktionen über ${pageCount} Seiten`);
+        return allEndpointTransactions;
     }
     
     /**
