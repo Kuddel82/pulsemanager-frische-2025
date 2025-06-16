@@ -66,8 +66,8 @@ export default async function handler(req, res) {
     // API Endpoint auswählen
     switch (endpoint) {
       case 'transactions':
-        // 🚀 SICHERES LIMIT: Maximal 500 Transaktionen pro Request (Moralis-Kompatibel)
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 500)}`;
+        // 🛡️ ULTRAKONSERVATIV: Maximal 100 Transaktionen pro Request (Garantiert stabil)
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
@@ -79,8 +79,8 @@ export default async function handler(req, res) {
         break;
         
       case 'erc20-transfers':
-        // 🚀 SICHERES LIMIT: Maximal 500 ERC20-Transfers pro Request (Moralis-Kompatibel)
-        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${normalizedChain}&limit=${Math.min(limit, 500)}`;
+        // 🛡️ ULTRAKONSERVATIV: Maximal 100 ERC20-Transfers pro Request (Garantiert stabil)
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         

@@ -144,7 +144,7 @@ export class TaxReportService_FINAL {
      * 🔥 SINGLE TRANSACTION BATCH LOADER
      * EINFACH UND ZUVERLÄSSIG - KEIN CHAOS
      */
-    static async loadTransactionBatch(walletAddress, endpoint, cursor = null, limit = 500) {
+    static async loadTransactionBatch(walletAddress, endpoint, cursor = null, limit = 100) {
         try {
             let url = `/api/moralis-proxy?endpoint=${endpoint}&address=${walletAddress}&chain=0x1&limit=${limit}`;
             if (cursor) url += `&cursor=${cursor}`;
@@ -259,23 +259,26 @@ export class TaxReportService_FINAL {
         
         let allTransactions = [];
         
-        // 🔥 STRATEGIE 1: MASSIVE PARALLEL PAGINATION (ALLE ENDPOINTS GLEICHZEITIG)
-        // NFT-TRANSFERS ENTFERNT: Verursacht 400 Bad Request Errors
-        const fullEndpoints = ['transactions', 'erc20-transfers', 'verbose', 'wallet-transactions'];
+        // 🔥 STRATEGIE 1: NUR STABILE ENDPOINTS (transactions + erc20-transfers funktionieren!)
+        // ENTFERNT: verbose, wallet-transactions (verursachen 500 Errors), nft-transfers (400 Error)
+        const fullEndpoints = ['transactions', 'erc20-transfers'];
         
-        // 🚀 PARALLEL LOADING: Alle Endpoints gleichzeitig für maximale Geschwindigkeit
-        const endpointPromises = fullEndpoints.map(endpoint => 
-            this.loadEndpointWithMassivePagination(walletAddress, endpoint)
-        );
-        
-        const endpointResults = await Promise.all(endpointPromises);
-        
-        // Sammle alle Transaktionen von allen Endpoints
-        for (let i = 0; i < fullEndpoints.length; i++) {
-            const endpoint = fullEndpoints[i];
-            const transactions = endpointResults[i];
-            allTransactions.push(...transactions);
-            console.log(`📊 ${endpoint} COMPLETE: ${transactions.length} Transaktionen geladen`);
+        // 🐌 SEQUENZIELL LOADING: Einen nach dem anderen um Server-Überlastung zu vermeiden
+        for (const endpoint of fullEndpoints) {
+            console.log(`🚀 SEQUENZIELL: Starte ${endpoint}...`);
+            try {
+                const transactions = await this.loadEndpointWithMassivePagination(walletAddress, endpoint);
+                allTransactions.push(...transactions);
+                console.log(`📊 ${endpoint} COMPLETE: ${transactions.length} Transaktionen geladen`);
+                
+                // 2 Sekunden Pause zwischen Endpoints um Server zu schonen
+                if (fullEndpoints.indexOf(endpoint) < fullEndpoints.length - 1) {
+                    console.log(`⏳ 2s Pause vor nächstem Endpoint...`);
+                    await this.delay(2000);
+                }
+            } catch (error) {
+                console.error(`❌ ${endpoint} FAILED:`, error.message);
+            }
         }
         
         // 🔥 STRATEGIE 2: ETHERSCAN FALLBACK (wenn verfügbar)
@@ -307,8 +310,8 @@ export class TaxReportService_FINAL {
         let allEndpointTransactions = [];
         let cursor = null;
         let pageCount = 0;
-        const MAX_PAGES = 1000; // SEHR HOCH: 1000 Seiten = 500.000 Transaktionen pro Endpoint
-        const PAGE_SIZE = 500; // SICHERE PAGE SIZE: 500 Transaktionen pro Request (Moralis-Kompatibel)
+        const MAX_PAGES = 2000; // EXTREM HOCH: 2000 Seiten = 200.000 Transaktionen pro Endpoint  
+        const PAGE_SIZE = 100; // ULTRAKONSERVATIV: 100 Transaktionen pro Request (garantiert stabil)
         
         while (pageCount < MAX_PAGES) {
             const response = await this.loadTransactionBatch(walletAddress, endpoint, cursor, PAGE_SIZE);
@@ -341,10 +344,8 @@ export class TaxReportService_FINAL {
                 break;
             }
             
-            // Rate limiting nur alle 5 Requests um schneller zu sein
-            if (pageCount % 5 === 0) {
-                await this.delay(100);
-            }
+            // Rate limiting JEDEN Request um Server zu schonen
+            await this.delay(250); // 250ms zwischen jedem Request
         }
         
         console.log(`🎯 ${endpoint} MASSIVE PAGINATION COMPLETE: ${allEndpointTransactions.length} Transaktionen über ${pageCount} Seiten`);
