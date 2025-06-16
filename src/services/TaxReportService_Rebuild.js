@@ -448,10 +448,12 @@ export class TaxReportService_Rebuild {
             }
 
             // SCHRITT 3: Steuerliche Kategorisierung
+            console.error(`🔍 BEFORE CATEGORIZE: ${filteredTransactions.length} Transaktionen werden kategorisiert...`);
             const categorizedTransactions = await this.categorizeTransactionsForTax(
                 filteredTransactions, 
                 walletAddress
             );
+            console.error(`🔍 AFTER CATEGORIZE: ${categorizedTransactions.length} Transaktionen kategorisiert!`);
 
             // SCHRITT 4: Haltefrist-Berechnung
             const taxCalculatedTransactions = this.calculateHoldingPeriods(categorizedTransactions);
@@ -708,6 +710,13 @@ export class TaxReportService_Rebuild {
 
         console.log(`🏷️ Kategorisiere ${transactions.length} Transaktionen...`);
         console.error(`🔍 CATEGORIZE START: ${transactions.length} Transaktionen für Wallet ${walletAddress?.slice(0,8)}... - parseTransactionType wird aufgerufen!`);
+        console.error(`🔍 FIRST 3 TRANSACTIONS:`, transactions.slice(0,3).map(tx => ({
+            hash: tx.transaction_hash?.slice(0,10),
+            from: tx.from_address?.slice(0,8),
+            to: tx.to_address?.slice(0,8),
+            value: tx.value,
+            symbol: tx.token_symbol || 'ETH'
+        })));
 
         // 🚀 BATCH PROCESSING für Performance
         const batchSize = 1000;
@@ -718,7 +727,9 @@ export class TaxReportService_Rebuild {
             for (const tx of batch) {
                 try {
                     // Transaktionstyp bestimmen
+                    console.error(`🔍 CALLING parseTransactionType for TX: ${tx.transaction_hash?.slice(0,10)} from ${tx.from_address?.slice(0,8)} to ${tx.to_address?.slice(0,8)} value=${tx.value}`);
                     const taxCategory = this.parseTransactionType(tx, walletAddress);
+                    console.error(`🔍 parseTransactionType RESULT: ${taxCategory} for TX: ${tx.transaction_hash?.slice(0,10)}`);
                     
                     // USD-Preis zur Transaktionszeit ermitteln (MIT CACHE)
                     let usdPrice = 0;
