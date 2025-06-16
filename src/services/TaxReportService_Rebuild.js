@@ -1068,26 +1068,36 @@ export class TaxReportService_Rebuild {
                         const allTransactions = [];
                         let nextCursor = null;
                         
+                        // 🔍 CURSOR-DEBUG: Sammle alle Cursors von allen Endpoints
+                        const cursors = [];
+                        
                         // Verbose Transaktionen hinzufügen (mit Moralis Labeling)
                         if (verboseResponse?.success && verboseResponse.result?.length > 0) {
                             console.log(`✅ VERBOSE: ${verboseResponse.result.length} Transaktionen (MIT LABELING)`);
                             allTransactions.push(...verboseResponse.result);
-                            nextCursor = verboseResponse.cursor || nextCursor;
+                            if (verboseResponse.cursor) cursors.push(verboseResponse.cursor);
+                            console.log(`🔍 VERBOSE CURSOR: ${verboseResponse.cursor || 'null'}`);
                         }
                         
                         // Standard Transaktionen hinzufügen (Native ETH)
                         if (transactionsResponse?.success && transactionsResponse.result?.length > 0) {
                             console.log(`✅ TRANSACTIONS: ${transactionsResponse.result.length} Transaktionen (NATIVE ETH)`);
                             allTransactions.push(...transactionsResponse.result);
-                            nextCursor = transactionsResponse.cursor || nextCursor;
+                            if (transactionsResponse.cursor) cursors.push(transactionsResponse.cursor);
+                            console.log(`🔍 TRANSACTIONS CURSOR: ${transactionsResponse.cursor || 'null'}`);
                         }
                         
                         // ERC20 Transaktionen hinzufügen (Token-Transfers)
                         if (erc20Response?.success && erc20Response.result?.length > 0) {
                             console.log(`✅ ERC20-TRANSFERS: ${erc20Response.result.length} Transaktionen (TOKEN-TRANSFERS)`);
                             allTransactions.push(...erc20Response.result);
-                            nextCursor = erc20Response.cursor || nextCursor;
+                            if (erc20Response.cursor) cursors.push(erc20Response.cursor);
+                            console.log(`🔍 ERC20 CURSOR: ${erc20Response.cursor || 'null'}`);
                         }
+                        
+                        // 🚀 AGGRESSIVE CURSOR-LOGIC: Verwende den ersten verfügbaren Cursor
+                        nextCursor = cursors.length > 0 ? cursors[0] : null;
+                        console.log(`🔍 FINAL CURSOR: ${nextCursor || 'null'} (${cursors.length} cursors available)`)
                         
                         // Internal Transaktionen hinzufügen (Contract-Calls)
                         if (internalResponse?.success && internalResponse.result?.length > 0) {
@@ -1183,14 +1193,28 @@ export class TaxReportService_Rebuild {
                         cursor = nextCursor;
                         pageCount++;
                         
-                        // 🔥 ERWEITERTE FORTSETZUNGSBEDINGUNGEN (für VOLLSTÄNDIGE STEUERREPORT-DATEN)
+                        // 🔥 AGGRESSIVE PAGINATION für 700+ Transaktionen
+                        const hasValidCursor = nextCursor && nextCursor !== 'null' && nextCursor !== '';
+                        const hasNewTransactions = pageTransactions.length > 0;
+                        const belowPageLimit = pageCount <= 3000;
+                        const belowTransactionLimit = transactions.length < 300000;
+                        
+                        // 🚀 SPECIAL CASE: Continue wenn einer der Endpoints noch Daten hat
+                        const anyEndpointHasData = 
+                            (verboseResponse?.result?.length === batchSize) ||         // Verbose endpoint ist voll
+                            (transactionsResponse?.result?.length === batchSize) ||    // Transactions endpoint ist voll
+                            (erc20Response?.result?.length === batchSize);             // ERC20 endpoint ist voll
+                        
                         const shouldContinue = 
-                            nextCursor &&                                   // Cursor vorhanden UND
-                            pageTransactions.length > 0 &&                  // Mindestens 1 neue Transaktion
-                            pageCount <= 3000 &&                            // Maximal 3000 Seiten (ca. 300.000 Transaktionen)
-                            transactions.length < 300000;                   // Stoppe bei 300.000 Transaktionen total
+                            hasValidCursor &&                               // Cursor vorhanden UND
+                            hasNewTransactions &&                           // Mindestens 1 neue Transaktion UND
+                            belowPageLimit &&                               // Maximal 3000 Seiten UND
+                            belowTransactionLimit &&                        // Maximal 300k Transaktionen UND
+                            (anyEndpointHasData || pageCount < 10);         // 🚀 ODER: Endpoint ist voll ODER noch in ersten 10 Seiten
                         
                         hasMore = shouldContinue;
+                        
+                        console.log(`🔍 PAGINATION CHECK: cursor=${!!hasValidCursor}, newTx=${hasNewTransactions}, fullEndpoint=${anyEndpointHasData}, continue=${shouldContinue}`);
                         
                         const showCursor = nextCursor ? 'yes' : 'no';
                         console.log(`✅ ${chainName} Page ${pageCount}: ${pageTransactions.length} Transaktionen, Total: ${transactions.length}, hasMore=${hasMore}, cursor=${showCursor}`);
