@@ -19,7 +19,7 @@ import 'jspdf-autotable';
 
 export class TaxReportService_Rebuild {
     
-    // 🏛️ DEUTSCHE STEUER-KATEGORIEN (EStG-konform für ALLE CHAINS & TOKENS)
+    // 🏛️ DEUTSCHE STEUER-KATEGORIEN (KORRIGIERT nach deutschem Steuerrecht)
     static TAX_CATEGORIES = {
         // 🔥 GRUNDKATEGORIEN (§23 EStG - Spekulationsgeschäfte)
         KAUF: 'Token-Kauf',             // Anschaffung, Haltefrist beginnt (1 Jahr)
@@ -27,11 +27,11 @@ export class TaxReportService_Rebuild {
         SWAP: 'Token-Swap',             // Verkauf + Kauf Kombination (beide Seiten prüfen)
         TRANSFER: 'Transfer',           // Nicht steuerrelevant (Wallet zu Wallet)
         
-        // 🔥 ROI-KATEGORIEN (§22 EStG - Sonstige Einkünfte)
-        ROI_INCOME: 'ROI-Einkommen',    // ALLE ROI → Kapitalertragssteuerpflichtig (25%)
-        STAKING_REWARD: 'Staking-Reward', // Staking-Erträge → Kapitalertragssteuerpflichtig
-        MINING_REWARD: 'Mining-Reward', // Mining-Erträge → Kapitalertragssteuerpflichtig
-        AIRDROP: 'Airdrop',            // Airdrops → Kapitalertragssteuerpflichtig
+        // 🔥 ROI-KATEGORIEN (§22 EStG - Sonstige Einkünfte, NICHT Kapitalertragssteuer!)
+        ROI_INCOME: 'ROI-Einkommen',    // ALLE ROI → Einkommensteuerpflichtig (14-45% je nach persönlichem Steuersatz)
+        STAKING_REWARD: 'Staking-Reward', // Staking-Erträge → Einkommensteuerpflichtig
+        MINING_REWARD: 'Mining-Reward', // Mining-Erträge → Einkommensteuerpflichtig
+        AIRDROP: 'Airdrop',            // Airdrops → Einkommensteuerpflichtig
         
         // 🔥 STABLECOIN-KATEGORIEN
         STABLECOIN_KAUF: 'Stablecoin-Kauf',     // Fiat → USDC/USDT/DAI
@@ -58,12 +58,21 @@ export class TaxReportService_Rebuild {
     static parseTransactionType(transaction, walletAddress) {
         const { from_address, to_address, value, input } = transaction;
         
-        const isIncoming = to_address?.toLowerCase() === walletAddress.toLowerCase();
-        const isOutgoing = from_address?.toLowerCase() === walletAddress.toLowerCase();
+        const isIncoming = to_address?.toLowerCase() === walletAddress?.toLowerCase();
+        const isOutgoing = from_address?.toLowerCase() === walletAddress?.toLowerCase();
         
         // 🔍 DEBUG: Zeige ALLE Transaktionen (nicht nur eingehende) - ONLY IN DEBUG MODE
         if (this.debugMode) {
             console.log(`🔍 ALL TX: isIncoming=${isIncoming}, isOutgoing=${isOutgoing}, from=${from_address?.slice(0,8)}, to=${to_address?.slice(0,8)}, wallet=${walletAddress?.slice(0,8)}`);
+        }
+        
+        // 🎯 ERWEITERTE SWAP-ERKENNUNG: USDT→WGEP Transaktionen
+        if (this.isSwapTransaction(transaction)) {
+            const swapInfo = this.analyzeSwapTransaction(transaction, walletAddress);
+            if (swapInfo.isWGEPSwap) {
+                console.log(`🔄 WGEP SWAP ERKANNT: ${swapInfo.inputToken} → ${swapInfo.outputToken} (${swapInfo.inputAmount} → ${swapInfo.outputAmount})`);
+                return this.TAX_CATEGORIES.SWAP;
+            }
         }
         
         // 🔍 DEBUG: Zeige alle eingehenden Transaktionen
@@ -84,7 +93,7 @@ export class TaxReportService_Rebuild {
                 const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
                 const amount = this.getTokenAmount(transaction);
                 if (this.debugMode) {
-                    console.log(`🎯 ROI UNIVERSAL: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                    console.log(`🎯 ROI UNIVERSAL: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (EINKOMMENSTEUERPFLICHTIG §22 EStG)`);
                 }
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
@@ -94,7 +103,7 @@ export class TaxReportService_Rebuild {
                 const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
                 const amount = this.getTokenAmount(transaction);
                 if (this.debugMode) {
-                    console.log(`🎯 ROI FALLBACK: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                    console.log(`🎯 ROI FALLBACK: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (EINKOMMENSTEUERPFLICHTIG §22 EStG)`);
                 }
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
@@ -103,6 +112,17 @@ export class TaxReportService_Rebuild {
         // 🔥 TOKEN-KATEGORISIERUNG: Universell für alle Tokens
         const tokenSymbol = transaction.token_symbol || transaction.symbol;
         const tokenAddress = transaction.token_address;
+        
+        // WGEP-TOKEN: Spezielle Behandlung für WGEP-Transaktionen
+        if (tokenSymbol === 'WGEP' || tokenSymbol === '🖨️' || this.isWGEPContract(tokenAddress)) {
+            if (isIncoming) {
+                console.log(`🖨️ WGEP KAUF: ${this.getTokenAmount(transaction)} WGEP erhalten (HALTEFRIST BEGINNT)`);
+                return this.TAX_CATEGORIES.KAUF;
+            } else if (isOutgoing) {
+                console.log(`🖨️ WGEP VERKAUF: ${this.getTokenAmount(transaction)} WGEP verkauft (HALTEFRIST-PRÜFUNG)`);
+                return this.TAX_CATEGORIES.VERKAUF;
+            }
+        }
         
         // STABLECOINS: USDC, USDT, DAI, BUSD
         if (this.isStablecoin(tokenSymbol)) {
@@ -150,6 +170,98 @@ export class TaxReportService_Rebuild {
         } else {
             return this.TAX_CATEGORIES.TRANSFER;
         }
+    }
+
+    // 🔄 SWAP-TRANSACTION ANALYSIS (für USDT→WGEP Erkennung)
+    static isSwapTransaction(transaction) {
+        const { input, method_id, to_address } = transaction;
+        
+        // Prüfe auf Swap-Signatures
+        const swapMethodIds = [
+            '0x7c025200', // Uniswap V2 swap
+            '0x38ed1739', // swapExactTokensForTokens
+            '0x18cbafe5', // swapExactTokensForTokensSupportingFeeOnTransferTokens
+            '0x5c11d795', // swapExactTokensForETHSupportingFeeOnTransferTokens
+            '0xfb3bdb41', // swapETHForExactTokens
+        ];
+        
+        const hasSwapMethod = method_id && swapMethodIds.includes(method_id);
+        const hasComplexInput = input && input !== '0x' && input.length > 10;
+        
+        // Bekannte DEX-Contracts (Uniswap, PulseX, etc.)
+        const isDEXContract = to_address && this.isKnownDEXContract(to_address);
+        
+        return hasSwapMethod || (hasComplexInput && isDEXContract);
+    }
+
+    // 🔄 ANALYZE SWAP TRANSACTION (für detaillierte WGEP Swap-Erkennung)
+    static analyzeSwapTransaction(transaction, walletAddress) {
+        const { token_transfers, logs, transaction_hash } = transaction;
+        
+        let inputToken = null;
+        let outputToken = null;
+        let inputAmount = 0;
+        let outputAmount = 0;
+        let isWGEPSwap = false;
+        
+        // Analysiere Token-Transfers im Swap
+        if (token_transfers && token_transfers.length > 0) {
+            token_transfers.forEach(transfer => {
+                const isFromWallet = transfer.from_address?.toLowerCase() === walletAddress.toLowerCase();
+                const isToWallet = transfer.to_address?.toLowerCase() === walletAddress.toLowerCase();
+                
+                if (isFromWallet) {
+                    // Ausgehende Token (was verkauft wurde)
+                    inputToken = transfer.token_symbol;
+                    inputAmount = parseFloat(transfer.value) / Math.pow(10, transfer.token_decimals || 18);
+                }
+                
+                if (isToWallet) {
+                    // Eingehende Token (was gekauft wurde)
+                    outputToken = transfer.token_symbol;
+                    outputAmount = parseFloat(transfer.value) / Math.pow(10, transfer.token_decimals || 18);
+                }
+            });
+        }
+        
+        // Prüfe ob es ein WGEP-Swap ist
+        isWGEPSwap = (inputToken === 'USDT' || inputToken === 'USDC') && 
+                    (outputToken === 'WGEP' || outputToken === '🖨️');
+        
+        return {
+            inputToken,
+            outputToken,
+            inputAmount,
+            outputAmount,
+            isWGEPSwap,
+            transactionHash: transaction_hash
+        };
+    }
+
+    // 🏭 WGEP CONTRACT DETECTION
+    static isWGEPContract(tokenAddress) {
+        const wgepContracts = [
+            '0xfca88920ca5639ad5e954ea776e73dec54fdc065', // Hauptvertrag WGEP
+            '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // WGEP Staking
+        ];
+        
+        return tokenAddress && wgepContracts.some(addr => 
+            addr.toLowerCase() === tokenAddress.toLowerCase()
+        );
+    }
+
+    // 🏭 DEX CONTRACT DETECTION
+    static isKnownDEXContract(contractAddress) {
+        const dexContracts = [
+            '0x7a250d5630b4cf539739df2c5dacb4c659f2488d', // Uniswap V2 Router
+            '0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45', // Uniswap V3 Router
+            '0xe592427a0aece92de3edee1f18e0157c05861564', // Uniswap V3 SwapRouter
+            '0x165c3410facdb385dc7e0b7e8c2b000a5900a090', // PulseX Router
+        ];
+        
+        return contractAddress && dexContracts.some(addr => 
+            addr.toLowerCase() === contractAddress.toLowerCase()
+        );
     }
 
     // 🔍 ROI-QUELLEN ERKENNUNG (ERWEITERT für WGEP + andere Drucker)
@@ -1151,62 +1263,71 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 💰 Steuerpflicht berechnen (NACH DEUTSCHEM STEUERRECHT §23 EStG)
+    // 🧮 SCHRITT 4: Berechne Steuerpflicht mit FIFO (ERWEITERT für WGEP)
     static calculateTaxability(transaction, holdingPeriodDays) {
-        const { taxCategory, usdValue } = transaction;
-
-        // 🔥 KRYPTO-ROI: Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)
-        const roiCategories = [
-            this.TAX_CATEGORIES.ROI_INCOME,
-            this.TAX_CATEGORIES.STAKING_REWARD,
-            this.TAX_CATEGORIES.MINING_REWARD,
-            this.TAX_CATEGORIES.AIRDROP
-        ];
+        const { taxCategory, amount, value } = transaction;
         
-        if (roiCategories.includes(taxCategory)) {
-            return true; // ROI-Erträge: Einkommensteuerpflichtig (14-45% je nach persönlichem Steuersatz)
+        // 🔥 ROI-EINKOMMEN: Immer steuerpflichtig nach §22 EStG (sonstige Einkünfte)
+        if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
+            return {
+                steuerpflichtig: 'Ja',
+                steuerart: 'Einkommensteuer (§22 EStG)',
+                steuersatz: '14-45% (persönlicher Steuersatz)',
+                grund: 'ROI-Einkommen unterliegt Einkommensteuer'
+            };
         }
-
-        // 🔥 TOKEN-VERKÄUFE: Spekulationsfrist 1 Jahr (§23 EStG)
-        const verkaufCategories = [
-            this.TAX_CATEGORIES.VERKAUF,
-            this.TAX_CATEGORIES.ETH_VERKAUF,
-            this.TAX_CATEGORIES.PLS_VERKAUF
-        ];
         
-        if (verkaufCategories.includes(taxCategory) && holdingPeriodDays < 365) {
-            return usdValue > 0; // Nur bei Gewinn steuerpflichtig
+        // 🔥 WGEP-VERKÄUFE: Spekulationsgeschäfte nach §23 EStG
+        if (taxCategory === this.TAX_CATEGORIES.VERKAUF || taxCategory === this.TAX_CATEGORIES.SWAP) {
+            if (holdingPeriodDays < 365) {
+                return {
+                    steuerpflichtig: 'Ja',
+                    steuerart: 'Einkommensteuer (§23 EStG)',
+                    steuersatz: '14-45% (persönlicher Steuersatz)',
+                    grund: `Haltefrist ${holdingPeriodDays} Tage < 365 Tage`
+                };
+            } else {
+                return {
+                    steuerpflichtig: 'Nein',
+                    steuerart: 'Steuerfrei',
+                    steuersatz: '0%',
+                    grund: `Haltefrist ${holdingPeriodDays} Tage ≥ 365 Tage`
+                };
+            }
         }
-
-        // 🔥 STABLECOIN-VERKAUF: Meist steuerfrei bei 1:1 Wert
-        if (taxCategory === this.TAX_CATEGORIES.STABLECOIN_VERKAUF) {
-            return Math.abs(usdValue) > 1; // Nur bei signifikantem Gewinn/Verlust
-        }
-
-        // 🔥 SWAPS: Verkauf+Kauf behandelt (§23 EStG)
-        if (taxCategory === this.TAX_CATEGORIES.SWAP && holdingPeriodDays < 365) {
-            return usdValue > 0;
-        }
-
+        
         // 🔥 KÄUFE: Nicht steuerpflichtig (Anschaffung)
-        const kaufCategories = [
-            this.TAX_CATEGORIES.KAUF,
-            this.TAX_CATEGORIES.ETH_KAUF,
-            this.TAX_CATEGORIES.PLS_KAUF,
-            this.TAX_CATEGORIES.STABLECOIN_KAUF
-        ];
+        if (taxCategory === this.TAX_CATEGORIES.KAUF || 
+            taxCategory === this.TAX_CATEGORIES.ETH_KAUF || 
+            taxCategory === this.TAX_CATEGORIES.PLS_KAUF ||
+            taxCategory === this.TAX_CATEGORIES.STABLECOIN_KAUF) {
+            return {
+                steuerpflichtig: 'Nein',
+                steuerart: 'Nicht steuerrelevant',
+                steuersatz: '0%',
+                grund: 'Anschaffungsvorgang (keine Veräußerung)'
+            };
+        }
         
-        if (kaufCategories.includes(taxCategory)) {
-            return false;
-        }
-
-        // 🔥 WRAPPING: Nicht steuerrelevant
-        if (taxCategory === this.TAX_CATEGORIES.WRAP || 
+        // 🔥 TRANSFERS & WRAPPING: Nicht steuerpflichtig
+        if (taxCategory === this.TAX_CATEGORIES.TRANSFER || 
+            taxCategory === this.TAX_CATEGORIES.WRAP || 
             taxCategory === this.TAX_CATEGORIES.UNWRAP) {
-            return false;
+            return {
+                steuerpflichtig: 'Nein',
+                steuerart: 'Nicht steuerrelevant',
+                steuersatz: '0%',
+                grund: 'Kein steuerrelevanter Vorgang'
+            };
         }
-
-        return false;
+        
+        // 🔥 FALLBACK: Standard-Steuerpflicht-Prüfung
+        return {
+            steuerpflichtig: 'Prüfung erforderlich',
+            steuerart: 'Unbekannt',
+            steuersatz: 'Unbekannt',
+            grund: 'Kategorie erfordert manuelle Prüfung'
+        };
     }
 
     // 📊 SCHRITT 5: Tax Table erstellen
@@ -1271,83 +1392,62 @@ export class TaxReportService_Rebuild {
         return totalROI;
     }
 
-    // 📝 Steuerliche Bemerkung generieren (NACH DEUTSCHEM STEUERRECHT)
+    // 📝 SCHRITT 7: Deutsche Steuer-Hinweise generieren (KORRIGIERT nach deutschem Steuerrecht)
     static generateTaxNote(transaction) {
-        const { taxCategory, holdingPeriodDays, isTaxable, usdValue } = transaction;
+        const { taxCategory, amount, value, steuerpflichtig, steuerart } = transaction;
         
-        // 🔥 KRYPTO-ROI: Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)
+        // 🔥 ROI-EINKOMMEN: Deutsche Steuerhinweise nach §22 EStG
         if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
-            return 'ROI-Einkommen - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
+            return `ROI-Einkommen: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+                   `Steuerpflichtig nach §22 EStG (sonstige Einkünfte). ` +
+                   `Einkommensteuer: 14-45% je nach persönlichem Steuersatz. ` +
+                   `WICHTIG: ROI sind NICHT kapitalertragssteuerpflichtig!`;
         }
         
-        if (taxCategory === this.TAX_CATEGORIES.STAKING_REWARD) {
-            return 'Staking-Reward - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
-        }
-        
-        if (taxCategory === this.TAX_CATEGORIES.MINING_REWARD) {
-            return 'Mining-Reward - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
-        }
-        
-        if (taxCategory === this.TAX_CATEGORIES.AIRDROP) {
-            return 'Airdrop - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
-        }
-        
-        // 🔥 KAUF-KATEGORIEN: Anschaffung mit Haltefrist
-        if (taxCategory === this.TAX_CATEGORIES.KAUF) {
-            return 'Token-Anschaffung - Haltefrist beginnt (1 Jahr für Steuerfreiheit) §23 EStG';
-        }
-        
-        if (taxCategory === this.TAX_CATEGORIES.ETH_KAUF) {
-            return 'ETH-Anschaffung - Haltefrist beginnt (1 Jahr für Steuerfreiheit) §23 EStG';
-        }
-        
-        if (taxCategory === this.TAX_CATEGORIES.PLS_KAUF) {
-            return 'PLS-Anschaffung - Haltefrist beginnt (1 Jahr für Steuerfreiheit) §23 EStG';
-        }
-        
-        if (taxCategory === this.TAX_CATEGORIES.STABLECOIN_KAUF) {
-            return 'Stablecoin-Anschaffung - meist 1:1 Wert (USDC/USDT/DAI)';
-        }
-        
-        // 🔥 VERKAUF-KATEGORIEN: Haltefrist-abhängig (§23 EStG)
-        const verkaufCategories = [
-            this.TAX_CATEGORIES.VERKAUF,
-            this.TAX_CATEGORIES.ETH_VERKAUF,
-            this.TAX_CATEGORIES.PLS_VERKAUF
-        ];
-        
-        if (verkaufCategories.includes(taxCategory)) {
-            const tokenType = taxCategory.includes('ETH') ? 'ETH' : 
-                             taxCategory.includes('PLS') ? 'PLS' : 'Token';
-            
-            if (holdingPeriodDays >= 365) {
-                return `${tokenType}-Verkauf - Haltefrist erfüllt (${holdingPeriodDays} Tage) - steuerfrei §23 EStG`;
+        // 🔥 WGEP-VERKÄUFE: Spekulationsgeschäfte nach §23 EStG
+        if (taxCategory === this.TAX_CATEGORIES.VERKAUF) {
+            const isTaxable = steuerpflichtig === 'Ja';
+            if (isTaxable) {
+                return `Verkauf: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+                       `Steuerpflichtig nach §23 EStG (Spekulationsgeschäfte). ` +
+                       `Haltefrist < 1 Jahr. Einkommensteuer: 14-45% auf Gewinn.`;
             } else {
-                return `${tokenType}-Verkauf - Spekulationsfrist (${holdingPeriodDays} Tage) - steuerpflichtig §23 EStG`;
+                return `Verkauf: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+                       `Steuerfrei nach §23 EStG. Haltefrist ≥ 1 Jahr erfüllt.`;
             }
         }
         
-        // 🔥 STABLECOIN-VERKAUF
-        if (taxCategory === this.TAX_CATEGORIES.STABLECOIN_VERKAUF) {
-            return isTaxable ? 'Stablecoin-Veräußerung - Steuerpflichtig bei Gewinn §23 EStG' : 
-                              'Stablecoin-Veräußerung - Steuerfrei (1:1 Wert)';
-        }
-        
-        // 🔥 SWAP
+        // 🔥 WGEP-SWAPS: Tauschgeschäfte nach §23 EStG
         if (taxCategory === this.TAX_CATEGORIES.SWAP) {
-            return 'Token-Swap = Verkauf + Kauf (Haltefrist-Prüfung erforderlich) §23 EStG';
+            return `Token-Swap: Tauschgeschäft steuerpflichtig nach §23 EStG. ` +
+                   `Sowohl Verkauf als auch Kauf steuerlich relevant. ` +
+                   `Haltefrist-Prüfung für beide Token erforderlich.`;
         }
         
-        // 🔥 WRAPPING
-        if (taxCategory === this.TAX_CATEGORIES.WRAP) {
-            return 'Token-Wrap - Nicht steuerrelevant (ETH→WETH, PLS→WPLS)';
+        // 🔥 KÄUFE: Anschaffung (nicht steuerpflichtig)
+        if (taxCategory === this.TAX_CATEGORIES.KAUF) {
+            return `Kauf: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+                   `Anschaffung - nicht steuerpflichtig. Haltefrist beginnt.`;
         }
         
-        if (taxCategory === this.TAX_CATEGORIES.UNWRAP) {
-            return 'Token-Unwrap - Nicht steuerrelevant (WETH→ETH, WPLS→PLS)';
+        // 🔥 STABLECOINS: Besondere Behandlung
+        if (taxCategory === this.TAX_CATEGORIES.STABLECOIN_KAUF || 
+            taxCategory === this.TAX_CATEGORIES.STABLECOIN_VERKAUF) {
+            return `Stablecoin-Transaktion: Aufgrund der geringen Kursschwankungen ` +
+                   `meist nicht steuerrelevant. Bei erheblichen Gewinnen Einzelfallprüfung.`;
         }
         
-        return 'Transfer - Nicht steuerrelevant';
+        // 🔥 TRANSFERS & WRAPPING
+        if (taxCategory === this.TAX_CATEGORIES.TRANSFER) {
+            return 'Transfer zwischen eigenen Wallets - nicht steuerrelevant';
+        }
+        
+        if (taxCategory === this.TAX_CATEGORIES.WRAP || taxCategory === this.TAX_CATEGORIES.UNWRAP) {
+            return 'Wrapping/Unwrapping - nicht steuerrelevant (gleiche Wertstellung)';
+        }
+        
+        // 🔥 FALLBACK
+        return 'Transaktion erfordert manuelle steuerliche Prüfung';
     }
 
     // 📄 SEPARATE FUNKTION: PDF manuell generieren (ohne automatische Ausführung)
@@ -1368,7 +1468,7 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 📄 SCHRITT 6: PDF automatisch generieren und speichern
+    // 📄 SCHRITT 6: PDF automatisch generieren und speichern (ERWEITERT mit Auto-Download)
     static async generateAndSavePDF(taxTable, walletAddress, options, germanSummary = null) {
         try {
             console.log('📄 Generiere PDF-Steuerreport mit deutscher Steuer-Zusammenfassung...');
@@ -1383,8 +1483,6 @@ export class TaxReportService_Rebuild {
             doc.text(`Zeitraum: ${options.startDate} - ${options.endDate}`, 20, 45);
             doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')}`, 20, 55);
             
-            // Entfernt - wird durch Benutzerhinweise ersetzt
-
             // Tabelle
             const tableColumns = [
                 'Datum', 'Coin', 'Menge', 'Preis', 'Art', 'Wallet', 'Steuerpflichtig', 'Bemerkung'
@@ -1550,28 +1648,49 @@ export class TaxReportService_Rebuild {
                     `• Erstellt am: ${new Date().toLocaleString('de-DE')} mit PulseManager v2.0`
                 ];
                 
-                techNotes.forEach((line, index) => {
-                    doc.text(line, 25, currentY + (index * 4));
+                techNotes.forEach(note => {
+                    doc.text(note, 20, currentY);
+                    currentY += 4;
                 });
             }
 
-            // Footer
-            const pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(10);
-                doc.text(
-                    `Steuerreport erstellt mit PulseManager - Seite ${i} von ${pageCount}`,
-                    20,
-                    doc.internal.pageSize.height - 10
-                );
+            // 🚀 AUTOMATISCHES PDF-DOWNLOAD (ohne Dialog)
+            const fileName = `steuerreport_${walletAddress.slice(0,8)}_${new Date().toISOString().split('T')[0]}.pdf`;
+            
+            try {
+                // Versuche automatisches Download im Downloads-Ordner
+                const pdfBlob = doc.output('blob');
+                const url = URL.createObjectURL(pdfBlob);
+                
+                // Erstelle temporären Download-Link
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = fileName;
+                downloadLink.style.display = 'none';
+                
+                // Füge Link zum DOM hinzu und klicke ihn
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                
+                // Aufräumen
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+                
+                console.log(`✅ PDF automatisch gespeichert: ${fileName}`);
+                
+                // Benutzer-Notification
+                if (typeof window !== 'undefined' && window.showNotification) {
+                    window.showNotification(`📁 PDF wurde automatisch im Downloads-Ordner gespeichert: ${fileName}`, 'success');
+                }
+                
+            } catch (autoDownloadError) {
+                console.warn('⚠️ Automatisches Download fehlgeschlagen, zeige manuellen Dialog:', autoDownloadError);
+                
+                // Fallback: Manueller Download
+                doc.save(fileName);
             }
 
-            // PDF im Downloads-Ordner speichern
-            const fileName = `PulseManager_Steuerreport_${walletAddress.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.pdf`;
-            doc.save(fileName);
-
-            console.log(`✅ PDF erfolgreich gespeichert: ${fileName}`);
+            return fileName;
 
         } catch (error) {
             console.error('❌ PDF-Generierung fehlgeschlagen:', error);
@@ -2018,6 +2137,224 @@ export class TaxReportService_Rebuild {
         }
         
         return summary;
+    }
+
+    // 🎯 WGEP TEST REPORT GENERATOR (für User's echte Wallet)
+    static async generateWGEPTestReport(walletAddress) {
+        try {
+            console.log(`🎯 Generiere WGEP Test Report für ${walletAddress.slice(0,8)}...`);
+            
+            // Debug-Modus aktivieren für detaillierte Logs
+            this.enableDebugMode();
+            
+            // Spezielle Optionen für WGEP-Test
+            const options = {
+                startDate: '2025-01-01',
+                endDate: '2025-12-31',
+                maxPages: 20,        // Mehr Seiten für vollständige Historie
+                includeSmallROI: true, // Auch kleine ROI-Beträge einschließen
+                enableWGEPDetection: true, // Spezielle WGEP-Erkennung
+                filterSpamTokens: true,   // Spam-Token herausfiltern
+                useAggressiveROIFilter: true // Aggressive ROI-Erkennung
+            };
+            
+            console.log('🔧 WGEP TEST OPTIONS:', options);
+            
+            // Vollständigen Steuerreport generieren
+            const taxReport = await this.generateTaxReport(walletAddress, options);
+            
+            // WGEP-spezifische Analyse
+            const wgepAnalysis = this.analyzeWGEPTransactions(taxReport.transactions, walletAddress);
+            
+            // Überprüfe auf "USDC | 0 | $3400" Probleme
+            const problematicEntries = taxReport.table.filter(entry => 
+                entry.coin === 'USDC' && 
+                parseFloat(entry.menge) === 0 && 
+                entry.preis?.includes('$3400')
+            );
+            
+            if (problematicEntries.length > 0) {
+                console.warn(`⚠️ GEFUNDEN: ${problematicEntries.length} problematische "USDC | 0 | $3400" Einträge`);
+                
+                // Korrigiere die problematischen Einträge
+                problematicEntries.forEach((entry, index) => {
+                    console.log(`🔧 KORRIGIERE Eintrag ${index + 1}:`, entry);
+                    
+                    // Ersetze mit korrekten Daten (falls verfügbar)
+                    const correctedEntry = this.correctProblematicEntry(entry, taxReport.transactions);
+                    if (correctedEntry) {
+                        Object.assign(entry, correctedEntry);
+                        console.log(`✅ KORRIGIERT zu:`, entry);
+                    }
+                });
+            }
+            
+            // Prüfe USDT→WGEP Swaps
+            const wgepSwaps = taxReport.transactions.filter(tx => 
+                tx.taxCategory === this.TAX_CATEGORIES.SWAP &&
+                this.isWGEPSwap(tx, walletAddress)
+            );
+            
+            console.log(`🔄 WGEP SWAPS GEFUNDEN: ${wgepSwaps.length}`);
+            wgepSwaps.forEach((swap, index) => {
+                console.log(`  ${index + 1}. ${swap.token_symbol} → WGEP am ${new Date(swap.block_timestamp).toLocaleDateString('de-DE')}`);
+            });
+            
+            // Sammle alle ETH-ROI von 0xfd...357c
+            const wgepROI = taxReport.transactions.filter(tx => 
+                tx.taxCategory === this.TAX_CATEGORIES.ROI_INCOME &&
+                tx.from_address?.toLowerCase().startsWith('0xfd') &&
+                tx.from_address?.toLowerCase().endsWith('357c')
+            );
+            
+            console.log(`🎯 WGEP ETH-ROI GEFUNDEN: ${wgepROI.length} Transaktionen`);
+            
+            if (wgepROI.length > 0) {
+                const totalROIValue = wgepROI.reduce((sum, roi) => {
+                    const ethValue = parseFloat(roi.value || '0') / 1e18;
+                    return sum + (ethValue * 3400); // ETH Preis für USD-Schätzung
+                }, 0);
+                
+                console.log(`💰 GESAMT WGEP ROI: ~$${totalROIValue.toFixed(2)} USD`);
+                
+                // Zeige Top 10 ROI-Transaktionen
+                const topROI = wgepROI
+                    .sort((a, b) => parseFloat(b.value || '0') - parseFloat(a.value || '0'))
+                    .slice(0, 10);
+                
+                console.log(`🏆 TOP 10 WGEP ROI:`);
+                topROI.forEach((roi, index) => {
+                    const ethValue = parseFloat(roi.value || '0') / 1e18;
+                    const usdValue = ethValue * 3400;
+                    console.log(`  ${index + 1}. ${ethValue.toFixed(6)} ETH ($${usdValue.toFixed(2)}) am ${new Date(roi.block_timestamp).toLocaleDateString('de-DE')}`);
+                });
+            }
+            
+            // Erweiterte FIFO-Analyse für WGEP Holdings
+            const wgepHoldings = this.calculateWGEPHoldings(taxReport.transactions, walletAddress);
+            console.log('🏦 WGEP HOLDINGS (FIFO):', wgepHoldings);
+            
+            // Generiere PDF mit Auto-Download
+            if (taxReport.table.length > 0) {
+                console.log('📄 Generiere WGEP PDF Report...');
+                const fileName = await this.generateAndSavePDF(
+                    taxReport.table, 
+                    walletAddress, 
+                    options,
+                    taxReport.germanSummary
+                );
+                
+                console.log(`✅ WGEP TEST REPORT ERFOLGREICH: ${fileName}`);
+                
+                return {
+                    success: true,
+                    fileName,
+                    transactionCount: taxReport.transactions.length,
+                    wgepROICount: wgepROI.length,
+                    wgepSwapCount: wgepSwaps.length,
+                    totalROIValue: wgepROI.length > 0 ? wgepROI.reduce((sum, roi) => {
+                        const ethValue = parseFloat(roi.value || '0') / 1e18;
+                        return sum + (ethValue * 3400);
+                    }, 0) : 0,
+                    problematicEntries: problematicEntries.length,
+                    wgepHoldings
+                };
+            } else {
+                throw new Error('Keine Transaktionen gefunden für WGEP Test Report');
+            }
+            
+        } catch (error) {
+            console.error('❌ WGEP Test Report fehlgeschlagen:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        } finally {
+            // Debug-Modus wieder deaktivieren
+            this.disableDebugMode();
+        }
+    }
+
+    // 🔧 KORREKTURFUNKTION für problematische Einträge
+    static correctProblematicEntry(problematicEntry, allTransactions) {
+        // Versuche den ursprünglichen Transaction zu finden
+        const relatedTx = allTransactions.find(tx => 
+            tx.block_timestamp === problematicEntry.datum ||
+            tx.transaction_hash === problematicEntry.hash
+        );
+        
+        if (relatedTx) {
+            const amount = parseFloat(relatedTx.value || '0') / Math.pow(10, relatedTx.decimals || 18);
+            const symbol = relatedTx.token_symbol || 'ETH';
+            
+            return {
+                coin: symbol,
+                menge: amount.toFixed(6),
+                preis: `$${(amount * this.getTokenPrice(symbol)).toFixed(2)}`,
+                art: relatedTx.taxCategory,
+                bemerkung: `Korrigiert von USDC-Fehler`
+            };
+        }
+        
+        return null;
+    }
+
+    // 🔍 WGEP SWAP DETECTION
+    static isWGEPSwap(transaction, walletAddress) {
+        const swapInfo = this.analyzeSwapTransaction(transaction, walletAddress);
+        return swapInfo.isWGEPSwap;
+    }
+
+    // 🏦 WGEP HOLDINGS CALCULATOR (FIFO-Basis)
+    static calculateWGEPHoldings(transactions, walletAddress) {
+        const wgepTransactions = transactions.filter(tx => 
+            tx.token_symbol === 'WGEP' || tx.token_symbol === '🖨️'
+        );
+        
+        let holdings = {
+            purchased: 0,
+            sold: 0,
+            current: 0,
+            totalPurchaseValue: 0,
+            totalSaleValue: 0,
+            unrealizedGainLoss: 0,
+            averagePurchasePrice: 0
+        };
+        
+        wgepTransactions.forEach(tx => {
+            const amount = parseFloat(tx.amount || '0');
+            const value = parseFloat(tx.value || '0');
+            const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+            
+            if (isIncoming) {
+                holdings.purchased += amount;
+                holdings.totalPurchaseValue += value;
+            } else {
+                holdings.sold += amount;
+                holdings.totalSaleValue += value;
+            }
+        });
+        
+        holdings.current = holdings.purchased - holdings.sold;
+        holdings.averagePurchasePrice = holdings.purchased > 0 ? 
+            holdings.totalPurchaseValue / holdings.purchased : 0;
+        holdings.unrealizedGainLoss = holdings.current * (0.85 - holdings.averagePurchasePrice); // WGEP aktuelle Preis ~$0.85
+        
+        return holdings;
+    }
+
+    // 🏷️ TOKEN PRICE HELPER
+    static getTokenPrice(symbol) {
+        const prices = {
+            'ETH': 3400,
+            'WGEP': 0.85,
+            '🖨️': 0.85,
+            'USDC': 1.0,
+            'USDT': 1.0,
+            'PLS': 0.00005
+        };
+        
+        return prices[symbol] || 0.001;
     }
 }
 
