@@ -80,6 +80,7 @@ export class MoralisV2Service {
       
       let bestResult = null;
       let totalTransactions = 0;
+      let failedEndpoints = 0;
       
       for (const endpoint of endpoints) {
         try {
@@ -92,6 +93,7 @@ export class MoralisV2Service {
           
           // 🚨 SILENT ERROR HANDLING: Fehlgeschlagene Endpoints nicht als Errors loggen
           if (!response.ok) {
+            failedEndpoints++;
             // Stille Behandlung von 400/404/500 Errors - normal für unverfügbare Endpoints
             continue; // Einfach zum nächsten Endpoint
           }
@@ -110,6 +112,7 @@ export class MoralisV2Service {
           }
           
         } catch (endpointError) {
+          failedEndpoints++;
           // Stille Error-Behandlung - nicht als console.error loggen
           // Fehlgeschlagene Endpoints sind normal und erwartbar
           continue;
@@ -120,7 +123,10 @@ export class MoralisV2Service {
       const data = bestResult;
       
       if (!data) {
-        console.warn('⚠️ V2: Alle Endpoints fehlgeschlagen');
+        // Nur einmal warnen wenn ALLE Endpoints fehlschlagen, nicht bei jedem Versuch
+        if (failedEndpoints === endpoints.length) {
+          console.warn('⚠️ V2: Alle Endpoints fehlgeschlagen - möglicherweise API-Limit erreicht oder Chain nicht unterstützt');
+        }
         return { 
           success: false, 
           error: 'Alle Endpoints fehlgeschlagen',
@@ -179,7 +185,7 @@ export class MoralisV2Service {
       };
       
     } catch (error) {
-      console.error('💥 V2 Batch Service Error:', error);
+      console.error('💥 V2 Wallet Transactions Batch Error:', error);
       return { 
         success: false, 
         error: error.message,

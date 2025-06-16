@@ -702,119 +702,99 @@ export class TaxReportService_Rebuild {
             let transactions = [];
             const { batchSize: customBatchSize, forceFullHistory = true, extendedTimeRange = false } = options;
             
-            // 🔥 AGGRESSIVE PAGINATION-SETTINGS für ROI-Detection
-            const batchSize = forceFullHistory ? 1000 : 500; // 🔥 ERHÖHT für mehr Transaktionen
-            let cursor = null;
-            let pageCount = 0;
-            let hasMore = true;
+            // Bestimme ob es sich um eine PulseChain oder Ethereum Adresse handelt
+            const isPulseChain = chainId === '0x171';
+            const isEthereum = chainId === '0x1' || chainId === '1';
             
-            // 🎯 WGEP PAGINATION: Unbegrenzte Pages für vollständige Historie
-            const maxPages = forceFullHistory ? 100000 : 50000; // Bis zu 25M Transaktionen für WGEP!
+            console.log(`🔍 ${chainName} Chain Detection: isPulseChain=${isPulseChain}, isEthereum=${isEthereum}`);
             
-            console.log(`🔍 ${chainName} WGEP CONFIG: batchSize=${batchSize}, maxPages=${maxPages}, extendedTime=${extendedTimeRange}`);
-            
-            // Primär: Moralis API mit Pagination - ERHÖHTES LIMIT für WGEP ROI
-            while (hasMore && pageCount < maxPages) {
-                try {
-                    console.log(`📄 ${chainName} Page ${pageCount + 1} (Suche nach WGEP ROI-Transaktionen)...`);
-                    
-                    const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
-                        walletAddress, 
-                        batchSize, 
-                        cursor,
-                        chainId
-                    );
-                    
-                    // 🔥 FIX: FORCE-CONTINUE PAGINATION - Ignoriere "44-Transaktionen-Bug"
-                    if (batchResult && batchResult.result && batchResult.result.length > 0) {
-                        // 🎯 WGEP ROI DETECTION: Zähle potentielle ROI-Transaktionen in diesem Batch
-                        const roiCount = batchResult.result.filter(tx => {
-                            const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
-                            const hasValue = parseFloat(tx.value || '0') > 0;
-                            const fromContract = tx.from_address && tx.from_address.length === 42 && 
-                                               !tx.from_address.startsWith('0x000000');
-                            return isIncoming && hasValue && fromContract;
-                        }).length;
+            // Für Ethereum: Nur Moralis verwenden
+            if (isEthereum) {
+                console.log(`📡 ${chainName}: Verwende Moralis API für Ethereum`);
+                
+                const batchSize = forceFullHistory ? 1000 : 500;
+                let cursor = null;
+                let pageCount = 0;
+                let hasMore = true;
+                const maxPages = forceFullHistory ? 100000 : 50000;
+                
+                while (hasMore && pageCount < maxPages) {
+                    try {
+                        console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                         
-                        transactions.push(...batchResult.result);
-                        cursor = batchResult.cursor;
+                        const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
+                            walletAddress, 
+                            batchSize, 
+                            cursor,
+                            chainId
+                        );
                         
-                        // 🔥 AGGRESSIVE PAGINATION FIX: Continue auch ohne Cursor wenn < batchSize
-                        // Das 44-Problem kommt daher, dass API manchmal keine Cursor zurückgibt
-                        const continueConditions = [
-                            !!cursor,  // Normaler Cursor vorhanden
-                            (batchResult.result.length === batchSize), // Vollständiger Batch = mehr verfügbar
-                            (pageCount < 3 && batchResult.result.length > 20), // Erste 3 Pages immer probieren
-                            (roiCount > 0 && pageCount < 10) // Wenn ROI gefunden, weiter suchen
-                        ];
-                        
-                        hasMore = continueConditions.some(condition => condition);
-                        
-                        // 🔥 BACKUP PAGINATION: Wenn kein Cursor, verwende letzte Transaktion als Referenz
-                        if (!cursor && hasMore && batchResult.result.length > 0) {
-                            const lastTx = batchResult.result[batchResult.result.length - 1];
-                            if (lastTx.block_number) {
-                                console.log(`🔄 ${chainName} BACKUP PAGINATION: Verwende Block ${lastTx.block_number} als Referenz`);
-                                // API kann Block-basierte Pagination verwenden
+                        if (batchResult && batchResult.success && batchResult.result && batchResult.result.length > 0) {
+                            transactions.push(...batchResult.result);
+                            cursor = batchResult.cursor;
+                            hasMore = !!cursor;
+                            pageCount++;
+                            
+                            console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen, Total: ${transactions.length}`);
+                            
+                            if (pageCount % 20 === 0) {
+                                await this.delay(500);
                             }
+                        } else {
+                            console.log(`🔍 ${chainName} Keine weiteren Transaktionen gefunden`);
+                            hasMore = false;
                         }
                         
-                        pageCount++;
-                        
-                        console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen (${roiCount} potentielle ROI), Total: ${transactions.length}, hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
-                        
-                        // 🎯 WGEP DEBUG: Zeige erste ROI-Transaktion als Beispiel
-                        if (roiCount > 0) {
-                            const firstROI = batchResult.result.find(tx => {
-                                const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
-                                const hasValue = parseFloat(tx.value || '0') > 0;
-                                const fromContract = tx.from_address && tx.from_address.length === 42;
-                                return isIncoming && hasValue && fromContract;
-                            });
-                            if (firstROI) {
-                                const ethValue = parseFloat(firstROI.value) / 1e18;
-                                console.log(`🎯 WGEP BEISPIEL: ${ethValue.toFixed(6)} ETH von ${firstROI.from_address.slice(0,8)}... am ${new Date(firstROI.block_timestamp).toLocaleString('de-DE')}`);
-                            }
+                    } catch (batchError) {
+                        console.warn(`❌ ${chainName} Fehler bei Page ${pageCount + 1}:`, batchError.message);
+                        if (pageCount > 0) {
+                            await this.delay(2000);
+                            continue;
+                        } else {
+                            hasMore = false;
                         }
-                        
-                        // Rate limiting für große Wallets - REDUZIERT
-                        if (pageCount % 20 === 0) {
-                            console.log(`⏳ ${chainName} Rate limiting: Pause nach ${pageCount} Pages...`);
-                            await this.delay(500); // 0.5s Pause alle 20 Pages
-                        }
-                        
-                    } else {
-                        console.log(`🔍 ${chainName} BATCH EMPTY: Keine Transaktionen in Batch, hasMore=false`);
-                        hasMore = false;
-                    }
-                    
-                } catch (batchError) {
-                    console.warn(`❌ ${chainName} Fehler bei Page ${pageCount + 1}:`, batchError.message);
-                    // Bei Fehler nicht sofort aufhören, sondern 3x versuchen
-                    if (pageCount > 0) {
-                        console.log(`🔄 ${chainName} Versuche nächste Page...`);
-                        await this.delay(2000);
-                        continue;
-                    } else {
-                        hasMore = false;
                     }
                 }
+                
+                console.log(`✅ ${chainName}: ${transactions.length} Transaktionen über Moralis geladen`);
             }
             
-            console.log(`✅ ${chainName}: ${transactions.length} Transaktionen geladen (${pageCount} Pages)`);
-
-            // Fallback: PulseScan API nur für PulseChain wenn Moralis leer
-            if (transactions.length === 0 && chainId === '0x171') {
-                console.log('🔄 PulseChain Fallback zu PulseScan...');
+            // Für PulseChain: Zuerst Moralis versuchen, dann PulseScan als Fallback
+            else if (isPulseChain) {
+                console.log(`📡 ${chainName}: Verwende PulseScan API für PulseChain`);
+                
                 try {
                     const pulseScanTransactions = await PulseScanService.getTokenTransactions(walletAddress, null, 1, 1000);
                     
                     if (pulseScanTransactions && pulseScanTransactions.length > 0) {
                         transactions.push(...pulseScanTransactions);
                         console.log(`✅ PulseScan: ${pulseScanTransactions.length} Token-Transaktionen geladen`);
+                    } else {
+                        console.log(`ℹ️ PulseScan: Keine Transaktionen für diese Adresse gefunden`);
                     }
                 } catch (pulseScanError) {
-                    console.warn(`⚠️ PulseScan Fallback Fehler:`, pulseScanError.message);
+                    console.warn(`⚠️ PulseScan Fehler:`, pulseScanError.message);
+                }
+            }
+            
+            // Für andere Chains: Standard Moralis
+            else {
+                console.log(`📡 ${chainName}: Verwende Standard Moralis API`);
+                
+                try {
+                    const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
+                        walletAddress, 
+                        100, 
+                        null,
+                        chainId
+                    );
+                    
+                    if (batchResult && batchResult.success && batchResult.result) {
+                        transactions.push(...batchResult.result);
+                        console.log(`✅ ${chainName}: ${batchResult.result.length} Transaktionen geladen`);
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ ${chainName} Moralis Fehler:`, error.message);
                 }
             }
 
@@ -822,7 +802,7 @@ export class TaxReportService_Rebuild {
 
         } catch (error) {
             console.warn(`❌ ${chainName} Fehler beim Laden:`, error.message);
-            return []; // Leeres Array zurückgeben, damit andere Chains weiter laden können
+            return [];
         }
     }
 
@@ -1384,13 +1364,31 @@ export class TaxReportService_Rebuild {
                 row.bemerkung
             ]);
 
+            // Benutzerhinweise oberhalb der Tabelle
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('WICHTIGE BENUTZERHINWEISE:', 20, 70);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const userHints = [
+                '• Überprüfen Sie die Vollständigkeit aller aufgeführten Transaktionen',
+                '• Tragen Sie fehlende Transaktionen eigenständig nach',
+                '• Übergeben Sie diesen Bericht zur Überprüfung an Ihren Steuerberater/Wirtschaftsprüfer'
+            ];
+            
+            let hintY = 75;
+            userHints.forEach(line => {
+                doc.text(line, 20, hintY);
+                hintY += 5;
+            });
+
             doc.autoTable({
                 head: [tableColumns],
                 body: tableRows,
-                startY: 95, // Verschoben wegen Haftungsausschluss
+                startY: 92, // Angepasst für Benutzerhinweise
                 styles: { fontSize: 8 },
                 headStyles: { fillColor: [41, 128, 185] },
-                margin: { top: 95 }
+                margin: { top: 92 }
             });
 
             // 🇩🇪 DEUTSCHE STEUER-ZUSAMMENFASSUNG (neue Seite)
@@ -1500,24 +1498,22 @@ export class TaxReportService_Rebuild {
                     doc.text('Keine gehaltenen Coins gefunden', 25, currentY);
                 }
                 
-                // 📊 WICHTIGER HINWEIS
+                // 📊 TECHNISCHE HINWEISE
                 currentY += 15;
                 doc.setFontSize(10);
-                doc.setTextColor(150, 0, 0);
-                doc.text('📊 WICHTIGER HINWEIS FÜR STEUERBERATER:', 20, currentY);
+                doc.setTextColor(100, 100, 100);
+                doc.text('📊 TECHNISCHE HINWEISE:', 20, currentY);
                 currentY += 6;
                 doc.setFontSize(8);
                 doc.setTextColor(0, 0, 0);
-                const taxAdvice = [
-                    '• Alle ROI-Erträge sind einkommensteuerpflichtig (14-45% persönlicher Steuersatz)',
-                    '• Verkäufe innerhalb 365 Tage unterliegen der Spekulationssteuer (§23 EStG)',
-                    '• 600€ Freigrenze pro Jahr für private Veräußerungsgeschäfte',
+                const techNotes = [
                     '• FIFO-Methode wurde für Haltefrist-Berechnung verwendet',
                     '• Haltefristen beginnen mit Kauf und enden bei Verkauf',
-                    '• Diese Berechnung ersetzt nicht die professionelle Steuerberatung'
+                    '• ROI-Transaktionen sind automatisch erkannt',
+                    `• Erstellt am: ${new Date().toLocaleString('de-DE')} mit PulseManager v2.0`
                 ];
                 
-                taxAdvice.forEach((line, index) => {
+                techNotes.forEach((line, index) => {
                     doc.text(line, 25, currentY + (index * 4));
                 });
             }
