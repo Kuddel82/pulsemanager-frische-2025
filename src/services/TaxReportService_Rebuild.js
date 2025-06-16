@@ -74,17 +74,29 @@ export class TaxReportService_Rebuild {
     // 🔍 ROI-QUELLEN ERKENNUNG (ERWEITERT für WGEP + andere Drucker)
     static isKnownROISource(fromAddress) {
         const knownROISources = [
-            // WGEP Ethereum Drucker (bekannte Adressen)
+            // 🎯 ECHTE WGEP DRUCKER ADRESSEN (vom User bestätigt)
+            '0xfca88920ca5639ad5e954ea776e73dec54fdc065', // WGEP Drucker Contract (Matcha)
+            '0xfd357c', // WGEP ROI-Sender (verkürzt - wird mit endsWith geprüft)
+            
+            // Weitere bekannte WGEP/ROI-Quellen
             '0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d', // HEX-Drucker
             '0x832c5391dc7931312CbdBc1046669c9c3A4A28d5', // ROI-Contract
-            '0x9cd83be15a79646a3d22b81fc8ddf7b7240a62cb', // WGEP Minter (Beispiel)
-            '0x388c818ca8b9251b393131c08a736a67ccb19297', // WGEP Distributor (Beispiel)
-            // Weitere bekannte WGEP/ROI-Quellen hier hinzufügen
+            '0x9cd83be15a79646a3d22b81fc8ddf7b7240a62cb', // WGEP Minter
+            '0x388c818ca8b9251b393131c08a736a67ccb19297', // WGEP Distributor
         ];
         
-        return knownROISources.some(addr => 
+        if (!fromAddress) return false;
+        
+        // Exakte Übereinstimmung
+        const exactMatch = knownROISources.some(addr => 
             addr.toLowerCase() === fromAddress.toLowerCase()
         );
+        
+        // 🔥 WGEP-SPEZIFISCH: Prüfe auf "fd...357c" Pattern
+        const isWGEPSender = fromAddress.toLowerCase().startsWith('0xfd') && 
+                            fromAddress.toLowerCase().endsWith('357c');
+        
+        return exactMatch || isWGEPSender;
     }
 
     // 💰 DRUCKER-TRANSAKTIONS-ERKENNUNG (ERWEITERT für WGEP ETH-ROI)
@@ -172,25 +184,32 @@ export class TaxReportService_Rebuild {
 
     // 🔥 HILFSFUNKTION: Regelmäßige WGEP-Beträge erkennen
     static isRegularWGEPAmount(ethValue) {
-        // Typische WGEP ROI-Beträge und Muster
-        const regularPatterns = [
-            // Exakte Beträge
-            0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0,
-            // Bruchteile
-            0.0001, 0.0002, 0.0005, 0.00001, 0.00002, 0.00005
+        // 🎯 ECHTE WGEP ROI-BETRÄGE (vom User-Screenshot bestätigt)
+        const realWGEPAmounts = [
+            0.000303, 0.00038, 0.0003756, 0.0004788, 0.0005595, 0.000609,
+            0.0005716, 0.0005763, 0.0005824, 0.0006287, 0.0005926, 0.0006119,
+            0.0005969, 0.000649, 0.0006762, 0.000644, 0.0006161
         ];
         
-        // Prüfe auf exakte Übereinstimmung oder nahe Werte (±5%)
-        const hasExactMatch = regularPatterns.some(pattern => 
-            Math.abs(ethValue - pattern) / pattern < 0.05
-        );
+        // 🔥 WGEP-BEREICH: 0.0003 - 0.0007 ETH (typisch für WGEP ROI)
+        const isInWGEPRange = ethValue >= 0.0003 && ethValue <= 0.0007;
         
-        // Prüfe auf runde Zahlen (z.B. 0.123000, 1.500000)
-        const isRoundNumber = ethValue.toString().includes('000') || 
-                             ethValue.toString().endsWith('0') ||
-                             ethValue.toString().split('.')[1]?.endsWith('000');
+        // Prüfe auf exakte oder sehr ähnliche Beträge (±2% für Präzision)
+        const isExactMatch = realWGEPAmounts.some(typical => {
+            const diff = Math.abs(ethValue - typical);
+            const tolerance = typical * 0.02; // 2% Toleranz für echte WGEP-Beträge
+            return diff <= tolerance;
+        });
         
-        return hasExactMatch || isRoundNumber;
+        // 🔥 WGEP-PATTERN: Kleine Beträge mit 4-6 Dezimalstellen
+        const hasWGEPPattern = ethValue > 0.0001 && ethValue < 0.001 && 
+                              ethValue.toString().includes('.') &&
+                              ethValue.toString().split('.')[1]?.length >= 4;
+        
+        // 🎯 ERWEITERTE WGEP-ERKENNUNG: Auch ähnliche Beträge
+        const isSimilarToWGEP = ethValue >= 0.0002 && ethValue <= 0.0008;
+        
+        return isInWGEPRange || isExactMatch || hasWGEPPattern || isSimilarToWGEP;
     }
 
     // 🔥 HILFSFUNKTION: Zeitliche Muster erkennen
