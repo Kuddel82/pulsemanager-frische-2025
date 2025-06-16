@@ -1358,19 +1358,31 @@ export class TaxReportService_Rebuild {
                 const amount = transaction.amount ? parseFloat(transaction.amount) : 0;
                 const symbol = transaction.token_symbol || transaction.tokenSymbol || 'ETH';
                 
-                // Berechne echten USD-Wert
-                if (symbol === 'ETH') {
-                    calculatedValue = amount * 4100; // ETH aktueller Preis
-                } else if (symbol === 'USDC' || symbol === 'USDT') {
-                    calculatedValue = amount * 1.00; // Stablecoins
-                } else if (symbol === 'WGEP' || symbol === '🖨️') {
-                    calculatedValue = amount * 0.85; // WGEP Preis
+                // 🚨 VERWENDE ECHTE MORALIS-DATEN FALLS VERFÜGBAR
+                if (transaction.usd_price) {
+                    // Moralis liefert bereits USD-Preis
+                    calculatedValue = amount * parseFloat(transaction.usd_price);
+                } else if (transaction.value && transaction.value !== '0') {
+                    // Verwende originalen Transaktionswert
+                    calculatedValue = parseFloat(transaction.value);
                 } else {
-                    // Verwende originalen Wert falls verfügbar
-                    calculatedValue = transaction.value ? parseFloat(transaction.value) : 0;
+                    // KEINE HARDCODIERTEN PREISE - ehrlich zugeben wenn Daten fehlen
+                    calculatedValue = 0;
+                    finalPrice = 'Preis unbekannt';
+                    console.warn(`❌ KEIN PREIS VERFÜGBAR für ${symbol} - Moralis API hat keine Daten geliefert`);
                 }
                 
                 finalPrice = `$${calculatedValue.toFixed(2)}`;
+                
+                // 🚨 WARNUNG wenn Fallback-Preise verwendet werden
+                if (!transaction.usd_price && (!transaction.value || transaction.value === '0')) {
+                    console.warn(`⚠️ FALLBACK-PREIS für ${symbol}: ${finalPrice} - NICHT historisch korrekt!`);
+                }
+                
+                // 🚨 TRANSPARENZ: Zeige deutlich wenn Preise fehlen
+                if (finalPrice === 'Preis unbekannt') {
+                    console.warn(`⚠️ STEUER-WARNUNG: ${symbol} hat keinen verfügbaren Preis - manuell nachprüfen!`);
+                }
                 
                 // Tax-Berechnungen
                 const taxInfo = this.calculateTaxability(transaction, transaction.holdingPeriodDays || 0);
@@ -2255,18 +2267,15 @@ export class TaxReportService_Rebuild {
         return holdings;
     }
 
-    // 🏷️ TOKEN PRICE HELPER
+    // 💰 NUR ECHTE TOKEN-PREISE (KEINE HARDCODIERTEN WERTE!)
     static getTokenPrice(symbol) {
-        // 🔄 Echte API-Preise (müssen von Moralis geladen werden)
-        const realTimePrices = {
-            'ETH': 4100.00,  // Wird von Moralis überschrieben
-            'USDC': 1.00,    // Sollte immer ~$1.00 sein
-            'USDT': 1.00,    // Sollte immer ~$1.00 sein
-            'WGEP': 0.85,    // Echter WGEP-Preis
-            'PLS': 0.0001    // PulseChain Token
-        };
+        // 🚨 DIESE FUNKTION SOLL NUR ECHTE API-PREISE LIEFERN
+        // Keine hardcodierten Phantasie-Preise mehr!
         
-        return realTimePrices[symbol?.toUpperCase()] || 0;
+        console.warn(`⚠️ getTokenPrice(${symbol}) aufgerufen - verwende stattdessen Moralis API-Daten!`);
+        
+        // Gebe 0 zurück um zu zeigen dass keine echten Daten verfügbar sind
+        return 0;
     }
 
     // 🗑️ SPAM-TOKEN-FILTER (REPARIERT - Weniger aggressiv)
