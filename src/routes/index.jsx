@@ -22,6 +22,7 @@ import WgepView from '@/views/WGEPView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
 import DebugView from '@/views/DebugView'; // Debug Monitor für PHASE 3
+import WalletTransactionsTest from '@/components/WalletTransactionsTest'; // Wallet Transactions v2.2 Test
 import NotFound from '@/components/NotFound';
 
 // Legal pages
@@ -95,6 +96,9 @@ const AppRoutes = () => {
         
         {/* 🐛 DEBUG MONITOR - PHASE 3 */}
         <Route path="/debug" element={<DebugView />} />
+        
+        {/* 🧪 WALLET TRANSACTIONS TEST - v2.2 */}
+        <Route path="/wallet-transactions-test" element={<WalletTransactionsTest />} />
         
         {/* Redirects for legacy routes */}
         <Route path="/wallet" element={<Navigate to="/portfolio" replace />} />

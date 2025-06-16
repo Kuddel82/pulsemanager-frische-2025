@@ -1021,13 +1021,21 @@ export class TaxReportService_Rebuild {
                             console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                         }
                         
-                        // 🚀 WALLET HISTORY v2.2: Der ULTIMATIVE Endpoint für ALLE Transaktionstypen!
-                        const walletHistoryResponse = await MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'wallet-history');
+                        // 🚀 WALLET TRANSACTIONS v2.2: Der NEUESTE Endpoint mit Labels & Entities!
+                        const walletTransactionsResponse = await MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'wallet-transactions');
                         
-                        // 🔄 FALLBACK: Lade andere Endpoints nur wenn Wallet History fehlschlägt
+                        // 🔄 FALLBACK: Wallet History wenn wallet-transactions fehlschlägt
+                        let walletHistoryResponse = null;
+                        if (!walletTransactionsResponse?.success || !walletTransactionsResponse?.result?.length) {
+                            walletHistoryResponse = await MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'wallet-history');
+                        }
+                        
+                        // 🔄 FALLBACK: Lade andere Endpoints nur wenn beide primären Endpoints fehlschlagen
                         let fallbackResponses = [];
-                        if (!walletHistoryResponse?.success || !walletHistoryResponse?.result?.length) {
-                            console.log('⚠️ Wallet History fehlgeschlagen - verwende Fallback-Endpoints');
+                        const primaryResponse = walletTransactionsResponse?.success ? walletTransactionsResponse : walletHistoryResponse;
+                        
+                        if (!primaryResponse?.success || !primaryResponse?.result?.length) {
+                            console.log('⚠️ Beide primären Endpoints fehlgeschlagen - verwende Fallback-Endpoints');
                             fallbackResponses = await Promise.all([
                                 MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'verbose', true),
                                 MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
@@ -1037,11 +1045,29 @@ export class TaxReportService_Rebuild {
                         }
                         
                         let pageTransactions = [];
-                        // 🚀 WALLET HISTORY v2.2: ALLE Transaktionstypen in einem Response!
+                        // 🚀 WALLET TRANSACTIONS v2.2: Native Transaktionen mit Labels & Entities!
                         const allTransactions = [];
                         let nextCursor = null;
                         
-                        if (walletHistoryResponse?.success && walletHistoryResponse.result?.length > 0) {
+                        if (walletTransactionsResponse?.success && walletTransactionsResponse.result?.length > 0) {
+                            console.log(`🚀 WALLET TRANSACTIONS v2.2: ${walletTransactionsResponse.result.length} Native Transaktionen mit Labels & Entities!`);
+                            
+                            // Wallet Transactions enthält:
+                            // - Native ETH transfers mit from_address_entity, to_address_entity
+                            // - from_address_label, to_address_label
+                            // - Internal transactions included
+                            // - Vollständige Metadaten
+                            allTransactions.push(...walletTransactionsResponse.result);
+                            nextCursor = walletTransactionsResponse.cursor;
+                            
+                            // Debug: Analysiere Labels & Entities
+                            const withLabels = walletTransactionsResponse.result.filter(tx => tx.from_address_label || tx.to_address_label).length;
+                            const withEntities = walletTransactionsResponse.result.filter(tx => tx.from_address_entity || tx.to_address_entity).length;
+                            const withInternals = walletTransactionsResponse.result.filter(tx => tx.internal_transactions?.length > 0).length;
+                            
+                            console.log(`📊 WALLET TRANSACTIONS BREAKDOWN: Labels=${withLabels}, Entities=${withEntities}, Internals=${withInternals}`);
+                            
+                        } else if (walletHistoryResponse?.success && walletHistoryResponse.result?.length > 0) {
                             console.log(`🚀 WALLET HISTORY v2.2: ${walletHistoryResponse.result.length} VOLLSTÄNDIGE Transaktionen (ALLE TYPEN!)`);
                             
                             // Wallet History enthält bereits ALLE Transaktionstypen:

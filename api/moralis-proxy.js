@@ -103,6 +103,12 @@ export default async function handler(req, res) {
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
+      case 'wallet-transactions':
+        // 🆕 WALLET TRANSACTIONS: Moralis v2.2 Native Transactions mit Labels & Entities
+        apiUrl = `https://deep-index.moralis.io/api/v2.2/${address}?chain=${normalizedChain}&limit=${Math.min(limit, 100)}&order=DESC&include=internal_transactions`;
+        if (cursor) apiUrl += `&cursor=${cursor}`;
+        break;
+        
       case 'erc20-price':
         // 🚀 ERC20 TOKEN PRICE: Einzelner Token-Preis für Tax Reports
         apiUrl = `https://deep-index.moralis.io/api/v2/erc20/${address}/price?chain=${normalizedChain}&include=percent_change`;
@@ -121,8 +127,8 @@ export default async function handler(req, res) {
         return res.status(400).json({
           error: `Unbekannter Endpoint: ${endpoint}`,
           success: false,
-          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'internal-transactions', 'balances', 'bulk-token-prices', 'wallet-history', 'erc20-price'],
-          note: 'wallet-history ist der BESTE Endpoint für vollständige Transaktionshistorie (v2.2), erc20-price für einzelne Token-Preise'
+          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'internal-transactions', 'balances', 'bulk-token-prices', 'wallet-history', 'wallet-transactions', 'erc20-price'],
+          note: 'wallet-transactions ist der NEUESTE Endpoint mit Labels & Entities (v2.2), wallet-history für vollständige Historie'
         });
     }
 
