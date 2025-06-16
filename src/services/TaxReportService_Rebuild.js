@@ -266,11 +266,15 @@ export class TaxReportService_Rebuild {
             // Fallback: PulseScan API nur für PulseChain wenn Moralis leer
             if (transactions.length === 0 && chainId === '0x171') {
                 console.log('🔄 PulseChain Fallback zu PulseScan...');
-                const pulseScanTransactions = await PulseScanService.getTransactionHistory(walletAddress);
-                
-                if (pulseScanTransactions && pulseScanTransactions.length > 0) {
-                    transactions.push(...pulseScanTransactions);
-                    console.log(`✅ PulseScan: ${pulseScanTransactions.length} Transaktionen geladen`);
+                try {
+                    const pulseScanTransactions = await PulseScanService.getTokenTransactions(walletAddress, null, 1, 1000);
+                    
+                    if (pulseScanTransactions && pulseScanTransactions.length > 0) {
+                        transactions.push(...pulseScanTransactions);
+                        console.log(`✅ PulseScan: ${pulseScanTransactions.length} Token-Transaktionen geladen`);
+                    }
+                } catch (pulseScanError) {
+                    console.warn(`⚠️ PulseScan Fallback Fehler:`, pulseScanError.message);
                 }
             }
 
