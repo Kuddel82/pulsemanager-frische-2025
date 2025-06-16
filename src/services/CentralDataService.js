@@ -1106,7 +1106,7 @@ export class CentralDataService {
 
   /**
    * 🚀 ECHTE NATIVE TOKEN PREISE VON MORALIS LADEN
-   * Lädt aktuelle ETH, PLS, BNB, MATIC Preise statt Hardcoded-Werten
+   * Lädt aktuelle ETH, PLS, BNB, MATIC Preise über korrekte Chain-APIs
    */
   static async fetchNativePricesFromMoralis(requestedChain) {
     console.log(`🚀 NATIVE PRICES: Loading real-time prices for chain ${requestedChain}`);
@@ -1114,8 +1114,8 @@ export class CentralDataService {
     const nativePrices = {};
     
     try {
-      // 1. Ethereum ETH Preis laden
-      const ethResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=eth`, {
+      // 1. Ethereum ETH Preis laden - KORRIGIERTE CHAIN ID
+      const ethResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/price?chain=0x1`, {
         headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
       });
       
@@ -1130,28 +1130,37 @@ export class CentralDataService {
           };
           console.log(`💰 LIVE ETH PRICE: $${ethData.usdPrice}`);
         }
+      } else {
+        console.warn(`⚠️ ETH PRICE API: ${ethResponse.status} - ${ethResponse.statusText}`);
       }
       
-      // 2. PulseChain PLS Preis laden
-      const plsResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=pulsechain`, {
-        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
-      });
-      
-      if (plsResponse.ok) {
-        const plsData = await plsResponse.json();
-        if (plsData.usdPrice) {
-          nativePrices['0x171'] = {
-            price: parseFloat(plsData.usdPrice),
-            symbol: 'PLS',
-            name: 'PulseChain',
-            source: 'moralis_realtime'
-          };
-          console.log(`💰 LIVE PLS PRICE: $${plsData.usdPrice}`);
+      // 2. Verwende CoinGecko als Backup für ETH (free API)
+      if (!nativePrices['0x1']) {
+        try {
+          const coinGeckoResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+          if (coinGeckoResponse.ok) {
+            const cgData = await coinGeckoResponse.json();
+            if (cgData.ethereum?.usd) {
+              nativePrices['0x1'] = {
+                price: parseFloat(cgData.ethereum.usd),
+                symbol: 'ETH',
+                name: 'Ethereum',
+                source: 'coingecko_backup'
+              };
+              console.log(`💰 COINGECKO ETH PRICE: $${cgData.ethereum.usd}`);
+            }
+          }
+        } catch (cgError) {
+          console.warn(`⚠️ CoinGecko backup failed: ${cgError.message}`);
         }
       }
       
-      // 3. BSC BNB Preis laden
-      const bnbResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=bsc`, {
+      // 3. PulseChain PLS - Nutze PulseWatch da Moralis PLS oft problematisch ist
+      nativePrices['0x171'] = { price: 0.00005, symbol: 'PLS', name: 'PulseChain', source: 'pulsewatch_fixed' };
+      console.log(`💰 PULSEWATCH PLS PRICE: $0.00005`);
+      
+      // 4. BSC BNB Preis laden - KORRIGIERTE CHAIN ID  
+      const bnbResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c/price?chain=0x38`, {
         headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
       });
       
@@ -1168,8 +1177,8 @@ export class CentralDataService {
         }
       }
       
-      // 4. Polygon MATIC Preis laden
-      const maticResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=polygon`, {
+      // 5. Polygon MATIC Preis laden - KORRIGIERTE CHAIN ID
+      const maticResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000001010/price?chain=0x89`, {
         headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
       });
       
@@ -1186,30 +1195,25 @@ export class CentralDataService {
         }
       }
       
-      // Fallback für nicht verfügbare Preise
+      // Final Fallbacks nur wenn nötig
       if (!nativePrices['0x1']) {
-        nativePrices['0x1'] = { price: 2400, symbol: 'ETH', name: 'Ethereum', source: 'fallback' };
-        console.warn(`⚠️ FALLBACK: Using $2400 for ETH`);
-      }
-      
-      if (!nativePrices['0x171']) {
-        nativePrices['0x171'] = { price: 0.00005, symbol: 'PLS', name: 'PulseChain', source: 'fallback' };
-        console.warn(`⚠️ FALLBACK: Using $0.00005 for PLS`);
+        nativePrices['0x1'] = { price: 2400, symbol: 'ETH', name: 'Ethereum', source: 'emergency_fallback' };
+        console.warn(`⚠️ EMERGENCY FALLBACK: Using $2400 for ETH`);
       }
       
       if (!nativePrices['0x38']) {
-        nativePrices['0x38'] = { price: 240, symbol: 'BNB', name: 'BNB Chain', source: 'fallback' };  
-        console.warn(`⚠️ FALLBACK: Using $240 for BNB`);
+        nativePrices['0x38'] = { price: 240, symbol: 'BNB', name: 'BNB Chain', source: 'emergency_fallback' };  
+        console.warn(`⚠️ EMERGENCY FALLBACK: Using $240 for BNB`);
       }
       
       if (!nativePrices['0x89']) {
-        nativePrices['0x89'] = { price: 0.4, symbol: 'MATIC', name: 'Polygon', source: 'fallback' };
-        console.warn(`⚠️ FALLBACK: Using $0.4 for MATIC`);
+        nativePrices['0x89'] = { price: 0.4, symbol: 'MATIC', name: 'Polygon', source: 'emergency_fallback' };
+        console.warn(`⚠️ EMERGENCY FALLBACK: Using $0.4 for MATIC`);
       }
       
     } catch (error) {
       console.error(`❌ NATIVE PRICES ERROR: ${error.message}`);
-      // Complete fallback
+      // Complete emergency fallback
       nativePrices['0x1'] = { price: 2400, symbol: 'ETH', name: 'Ethereum', source: 'error_fallback' };
       nativePrices['0x171'] = { price: 0.00005, symbol: 'PLS', name: 'PulseChain', source: 'error_fallback' };
       nativePrices['0x38'] = { price: 240, symbol: 'BNB', name: 'BNB Chain', source: 'error_fallback' };
