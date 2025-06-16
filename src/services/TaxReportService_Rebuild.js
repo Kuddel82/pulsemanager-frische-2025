@@ -850,7 +850,7 @@ export class TaxReportService_Rebuild {
             if (isEthereum) {
                 console.log(`📡 ${chainName}: Verwende Moralis API für Ethereum`);
                 
-                const batchSize = isTestMode ? 10 : (forceFullHistory ? 1000 : 500);
+                const batchSize = isTestMode ? 10 : (forceFullHistory ? 100 : 50);
                 let cursor = null;
                 let pageCount = 0;
                 let hasMore = true;
@@ -914,12 +914,10 @@ export class TaxReportService_Rebuild {
                         const showCursor = nextCursor ? 'yes' : 'no';
                         console.log(`✅ ${chainName} Page ${pageCount}: ${pageTransactions.length} Transaktionen, Total: ${transactions.length}, hasMore=${hasMore}, cursor=${showCursor}`);
                         
-                        // 🔧 ERWEITERTE CURSOR-BEHANDLUNG: Auch ohne Cursor weitermachen wenn wenige Transaktionen
-                        if (!nextCursor && pageTransactions.length >= 20 && pageCount <= 10) {
-                            console.log(`🔄 ${chainName}: Kein Cursor aber ${pageTransactions.length} Transaktionen - versuche weitere Seiten`);
-                            hasMore = true;
-                            // Simuliere Cursor für weitere Pagination
-                            cursor = `page_${pageCount}`;
+                        // 🔧 CURSOR-BEHANDLUNG: Stoppe wenn kein echter Cursor vorhanden
+                        if (!nextCursor) {
+                            console.log(`🔄 ${chainName}: Kein Cursor - Ende der verfügbaren Daten erreicht`);
+                            hasMore = false;
                         }
                         
                         // Test-Modus: Stoppe nach erster erfolgreicher Page
