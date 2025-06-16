@@ -470,12 +470,12 @@ export class CentralDataService {
               
               // Hole strukturierte Preis-Daten
               const priceData = pricesData[tokenAddress] || {};
-              const finalPrice = priceData.final || 0;
+              let finalPrice = priceData.final || 0; // 🔧 FIX: let statt const für Überschreibung
               const priceSource = priceData.source || 'no_price';
               // 🔧 FIXED: Lockere Preis-Validierung - Preis > 0 ist ausreichend
               const isReliable = finalPrice > 0 && priceSource !== 'no_price' && priceSource !== 'unknown';
               
-              const totalUsd = balanceReadable * finalPrice;
+              let totalUsd = balanceReadable * finalPrice; // 🔧 FIX: let statt const für Überschreibung
               
               // 📈 DEBUG: Log alle Token mit Werten über $100
               if (totalUsd > 100) {

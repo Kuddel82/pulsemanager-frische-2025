@@ -120,27 +120,97 @@ export class TaxReportService_Rebuild {
             return false;
         }
         
-        // WGEP ROI Charakteristika:
-        // 1. Kleine bis mittlere ETH-Beträge (0.001 - 10 ETH typisch für ROI)
-        const isROIAmount = ethValue >= 0.001 && ethValue <= 10;
+        // 🔥 ERWEITERTE WGEP ROI Charakteristika (lockerer für mehr Erkennung):
+        // 1. ALLE ETH-Beträge über 0.0001 ETH (nicht nur bis 10 ETH)
+        const isROIAmount = ethValue >= 0.0001; // Erweitert: Kleinste ROI-Beträge
         
-        // 2. Von Contract-Adresse (nicht EOA)
+        // 2. Von Contract-Adresse (nicht EOA) - ERWEITERTE PRÜFUNG
         const isFromContract = from_address && 
                               from_address.length === 42 && 
                               !from_address.startsWith('0x000000') &&
-                              from_address !== '0x0000000000000000000000000000000000000000';
+                              from_address !== '0x0000000000000000000000000000000000000000' &&
+                              from_address.toLowerCase() !== walletAddress.toLowerCase(); // Nicht von sich selbst
         
-        // 3. Moderate Gas-Usage (ROI-Transaktionen haben typische Gas-Pattern)
-        const hasModerateGas = !gas_used || (parseInt(gas_used) >= 21000 && parseInt(gas_used) <= 200000);
+        // 3. ALLE Gas-Usage akzeptieren (ROI kann verschiedene Gas-Pattern haben)
+        const hasValidGas = !gas_used || parseInt(gas_used) >= 21000;
         
-        // Kombiniere alle Faktoren
-        const isLikelyWGEPROI = isROIAmount && isFromContract && hasModerateGas;
+        // 4. 🔥 ZUSÄTZLICHE WGEP-CHECKS für bessere Erkennung
+        const isKnownWGEPContract = this.isKnownROISource(from_address);
+        const hasWGEPPattern = this.hasWGEPTransactionPattern(transaction);
+        
+        // Kombiniere alle Faktoren (lockerer für mehr ROI-Erkennung)
+        const isLikelyWGEPROI = isROIAmount && isFromContract && hasValidGas;
         
         if (isLikelyWGEPROI) {
-            console.log(`🔍 WGEP HEURISTIC: ${ethValue.toFixed(6)} ETH von Contract ${from_address.slice(0,8)}... (Gas: ${gas_used || 'unknown'})`);
+            const roiType = isKnownWGEPContract ? 'KNOWN WGEP' : hasWGEPPattern ? 'WGEP PATTERN' : 'HEURISTIC';
+            console.log(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... (Gas: ${gas_used || 'unknown'})`);
         }
         
         return isLikelyWGEPROI;
+    }
+
+    // 🔥 NEUE HILFSFUNKTION: WGEP Transaction Pattern Erkennung
+    static hasWGEPTransactionPattern(transaction) {
+        const { value, block_timestamp, transaction_hash } = transaction;
+        
+        if (!value || !block_timestamp) return false;
+        
+        const ethValue = parseFloat(value) / 1e18;
+        
+        // WGEP-typische Muster:
+        // 1. Regelmäßige Beträge (oft runde Zahlen oder Bruchteile)
+        const isRegularAmount = this.isRegularWGEPAmount(ethValue);
+        
+        // 2. Zeitliche Muster (WGEP zahlt oft regelmäßig)
+        const hasTimePattern = this.hasRegularTimePattern(block_timestamp);
+        
+        // 3. Hash-Pattern (manche WGEP-Contracts haben erkennbare Hash-Muster)
+        const hasHashPattern = transaction_hash && transaction_hash.length === 66;
+        
+        return isRegularAmount || hasTimePattern || hasHashPattern;
+    }
+
+    // 🔥 HILFSFUNKTION: Regelmäßige WGEP-Beträge erkennen
+    static isRegularWGEPAmount(ethValue) {
+        // Typische WGEP ROI-Beträge und Muster
+        const regularPatterns = [
+            // Exakte Beträge
+            0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0,
+            // Bruchteile
+            0.0001, 0.0002, 0.0005, 0.00001, 0.00002, 0.00005
+        ];
+        
+        // Prüfe auf exakte Übereinstimmung oder nahe Werte (±5%)
+        const hasExactMatch = regularPatterns.some(pattern => 
+            Math.abs(ethValue - pattern) / pattern < 0.05
+        );
+        
+        // Prüfe auf runde Zahlen (z.B. 0.123000, 1.500000)
+        const isRoundNumber = ethValue.toString().includes('000') || 
+                             ethValue.toString().endsWith('0') ||
+                             ethValue.toString().split('.')[1]?.endsWith('000');
+        
+        return hasExactMatch || isRoundNumber;
+    }
+
+    // 🔥 HILFSFUNKTION: Zeitliche Muster erkennen
+    static hasRegularTimePattern(timestamp) {
+        if (!timestamp) return false;
+        
+        const date = new Date(timestamp);
+        const hour = date.getHours();
+        const minute = date.getMinutes();
+        
+        // WGEP zahlt oft zu bestimmten Zeiten:
+        // - Zur vollen Stunde (00 Minuten)
+        // - Zu halben Stunden (30 Minuten)
+        // - Zu Viertelstunden (15, 45 Minuten)
+        const isRegularTime = minute === 0 || minute === 15 || minute === 30 || minute === 45;
+        
+        // Oder zu bestimmten Stunden (oft nachts/früh morgens)
+        const isRegularHour = hour >= 0 && hour <= 6; // Nachts
+        
+        return isRegularTime || isRegularHour;
     }
 
     // 📊 HAUPTFUNKTION: Tax Report generieren (ERWEITERT für WGEP ROI + API-Fallback)
@@ -900,14 +970,15 @@ export class TaxReportService_Rebuild {
         console.log(`🔍 Erweiterte WGEP ROI-Erkennung mit vollständiger Historie...`);
 
         try {
-            // WGEP-optimierte Optionen
+            // WGEP-optimierte Optionen - ERWEITERTE ZEITSPANNE für alle WGEP ROI
             const wgepOptions = {
                 extendedTimeRange: true,
                 forceFullHistory: true,
                 debugMode: true,
-                startDate: '2025-01-01', // 🔥 FEST: Ab 1.1.2025 für Steuerreport
-                endDate: '2025-12-31',   // 🔥 FEST: Bis 31.12.2025
-                includeTransfers: true
+                startDate: '2020-01-01', // 🔥 ERWEITERT: Ab 2020 für alle WGEP ROI
+                endDate: '2025-12-31',   // 🔥 ERWEITERT: Bis Ende 2025
+                includeTransfers: true,
+                wgepMode: true // 🎯 Spezieller WGEP-Modus
             };
 
             // Generiere Tax Report mit WGEP-Optimierungen
