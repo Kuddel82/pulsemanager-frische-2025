@@ -66,13 +66,13 @@ export class MoralisV2Service {
    * 📄 WALLET TRANSACTIONS BATCH (für Tax Report Rebuild) - ERWEITERT für WGEP ROI
    * Unterstützt bis zu 300.000 Transaktionen mit Cursor-Pagination
    */
-  static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1') {
+  static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1', endpoint = null) {
     try {
       // Debug log removed to prevent console spam
       console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit}, chain: ${chain})`);
       
-      // 🔥 OPTIMIERTE ENDPOINT STRATEGY: Nur verfügbare Endpoints verwenden
-      const endpoints = [
+      // 🔥 OPTIMIERTE ENDPOINT STRATEGY: Verwende spezifischen Endpoint wenn angegeben
+      const endpoints = endpoint ? [endpoint] : [
         'transactions',      // Primär: Alle Transaktionen (ETH + Token)
         'erc20-transfers'    // Sekundär: Token-Transfers
         // nft-transfers und internal-transactions entfernt - erzeugen 400 Bad Request Spam
@@ -82,12 +82,12 @@ export class MoralisV2Service {
       let totalTransactions = 0;
       let failedEndpoints = 0;
       
-      for (const endpoint of endpoints) {
+      for (const currentEndpoint of endpoints) {
         try {
-          let url = `/api/moralis-proxy?endpoint=${endpoint}&address=${address}&chain=${chain}&limit=${limit}`;
+          let url = `/api/moralis-proxy?endpoint=${currentEndpoint}&address=${address}&chain=${chain}&limit=${limit}`;
           if (cursor) url += `&cursor=${cursor}`;
           
-          console.log(`🔍 V2: Versuche ${endpoint} endpoint...`);
+          console.log(`🔍 V2: Versuche ${currentEndpoint} endpoint...`);
           
           const response = await fetch(url);
           
@@ -107,7 +107,7 @@ export class MoralisV2Service {
             if (data.result.length > totalTransactions) {
               bestResult = data;
               totalTransactions = data.result.length;
-              console.log(`✅ V2: ${endpoint} erfolgreich - ${data.result.length} Transaktionen`);
+              console.log(`✅ V2: ${currentEndpoint} erfolgreich - ${data.result.length} Transaktionen`);
             }
           }
           

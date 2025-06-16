@@ -864,8 +864,8 @@ export class TaxReportService_Rebuild {
                         
                         // 🔄 Lade sowohl normale Transaktionen als auch ERC20-Transfers
                         const [nativeResponse, erc20Response] = await Promise.all([
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, 'transactions', cursor),
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, 'erc20', cursor)
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers')
                         ]);
                         
                         let pageTransactions = [];
