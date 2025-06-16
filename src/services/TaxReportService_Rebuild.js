@@ -1641,7 +1641,12 @@ export class TaxReportService_Rebuild {
                     // KEINE HARDCODIERTEN PREISE - ehrlich zugeben wenn Daten fehlen
                     calculatedValue = 0;
                     finalPrice = 'Preis unbekannt';
-                    console.warn(`❌ KEIN PREIS VERFÜGBAR für ${symbol} - Moralis API hat keine Daten geliefert`);
+                    // 🔇 REDUZIERTE WARNUNG: Nur einmal pro Symbol loggen statt für jede Transaktion
+                    if (!this.missingPriceSymbols) this.missingPriceSymbols = new Set();
+                    if (!this.missingPriceSymbols.has(symbol)) {
+                        console.warn(`❌ KEIN PREIS VERFÜGBAR für ${symbol} - Moralis API hat keine historischen Daten`);
+                        this.missingPriceSymbols.add(symbol);
+                    }
                 }
                 
                 finalPrice = `$${calculatedValue.toFixed(2)}`;
@@ -1689,9 +1694,17 @@ export class TaxReportService_Rebuild {
             .filter(tx => tx.art === this.TAX_CATEGORIES.ROI_INCOME)
             .reduce((sum, tx) => sum + (tx.usdValue || 0), 0);
         
+        // 📊 PREIS-VERFÜGBARKEITS-STATISTIKEN
+        const transactionsWithoutPrice = taxTable.filter(tx => tx.preis === 'Preis unbekannt').length;
+        const missingPriceSymbolsCount = this.missingPriceSymbols ? this.missingPriceSymbols.size : 0;
+        
         console.log(`📊 STEUER-STATISTIKEN:`);
         console.log(`   💰 Steuerpflichtige Transaktionen: ${taxableCount}`);
         console.log(`   💵 Gesamt ROI-Einkommen: $${totalROI.toFixed(2)}`);
+        console.log(`   ⚠️ Transaktionen ohne Preis: ${transactionsWithoutPrice}/${transactions.length} (${missingPriceSymbolsCount} verschiedene Tokens)`);
+        
+        // 🔇 RESET für nächsten Report
+        this.missingPriceSymbols = new Set();
         
         return taxTable;
     }
