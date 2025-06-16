@@ -155,7 +155,7 @@ MANUELLE EINGABE oder Explorer-Export erforderlich:
       amount: amount,
       amount_raw: tx.value,
       decimals: 18,
-      value_usd: amount * (chainId === 369 ? 0.000088 : 3200), // Rough prices
+      value_usd: amount * await this.getRealTimeNativePrice(chainId), // Real-time prices from Moralis
       gas_used: parseInt(tx.gasUsed || 0),
       gas_price: parseInt(tx.gasPrice || 0),
       gas_fee_eth: (parseInt(tx.gasUsed || 0) * parseInt(tx.gasPrice || 0)) / Math.pow(10, 18),

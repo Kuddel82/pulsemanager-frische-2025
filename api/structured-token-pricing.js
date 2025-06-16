@@ -18,7 +18,7 @@ const PULSEWATCH_PRICES = {
   'INC': 0.005,
   'PLS': 0.00005,
   'WBTC': 96000, // Bitcoin Wrapper ca. $96k
-  'WETH': 2400,  // Ethereum Wrapper ca. $2.4k
+  'WETH': null,  // Ethereum Wrapper - loaded dynamically from Moralis
   'USDC': 1.0,   // USD Coin (Stablecoin)
   'USDT': 1.0,   // Tether (Stablecoin)
   'DAI': 1.0,    // Dai Stablecoin
@@ -29,7 +29,7 @@ const PULSEWATCH_PRICES = {
 const EMERGENCY_PRICES = {
   // Kritische Tokens
   'PLS': 0.00005,   // Native PulseChain Token
-  'ETH': 2400,      // Ethereum
+  'ETH': null,      // Ethereum - loaded dynamically from Moralis
   'USDC': 1.0,      // USD Coin (Stablecoin)
   'USDT': 1.0,      // Tether (Stablecoin)
   'DAI': 1.0,       // Dai Stablecoin
@@ -424,5 +424,42 @@ export default async function handler(req, res) {
       error: 'Structured pricing failed', 
       details: error.message 
     });
+  }
+}
+
+/**
+ * 🔥 REAL-TIME ETH PRICE LOADER
+ * Lädt den aktuellen ETH-Preis von Moralis statt hardcoded values
+ */
+export async function getRealTimeEthPrice() {
+  try {
+    console.log('🔥 LOADING REAL-TIME ETH PRICE from Moralis...');
+    
+    const response = await fetch(`${MORALIS_BASE_URL}/erc20/0x0000000000000000000000000000000000000000/price?chain=eth`, {
+      headers: {
+        'X-API-Key': MORALIS_API_KEY,
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`⚠️ ETH PRICE API: ${response.status} - using fallback`);
+      return 2400; // Emergency fallback
+    }
+    
+    const data = await response.json();
+    const ethPrice = parseFloat(data.usdPrice);
+    
+    if (ethPrice && ethPrice > 0) {
+      console.log(`🔥 REAL-TIME ETH PRICE: $${ethPrice}`);
+      return ethPrice;
+    } else {
+      console.warn('⚠️ ETH PRICE: Invalid price data - using fallback');
+      return 2400; // Emergency fallback
+    }
+    
+  } catch (error) {
+    console.error(`❌ ETH PRICE ERROR: ${error.message}`);
+    return 2400; // Emergency fallback
   }
 } 

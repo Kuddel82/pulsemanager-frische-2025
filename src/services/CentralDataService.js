@@ -1025,13 +1025,8 @@ export class CentralDataService {
           if (address === 'native' || address.toLowerCase() === 'native') {
             console.log(`⚠️ MORALIS SKIP: Native token ${address} - using hardcoded prices`);
             
-            // 🎯 AKTUELLE NATIVE TOKEN PREISE (wie PulseWatch)
-            const nativePrices = {
-              '0x171': { price: 0.0000292, symbol: 'PLS', name: 'PulseChain' },  // PulseChain - aktueller Preis
-              '0x1': { price: 3200, symbol: 'ETH', name: 'Ethereum' },          // Ethereum - aktueller Preis
-              '0x38': { price: 240, symbol: 'BNB', name: 'BNB Chain' },         // BSC
-              '0x89': { price: 0.4, symbol: 'MATIC', name: 'Polygon' }          // Polygon
-            };
+            // 🎯 ECHTE NATIVE TOKEN PREISE VIA MORALIS API
+            const nativePrices = await this.fetchNativePricesFromMoralis(chain);
             
             const nativeData = nativePrices[chain] || { price: 0.0001, symbol: 'NATIVE', name: 'Native Token' };
             
@@ -1107,6 +1102,122 @@ export class CentralDataService {
       console.error(`💥 MORALIS DIRECT ERROR: ${error.message}`);
       return {};
     }
+  }
+
+  /**
+   * 🚀 ECHTE NATIVE TOKEN PREISE VON MORALIS LADEN
+   * Lädt aktuelle ETH, PLS, BNB, MATIC Preise statt Hardcoded-Werten
+   */
+  static async fetchNativePricesFromMoralis(requestedChain) {
+    console.log(`🚀 NATIVE PRICES: Loading real-time prices for chain ${requestedChain}`);
+    
+    const nativePrices = {};
+    
+    try {
+      // 1. Ethereum ETH Preis laden
+      const ethResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=eth`, {
+        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
+      });
+      
+      if (ethResponse.ok) {
+        const ethData = await ethResponse.json();
+        if (ethData.usdPrice) {
+          nativePrices['0x1'] = {
+            price: parseFloat(ethData.usdPrice),
+            symbol: 'ETH',
+            name: 'Ethereum',
+            source: 'moralis_realtime'
+          };
+          console.log(`💰 LIVE ETH PRICE: $${ethData.usdPrice}`);
+        }
+      }
+      
+      // 2. PulseChain PLS Preis laden
+      const plsResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=pulsechain`, {
+        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
+      });
+      
+      if (plsResponse.ok) {
+        const plsData = await plsResponse.json();
+        if (plsData.usdPrice) {
+          nativePrices['0x171'] = {
+            price: parseFloat(plsData.usdPrice),
+            symbol: 'PLS',
+            name: 'PulseChain',
+            source: 'moralis_realtime'
+          };
+          console.log(`💰 LIVE PLS PRICE: $${plsData.usdPrice}`);
+        }
+      }
+      
+      // 3. BSC BNB Preis laden
+      const bnbResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=bsc`, {
+        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
+      });
+      
+      if (bnbResponse.ok) {
+        const bnbData = await bnbResponse.json();
+        if (bnbData.usdPrice) {
+          nativePrices['0x38'] = {
+            price: parseFloat(bnbData.usdPrice),
+            symbol: 'BNB',
+            name: 'BNB Chain',
+            source: 'moralis_realtime'
+          };
+          console.log(`💰 LIVE BNB PRICE: $${bnbData.usdPrice}`);
+        }
+      }
+      
+      // 4. Polygon MATIC Preis laden
+      const maticResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=polygon`, {
+        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
+      });
+      
+      if (maticResponse.ok) {
+        const maticData = await maticResponse.json();
+        if (maticData.usdPrice) {
+          nativePrices['0x89'] = {
+            price: parseFloat(maticData.usdPrice),
+            symbol: 'MATIC',
+            name: 'Polygon',
+            source: 'moralis_realtime'
+          };
+          console.log(`💰 LIVE MATIC PRICE: $${maticData.usdPrice}`);
+        }
+      }
+      
+      // Fallback für nicht verfügbare Preise
+      if (!nativePrices['0x1']) {
+        nativePrices['0x1'] = { price: 2400, symbol: 'ETH', name: 'Ethereum', source: 'fallback' };
+        console.warn(`⚠️ FALLBACK: Using $2400 for ETH`);
+      }
+      
+      if (!nativePrices['0x171']) {
+        nativePrices['0x171'] = { price: 0.00005, symbol: 'PLS', name: 'PulseChain', source: 'fallback' };
+        console.warn(`⚠️ FALLBACK: Using $0.00005 for PLS`);
+      }
+      
+      if (!nativePrices['0x38']) {
+        nativePrices['0x38'] = { price: 240, symbol: 'BNB', name: 'BNB Chain', source: 'fallback' };  
+        console.warn(`⚠️ FALLBACK: Using $240 for BNB`);
+      }
+      
+      if (!nativePrices['0x89']) {
+        nativePrices['0x89'] = { price: 0.4, symbol: 'MATIC', name: 'Polygon', source: 'fallback' };
+        console.warn(`⚠️ FALLBACK: Using $0.4 for MATIC`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ NATIVE PRICES ERROR: ${error.message}`);
+      // Complete fallback
+      nativePrices['0x1'] = { price: 2400, symbol: 'ETH', name: 'Ethereum', source: 'error_fallback' };
+      nativePrices['0x171'] = { price: 0.00005, symbol: 'PLS', name: 'PulseChain', source: 'error_fallback' };
+      nativePrices['0x38'] = { price: 240, symbol: 'BNB', name: 'BNB Chain', source: 'error_fallback' };
+      nativePrices['0x89'] = { price: 0.4, symbol: 'MATIC', name: 'Polygon', source: 'error_fallback' };
+    }
+    
+    console.log(`✅ NATIVE PRICES: Loaded ${Object.keys(nativePrices).length} native token prices`);
+    return nativePrices;
   }
 
 }

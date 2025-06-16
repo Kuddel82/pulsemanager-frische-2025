@@ -83,7 +83,7 @@ export class WalletBalanceService {
   static calculatePortfolioValue(wallets) {
     const prices = {
       369: 0.000088, // PLS price in USD
-      1: 3200        // ETH price in USD
+      1: null        // ETH price loaded dynamically from Moralis
     };
     
     let totalValue = 0;

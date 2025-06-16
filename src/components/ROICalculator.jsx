@@ -123,7 +123,7 @@ export default function ROICalculator() {
 
       // Price calculations (aktualisierte Preise - Stand Januar 2025)
       const plsUsdPrice = 0.000088; // Aktueller PLS Preis (ca. $0.000088)
-      const ethUsdPrice = 3200;     // Aktueller ETH Preis (ca. $3200)
+      const ethUsdPrice = await getEthRealTimePrice(); // Echter ETH Preis von Moralis
 
       const walletValueUSD = (walletTotals.totalPLS * plsUsdPrice) + (walletTotals.totalETH * ethUsdPrice);
       const totalPortfolioValue = walletValueUSD + investmentTotals.totalInvestmentValue;
