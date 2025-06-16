@@ -1935,6 +1935,35 @@ export class TaxReportService_Rebuild {
             summary.speculativeTransactions.afterSpeculationPeriod.count;
         
         // 600€ FREIGRENZE PRÜFUNG (§23 EStG)
+        if (totalTaxableGains > 0 && totalTaxableGains <= 600) {
+            summary.germanTaxClassification.freigrenze600Euro.applicable = true;
+            summary.germanTaxClassification.freigrenze600Euro.exceeded = false;
+            summary.germanTaxClassification.freigrenze600Euro.amount = totalTaxableGains;
+        } else if (totalTaxableGains > 600) {
+            summary.germanTaxClassification.freigrenze600Euro.applicable = true;
+            summary.germanTaxClassification.freigrenze600Euro.exceeded = true;
+            summary.germanTaxClassification.freigrenze600Euro.amount = totalTaxableGains;
+        }
+        
+        // 🏦 CURRENT HOLDINGS FINALISIEREN
+        holdingsByToken.forEach((holding, token) => {
+            if (holding.currentAmount > 0) {
+                summary.holdingOverview.currentHoldings.set(token, holding.currentAmount);
+            }
+        });
+        
+        // ⏰ DURCHSCHNITTLICHE HALTEZEIT BERECHNEN
+        const totalHoldingPeriods = transactions
+            .filter(tx => tx.holdingPeriodDays !== undefined)
+            .map(tx => tx.holdingPeriodDays);
+            
+        if (totalHoldingPeriods.length > 0) {
+            summary.holdingPeriodAnalysis.avgHoldingDays = 
+                totalHoldingPeriods.reduce((sum, days) => sum + days, 0) / totalHoldingPeriods.length;
+        }
+        
+        return summary;
+    }
 }
 
 // 🎯 Export für Verwendung
