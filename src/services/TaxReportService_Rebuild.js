@@ -143,7 +143,7 @@ export class TaxReportService_Rebuild {
         return isLikelyWGEPROI;
     }
 
-    // 📊 HAUPTFUNKTION: Tax Report generieren (ERWEITERT für WGEP ROI)
+    // 📊 HAUPTFUNKTION: Tax Report generieren (ERWEITERT für WGEP ROI + API-Fallback)
     static async generateTaxReport(walletAddress, options = {}) {
         const {
             startDate = '2025-01-01', // 🔥 FEST: Steuerreport 2025
@@ -167,6 +167,36 @@ export class TaxReportService_Rebuild {
         }
 
         try {
+            // 🚨 API KEY CHECK: Prüfe ob Moralis API verfügbar ist
+            const apiStatus = await this.checkAPIAvailability();
+            if (!apiStatus.moralisAvailable) {
+                console.warn('⚠️ MORALIS API NICHT VERFÜGBAR - Fallback-Modus aktiviert');
+                console.warn('🔧 LÖSUNG: Erstelle .env Datei mit MORALIS_API_KEY für vollständige WGEP ROI-Erkennung');
+                
+                return {
+                    success: false,
+                    error: '🚨 MORALIS API KEY FEHLT',
+                    message: 'Tax Report kann nicht vollständig generiert werden ohne Moralis API Key',
+                    solution: {
+                        step1: 'Erstelle .env Datei im Root-Verzeichnis',
+                        step2: 'Füge hinzu: MORALIS_API_KEY=dein_echter_api_key',
+                        step3: 'Hole API Key von https://admin.moralis.io/',
+                        step4: 'Starte Server neu: npm run dev'
+                    },
+                    fallbackData: {
+                        transactions: [],
+                        taxTable: [],
+                        summary: {
+                            totalTransactions: 0,
+                            roiTransactions: 0,
+                            taxableGains: 0,
+                            taxFreeGains: 0
+                        }
+                    },
+                    setupGuide: 'Siehe MORALIS_API_KEY_SETUP_URGENT.md für detaillierte Anleitung'
+                };
+            }
+
             // SCHRITT 1: Vollständige Transaktionshistorie laden
             const allTransactions = await this.fetchCompleteTransactionHistory(walletAddress, {
                 extendedTimeRange,
@@ -953,6 +983,48 @@ export class TaxReportService_Rebuild {
                 uniqueContracts: [...new Set(wgepROITransactions.map(tx => tx.from_address))].length
             }
         };
+    }
+
+    // 🔑 API VERFÜGBARKEIT PRÜFEN (für echte Preise - KEIN FALLBACK mit erfundenen Werten)
+    static async checkAPIAvailability() {
+        try {
+            console.log(`🔑 Prüfe API-Verfügbarkeit für echte Blockchain-Daten...`);
+            
+            // Test Moralis API mit einem einfachen Request
+            const testResponse = await fetch('/api/moralis-proxy?endpoint=transactions&address=0x0000000000000000000000000000000000000001&chain=eth&limit=1');
+            const testData = await testResponse.json();
+            
+            const moralisAvailable = testData.success !== false && !testData.error?.includes('API KEY');
+            
+            console.log(`🔑 API STATUS: Moralis ${moralisAvailable ? '✅ Verfügbar' : '❌ Nicht verfügbar'}`);
+            
+            if (!moralisAvailable) {
+                console.error(`🚨 KRITISCH: Moralis API nicht verfügbar - Tax Reports benötigen echte Blockchain-Daten!`);
+                console.error(`🚫 KEIN FALLBACK: System verwendet KEINE erfundenen Preise für Tax Reports`);
+                
+                if (testData.solution) {
+                    console.error(`🔧 LÖSUNG:`, testData.solution);
+                }
+            }
+            
+            return {
+                moralisAvailable,
+                testResponse: testData,
+                timestamp: new Date().toISOString(),
+                requiresRealData: true, // 🔥 Tax Reports benötigen echte Daten
+                noFallbackMode: true    // 🚫 Kein Fallback mit erfundenen Preisen
+            };
+            
+        } catch (error) {
+            console.error('❌ API Verfügbarkeitsprüfung fehlgeschlagen:', error);
+            return {
+                moralisAvailable: false,
+                error: error.message,
+                timestamp: new Date().toISOString(),
+                requiresRealData: true,
+                noFallbackMode: true
+            };
+        }
     }
 }
 

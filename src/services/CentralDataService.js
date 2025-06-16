@@ -30,7 +30,7 @@ export class CentralDataService {
     }
   }
 
-  // 🌐 PRO CONFIGURATION - MULTI-CHAIN SUPPORT
+  // 🌐 PRO CONFIGURATION - WGEP FOCUSED CHAINS (Ethereum + PulseChain)
   static CHAINS = {
     PULSECHAIN: {
       id: 369,
@@ -48,26 +48,10 @@ export class CentralDataService {
       moralisChainId: '0x1',
       explorerBase: 'https://etherscan.io',
       moralisSupported: true,
-      stablecoins: ['USDC', 'USDT', 'DAI', 'BUSD']
-    },
-    POLYGON: {
-      id: 137,
-      name: 'Polygon',
-      nativeSymbol: 'MATIC',
-      moralisChainId: '0x89',
-      explorerBase: 'https://polygonscan.com',
-      moralisSupported: true,
-      stablecoins: ['USDC', 'USDT', 'DAI']
-    },
-    BSC: {
-      id: 56,
-      name: 'Binance Smart Chain',
-      nativeSymbol: 'BNB',
-      moralisChainId: '0x38',
-      explorerBase: 'https://bscscan.com',
-      moralisSupported: true,
-      stablecoins: ['USDC', 'USDT', 'BUSD']
+      stablecoins: ['USDC', 'USDT', 'DAI', 'BUSD'],
+      wgepSupported: true // 🎯 WGEP ROI auf Ethereum
     }
+    // 🚫 ENTFERNT: Polygon und BSC nicht benötigt für WGEP Tax Reports
   };
 
   // 🚀 MORALIS PRO ENDPOINTS (COST OPTIMIZED)
@@ -1159,65 +1143,24 @@ export class CentralDataService {
       nativePrices['0x171'] = { price: 0.00005, symbol: 'PLS', name: 'PulseChain', source: 'pulsewatch_fixed' };
       console.log(`💰 PULSEWATCH PLS PRICE: $0.00005`);
       
-      // 4. BSC BNB Preis laden - KORRIGIERTE CHAIN ID  
-      const bnbResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c/price?chain=0x38`, {
-        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
-      });
+      // 🚫 DEAKTIVIERT: BSC und Polygon nicht benötigt für WGEP Tax Reports
+      // Nur Ethereum und PulseChain werden für WGEP ROI benötigt
+      console.log(`🚫 SKIPPED: BSC und Polygon Preise nicht benötigt für WGEP Tax Reports`);
       
-      if (bnbResponse.ok) {
-        const bnbData = await bnbResponse.json();
-        if (bnbData.usdPrice) {
-          nativePrices['0x38'] = {
-            price: parseFloat(bnbData.usdPrice),
-            symbol: 'BNB',
-            name: 'BNB Chain',
-            source: 'moralis_realtime'
-          };
-          console.log(`💰 LIVE BNB PRICE: $${bnbData.usdPrice}`);
-        }
-      }
-      
-      // 5. Polygon MATIC Preis laden - KORRIGIERTE CHAIN ID
-      const maticResponse = await fetch(`https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000001010/price?chain=0x89`, {
-        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
-      });
-      
-      if (maticResponse.ok) {
-        const maticData = await maticResponse.json();
-        if (maticData.usdPrice) {
-          nativePrices['0x89'] = {
-            price: parseFloat(maticData.usdPrice),
-            symbol: 'MATIC',
-            name: 'Polygon',
-            source: 'moralis_realtime'
-          };
-          console.log(`💰 LIVE MATIC PRICE: $${maticData.usdPrice}`);
-        }
-      }
-      
-      // Final Fallbacks nur wenn nötig
+      // Final Fallbacks nur für benötigte Chains (ETH für WGEP)
       if (!nativePrices['0x1']) {
         nativePrices['0x1'] = { price: 2400, symbol: 'ETH', name: 'Ethereum', source: 'emergency_fallback' };
         console.warn(`⚠️ EMERGENCY FALLBACK: Using $2400 for ETH`);
       }
       
-      if (!nativePrices['0x38']) {
-        nativePrices['0x38'] = { price: 240, symbol: 'BNB', name: 'BNB Chain', source: 'emergency_fallback' };  
-        console.warn(`⚠️ EMERGENCY FALLBACK: Using $240 for BNB`);
-      }
-      
-      if (!nativePrices['0x89']) {
-        nativePrices['0x89'] = { price: 0.4, symbol: 'MATIC', name: 'Polygon', source: 'emergency_fallback' };
-        console.warn(`⚠️ EMERGENCY FALLBACK: Using $0.4 for MATIC`);
-      }
+      // 🚫 ENTFERNT: BSC und Polygon Fallbacks nicht benötigt für WGEP Tax Reports
       
     } catch (error) {
       console.error(`❌ NATIVE PRICES ERROR: ${error.message}`);
-      // Complete emergency fallback
+      // Complete emergency fallback nur für benötigte Chains
       nativePrices['0x1'] = { price: 2400, symbol: 'ETH', name: 'Ethereum', source: 'error_fallback' };
       nativePrices['0x171'] = { price: 0.00005, symbol: 'PLS', name: 'PulseChain', source: 'error_fallback' };
-      nativePrices['0x38'] = { price: 240, symbol: 'BNB', name: 'BNB Chain', source: 'error_fallback' };
-      nativePrices['0x89'] = { price: 0.4, symbol: 'MATIC', name: 'Polygon', source: 'error_fallback' };
+      // 🚫 ENTFERNT: BSC und Polygon Error-Fallbacks nicht benötigt
     }
     
     console.log(`✅ NATIVE PRICES: Loaded ${Object.keys(nativePrices).length} native token prices`);

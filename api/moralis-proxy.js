@@ -16,12 +16,23 @@ export default async function handler(req, res) {
 
   console.log(`🔍 PROXY DEBUG: endpoint=${endpoint}, address=${address?.slice(0,8)}..., chain=${chain}, limit=${limit}`);
 
-  if (!MORALIS_API_KEY) {
-    console.error('🚨 PROXY: MORALIS_API_KEY missing');
+  // 🚨 CRITICAL: API Key Check mit detaillierter Diagnose
+  if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
+    console.error('🚨 PROXY: MORALIS_API_KEY missing or invalid');
+    console.error('🔧 LÖSUNG: Erstelle eine .env Datei mit: MORALIS_API_KEY=dein_echter_api_key');
+    console.error('🌐 Moralis Account: https://admin.moralis.io/');
+    
     return res.status(500).json({
-      error: 'MORALIS_API_KEY nicht konfiguriert',
+      error: '🚨 MORALIS API KEY FEHLT',
       success: false,
-      debug: 'Server-side API key missing'
+      debug: 'Server-side API key missing or invalid',
+      solution: {
+        step1: 'Erstelle eine .env Datei im Root-Verzeichnis',
+        step2: 'Füge hinzu: MORALIS_API_KEY=dein_echter_moralis_api_key',
+        step3: 'Hole deinen API Key von https://admin.moralis.io/',
+        step4: 'Starte den Server neu: npm run dev'
+      },
+      fallback: 'System läuft im eingeschränkten Modus ohne Live-Daten'
     });
   }
 
@@ -90,6 +101,17 @@ export default async function handler(req, res) {
     console.log(`🚀 PROXY: ${endpoint} für ${address?.slice(0,8)}... auf ${normalizedChain}`);
     console.log(`🔗 PROXY URL: ${apiUrl}`);
 
+    // 🔑 API Key Validation vor dem Request
+    if (MORALIS_API_KEY.length < 20) {
+      console.error('🚨 PROXY: API Key zu kurz - wahrscheinlich ungültig');
+      return res.status(500).json({
+        success: false,
+        error: 'Moralis API Key ungültig (zu kurz)',
+        debug: `Key length: ${MORALIS_API_KEY.length}, expected: >20`,
+        solution: 'Überprüfe deinen API Key von https://admin.moralis.io/'
+      });
+    }
+
     // Moralis API Aufruf mit besserer Fehlerbehandlung
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -107,30 +129,47 @@ export default async function handler(req, res) {
       const errorText = await response.text();
       console.error(`❌ MORALIS API ERROR: ${response.status} - ${errorText}`);
       
-      // Spezifische Fehlerbehandlung
+      // Spezifische Fehlerbehandlung mit Lösungsvorschlägen
       if (response.status === 401) {
         return res.status(500).json({
           success: false,
-          error: 'Moralis API Authentication failed',
+          error: '🔑 Moralis API Authentication failed',
           debug: 'Invalid API key or permissions',
-          moralisStatus: response.status
+          moralisStatus: response.status,
+          solution: {
+            step1: 'Überprüfe deinen API Key auf https://admin.moralis.io/',
+            step2: 'Stelle sicher, dass der Key korrekt in .env gesetzt ist',
+            step3: 'Prüfe ob dein Moralis Plan aktiv ist'
+          }
         });
       }
       
       if (response.status === 429) {
         return res.status(500).json({
           success: false,
-          error: 'Moralis API Rate limit exceeded',
+          error: '⏰ Moralis API Rate limit exceeded',
           debug: 'Too many requests',
-          moralisStatus: response.status
+          moralisStatus: response.status,
+          solution: 'Warte 60 Sekunden und versuche es erneut'
+        });
+      }
+
+      if (response.status === 404) {
+        return res.status(500).json({
+          success: false,
+          error: '🔍 Moralis API Endpoint not found',
+          debug: `URL: ${apiUrl}`,
+          moralisStatus: response.status,
+          solution: 'Überprüfe Chain-ID und Endpoint-Parameter'
         });
       }
       
       return res.status(500).json({
         success: false,
-        error: `Moralis API Error: ${response.status}`,
+        error: `🚨 Moralis API Error: ${response.status}`,
         debug: errorText,
-        moralisStatus: response.status
+        moralisStatus: response.status,
+        url: apiUrl
       });
     }
 
@@ -149,7 +188,7 @@ export default async function handler(req, res) {
       page: data.page,
       page_size: data.page_size,
       timestamp: new Date().toISOString(),
-      source: 'moralis_proxy_fixed'
+      source: 'moralis_proxy_enhanced'
     });
 
   } catch (error) {
@@ -162,7 +201,8 @@ export default async function handler(req, res) {
       address: address,
       chain: chain,
       timestamp: new Date().toISOString(),
-      debug: 'Proxy internal error'
+      debug: 'Proxy internal error',
+      solution: 'Überprüfe Netzwerkverbindung und API-Konfiguration'
     });
   }
 } 
