@@ -60,11 +60,16 @@ export class TaxReportService_Rebuild {
         const isIncoming = to_address?.toLowerCase() === walletAddress.toLowerCase();
         const isOutgoing = from_address?.toLowerCase() === walletAddress.toLowerCase();
         
+        // 🔍 DEBUG: Zeige ALLE Transaktionen (nicht nur eingehende)
+        console.log(`🔍 ALL TX: isIncoming=${isIncoming}, isOutgoing=${isOutgoing}, from=${from_address?.slice(0,8)}, to=${to_address?.slice(0,8)}, wallet=${walletAddress?.slice(0,8)}`);
+        
         // 🔍 DEBUG: Zeige alle eingehenden Transaktionen
         if (isIncoming && from_address !== walletAddress) {
             const ethValue = parseFloat(value || '0') / Math.pow(10, transaction.decimals || 18);
             console.log(`🔍 INCOMING TX: ${ethValue.toFixed(6)} ${transaction.token_symbol || 'ETH'} von ${from_address?.slice(0,8)}... → Prüfe ROI...`);
             console.log(`🔍 TX DETAILS: token_address=${transaction.token_address}, value=${value}, decimals=${transaction.decimals}, symbol=${transaction.token_symbol}`);
+        } else {
+            console.log(`🔍 NOT INCOMING: isIncoming=${isIncoming}, from_address=${from_address?.slice(0,8)}, walletAddress=${walletAddress?.slice(0,8)}, same=${from_address === walletAddress}`);
         }
 
         // 🔥 ROI-ERKENNUNG: Eingehende Token von Contracts (UNIVERSELL für alle Chains)
@@ -249,17 +254,20 @@ export class TaxReportService_Rebuild {
         console.log(`🔍 ETH VALUE CALCULATED: ${ethValue.toFixed(8)} (from value: ${value}, decimals: ${transaction.decimals || 18})`);
         
         if (ethValue <= 0) {
-            console.log(`❌ ZERO VALUE: Transaktion hat 0 ETH-Wert → Überspringe ROI-Prüfung`);
-            return false;
+            console.log(`❌ ZERO VALUE: Transaktion hat 0 ETH-Wert → AKZEPTIERE TROTZDEM FÜR TEST`);
+            // return false; // 🔥 TEMPORÄR DEAKTIVIERT für 0-Werte Test
         }
         
         // 🔥 ERWEITERTE WGEP ROI Charakteristika (lockerer für mehr Erkennung):
-        // 1. WGEP-typische Beträge - ERWEITERT für falsche Dezimalstellen
-        const isROIAmount = ethValue >= 0.0001 && ethValue <= 10000000; // ERWEITERT: Bis 10M ETH für falsche Decimals
+        // 1. WGEP-typische Beträge - ERWEITERT für falsche Dezimalstellen + 0-Werte
+        const isROIAmount = ethValue >= 0 && ethValue <= 10000000; // ERWEITERT: Ab 0 ETH für 0-Werte Test
         const isWGEPAmount = this.isRegularWGEPAmount(ethValue); // Spezifische WGEP-Beträge
         
         // 🎯 WGEP-SPEZIFISCH: Auch sehr große Werte akzeptieren (falsche Dezimalstellen)
         const isLargeWGEPValue = ethValue > 10 && ethValue < 10000000; // Große Werte durch falsche Decimals
+        
+        // 🔥 0-WERTE TEST: Akzeptiere auch 0-Werte für Debugging
+        const isZeroValueTest = ethValue === 0; // 0-Werte für Test
         
         // 2. Von Contract-Adresse (nicht EOA) - ERWEITERTE PRÜFUNG
         const isFromContract = from_address && 
@@ -276,7 +284,7 @@ export class TaxReportService_Rebuild {
         const hasWGEPPattern = this.hasWGEPTransactionPattern(transaction);
         
         // Kombiniere alle Faktoren (lockerer für mehr ROI-Erkennung)
-        const isLikelyWGEPROI = (isROIAmount || isWGEPAmount || isLargeWGEPValue) && isFromContract && hasValidGas;
+        const isLikelyWGEPROI = (isROIAmount || isWGEPAmount || isLargeWGEPValue || isZeroValueTest) && isFromContract && hasValidGas;
         
         if (isLikelyWGEPROI) {
             const roiType = isKnownWGEPContract ? 'KNOWN WGEP' : hasWGEPPattern ? 'WGEP PATTERN' : 'HEURISTIC';
@@ -284,8 +292,8 @@ export class TaxReportService_Rebuild {
             console.log(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... (${tokenInfo}, Gas: ${gas_used || 'unknown'})`);
         } else {
             // 🔍 DEBUG: Warum wurde es NICHT als ROI erkannt?
-            if (ethValue > 0 && isFromContract) {
-                console.log(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isLargeWGEPValue=${isLargeWGEPValue}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
+            if (isFromContract) { // Auch 0-Werte zeigen
+                console.log(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isLargeWGEPValue=${isLargeWGEPValue}, isZeroValueTest=${isZeroValueTest}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
             }
         }
         
