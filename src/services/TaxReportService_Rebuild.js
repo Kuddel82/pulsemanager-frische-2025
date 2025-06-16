@@ -690,12 +690,18 @@ export class TaxReportService_Rebuild {
                 try {
                     console.log(`📄 ${chainName} Page ${pageCount + 1} (Suche nach WGEP ROI-Transaktionen)...`);
                     
+                    // 🚨 44-TRANSAKTIONEN-DEBUG: Detaillierte API-Anfrage
+                    console.error(`🚨 API-CALL: walletAddress=${walletAddress.slice(0,8)}..., batchSize=${batchSize}, cursor=${cursor ? 'EXISTS' : 'NULL'}, chainId=${chainId}`);
+                    
                     const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
                         walletAddress, 
                         batchSize, 
                         cursor,
                         chainId
                     );
+                    
+                    // 🚨 44-TRANSAKTIONEN-DEBUG: API-Antwort analysieren
+                    console.error(`🚨 API-RESPONSE: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${!!batchResult?.cursor}, expectedBatchSize=${batchSize}`);
                     
                     // 🔍 ENHANCED DEBUG: Detaillierte Pagination-Logs
                     console.log(`🔍 ${chainName} BATCH DEBUG: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${batchResult?.cursor || 'null'}, batchSize=${batchSize}`);

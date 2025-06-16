@@ -68,6 +68,7 @@ export class MoralisV2Service {
    */
   static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1') {
     try {
+      console.error(`🚨 MORALIS-API-CALL: address=${address.slice(0,8)}..., limit=${limit}, cursor=${cursor ? 'EXISTS' : 'NULL'}, chain=${chain}`);
       console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit}, chain: ${chain})`);
       
       // 🔥 MULTI-ENDPOINT STRATEGY: Versuche verschiedene Endpoints für maximale Abdeckung
@@ -155,6 +156,9 @@ export class MoralisV2Service {
           console.log(`  💰 ${ethValue.toFixed(6)} ETH von ${tx.from_address.slice(0,8)}... am ${new Date(tx.block_timestamp).toLocaleString('de-DE')}`);
         });
       }
+      
+      // 🚨 44-TRANSAKTIONEN-FINAL-DEBUG: Finale API-Response
+      console.error(`🚨 MORALIS-RESPONSE-FINAL: success=true, resultLength=${data.result?.length || 0}, cursor=${!!data.cursor}, requestedLimit=${limit}, actualReceived=${data.result?.length || 0}`);
       
       return {
         success: true,
