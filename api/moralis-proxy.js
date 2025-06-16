@@ -103,6 +103,11 @@ export default async function handler(req, res) {
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
+      case 'erc20-price':
+        // 🚀 ERC20 TOKEN PRICE: Einzelner Token-Preis für Tax Reports
+        apiUrl = `https://deep-index.moralis.io/api/v2/erc20/${address}/price?chain=${normalizedChain}&include=percent_change`;
+        break;
+        
       case 'native-transfers':
         // 🚨 DEPRECATED: native-transfers nicht unterstützt, verwende transactions
         return res.status(400).json({
@@ -116,8 +121,8 @@ export default async function handler(req, res) {
         return res.status(400).json({
           error: `Unbekannter Endpoint: ${endpoint}`,
           success: false,
-          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'internal-transactions', 'balances', 'bulk-token-prices', 'wallet-history'],
-          note: 'wallet-history ist der BESTE Endpoint für vollständige Transaktionshistorie (v2.2), bulk-token-prices für Multiple Token Prices'
+          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'internal-transactions', 'balances', 'bulk-token-prices', 'wallet-history', 'erc20-price'],
+          note: 'wallet-history ist der BESTE Endpoint für vollständige Transaktionshistorie (v2.2), erc20-price für einzelne Token-Preise'
         });
     }
 
@@ -210,7 +215,20 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    console.log(`✅ PROXY: ${data.result?.length || 0} Einträge geladen`);
+    console.log(`✅ PROXY: ${data.result?.length || (endpoint === 'erc20-price' ? 'price data' : 0)} Einträge geladen`);
+
+    // 🔥 SPEZIELLE BEHANDLUNG für erc20-price (hat keine result-Array)
+    if (endpoint === 'erc20-price') {
+      return res.status(200).json({
+        success: true,
+        endpoint: endpoint,
+        address: address,
+        chain: normalizedChain,
+        result: data, // Direkte Preis-Daten
+        timestamp: new Date().toISOString(),
+        source: 'moralis_proxy_price'
+      });
+    }
 
     return res.status(200).json({
       success: true,

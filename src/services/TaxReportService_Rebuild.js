@@ -1310,18 +1310,20 @@ export class TaxReportService_Rebuild {
                                     if (priceCache.has(ethCacheKey)) {
                                         usdPrice = priceCache.get(ethCacheKey);
                                     } else {
-                                        // Live ETH-Preis über CentralDataService
+                                        // Live ETH-Preis über Moralis API
                                         try {
-                                            const ethPriceResponse = await fetch('/api/moralis-prices?endpoint=eth-price');
+                                            const ethPriceResponse = await fetch('/api/moralis-proxy?endpoint=erc20-price&address=0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2&chain=0x1');
                                             if (ethPriceResponse.ok) {
                                                 const ethData = await ethPriceResponse.json();
-                                                usdPrice = ethData.usdPrice || 3400; // Fallback ETH-Preis
+                                                usdPrice = ethData.result?.usdPrice || 3400; // Fallback ETH-Preis
                                                 priceCache.set(ethCacheKey, usdPrice);
-                                                if (this.debugMode) console.log(`💰 LIVE ETH-PREIS: $${usdPrice}`);
+                                                console.log(`💰 LIVE ETH-PREIS: $${usdPrice}`);
                                             } else {
+                                                console.warn(`⚠️ ETH-PREIS API Fehler: ${ethPriceResponse.status}`);
                                                 usdPrice = 3400; // Fallback
                                             }
                                         } catch (ethError) {
+                                            console.warn(`⚠️ ETH-PREIS Fehler:`, ethError.message);
                                             usdPrice = 3400; // Fallback ETH-Preis
                                         }
                                     }
