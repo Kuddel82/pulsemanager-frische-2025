@@ -760,11 +760,21 @@ export class TaxReportService_Rebuild {
                         if (batchResult && batchResult.success && batchResult.result && batchResult.result.length > 0) {
                             transactions.push(...batchResult.result);
                             cursor = batchResult.cursor;
-                            hasMore = !!cursor;
                             pageCount++;
                             
+                            // 🔥 AGGRESSIVE PAGINATION FIX: Continue auch ohne Cursor wenn < batchSize
+                            // Das 44-Problem kommt daher, dass API manchmal keine Cursor zurückgibt
+                            const continueConditions = [
+                                !!cursor,  // Normaler Cursor vorhanden
+                                (batchResult.result.length === batchSize), // Vollständiger Batch = mehr verfügbar
+                                (pageCount < 3 && batchResult.result.length > 20), // Erste 3 Pages immer probieren
+                                (pageCount < 15 && batchResult.result.length >= 44) // 484 Transaktionen fix
+                            ];
+                            
+                            hasMore = continueConditions.some(condition => condition);
+                            
                             if (!isTestMode) {
-                                console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen, Total: ${transactions.length}`);
+                                console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen, Total: ${transactions.length}, hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
                             }
                             
                             // Test-Modus: Stoppe nach erster erfolgreicher Page
