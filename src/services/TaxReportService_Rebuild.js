@@ -275,6 +275,22 @@ export class TaxReportService_Rebuild {
             return false;
         }
         
+        // 🚨 SPAM-TOKEN-FILTER: Blockiere bekannte Spam-Contract-Adressen
+        const spamContracts = [
+            '0xb8713b', // Spam Token mit falschen Decimals (MILLIONEN ETH)
+            '0x74dec0', // Weitere Spam-Contracts
+            '0x8c8d7c'  // Weitere Spam-Contracts
+        ];
+        
+        const isSpamContract = spamContracts.some(spam => 
+            from_address?.toLowerCase().startsWith(spam.toLowerCase())
+        );
+        
+        if (isSpamContract) {
+            console.error(`🚫 SPAM-TOKEN BLOCKIERT: ${from_address?.slice(0,10)}... (falscher Decimal-Bug)`);
+            return false;
+        }
+        
         // 🔥 CHAIN-DETECTION
         const txChain = sourceChain || transaction.chain || '0x1';
         const isEthereum = txChain === '0x1';
@@ -294,6 +310,12 @@ export class TaxReportService_Rebuild {
             // Native ETH/PLS-Transaktion
             tokenSymbol = chainName;
             nativeValue = parseFloat(value || '0') / 1e18;
+        }
+        
+        // 🚨 REALISTISCHER ETH-FILTER: Blockiere unrealistische Mengen
+        if (nativeValue > 1000) { // Mehr als 1000 ETH ist verdächtig für ROI
+            console.error(`🚫 UNREALISTISCHER ETH-WERT: ${nativeValue.toFixed(2)} ${tokenSymbol} von ${from_address?.slice(0,10)}... - wahrscheinlich Decimal-Bug`);
+            return false;
         }
         
         // 🚨 AGGRESSIVE ROI-KRITERIEN (für 100.000+ ROI-Transaktionen)
