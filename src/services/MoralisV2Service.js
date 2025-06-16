@@ -68,7 +68,7 @@ export class MoralisV2Service {
    */
   static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1') {
     try {
-      console.error(`🚨 MORALIS-API-CALL: address=${address.slice(0,8)}..., limit=${limit}, cursor=${cursor ? 'EXISTS' : 'NULL'}, chain=${chain}`);
+      // Debug log removed to prevent console spam
       console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit}, chain: ${chain})`);
       
       // 🔥 MULTI-ENDPOINT STRATEGY: Versuche verschiedene Endpoints für maximale Abdeckung
@@ -93,16 +93,16 @@ export class MoralisV2Service {
           const data = await response.json();
           
           if (data.result && data.result.length > 0) {
-            console.error(`✅ ENDPOINT-SUCCESS: ${endpoint} lieferte ${data.result.length} Transaktionen`);
+            // Debug: Endpoint successful
             
             // Verwende das Ergebnis mit den meisten Transaktionen
             if (data.result.length > totalTransactions) {
               bestResult = data;
               totalTransactions = data.result.length;
-              console.error(`🔥 NEW-BEST-ENDPOINT: ${endpoint} mit ${data.result.length} Transaktionen (vorher: ${totalTransactions})`);
+              // Debug: New best endpoint found
             }
           } else {
-            console.error(`❌ ENDPOINT-FAILED: ${endpoint} lieferte ${data.result?.length || 0} Transaktionen`);
+            // Debug: Endpoint failed
           }
           
         } catch (endpointError) {
@@ -160,8 +160,7 @@ export class MoralisV2Service {
         });
       }
       
-      // 🚨 44-TRANSAKTIONEN-FINAL-DEBUG: Finale API-Response
-      console.error(`🚨 MORALIS-RESPONSE-FINAL: success=true, resultLength=${data.result?.length || 0}, cursor=${!!data.cursor}, requestedLimit=${limit}, actualReceived=${data.result?.length || 0}`);
+      // Debug: Final response processed
       
       return {
         success: true,

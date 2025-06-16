@@ -287,7 +287,7 @@ export class TaxReportService_Rebuild {
         );
         
         if (isSpamContract) {
-            console.error(`🚫 SPAM-TOKEN BLOCKIERT: ${from_address?.slice(0,10)}... (falscher Decimal-Bug)`);
+            if (this.debugMode) console.log(`🚫 SPAM-TOKEN BLOCKIERT: ${from_address?.slice(0,10)}... (falscher Decimal-Bug)`);
             return false;
         }
         
@@ -314,7 +314,7 @@ export class TaxReportService_Rebuild {
         
         // 🚨 REALISTISCHER ETH-FILTER: Blockiere unrealistische Mengen
         if (nativeValue > 1000) { // Mehr als 1000 ETH ist verdächtig für ROI
-            console.error(`🚫 UNREALISTISCHER ETH-WERT: ${nativeValue.toFixed(2)} ${tokenSymbol} von ${from_address?.slice(0,10)}... - wahrscheinlich Decimal-Bug`);
+            if (this.debugMode) console.log(`🚫 UNREALISTISCHER ETH-WERT: ${nativeValue.toFixed(2)} ${tokenSymbol} von ${from_address?.slice(0,10)}... - wahrscheinlich Decimal-Bug`);
             return false;
         }
         
@@ -365,7 +365,7 @@ export class TaxReportService_Rebuild {
             const roiSize = isSmallROI ? 'MICRO' : isMediumROI ? 'MEDIUM' : isLargeROI ? 'LARGE' : 
                            isMegaROI ? 'MEGA' : isGigaROI ? 'GIGA' : 'UNKNOWN';
             
-            console.error(`🎯 ${chainName} ROI ${roiType}-${roiSize}: ${nativeValue.toFixed(8)} ${tokenSymbol} von ${from_address.slice(0,8)}... (Bonus: ${bonusPoints})`);
+            if (this.debugMode) console.log(`🎯 ${chainName} ROI ${roiType}-${roiSize}: ${nativeValue.toFixed(8)} ${tokenSymbol} von ${from_address.slice(0,8)}... (Bonus: ${bonusPoints})`);
         }
         
         return finalROIDecision;
@@ -561,12 +561,12 @@ export class TaxReportService_Rebuild {
             }
 
             // SCHRITT 3: Steuerliche Kategorisierung
-            console.error(`🔍 BEFORE CATEGORIZE: ${filteredTransactions.length} Transaktionen werden kategorisiert...`);
+            if (this.debugMode) console.log(`🔍 BEFORE CATEGORIZE: ${filteredTransactions.length} Transaktionen werden kategorisiert...`);
             const categorizedTransactions = await this.categorizeTransactionsForTax(
                 filteredTransactions, 
                 walletAddress
             );
-            console.error(`🔍 AFTER CATEGORIZE: ${categorizedTransactions.length} Transaktionen kategorisiert!`);
+            if (this.debugMode) console.log(`🔍 AFTER CATEGORIZE: ${categorizedTransactions.length} Transaktionen kategorisiert!`);
 
             // SCHRITT 4: Haltefrist-Berechnung
             const taxCalculatedTransactions = this.calculateHoldingPeriods(categorizedTransactions);
@@ -713,7 +713,7 @@ export class TaxReportService_Rebuild {
                     console.log(`📄 ${chainName} Page ${pageCount + 1} (Suche nach WGEP ROI-Transaktionen)...`);
                     
                     // 🚨 44-TRANSAKTIONEN-DEBUG: Detaillierte API-Anfrage
-                    console.error(`🚨 API-CALL: walletAddress=${walletAddress.slice(0,8)}..., batchSize=${batchSize}, cursor=${cursor ? 'EXISTS' : 'NULL'}, chainId=${chainId}`);
+                    if (this.debugMode) console.log(`🚨 API-CALL: walletAddress=${walletAddress.slice(0,8)}..., batchSize=${batchSize}, cursor=${cursor ? 'EXISTS' : 'NULL'}, chainId=${chainId}`);
                     
                     const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
                         walletAddress, 
@@ -843,7 +843,7 @@ export class TaxReportService_Rebuild {
         let transferCount = 0;
         let otherCount = 0;
 
-        console.error(`🔍 CATEGORIZE START: ${transactions.length} Transaktionen für Wallet ${walletAddress?.slice(0,8)}...`);
+        if (this.debugMode) console.log(`🔍 CATEGORIZE START: ${transactions.length} Transaktionen für Wallet ${walletAddress?.slice(0,8)}...`);
 
         // 🚀 BATCH PROCESSING für Performance
         const batchSize = 1000;
