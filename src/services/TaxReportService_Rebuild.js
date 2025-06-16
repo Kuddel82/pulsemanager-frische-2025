@@ -59,22 +59,28 @@ export class TaxReportService_Rebuild {
         const { from_address, to_address, value, input } = transaction;
         const isIncoming = to_address?.toLowerCase() === walletAddress.toLowerCase();
         const isOutgoing = from_address?.toLowerCase() === walletAddress.toLowerCase();
+        
+        // 🔍 DEBUG: Zeige alle eingehenden Transaktionen
+        if (isIncoming && from_address !== walletAddress) {
+            const ethValue = parseFloat(value || '0') / Math.pow(10, transaction.decimals || 18);
+            console.log(`🔍 INCOMING TX: ${ethValue.toFixed(6)} ${transaction.token_symbol || 'ETH'} von ${from_address?.slice(0,8)}... → Prüfe ROI...`);
+        }
 
         // 🔥 ROI-ERKENNUNG: Eingehende Token von Contracts (UNIVERSELL für alle Chains)
         if (isIncoming && from_address !== walletAddress) {
-            // 1. Bekannte ROI-Contracts oder Drucker
-            if (this.isKnownROISource(from_address) || this.isDruckerTransaction(transaction)) {
-                const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
-                const amount = this.getTokenAmount(transaction);
-                console.log(`🎯 ROI DETECTED: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
-                return this.TAX_CATEGORIES.ROI_INCOME;
-            }
-            
-            // 2. Heuristische ROI-Erkennung: Kleine Beträge von Contracts
+            // 🎯 UNIVERSELLE ROI-ERKENNUNG: Prüfe ALLE eingehenden Transaktionen
             if (this.isROITransaction(transaction, walletAddress)) {
                 const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
                 const amount = this.getTokenAmount(transaction);
-                console.log(`🎯 ROI: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                console.log(`🎯 ROI UNIVERSAL: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                return this.TAX_CATEGORIES.ROI_INCOME;
+            }
+            
+            // 🔍 FALLBACK: Bekannte ROI-Contracts oder Drucker (für Sicherheit)
+            if (this.isKnownROISource(from_address) || this.isDruckerTransaction(transaction)) {
+                const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
+                const amount = this.getTokenAmount(transaction);
+                console.log(`🎯 ROI FALLBACK: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
         }
