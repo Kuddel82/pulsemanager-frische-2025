@@ -1633,12 +1633,12 @@ export class TaxReportService_Rebuild {
                 const symbol = transaction.token_symbol || transaction.tokenSymbol || 'ETH';
                 
                 // 🚨 VERWENDE ECHTE MORALIS-DATEN FALLS VERFÜGBAR
-                if (transaction.usd_price) {
-                    // Moralis liefert bereits USD-Preis
+                if (transaction.usd_price && transaction.usd_price > 0) {
+                    // Moralis liefert bereits USD-Preis pro Token
                     calculatedValue = amount * parseFloat(transaction.usd_price);
-                } else if (transaction.value && transaction.value !== '0') {
-                    // Verwende originalen Transaktionswert
-                    calculatedValue = parseFloat(transaction.value);
+                } else if (transaction.usdValue && transaction.usdValue > 0) {
+                    // Bereits berechneter USD-Wert aus categorizeTransactionsForTax
+                    calculatedValue = parseFloat(transaction.usdValue);
                 } else {
                     // KEINE HARDCODIERTEN PREISE - ehrlich zugeben wenn Daten fehlen
                     calculatedValue = 0;
@@ -1651,10 +1651,17 @@ export class TaxReportService_Rebuild {
                     }
                 }
                 
-                finalPrice = `$${calculatedValue.toFixed(2)}`;
+                // 🚨 MEGA-WERT-SICHERHEITSFILTER: Verhindere astronomische USD-Werte
+                if (calculatedValue > 1000000) { // Mehr als 1 Million USD pro Transaktion
+                    console.warn(`🚫 ASTRONOMISCHER WERT BLOCKIERT: $${calculatedValue.toExponential(2)} für ${amount.toFixed(6)} ${symbol} - wahrscheinlich Decimal-Bug`);
+                    calculatedValue = 0;
+                    finalPrice = 'Preis unbekannt (Wert zu hoch)';
+                } else {
+                    finalPrice = `$${calculatedValue.toFixed(2)}`;
+                }
                 
                 // 🚨 WARNUNG wenn Fallback-Preise verwendet werden
-                if (!transaction.usd_price && (!transaction.value || transaction.value === '0')) {
+                if (!transaction.usd_price && !transaction.usdValue) {
                     console.warn(`⚠️ FALLBACK-PREIS für ${symbol}: ${finalPrice} - NICHT historisch korrekt!`);
                 }
                 
