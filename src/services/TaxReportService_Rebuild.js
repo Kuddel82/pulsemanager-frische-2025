@@ -19,7 +19,7 @@ import 'jspdf-autotable';
 
 export class TaxReportService_Rebuild {
     
-    // 🏛️ DEUTSCHE STEUER-KATEGORIEN (EStG-konform)
+    // 🏛️ DEUTSCHE STEUER-KATEGORIEN (EStG-konform + WGEP-SPEZIFISCH)
     static TAX_CATEGORIES = {
         KAUF: 'Kauf',                    // Anschaffung, Haltefrist beginnt
         VERKAUF: 'Verkauf',              // Veräußerung, steuerpflichtig bei Gewinn
@@ -27,6 +27,12 @@ export class TaxReportService_Rebuild {
         ROI_INCOME: 'ROI-Einkommen',     // Sonstige Einkünfte §22 EStG - SOFORT steuerpflichtig
         TRANSFER: 'Transfer',            // Nicht steuerrelevant
         STAKING_CLAIM: 'Staking-Claim',  // Sonstige Einkünfte §22 EStG
+        
+        // 🔥 WGEP-SPEZIFISCHE KATEGORIEN
+        WGEP_KAUF: 'WGEP-Kauf',         // USDC → WGEP (Anschaffung mit Haltefrist)
+        WGEP_ROI: 'WGEP-ROI',           // WGEP → ETH ROI (mit Haltefrist-Prüfung)
+        USDC_KAUF: 'USDC-Kauf',         // Fiat → USDC (Stablecoin-Anschaffung)
+        USDC_VERKAUF: 'USDC-Verkauf',   // USDC → Fiat (Stablecoin-Veräußerung)
     };
 
     // ⏰ HALTEFRIST-KONSTANTEN
@@ -45,14 +51,38 @@ export class TaxReportService_Rebuild {
         if (isIncoming && from_address !== walletAddress) {
             // 1. Bekannte ROI-Contracts oder Drucker
             if (this.isKnownROISource(from_address) || this.isDruckerTransaction(transaction)) {
-                console.log(`🎯 ROI DETECTED: ${parseFloat(value) / 1e18} ETH von ${from_address.slice(0,8)}... (WGEP Drucker)`);
-                return this.TAX_CATEGORIES.ROI_INCOME;
+                console.log(`🎯 WGEP ROI DETECTED: ${parseFloat(value) / 1e18} ETH von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                return this.TAX_CATEGORIES.WGEP_ROI;
             }
             
             // 2. WGEP-spezifische Heuristik: Kleine ETH-Beträge von Contracts
             if (this.isWGEPROITransaction(transaction, walletAddress)) {
-                console.log(`🎯 WGEP ROI: ${parseFloat(value) / 1e18} ETH von ${from_address.slice(0,8)}...`);
-                return this.TAX_CATEGORIES.ROI_INCOME;
+                console.log(`🎯 WGEP ROI: ${parseFloat(value) / 1e18} ETH von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                return this.TAX_CATEGORIES.WGEP_ROI;
+            }
+        }
+
+        // 🔥 USDC-ERKENNUNG: Stablecoin-Transaktionen
+        const tokenSymbol = transaction.token_symbol || transaction.symbol;
+        if (tokenSymbol === 'USDC') {
+            if (isIncoming) {
+                console.log(`💰 USDC KAUF: ${parseFloat(value) / 1e6} USDC erhalten`);
+                return this.TAX_CATEGORIES.USDC_KAUF;
+            } else if (isOutgoing) {
+                console.log(`💸 USDC VERKAUF: ${parseFloat(value) / 1e6} USDC gesendet`);
+                return this.TAX_CATEGORIES.USDC_VERKAUF;
+            }
+        }
+
+        // 🔥 WGEP-TOKEN-ERKENNUNG: WGEP-Käufe und -Verkäufe
+        if (tokenSymbol === 'WGEP' || tokenSymbol === '🖨️' || 
+            transaction.token_address?.toLowerCase() === '0xfca88920ca5639ad5e954ea776e73dec54fdc065') {
+            if (isIncoming) {
+                console.log(`🖨️ WGEP KAUF: ${parseFloat(value) / 1e18} WGEP erhalten (HALTEFRIST BEGINNT)`);
+                return this.TAX_CATEGORIES.WGEP_KAUF;
+            } else if (isOutgoing) {
+                console.log(`🖨️ WGEP VERKAUF: ${parseFloat(value) / 1e18} WGEP verkauft (HALTEFRIST-PRÜFUNG)`);
+                return this.TAX_CATEGORIES.VERKAUF; // Wird später mit Haltefrist bewertet
             }
         }
 
@@ -818,24 +848,40 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 💰 Steuerpflicht berechnen
+    // 💰 Steuerpflicht berechnen (KORREKT für WGEP nach deutschem Steuerrecht)
     static calculateTaxability(transaction, holdingPeriodDays) {
         const { taxCategory, usdValue } = transaction;
 
-        // ROI ist IMMER sofort steuerpflichtig
+        // 🔥 WGEP ROI: IMMER kapitalertragssteuerpflichtig (25% + Soli + Kirchensteuer)
+        if (taxCategory === this.TAX_CATEGORIES.WGEP_ROI) {
+            return true; // KEINE Haltefrist für ROI-Erträge!
+        }
+
+        // 🔥 KLASSISCHE ROI: IMMER sofort steuerpflichtig (§22 EStG)
         if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME || 
             taxCategory === this.TAX_CATEGORIES.STAKING_CLAIM) {
             return true;
         }
 
-        // Verkäufe innerhalb der Spekulationsfrist
+        // 🔥 WGEP-VERKAUF: Spekulationsfrist (§23 EStG)
         if (taxCategory === this.TAX_CATEGORIES.VERKAUF && holdingPeriodDays < 365) {
             return usdValue > 0; // Nur bei Gewinn steuerpflichtig
+        }
+
+        // 🔥 USDC-VERKAUF: Stablecoin-Veräußerung (meist steuerfrei bei 1:1)
+        if (taxCategory === this.TAX_CATEGORIES.USDC_VERKAUF) {
+            return Math.abs(usdValue) > 1; // Nur bei signifikantem Gewinn/Verlust
         }
 
         // Swaps werden als Verkauf+Kauf behandelt
         if (taxCategory === this.TAX_CATEGORIES.SWAP && holdingPeriodDays < 365) {
             return usdValue > 0;
+        }
+
+        // WGEP-KAUF und USDC-KAUF sind nicht steuerpflichtig (Anschaffung)
+        if (taxCategory === this.TAX_CATEGORIES.WGEP_KAUF || 
+            taxCategory === this.TAX_CATEGORIES.USDC_KAUF) {
+            return false;
         }
 
         return false;
@@ -855,24 +901,45 @@ export class TaxReportService_Rebuild {
         }));
     }
 
-    // 📝 Steuerliche Bemerkung generieren
+    // 📝 Steuerliche Bemerkung generieren (ERWEITERT für WGEP)
     static generateTaxNote(transaction) {
         const { taxCategory, holdingPeriodDays, isTaxable, usdValue } = transaction;
         
+        // 🔥 WGEP ROI: Kapitalertragssteuerpflichtig
+        if (taxCategory === this.TAX_CATEGORIES.WGEP_ROI) {
+            return 'WGEP ROI - Kapitalertragssteuerpflichtig (25% + Soli + Kirchensteuer)';
+        }
+        
+        // 🔥 WGEP KAUF: Anschaffung mit Haltefrist
+        if (taxCategory === this.TAX_CATEGORIES.WGEP_KAUF) {
+            return 'WGEP-Anschaffung - Haltefrist beginnt (1 Jahr für Steuerfreiheit)';
+        }
+        
+        // 🔥 USDC KAUF/VERKAUF
+        if (taxCategory === this.TAX_CATEGORIES.USDC_KAUF) {
+            return 'USDC-Anschaffung - Stablecoin (meist 1:1 Wert)';
+        }
+        
+        if (taxCategory === this.TAX_CATEGORIES.USDC_VERKAUF) {
+            return isTaxable ? 'USDC-Veräußerung - Steuerpflichtig bei Gewinn' : 'USDC-Veräußerung - Steuerfrei (1:1 Wert)';
+        }
+        
+        // Klassische ROI
         if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
             return 'ROI-Einkommen - sofort steuerpflichtig §22 EStG';
         }
         
+        // WGEP/Token-Verkauf mit Haltefrist
         if (taxCategory === this.TAX_CATEGORIES.VERKAUF) {
             if (holdingPeriodDays >= 365) {
-                return `Haltefrist erfüllt (${holdingPeriodDays} Tage) - steuerfrei`;
+                return `Haltefrist erfüllt (${holdingPeriodDays} Tage) - steuerfrei §23 EStG`;
             } else {
-                return `Spekulationsfrist (${holdingPeriodDays} Tage) - steuerpflichtig`;
+                return `Spekulationsfrist (${holdingPeriodDays} Tage) - steuerpflichtig §23 EStG`;
             }
         }
         
         if (taxCategory === this.TAX_CATEGORIES.SWAP) {
-            return 'Swap = Verkauf + Kauf';
+            return 'Swap = Verkauf + Kauf (Haltefrist-Prüfung erforderlich)';
         }
         
         return 'Nicht steuerrelevant';
@@ -983,7 +1050,10 @@ export class TaxReportService_Rebuild {
                 summary.taxableTransactions++;
                 summary.totalTaxableValue += tx.usdValue || 0;
 
-                if (tx.taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
+                // 🔥 WGEP ROI: Kapitalertragssteuerpflichtig
+                if (tx.taxCategory === this.TAX_CATEGORIES.WGEP_ROI) {
+                    summary.roiIncome += tx.usdValue || 0;
+                } else if (tx.taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
                     summary.roiIncome += tx.usdValue || 0;
                 } else if (tx.taxCategory === this.TAX_CATEGORIES.VERKAUF || 
                           tx.taxCategory === this.TAX_CATEGORIES.SWAP) {
@@ -998,7 +1068,16 @@ export class TaxReportService_Rebuild {
     // 🛠️ HILFSFUNKTIONEN
 
     static isTaxRelevant(taxCategory) {
-        return taxCategory !== this.TAX_CATEGORIES.TRANSFER;
+        // 🔥 WGEP-SPEZIFISCHE STEUERRELEVANZ
+        const taxRelevantCategories = [
+            this.TAX_CATEGORIES.WGEP_ROI,      // IMMER steuerpflichtig
+            this.TAX_CATEGORIES.ROI_INCOME,    // IMMER steuerpflichtig
+            this.TAX_CATEGORIES.VERKAUF,       // Haltefrist-abhängig
+            this.TAX_CATEGORIES.SWAP,          // Haltefrist-abhängig
+            this.TAX_CATEGORIES.USDC_VERKAUF   // Bei Gewinn steuerpflichtig
+        ];
+        
+        return taxRelevantCategories.includes(taxCategory);
     }
 
     static delay(ms) {
