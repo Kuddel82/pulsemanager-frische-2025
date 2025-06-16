@@ -189,10 +189,11 @@ export class TaxReportService_Rebuild {
                     if (batchResult && batchResult.result && batchResult.result.length > 0) {
                         transactions.push(...batchResult.result);
                         cursor = batchResult.cursor;
-                        hasMore = !!cursor;
+                        // 🔥 FIX: hasMore nur wenn cursor UND full page (sonst letzte Page)
+                        hasMore = !!(cursor && batchResult.result.length === batchSize);
                         pageCount++;
                         
-                        console.log(`✅ Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length})`);
+                        console.log(`✅ Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length}), hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
                         
                         // Rate limiting für große Wallets - REDUZIERT
                         if (pageCount % 20 === 0) {

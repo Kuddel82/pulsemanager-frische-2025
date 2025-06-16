@@ -78,7 +78,7 @@ export class MoralisV2Service {
       const data = await response.json();
       
       // 🔍 DEBUG: Log pagination response
-      console.log(`🔍 V2 PAGINATION DEBUG: result=${data.result?.length || 0}, cursor=${data.cursor || 'null'}, success=${data.success}`);
+      console.log(`🔍 V2 PAGINATION DEBUG: result=${data.result?.length || 0}, cursor=${data.cursor || 'null'}, success=${data.success}, hasMore=${!!(data.cursor && data.result?.length === limit)}`);
       
       if (data._error) {
         console.warn('⚠️ V2 Batch API Error:', data._error.message);
@@ -94,7 +94,7 @@ export class MoralisV2Service {
         success: true,
         result: data.result || [],
         cursor: data.cursor || null,
-        hasMore: !!(data.cursor),
+        hasMore: !!(data.cursor && data.result?.length === limit), // 🔥 FIX: hasMore nur wenn cursor UND full page
         count: data.result?.length || 0,
         source: 'moralis_v2_batch'
       };
