@@ -1037,8 +1037,6 @@ export class TaxReportService_Rebuild {
                         }
                         
                         let pageTransactions = [];
-                        let nextCursor = null;
-                        
                         // 🚀 WALLET HISTORY v2.2: ALLE Transaktionstypen in einem Response!
                         const allTransactions = [];
                         let nextCursor = null;
