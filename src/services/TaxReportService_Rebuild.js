@@ -1021,55 +1021,106 @@ export class TaxReportService_Rebuild {
                             console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                         }
                         
-                        // 🔄 Lade ALLE VERFÜGBAREN TRANSAKTIONSTYPEN für vollständige Historie (4 Endpoints!)
-                        const [verboseResponse, transactionsResponse, erc20Response, internalResponse] = await Promise.all([
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'verbose', true),
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers'),
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'internal-transactions')
-                        ]);
+                        // 🚀 WALLET HISTORY v2.2: Der ULTIMATIVE Endpoint für ALLE Transaktionstypen!
+                        const walletHistoryResponse = await MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'wallet-history');
+                        
+                        // 🔄 FALLBACK: Lade andere Endpoints nur wenn Wallet History fehlschlägt
+                        let fallbackResponses = [];
+                        if (!walletHistoryResponse?.success || !walletHistoryResponse?.result?.length) {
+                            console.log('⚠️ Wallet History fehlgeschlagen - verwende Fallback-Endpoints');
+                            fallbackResponses = await Promise.all([
+                                MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'verbose', true),
+                                MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
+                                MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers'),
+                                MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'internal-transactions')
+                            ]);
+                        }
                         
                         let pageTransactions = [];
                         let nextCursor = null;
                         
-                        // 🔧 KOMBINIERE ALLE DREI ENDPOINTS für vollständige Datenabdeckung
+                        // 🚀 WALLET HISTORY v2.2: ALLE Transaktionstypen in einem Response!
                         const allTransactions = [];
+                        let nextCursor = null;
                         
-                        // Verbose Transaktionen hinzufügen (mit Moralis Labeling)
-                        if (verboseResponse?.success && verboseResponse.result?.length > 0) {
-                            console.log(`✅ V2: verbose erfolgreich - ${verboseResponse.result.length} Transaktionen (MIT LABELING)`);
-                            allTransactions.push(...verboseResponse.result);
-                            nextCursor = verboseResponse.cursor || nextCursor;
+                        if (walletHistoryResponse?.success && walletHistoryResponse.result?.length > 0) {
+                            console.log(`🚀 WALLET HISTORY v2.2: ${walletHistoryResponse.result.length} VOLLSTÄNDIGE Transaktionen (ALLE TYPEN!)`);
+                            
+                            // Wallet History enthält bereits ALLE Transaktionstypen:
+                            // - Native ETH transfers
+                            // - ERC20 token transfers  
+                            // - Internal transactions
+                            // - NFT transfers
+                            // - Contract interactions
+                            allTransactions.push(...walletHistoryResponse.result);
+                            nextCursor = walletHistoryResponse.cursor;
+                            
+                            // Debug: Analysiere die verschiedenen Transaktionstypen
+                            const nativeCount = walletHistoryResponse.result.filter(tx => tx.native_transfers?.length > 0).length;
+                            const erc20Count = walletHistoryResponse.result.filter(tx => tx.erc20_transfer?.length > 0).length;
+                            const internalCount = walletHistoryResponse.result.filter(tx => tx.internal_transactions?.length > 0).length;
+                            const nftCount = walletHistoryResponse.result.filter(tx => tx.nft_transfers?.length > 0).length;
+                            
+                            console.log(`📊 WALLET HISTORY BREAKDOWN: Native=${nativeCount}, ERC20=${erc20Count}, Internal=${internalCount}, NFT=${nftCount}`);
+                            
+                        } else {
+                            // 🔄 FALLBACK zu alten Endpoints
+                            console.log('⚠️ Verwende Fallback-Endpoints für Transaktionsdaten');
+                            const [verboseResponse, transactionsResponse, erc20Response, internalResponse] = fallbackResponses;
+                            
+                            // Verbose Transaktionen hinzufügen (mit Moralis Labeling)
+                            if (verboseResponse?.success && verboseResponse.result?.length > 0) {
+                                console.log(`✅ FALLBACK: verbose erfolgreich - ${verboseResponse.result.length} Transaktionen (MIT LABELING)`);
+                                allTransactions.push(...verboseResponse.result);
+                                nextCursor = verboseResponse.cursor || nextCursor;
+                            }
+                            
+                            // Standard Transaktionen hinzufügen (Native ETH)
+                            if (transactionsResponse?.success && transactionsResponse.result?.length > 0) {
+                                console.log(`✅ FALLBACK: transactions erfolgreich - ${transactionsResponse.result.length} Transaktionen (NATIVE ETH)`);
+                                allTransactions.push(...transactionsResponse.result);
+                                nextCursor = transactionsResponse.cursor || nextCursor;
+                            }
+                            
+                            // ERC20 Transaktionen hinzufügen (Token-Transfers)
+                            if (erc20Response?.success && erc20Response.result?.length > 0) {
+                                console.log(`✅ FALLBACK: erc20-transfers erfolgreich - ${erc20Response.result.length} Transaktionen (TOKEN-TRANSFERS)`);
+                                allTransactions.push(...erc20Response.result);
+                                nextCursor = erc20Response.cursor || nextCursor;
+                            }
+                            
+                            // Internal Transaktionen hinzufügen (Contract-Calls)
+                            if (internalResponse?.success && internalResponse.result?.length > 0) {
+                                console.log(`✅ FALLBACK: internal-transactions erfolgreich - ${internalResponse.result.length} Transaktionen (INTERNAL-CALLS)`);
+                                allTransactions.push(...internalResponse.result);
+                                nextCursor = internalResponse.cursor || nextCursor;
+                            }
                         }
                         
-                        // Standard Transaktionen hinzufügen (Native ETH)
-                        if (transactionsResponse?.success && transactionsResponse.result?.length > 0) {
-                            console.log(`✅ V2: transactions erfolgreich - ${transactionsResponse.result.length} Transaktionen (NATIVE ETH)`);
-                            allTransactions.push(...transactionsResponse.result);
-                            nextCursor = transactionsResponse.cursor || nextCursor;
-                        }
-                        
-                        // ERC20 Transaktionen hinzufügen (Token-Transfers)
-                        if (erc20Response?.success && erc20Response.result?.length > 0) {
-                            console.log(`✅ V2: erc20-transfers erfolgreich - ${erc20Response.result.length} Transaktionen (TOKEN-TRANSFERS)`);
-                            allTransactions.push(...erc20Response.result);
-                            nextCursor = erc20Response.cursor || nextCursor;
-                        }
-                        
-                        // Internal Transaktionen hinzufügen (Contract-Calls)
-                        if (internalResponse?.success && internalResponse.result?.length > 0) {
-                            console.log(`✅ V2: internal-transactions erfolgreich - ${internalResponse.result.length} Transaktionen (INTERNAL-CALLS)`);
-                            allTransactions.push(...internalResponse.result);
-                            nextCursor = internalResponse.cursor || nextCursor;
-                        }
-                        
-                        // 🔧 INTELLIGENTER DUPLIKAT-FILTER: Entferne echte Duplikate
+                        // 🔧 INTELLIGENTER DUPLIKAT-FILTER + WALLET HISTORY PROCESSING
                         if (allTransactions.length > 0) {
                             const uniqueTransactions = new Map();
                             allTransactions.forEach(tx => {
-                                const key = tx.transaction_hash || `${tx.block_number}_${tx.log_index || 0}_${tx.from_address}_${tx.to_address}`;
+                                const key = tx.transaction_hash || tx.hash || `${tx.block_number}_${tx.log_index || 0}_${tx.from_address}_${tx.to_address}`;
                                 if (!uniqueTransactions.has(key)) {
-                                    uniqueTransactions.set(key, tx);
+                                    // 🚀 WALLET HISTORY v2.2: Erweitere Transaktion um Sub-Transaktionen
+                                    if (tx.native_transfers || tx.erc20_transfer || tx.internal_transactions || tx.nft_transfers) {
+                                        // Wallet History Format - erweitere um Sub-Transaktionen
+                                        const expandedTx = { ...tx };
+                                        
+                                        // Markiere als Wallet History Format
+                                        expandedTx._walletHistoryFormat = true;
+                                        expandedTx._subTransactionCount = 
+                                            (tx.native_transfers?.length || 0) +
+                                            (tx.erc20_transfer?.length || 0) +
+                                            (tx.internal_transactions?.length || 0) +
+                                            (tx.nft_transfers?.length || 0);
+                                        
+                                        uniqueTransactions.set(key, expandedTx);
+                                    } else {
+                                        // Standard Format
+                                        uniqueTransactions.set(key, tx);
+                                    }
                                 }
                             });
                             
@@ -1077,6 +1128,15 @@ export class TaxReportService_Rebuild {
                             
                             if (allTransactions.length !== pageTransactions.length) {
                                 console.log(`🔧 DUPLIKAT-FILTER: ${allTransactions.length} → ${pageTransactions.length} einzigartige Transaktionen`);
+                            }
+                            
+                            // 📊 WALLET HISTORY STATISTICS
+                            const walletHistoryCount = pageTransactions.filter(tx => tx._walletHistoryFormat).length;
+                            if (walletHistoryCount > 0) {
+                                const totalSubTransactions = pageTransactions
+                                    .filter(tx => tx._walletHistoryFormat)
+                                    .reduce((sum, tx) => sum + (tx._subTransactionCount || 0), 0);
+                                console.log(`🚀 WALLET HISTORY: ${walletHistoryCount} Transaktionen mit ${totalSubTransactions} Sub-Transaktionen`);
                             }
                         }
                         

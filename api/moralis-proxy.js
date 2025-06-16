@@ -92,6 +92,17 @@ export default async function handler(req, res) {
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
+      case 'bulk-token-prices':
+        // 🚀 BULK TOKEN PRICES: Moralis v2.2 Multiple Token Prices für Steuerreport
+        apiUrl = `https://deep-index.moralis.io/api/v2.2/erc20/prices?chain=${normalizedChain}&include=percent_change`;
+        break;
+        
+      case 'wallet-history':
+        // 🚀 WALLET HISTORY: Moralis v2.2 Complete Transaction History (ALLE TYPEN!)
+        apiUrl = `https://deep-index.moralis.io/api/v2.2/wallets/${address}/history?chain=${normalizedChain}&limit=${Math.min(limit, 100)}&order=DESC&include_internal_transactions=true`;
+        if (cursor) apiUrl += `&cursor=${cursor}`;
+        break;
+        
       case 'native-transfers':
         // 🚨 DEPRECATED: native-transfers nicht unterstützt, verwende transactions
         return res.status(400).json({
@@ -105,8 +116,8 @@ export default async function handler(req, res) {
         return res.status(400).json({
           error: `Unbekannter Endpoint: ${endpoint}`,
           success: false,
-          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'internal-transactions', 'balances'],
-          note: 'native-transfers nicht unterstützt, verbose für Transaction Labeling, internal-transactions für vollständige Historie'
+          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'internal-transactions', 'balances', 'bulk-token-prices', 'wallet-history'],
+          note: 'wallet-history ist der BESTE Endpoint für vollständige Transaktionshistorie (v2.2), bulk-token-prices für Multiple Token Prices'
         });
     }
 
@@ -124,16 +135,28 @@ export default async function handler(req, res) {
       });
     }
 
-    // Moralis API Aufruf mit besserer Fehlerbehandlung
-    const response = await fetch(apiUrl, {
-      method: 'GET',
+    // 🔥 MORALIS API CALL mit GET/POST Support für bulk-token-prices
+    const isPostRequest = endpoint === 'bulk-token-prices';
+    const requestOptions = {
+      method: isPostRequest ? 'POST' : 'GET',
       headers: {
         'X-API-Key': MORALIS_API_KEY,
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'User-Agent': 'PulseManager-Proxy/1.0'
       },
       timeout: 30000
-    });
+    };
+    
+    // 🚀 POST Body für bulk-token-prices
+    if (isPostRequest && req.body?.tokens) {
+      requestOptions.body = JSON.stringify({
+        tokens: req.body.tokens
+      });
+      console.log(`📦 BULK PRICES: ${req.body.tokens.length} Token-Adressen`);
+    }
+    
+    const response = await fetch(apiUrl, requestOptions);
 
     console.log(`📡 PROXY Response: ${response.status} ${response.statusText}`);
 
