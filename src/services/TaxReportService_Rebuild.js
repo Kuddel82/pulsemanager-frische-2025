@@ -210,15 +210,26 @@ export class TaxReportService_Rebuild {
             return false;
         }
         
-        // Muss ETH-Wert haben
-        const ethValue = parseFloat(value) / 1e18;
+        // 🔥 WGEP ROI: Kann sowohl ETH-Transaktionen als auch ERC20-Transfers sein!
+        let ethValue = 0;
+        
+        if (transaction.token_address && transaction.token_address !== 'native') {
+            // ERC20-Transfer: Verwende token value mit decimals
+            const decimals = transaction.decimals || 18;
+            ethValue = parseFloat(value || '0') / Math.pow(10, decimals);
+        } else {
+            // Native ETH-Transaktion
+            ethValue = parseFloat(value || '0') / 1e18;
+        }
+        
         if (ethValue <= 0) {
             return false;
         }
         
         // 🔥 ERWEITERTE WGEP ROI Charakteristika (lockerer für mehr Erkennung):
-        // 1. ALLE ETH-Beträge über 0.0001 ETH (nicht nur bis 10 ETH)
-        const isROIAmount = ethValue >= 0.0001; // Erweitert: Kleinste ROI-Beträge
+        // 1. WGEP-typische Beträge (0.0003 - 0.0007 ETH) ODER größere ROI-Beträge
+        const isROIAmount = ethValue >= 0.0001 && ethValue <= 10; // Erweitert: 0.0001 bis 10 ETH
+        const isWGEPAmount = this.isRegularWGEPAmount(ethValue); // Spezifische WGEP-Beträge
         
         // 2. Von Contract-Adresse (nicht EOA) - ERWEITERTE PRÜFUNG
         const isFromContract = from_address && 
@@ -235,11 +246,17 @@ export class TaxReportService_Rebuild {
         const hasWGEPPattern = this.hasWGEPTransactionPattern(transaction);
         
         // Kombiniere alle Faktoren (lockerer für mehr ROI-Erkennung)
-        const isLikelyWGEPROI = isROIAmount && isFromContract && hasValidGas;
+        const isLikelyWGEPROI = (isROIAmount || isWGEPAmount) && isFromContract && hasValidGas;
         
         if (isLikelyWGEPROI) {
             const roiType = isKnownWGEPContract ? 'KNOWN WGEP' : hasWGEPPattern ? 'WGEP PATTERN' : 'HEURISTIC';
-            console.log(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... (Gas: ${gas_used || 'unknown'})`);
+            const tokenInfo = transaction.token_address ? `Token: ${transaction.token_symbol || 'Unknown'}` : 'Native ETH';
+            console.log(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... (${tokenInfo}, Gas: ${gas_used || 'unknown'})`);
+        } else {
+            // 🔍 DEBUG: Warum wurde es NICHT als ROI erkannt?
+            if (ethValue > 0 && isFromContract) {
+                console.log(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
+            }
         }
         
         return isLikelyWGEPROI;
