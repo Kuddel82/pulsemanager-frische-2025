@@ -196,7 +196,7 @@ const TaxReportNew = () => {
               🚀 NEUES STEUERREPORT SYSTEM 🚀
             </h1>
             <p className="text-xl text-white mb-4">
-              Vollständig steuerrechtlich konform • Deutsche FIFO-Berechnung • Automatische PDF-Generierung
+              Professionelle Transaktionsanalyse • Automatische PDF-Generierung • Multi-Chain Support
             </p>
             
             {/* 🚨 RECHTLICHER HAFTUNGSAUSSCHLUSS */}
@@ -221,7 +221,7 @@ const TaxReportNew = () => {
               </div>
             </div>
             <div className="text-lg text-green-400">
-              ✅ Bis zu 300.000 Transaktionen • ✅ EStG-konform • ✅ Keine Fantasie-Milliarden mehr!
+              ✅ Bis zu 300.000 Transaktionen • ✅ Multi-Chain Support • ✅ Professionelle Analyse
             </div>
           </div>
           
@@ -394,8 +394,8 @@ const TaxReportNew = () => {
             <div>
               <h4 className="font-bold text-green-400 mb-2">✅ Neue Features:</h4>
               <ul className="text-gray-300 space-y-1">
-                <li>• Deutsche FIFO-Berechnung (EStG-konform)</li>
-                <li>• 365-Tage Spekulationsfrist</li>
+                <li>• FIFO-Berechnung nach deutschem Muster</li>
+                <li>• 365-Tage Haltefrist-Tracking</li>
                 <li>• Automatische ROI-Erkennung</li>
                 <li>• PDF-Generierung in Downloads</li>
                 <li>• Bis zu 300.000 Transaktionen</li>
