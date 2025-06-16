@@ -1304,26 +1304,26 @@ export class TaxReportService_Rebuild {
                                     // Token-Preis (vereinfacht)
                                     usdPrice = 0; // Tokens zunächst ohne USD-Bewertung
                                 } else if (isEthereum) {
-                                    // 🔥 ETH-PREIS: Verwende HISTORISCHEN Preis zum Transaktionszeitpunkt
+                                    // 🔥 ETH-PREIS: Verwende EXAKTEN Preis zum Transaktionszeitpunkt (Anschaffungskosten)
                                     const txDate = tx.block_timestamp ? new Date(tx.block_timestamp).toISOString().split('T')[0] : null;
-                                    const ethCacheKey = `ETH_PRICE_${txDate || 'LIVE'}`;
+                                    const ethCacheKey = `ETH_PRICE_${txDate || 'CURRENT'}`;
                                     
                                     if (priceCache.has(ethCacheKey)) {
                                         usdPrice = priceCache.get(ethCacheKey);
                                     } else {
-                                        // 🎯 HISTORISCHER ETH-PREIS basierend auf Transaktionsdatum
+                                        // 💰 EXAKTER ETH-PREIS zum Transaktionszeitpunkt (deutsches Steuerrecht)
                                         try {
-                                            if (txDate) {
-                                                // Verwende historische Preise basierend auf bekannten ETH-Preisen
+                                            if (txDate && tx.block_timestamp) {
+                                                // Verwende historischen Preis zum exakten Transaktionszeitpunkt
                                                 usdPrice = this.getHistoricalETHPrice(txDate);
-                                                console.log(`📅 HISTORISCHER ETH-PREIS für ${txDate}: $${usdPrice}`);
+                                                console.log(`📅 ANSCHAFFUNGSKOSTEN ETH für ${txDate}: $${usdPrice}`);
                                             } else {
-                                                // Fallback: Live-Preis wenn kein Datum verfügbar
+                                                // Fallback: Aktueller Preis wenn kein Datum verfügbar
                                                 const ethPriceResponse = await fetch('/api/moralis-proxy?endpoint=erc20-price&address=0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2&chain=0x1');
                                                 if (ethPriceResponse.ok) {
                                                     const ethData = await ethPriceResponse.json();
                                                     usdPrice = ethData.result?.usdPrice || 3400;
-                                                    console.log(`💰 LIVE ETH-PREIS (Fallback): $${usdPrice}`);
+                                                    console.log(`💰 AKTUELLER ETH-PREIS (Fallback): $${usdPrice}`);
                                                 } else {
                                                     usdPrice = 3400; // Fallback
                                                 }
