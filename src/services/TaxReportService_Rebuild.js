@@ -1098,11 +1098,11 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 💰 Steuerpflicht berechnen (UNIVERSELL nach deutschem Steuerrecht)
+    // 💰 Steuerpflicht berechnen (NACH DEUTSCHEM STEUERRECHT §23 EStG)
     static calculateTaxability(transaction, holdingPeriodDays) {
         const { taxCategory, usdValue } = transaction;
 
-        // 🔥 ALLE ROI-KATEGORIEN: IMMER kapitalertragssteuerpflichtig (§22 EStG)
+        // 🔥 KRYPTO-ROI: Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)
         const roiCategories = [
             this.TAX_CATEGORIES.ROI_INCOME,
             this.TAX_CATEGORIES.STAKING_REWARD,
@@ -1111,7 +1111,7 @@ export class TaxReportService_Rebuild {
         ];
         
         if (roiCategories.includes(taxCategory)) {
-            return true; // KEINE Haltefrist für ROI-Erträge! (25% + Soli + Kirchensteuer)
+            return true; // ROI-Erträge: Einkommensteuerpflichtig (14-45% je nach persönlichem Steuersatz)
         }
 
         // 🔥 TOKEN-VERKÄUFE: Spekulationsfrist 1 Jahr (§23 EStG)
@@ -1170,25 +1170,25 @@ export class TaxReportService_Rebuild {
         }));
     }
 
-    // 📝 Steuerliche Bemerkung generieren (UNIVERSELL für alle Token)
+    // 📝 Steuerliche Bemerkung generieren (NACH DEUTSCHEM STEUERRECHT)
     static generateTaxNote(transaction) {
         const { taxCategory, holdingPeriodDays, isTaxable, usdValue } = transaction;
         
-        // 🔥 ROI-KATEGORIEN: Kapitalertragssteuerpflichtig (§22 EStG)
+        // 🔥 KRYPTO-ROI: Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)
         if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
-            return 'ROI-Einkommen - Kapitalertragssteuerpflichtig §22 EStG (25% + Soli + Kirchensteuer)';
+            return 'ROI-Einkommen - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
         }
         
         if (taxCategory === this.TAX_CATEGORIES.STAKING_REWARD) {
-            return 'Staking-Reward - Kapitalertragssteuerpflichtig §22 EStG (25% + Soli + Kirchensteuer)';
+            return 'Staking-Reward - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
         }
         
         if (taxCategory === this.TAX_CATEGORIES.MINING_REWARD) {
-            return 'Mining-Reward - Kapitalertragssteuerpflichtig §22 EStG (25% + Soli + Kirchensteuer)';
+            return 'Mining-Reward - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
         }
         
         if (taxCategory === this.TAX_CATEGORIES.AIRDROP) {
-            return 'Airdrop - Kapitalertragssteuerpflichtig §22 EStG (25% + Soli + Kirchensteuer)';
+            return 'Airdrop - Private Veräußerungsgeschäfte §23 EStG (Einkommensteuer 14-45%)';
         }
         
         // 🔥 KAUF-KATEGORIEN: Anschaffung mit Haltefrist
