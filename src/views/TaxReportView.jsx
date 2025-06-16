@@ -51,12 +51,9 @@ const TaxReportNew = () => {
         console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
         
         try {
-          const report = await TaxReportService_Rebuild.generateTaxReport(wallet.address, {
-            startDate: '2025-01-01', // 🔥 FEST: Ab 1.1.2025
-            endDate: '2025-12-31',   // 🔥 FEST: Bis 31.12.2025
-            debugMode: true,
-            generatePDF: false // 🔥 WICHTIG: Keine automatische PDF-Generierung
-          });
+          // 🔥 FINAL SERVICE: Komplett ersetzen durch zuverlässigen Service
+          const { TaxReportService_FINAL } = await import('../services/TaxReportService_FINAL.js');
+          const report = await TaxReportService_FINAL.generateCompleteReport(wallet.address);
           
           reports.push({
             wallet: wallet.address,
@@ -165,17 +162,18 @@ const TaxReportNew = () => {
               `✅ Status: Alle verfügbaren Transaktionen geladen!`);
       
       // Setze WGEP Test Daten
-      setData({
-        isWGEPTest: true,
-        wgepAnalysis: wgepReport.wgepAnalysis,
-        totalWallets: 1,
-        successfulReports: 1,
-        reports: [{
-          wallet: testWallet.address,
-          report: wgepReport,
-          success: true
-        }]
-      });
+              setData({
+          isWGEPTest: true,
+          totalWallets: 1,
+          successfulReports: 1,
+          reports: [{
+            wallet: testWallet.address,
+            report: wgepReport,
+            success: true,
+            totalTransactions: wgepReport.totalTransactions,
+            taxRelevantTransactions: wgepReport.taxRelevantTransactions
+          }]
+        });
       
     } catch (error) {
       console.error('❌ WGEP Test Fehler:', error);
