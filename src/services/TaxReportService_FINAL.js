@@ -247,7 +247,8 @@ export class TaxReportService_FINAL {
         let allTransactions = [];
         
         // 🔥 STRATEGIE 1: VOLLSTÄNDIGE MORALIS PAGINATION (mit aggressiven Limits)
-        const fullEndpoints = ['transactions', 'erc20-transfers', 'verbose', 'wallet-transactions', 'nft-transfers'];
+        // NFT-TRANSFERS ENTFERNT: Verursacht 400 Bad Request Errors
+        const fullEndpoints = ['transactions', 'erc20-transfers', 'verbose', 'wallet-transactions'];
         
         for (const endpoint of fullEndpoints) {
             try {
@@ -335,18 +336,34 @@ export class TaxReportService_FINAL {
             
             console.log(`✅ ETHERSCAN: ${normalTxs.length} Normal + ${tokenTxs.length} Token = ${normalTxs.length + tokenTxs.length} Transaktionen`);
             
-            // Konvertiere Etherscan Format zu Moralis Format
-            const convertedTxs = [...normalTxs, ...tokenTxs].map(tx => ({
-                transaction_hash: tx.hash,
-                block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-                from_address: tx.from,
-                to_address: tx.to,
-                value: tx.value,
-                token_address: tx.contractAddress || 'native',
-                token_symbol: tx.tokenSymbol || 'ETH',
-                decimals: tx.tokenDecimal || 18,
-                _source: 'etherscan_fallback'
-            }));
+            // Konvertiere Etherscan Format zu Moralis Format mit SICHEREM TIMESTAMP PARSING
+            const convertedTxs = [...normalTxs, ...tokenTxs].map(tx => {
+                // 🛡️ SICHERE TIMESTAMP KONVERTIERUNG
+                let timestamp;
+                try {
+                    const timeStampInt = parseInt(tx.timeStamp);
+                    if (isNaN(timeStampInt) || timeStampInt <= 0) {
+                        timestamp = new Date().toISOString(); // Fallback: Aktueller Zeitstempel
+                    } else {
+                        timestamp = new Date(timeStampInt * 1000).toISOString();
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ ETHERSCAN: Timestamp parse error for tx ${tx.hash}:`, error.message);
+                    timestamp = new Date().toISOString(); // Fallback
+                }
+                
+                return {
+                    transaction_hash: tx.hash,
+                    block_timestamp: timestamp,
+                    from_address: tx.from,
+                    to_address: tx.to,
+                    value: tx.value,
+                    token_address: tx.contractAddress || 'native',
+                    token_symbol: tx.tokenSymbol || 'ETH',
+                    decimals: tx.tokenDecimal || 18,
+                    _source: 'etherscan_fallback'
+                };
+            });
             
             return convertedTxs;
             
