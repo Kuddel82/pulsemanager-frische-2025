@@ -862,33 +862,46 @@ export class TaxReportService_Rebuild {
                             console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                         }
                         
-                        // 🔄 Lade nur ERC20-Transfers (enthält alle relevanten Token-Transaktionen)
-                        const erc20Response = await MoralisV2Service.getWalletTransactionsBatch(
-                            walletAddress, batchSize, cursor, chainId, 'erc20-transfers'
-                        );
+                        // 🔄 Lade BEIDE: Native Transaktionen UND ERC20-Transfers
+                        const [nativeResponse, erc20Response] = await Promise.all([
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers')
+                        ]);
                         
                         let pageTransactions = [];
                         let nextCursor = null;
                         
-                        // 🚨 DUPLIKAT-VERMEIDUNG: Nur ERC20-Transfers verwenden
+                        // 🔧 KOMBINIERE BEIDE ENDPOINTS mit intelligentem Duplikat-Filter
+                        const allTransactions = [];
+                        
+                        // Native Transaktionen hinzufügen
+                        if (nativeResponse?.success && nativeResponse.result?.length > 0) {
+                            console.log(`✅ V2: transactions erfolgreich - ${nativeResponse.result.length} Transaktionen`);
+                            allTransactions.push(...nativeResponse.result);
+                            nextCursor = nativeResponse.cursor || nextCursor;
+                        }
+                        
+                        // ERC20 Transaktionen hinzufügen
                         if (erc20Response?.success && erc20Response.result?.length > 0) {
                             console.log(`✅ V2: erc20-transfers erfolgreich - ${erc20Response.result.length} Transaktionen`);
-                            
-                            // 🔧 SANFTER DUPLIKAT-FILTER: Nur echte Duplikate entfernen
+                            allTransactions.push(...erc20Response.result);
+                            nextCursor = erc20Response.cursor || nextCursor;
+                        }
+                        
+                        // 🔧 INTELLIGENTER DUPLIKAT-FILTER: Entferne echte Duplikate
+                        if (allTransactions.length > 0) {
                             const uniqueTransactions = new Map();
-                            erc20Response.result.forEach(tx => {
-                                // Verwende nur Transaction Hash für Duplikat-Erkennung (präziser)
-                                const key = tx.transaction_hash || `${tx.block_number}_${tx.log_index}_${tx.from_address}_${tx.to_address}`;
+                            allTransactions.forEach(tx => {
+                                const key = tx.transaction_hash || `${tx.block_number}_${tx.log_index || 0}_${tx.from_address}_${tx.to_address}`;
                                 if (!uniqueTransactions.has(key)) {
                                     uniqueTransactions.set(key, tx);
                                 }
                             });
                             
                             pageTransactions = Array.from(uniqueTransactions.values());
-                            nextCursor = erc20Response.cursor;
                             
-                            if (erc20Response.result.length !== pageTransactions.length) {
-                                console.log(`🔧 DUPLIKAT-FILTER: ${erc20Response.result.length} → ${pageTransactions.length} einzigartige Transaktionen`);
+                            if (allTransactions.length !== pageTransactions.length) {
+                                console.log(`🔧 DUPLIKAT-FILTER: ${allTransactions.length} → ${pageTransactions.length} einzigartige Transaktionen`);
                             }
                         }
                         
