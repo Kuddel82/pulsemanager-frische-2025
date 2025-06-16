@@ -74,7 +74,9 @@ export class MoralisV2Service {
       // 🔥 MULTI-ENDPOINT STRATEGY: Versuche verschiedene Endpoints für maximale Abdeckung
       const endpoints = [
         'transactions',      // Primär: Alle Transaktionen (ETH + Token)
-        'erc20-transfers'    // Sekundär: Token-Transfers (native-transfers entfernt wegen 400 Error)
+        'erc20-transfers',   // Sekundär: Token-Transfers
+        'nft-transfers',     // Tertiär: NFT-Transfers
+        'internal-transactions' // Quaternär: Internal Transactions
       ];
       
       let bestResult = null;
@@ -91,15 +93,16 @@ export class MoralisV2Service {
           const data = await response.json();
           
           if (data.result && data.result.length > 0) {
-            console.log(`✅ V2: ${endpoint} lieferte ${data.result.length} Transaktionen`);
+            console.error(`✅ ENDPOINT-SUCCESS: ${endpoint} lieferte ${data.result.length} Transaktionen`);
             
             // Verwende das Ergebnis mit den meisten Transaktionen
             if (data.result.length > totalTransactions) {
               bestResult = data;
               totalTransactions = data.result.length;
+              console.error(`🔥 NEW-BEST-ENDPOINT: ${endpoint} mit ${data.result.length} Transaktionen (vorher: ${totalTransactions})`);
             }
           } else {
-            console.log(`⚠️ V2: ${endpoint} lieferte keine Transaktionen`);
+            console.error(`❌ ENDPOINT-FAILED: ${endpoint} lieferte ${data.result?.length || 0} Transaktionen`);
           }
           
         } catch (endpointError) {

@@ -703,6 +703,18 @@ export class TaxReportService_Rebuild {
                     // 🚨 44-TRANSAKTIONEN-DEBUG: API-Antwort analysieren
                     console.error(`🚨 API-RESPONSE: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${!!batchResult?.cursor}, expectedBatchSize=${batchSize}`);
                     
+                    // 🔥 44-PROBLEM: Das System probiert bereits alle Endpoints - das Problem liegt woanders!
+                    if (batchResult?.result?.length === 44 && !batchResult?.cursor) {
+                        console.error(`🚨 44-TRANSAKTIONEN-ANALYSE:`);
+                        console.error(`  📊 Wallet: ${walletAddress.slice(0,10)}...`);
+                        console.error(`  ⛓️ Chain: ${chainId}`);
+                        console.error(`  📥 Erhalten: ${batchResult.result.length} Transaktionen`);
+                        console.error(`  🔄 Cursor: ${batchResult.cursor || 'NICHT VORHANDEN'}`);
+                        console.error(`  🎯 Source: ${batchResult.source || 'UNKNOWN'}`);
+                        console.error(`  💡 FAZIT: Moralis API liefert genau 44 Transaktionen für diese Wallet!`);
+                        console.error(`  ⚠️ GRUND: Möglicherweise API-Limit, Account-Restriction oder tatsächlich nur 44 Transaktionen vorhanden.`);
+                    }
+                    
                     // 🔍 ENHANCED DEBUG: Detaillierte Pagination-Logs
                     console.log(`🔍 ${chainName} BATCH DEBUG: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${batchResult?.cursor || 'null'}, batchSize=${batchSize}`);
                     console.log(`🚨 44-PROBLEM-DEBUG: requestedBatchSize=${batchSize}, actualResults=${batchResult?.result?.length || 0}, hasCursor=${!!batchResult?.cursor}, cursorValue='${batchResult?.cursor || 'NO_CURSOR'}'`);
