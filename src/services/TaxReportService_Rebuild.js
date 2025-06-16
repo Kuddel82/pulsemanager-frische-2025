@@ -874,10 +874,11 @@ export class TaxReportService_Rebuild {
                         if (erc20Response?.success && erc20Response.result?.length > 0) {
                             console.log(`✅ V2: erc20-transfers erfolgreich - ${erc20Response.result.length} Transaktionen`);
                             
-                            // 🔧 DUPLIKAT-FILTER: Entferne doppelte Transaktionen basierend auf Hash
+                            // 🔧 SANFTER DUPLIKAT-FILTER: Nur echte Duplikate entfernen
                             const uniqueTransactions = new Map();
                             erc20Response.result.forEach(tx => {
-                                const key = tx.transaction_hash || `${tx.block_timestamp}_${tx.from_address}_${tx.to_address}_${tx.value}`;
+                                // Verwende nur Transaction Hash für Duplikat-Erkennung (präziser)
+                                const key = tx.transaction_hash || `${tx.block_number}_${tx.log_index}_${tx.from_address}_${tx.to_address}`;
                                 if (!uniqueTransactions.has(key)) {
                                     uniqueTransactions.set(key, tx);
                                 }
@@ -886,7 +887,9 @@ export class TaxReportService_Rebuild {
                             pageTransactions = Array.from(uniqueTransactions.values());
                             nextCursor = erc20Response.cursor;
                             
-                            console.log(`🔧 DUPLIKAT-FILTER: ${erc20Response.result.length} → ${pageTransactions.length} einzigartige Transaktionen`);
+                            if (erc20Response.result.length !== pageTransactions.length) {
+                                console.log(`🔧 DUPLIKAT-FILTER: ${erc20Response.result.length} → ${pageTransactions.length} einzigartige Transaktionen`);
+                            }
                         }
                         
                         if (pageTransactions.length === 0) {
@@ -899,17 +902,25 @@ export class TaxReportService_Rebuild {
                         cursor = nextCursor;
                         pageCount++;
                         
-                        // 🔥 REALISTISCHE FORTSETZUNGSBEDINGUNGEN (für echte Transaktionen)
+                        // 🔥 OPTIMIERTE FORTSETZUNGSBEDINGUNGEN (für vollständige Historie)
                         const shouldContinue = 
                             nextCursor &&                                   // Cursor vorhanden UND
-                            pageTransactions.length >= 10 &&                // Mindestens 10 neue Transaktionen
-                            pageCount <= 25 &&                              // Maximal 25 Seiten (ca. 1000 Transaktionen)
-                            transactions.length < 1200;                     // Stoppe bei 1200 Transaktionen total
+                            pageTransactions.length > 0 &&                  // Mindestens 1 neue Transaktion
+                            pageCount <= 50 &&                              // Maximal 50 Seiten (ca. 2000 Transaktionen)
+                            transactions.length < 2000;                     // Stoppe bei 2000 Transaktionen total
                         
                         hasMore = shouldContinue;
                         
                         const showCursor = nextCursor ? 'yes' : 'no';
                         console.log(`✅ ${chainName} Page ${pageCount}: ${pageTransactions.length} Transaktionen, Total: ${transactions.length}, hasMore=${hasMore}, cursor=${showCursor}`);
+                        
+                        // 🔧 ERWEITERTE CURSOR-BEHANDLUNG: Auch ohne Cursor weitermachen wenn wenige Transaktionen
+                        if (!nextCursor && pageTransactions.length >= 20 && pageCount <= 10) {
+                            console.log(`🔄 ${chainName}: Kein Cursor aber ${pageTransactions.length} Transaktionen - versuche weitere Seiten`);
+                            hasMore = true;
+                            // Simuliere Cursor für weitere Pagination
+                            cursor = `page_${pageCount}`;
+                        }
                         
                         // Test-Modus: Stoppe nach erster erfolgreicher Page
                         if (isTestMode) {
