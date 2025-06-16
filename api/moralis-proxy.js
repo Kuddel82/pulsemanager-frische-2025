@@ -29,7 +29,8 @@ export default async function handler(req, res) {
     return res.status(400).json({
       error: 'endpoint und address Parameter erforderlich',
       success: false,
-      availableEndpoints: ['transactions', 'erc20-transfers', 'balances']
+      availableEndpoints: ['transactions', 'erc20-transfers', 'balances'],
+      note: 'native-transfers nicht unterstützt - verwende transactions für ETH-Transaktionen'
     });
   }
 
@@ -68,11 +69,21 @@ export default async function handler(req, res) {
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
+      case 'native-transfers':
+        // 🚨 DEPRECATED: native-transfers nicht unterstützt, verwende transactions
+        return res.status(400).json({
+          error: `native-transfers Endpoint nicht unterstützt`,
+          success: false,
+          availableEndpoints: ['transactions', 'erc20-transfers', 'balances'],
+          suggestion: 'Verwende "transactions" für ETH-Transaktionen'
+        });
+        
       default:
         return res.status(400).json({
           error: `Unbekannter Endpoint: ${endpoint}`,
           success: false,
-          availableEndpoints: ['transactions', 'erc20-transfers', 'balances']
+          availableEndpoints: ['transactions', 'erc20-transfers', 'balances'],
+          note: 'native-transfers nicht unterstützt'
         });
     }
 

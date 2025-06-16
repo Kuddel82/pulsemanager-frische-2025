@@ -73,8 +73,7 @@ export class MoralisV2Service {
       // 🔥 MULTI-ENDPOINT STRATEGY: Versuche verschiedene Endpoints für maximale Abdeckung
       const endpoints = [
         'transactions',      // Primär: Alle Transaktionen (ETH + Token)
-        'erc20-transfers',   // Sekundär: Token-Transfers
-        'native-transfers'   // Tertiär: Nur ETH-Transfers
+        'erc20-transfers'    // Sekundär: Token-Transfers (native-transfers entfernt wegen 400 Error)
       ];
       
       let bestResult = null;

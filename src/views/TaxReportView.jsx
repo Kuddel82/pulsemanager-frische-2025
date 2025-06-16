@@ -52,8 +52,8 @@ const TaxReportNew = () => {
         
         try {
           const report = await TaxReportService_Rebuild.generateTaxReport(wallet.address, {
-            startDate: '2025-01-01',
-            endDate: '2025-12-31',
+            startDate: '2025-01-01', // 🔥 FEST: Ab 1.1.2025
+            endDate: '2025-12-31',   // 🔥 FEST: Bis 31.12.2025
             debugMode: true,
             generatePDF: false // 🔥 WICHTIG: Keine automatische PDF-Generierung
           });

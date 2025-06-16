@@ -146,8 +146,8 @@ export class TaxReportService_Rebuild {
     // 📊 HAUPTFUNKTION: Tax Report generieren (ERWEITERT für WGEP ROI)
     static async generateTaxReport(walletAddress, options = {}) {
         const {
-            startDate = `${new Date().getFullYear()}-01-01`,
-            endDate = `${new Date().getFullYear()}-12-31`,
+            startDate = '2025-01-01', // 🔥 FEST: Steuerreport 2025
+            endDate = '2025-12-31',   // 🔥 FEST: Steuerreport 2025
             includeTransfers = false,
             debugMode = false,
             generatePDF = false, // 🔥 NEU: PDF nur auf Anfrage generieren
@@ -875,8 +875,8 @@ export class TaxReportService_Rebuild {
                 extendedTimeRange: true,
                 forceFullHistory: true,
                 debugMode: true,
-                startDate: '2020-01-01', // Sehr weiter Zeitraum für WGEP
-                endDate: `${new Date().getFullYear() + 1}-12-31`,
+                startDate: '2025-01-01', // 🔥 FEST: Ab 1.1.2025 für Steuerreport
+                endDate: '2025-12-31',   // 🔥 FEST: Bis 31.12.2025
                 includeTransfers: true
             };
 
