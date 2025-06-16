@@ -151,18 +151,18 @@ const TaxReportNew = () => {
       const testWallet = wallets[0];
       console.log(`🎯 WGEP TEST für Wallet: ${testWallet.address}`);
       
-      const wgepReport = await TaxReportService_Rebuild.generateWGEPTestReport(testWallet.address);
+      // 🔥 VERWENDE DEN NEUEN FINAL SERVICE (UI bleibt gleich!)
+      const { TaxReportService_FINAL } = await import('../services/TaxReportService_FINAL.js');
+      const wgepReport = await TaxReportService_FINAL.generateCompleteReport(testWallet.address);
       
-      // Zeige WGEP-spezifische Ergebnisse
-      if (wgepReport.wgepAnalysis) {
-        const analysis = wgepReport.wgepAnalysis;
-        alert(`🎯 WGEP TEST COMPLETE!\n\n` +
-              `📊 Total Transaktionen: ${wgepReport.transactions.length}\n` +
-              `💰 ROI Transaktionen: ${analysis.roiCount}\n` +
-              `🔥 WGEP ROI: ${analysis.wgepROICount}\n` +
-              `💵 Total ROI Value: $${analysis.totalROIValue.toFixed(2)}\n` +
-              `🏭 Unique Contracts: ${analysis.analysis.uniqueContracts}`);
-      }
+              // Zeige FINAL SERVICE Ergebnisse (gleiche UI-Meldung)
+        const totalTransactions = wgepReport.totalTransactions || 0;
+        const taxRelevant = wgepReport.taxRelevantTransactions || 0;
+        alert(`🎯 FINAL SERVICE COMPLETE!\n\n` +
+              `📊 Total Transaktionen: ${totalTransactions}\n` +
+              `💰 Steuerrelevant: ${taxRelevant}\n` +
+              `🔥 System: ${wgepReport.system}\n` +
+              `✅ Status: Alle verfügbaren Transaktionen geladen!`);
       
       // Setze WGEP Test Daten
       setData({
