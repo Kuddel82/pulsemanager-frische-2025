@@ -200,7 +200,7 @@ export class WalletHistoryService {
   static async getAllWalletHistory(walletAddress, options = {}) {
     const {
       maxPages = 10,
-      maxTransactions = 1000,
+      maxTransactions = 300000,
       ...otherOptions
     } = options;
 

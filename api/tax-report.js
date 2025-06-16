@@ -281,14 +281,14 @@ export default async function handler(req, res) {
     chain = 'pulsechain', 
     limit = 100,
     getAllPages = 'true',
-    maxTransactions = 50000  // 🚀 NEW: Configurabel max limit
+    maxTransactions = 300000  // 🚀 NEW: Configurabel max limit (300k)
   } = req.query;
 
   // Validation
   if (!wallet) {
     return res.status(400).json({ 
       error: 'Wallet-Adresse fehlt',
-      usage: '/api/tax-report?wallet=0x...&chain=pulsechain&getAllPages=true&maxTransactions=50000'
+      usage: '/api/tax-report?wallet=0x...&chain=pulsechain&getAllPages=true&maxTransactions=300000'
     });
   }
 
@@ -317,7 +317,7 @@ export default async function handler(req, res) {
   console.log(`🔍 Chain ${chainId} - Batch API supported: ${isBatchSupported}`);
 
   const shouldGetAllPages = getAllPages === 'true' || getAllPages === true;
-  const maxTxLimit = parseInt(maxTransactions) || 50000;
+  const maxTxLimit = parseInt(maxTransactions) || 300000;
 
   console.log(`🔍 Loading transfers for ${wallet} on chain ${chainId} - AllPages: ${shouldGetAllPages}, Max: ${maxTxLimit}`);
 

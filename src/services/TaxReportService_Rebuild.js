@@ -1032,7 +1032,7 @@ export class TaxReportService_Rebuild {
                 let cursor = null;
                 let pageCount = 0;
                 let hasMore = true;
-                const maxPages = isTestMode ? maxTestPages : 100; // 🚀 ERHÖHT von 15 auf 100 Seiten!
+                const maxPages = isTestMode ? maxTestPages : 3000; // 🚀 ERHÖHT auf 3000 Seiten für 300k Transaktionen!
                 
                 while (hasMore && pageCount < maxPages) {
                     try {
@@ -1187,8 +1187,8 @@ export class TaxReportService_Rebuild {
                         const shouldContinue = 
                             nextCursor &&                                   // Cursor vorhanden UND
                             pageTransactions.length > 0 &&                  // Mindestens 1 neue Transaktion
-                            pageCount <= 100 &&                             // Maximal 100 Seiten (ca. 10.000 Transaktionen)
-                            transactions.length < 10000;                    // Stoppe bei 10.000 Transaktionen total
+                            pageCount <= 3000 &&                            // Maximal 3000 Seiten (ca. 300.000 Transaktionen)
+                            transactions.length < 300000;                   // Stoppe bei 300.000 Transaktionen total
                         
                         hasMore = shouldContinue;
                         

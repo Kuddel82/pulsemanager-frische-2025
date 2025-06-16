@@ -179,7 +179,7 @@ export class DirectMoralisService {
         throw new Error('VITE_MORALIS_API_KEY not configured. Please add to .env file.');
       }
       
-      const { limit = 100, getAllPages = true, maxTransactions = 50000 } = options;
+      const { limit = 100, getAllPages = true, maxTransactions = 300000 } = options;
       
       console.log(`🚀 DIRECT: Loading tax data for ${address} on chain ${chain} (unlimited: ${getAllPages})`);
       
