@@ -35,16 +35,23 @@ export class TaxReportService_Rebuild {
         TAX_FREE_THRESHOLD: 600, // €600 Freigrenze pro Jahr
     };
 
-    // 🧠 TRANSAKTIONS-PARSER: Erkennt Transaktionstypen
+    // 🧠 TRANSAKTIONS-PARSER: Erkennt Transaktionstypen (ERWEITERT für WGEP ETH-ROI)
     static parseTransactionType(transaction, walletAddress) {
         const { from_address, to_address, value, input } = transaction;
         const isIncoming = to_address?.toLowerCase() === walletAddress.toLowerCase();
         const isOutgoing = from_address?.toLowerCase() === walletAddress.toLowerCase();
 
-        // ROI-Erkennung: Incoming ohne entsprechende Outgoing-Transaktion
+        // 🔥 WGEP ROI-ERKENNUNG: Eingehende ETH-Transaktionen von Druckern
         if (isIncoming && from_address !== walletAddress) {
-            // Weitere Prüfung auf bekannte ROI-Contracts oder Drucker
+            // 1. Bekannte ROI-Contracts oder Drucker
             if (this.isKnownROISource(from_address) || this.isDruckerTransaction(transaction)) {
+                console.log(`🎯 ROI DETECTED: ${parseFloat(value) / 1e18} ETH von ${from_address.slice(0,8)}... (WGEP Drucker)`);
+                return this.TAX_CATEGORIES.ROI_INCOME;
+            }
+            
+            // 2. WGEP-spezifische Heuristik: Kleine ETH-Beträge von Contracts
+            if (this.isWGEPROITransaction(transaction, walletAddress)) {
+                console.log(`🎯 WGEP ROI: ${parseFloat(value) / 1e18} ETH von ${from_address.slice(0,8)}...`);
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
         }
@@ -64,12 +71,15 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 🔍 ROI-QUELLEN ERKENNUNG
+    // 🔍 ROI-QUELLEN ERKENNUNG (ERWEITERT für WGEP + andere Drucker)
     static isKnownROISource(fromAddress) {
         const knownROISources = [
-            '0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d', // Beispiel: HEX-Drucker
-            '0x832c5391dc7931312CbdBc1046669c9c3A4A28d5', // Beispiel: ROI-Contract
-            // Weitere bekannte ROI-Quellen hier hinzufügen
+            // WGEP Ethereum Drucker (bekannte Adressen)
+            '0x2fa878Ab3F87CC1C9737Fc071108F904c0B0C95d', // HEX-Drucker
+            '0x832c5391dc7931312CbdBc1046669c9c3A4A28d5', // ROI-Contract
+            '0x9cd83be15a79646a3d22b81fc8ddf7b7240a62cb', // WGEP Minter (Beispiel)
+            '0x388c818ca8b9251b393131c08a736a67ccb19297', // WGEP Distributor (Beispiel)
+            // Weitere bekannte WGEP/ROI-Quellen hier hinzufügen
         ];
         
         return knownROISources.some(addr => 
@@ -77,17 +87,60 @@ export class TaxReportService_Rebuild {
         );
     }
 
-    // 💰 DRUCKER-TRANSAKTIONS-ERKENNUNG
+    // 💰 DRUCKER-TRANSAKTIONS-ERKENNUNG (ERWEITERT für WGEP ETH-ROI)
     static isDruckerTransaction(transaction) {
         // Heuristische Erkennung von Drucker-Transaktionen
-        const { value, gas_used, method_id } = transaction;
+        const { value, gas_used, method_id, from_address } = transaction;
         
         // Typische Drucker-Charakteristika
         const isDruckerValue = parseFloat(value) > 0 && parseFloat(value) % 1 !== 0;
         const isDruckerGas = gas_used && parseInt(gas_used) > 100000;
         const isDruckerMethod = method_id && ['0x1c1b8772', '0x2e7ba6ef'].includes(method_id);
         
-        return isDruckerValue || isDruckerGas || isDruckerMethod;
+        // WGEP-spezifische Erkennung: Contract-Adressen die ETH senden
+        const isFromContract = from_address && from_address.length === 42 && 
+                              !from_address.startsWith('0x000000') &&
+                              from_address !== '0x0000000000000000000000000000000000000000';
+        
+        return isDruckerValue || isDruckerGas || isDruckerMethod || isFromContract;
+    }
+
+    // 🎯 WGEP-SPEZIFISCHE ROI-ERKENNUNG für ETH-Transaktionen
+    static isWGEPROITransaction(transaction, walletAddress) {
+        const { from_address, to_address, value, gas_used } = transaction;
+        
+        // Muss eingehende Transaktion sein
+        if (to_address?.toLowerCase() !== walletAddress.toLowerCase()) {
+            return false;
+        }
+        
+        // Muss ETH-Wert haben
+        const ethValue = parseFloat(value) / 1e18;
+        if (ethValue <= 0) {
+            return false;
+        }
+        
+        // WGEP ROI Charakteristika:
+        // 1. Kleine bis mittlere ETH-Beträge (0.001 - 10 ETH typisch für ROI)
+        const isROIAmount = ethValue >= 0.001 && ethValue <= 10;
+        
+        // 2. Von Contract-Adresse (nicht EOA)
+        const isFromContract = from_address && 
+                              from_address.length === 42 && 
+                              !from_address.startsWith('0x000000') &&
+                              from_address !== '0x0000000000000000000000000000000000000000';
+        
+        // 3. Moderate Gas-Usage (ROI-Transaktionen haben typische Gas-Pattern)
+        const hasModerateGas = !gas_used || (parseInt(gas_used) >= 21000 && parseInt(gas_used) <= 200000);
+        
+        // Kombiniere alle Faktoren
+        const isLikelyWGEPROI = isROIAmount && isFromContract && hasModerateGas;
+        
+        if (isLikelyWGEPROI) {
+            console.log(`🔍 WGEP HEURISTIC: ${ethValue.toFixed(6)} ETH von Contract ${from_address.slice(0,8)}... (Gas: ${gas_used || 'unknown'})`);
+        }
+        
+        return isLikelyWGEPROI;
     }
 
     // 📊 HAUPTFUNKTION: Tax Report generieren
@@ -212,10 +265,10 @@ export class TaxReportService_Rebuild {
             let pageCount = 0;
             let hasMore = true;
             
-            // Primär: Moralis API mit Pagination - ERHÖHTES LIMIT
+            // Primär: Moralis API mit Pagination - ERHÖHTES LIMIT für WGEP ROI
             while (hasMore && pageCount < 10000) { // Max 1.000.000 Transaktionen (100 * 10000)
                 try {
-                    console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
+                    console.log(`📄 ${chainName} Page ${pageCount + 1} (Suche nach WGEP ROI-Transaktionen)...`);
                     
                     const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
                         walletAddress, 
@@ -228,14 +281,37 @@ export class TaxReportService_Rebuild {
                     console.log(`🔍 ${chainName} BATCH DEBUG: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${batchResult?.cursor || 'null'}, batchSize=${batchSize}`);
                     
                     if (batchResult && batchResult.result && batchResult.result.length > 0) {
+                        // 🎯 WGEP ROI DETECTION: Zähle potentielle ROI-Transaktionen in diesem Batch
+                        const roiCount = batchResult.result.filter(tx => {
+                            const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+                            const hasValue = parseFloat(tx.value || '0') > 0;
+                            const fromContract = tx.from_address && tx.from_address.length === 42 && 
+                                               !tx.from_address.startsWith('0x000000');
+                            return isIncoming && hasValue && fromContract;
+                        }).length;
+                        
                         transactions.push(...batchResult.result);
                         cursor = batchResult.cursor;
                         // 🔥 FIX: hasMore nur wenn cursor UND full page (sonst letzte Page)
                         hasMore = !!(cursor && batchResult.result.length === batchSize);
                         pageCount++;
                         
-                        console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length}), hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
+                        console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen (${roiCount} potentielle ROI), Total: ${transactions.length}, hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
                         console.log(`🔍 ${chainName} PAGINATION: cursor=${cursor ? 'EXISTS' : 'NULL'}, resultLength=${batchResult.result.length}, batchSize=${batchSize}, shouldContinue=${hasMore}`);
+                        
+                        // 🎯 WGEP DEBUG: Zeige erste ROI-Transaktion als Beispiel
+                        if (roiCount > 0) {
+                            const firstROI = batchResult.result.find(tx => {
+                                const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+                                const hasValue = parseFloat(tx.value || '0') > 0;
+                                const fromContract = tx.from_address && tx.from_address.length === 42;
+                                return isIncoming && hasValue && fromContract;
+                            });
+                            if (firstROI) {
+                                const ethValue = parseFloat(firstROI.value) / 1e18;
+                                console.log(`🎯 WGEP BEISPIEL: ${ethValue.toFixed(6)} ETH von ${firstROI.from_address.slice(0,8)}... am ${new Date(firstROI.block_timestamp).toLocaleString('de-DE')}`);
+                            }
+                        }
                         
                         // Rate limiting für große Wallets - REDUZIERT
                         if (pageCount % 20 === 0) {

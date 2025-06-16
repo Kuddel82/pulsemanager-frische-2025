@@ -63,22 +63,72 @@ export class MoralisV2Service {
   }
   
   /**
-   * 📄 WALLET TRANSACTIONS BATCH (für Tax Report Rebuild)
+   * 📄 WALLET TRANSACTIONS BATCH (für Tax Report Rebuild) - ERWEITERT für WGEP ROI
    * Unterstützt bis zu 300.000 Transaktionen mit Cursor-Pagination
    */
   static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1') {
     try {
-      console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit})`);
+      console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit}, chain: ${chain})`);
       
-      // 🔥 FIX: Use transactions for ALL transactions (WGEP ROI sind normale ETH-Transaktionen!)
-      let url = `/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=${limit}`;
-      if (cursor) url += `&cursor=${cursor}`;
+      // 🔥 MULTI-ENDPOINT STRATEGY: Versuche verschiedene Endpoints für maximale Abdeckung
+      const endpoints = [
+        'transactions',      // Primär: Alle Transaktionen (ETH + Token)
+        'erc20-transfers',   // Sekundär: Token-Transfers
+        'native-transfers'   // Tertiär: Nur ETH-Transfers
+      ];
       
-      const response = await fetch(url);
-      const data = await response.json();
+      let bestResult = null;
+      let totalTransactions = 0;
       
-      // 🔍 DEBUG: Log pagination response
-      console.log(`🔍 V2 PAGINATION DEBUG: result=${data.result?.length || 0}, cursor=${data.cursor || 'null'}, success=${data.success}, hasMore=${!!(data.cursor && data.result?.length === limit)}`);
+      for (const endpoint of endpoints) {
+        try {
+          let url = `/api/moralis-proxy?endpoint=${endpoint}&address=${address}&chain=${chain}&limit=${limit}`;
+          if (cursor) url += `&cursor=${cursor}`;
+          
+          console.log(`🔍 V2: Versuche ${endpoint} endpoint...`);
+          
+          const response = await fetch(url);
+          const data = await response.json();
+          
+          if (data.result && data.result.length > 0) {
+            console.log(`✅ V2: ${endpoint} lieferte ${data.result.length} Transaktionen`);
+            
+            // Verwende das Ergebnis mit den meisten Transaktionen
+            if (data.result.length > totalTransactions) {
+              bestResult = data;
+              totalTransactions = data.result.length;
+            }
+          } else {
+            console.log(`⚠️ V2: ${endpoint} lieferte keine Transaktionen`);
+          }
+          
+        } catch (endpointError) {
+          console.warn(`⚠️ V2: ${endpoint} Fehler:`, endpointError.message);
+        }
+      }
+      
+      // Verwende das beste Ergebnis
+      const data = bestResult;
+      
+      if (!data) {
+        console.warn('⚠️ V2: Alle Endpoints fehlgeschlagen');
+        return { 
+          success: false, 
+          error: 'Alle Endpoints fehlgeschlagen',
+          result: [],
+          cursor: null
+        };
+      }
+      
+      // 🔍 ENHANCED DEBUG: Detaillierte API-Antwort
+      console.log(`🔍 V2 PAGINATION DEBUG: result=${data.result?.length || 0}, cursor=${data.cursor || 'null'}, success=${data.success}`);
+      console.log(`🔍 V2 SAMPLE TRANSACTION:`, data.result?.[0] ? {
+        hash: data.result[0].transaction_hash?.slice(0, 10) + '...',
+        from: data.result[0].from_address?.slice(0, 8) + '...',
+        to: data.result[0].to_address?.slice(0, 8) + '...',
+        value: data.result[0].value,
+        timestamp: data.result[0].block_timestamp
+      } : 'Keine Transaktionen');
       
       if (data._error) {
         console.warn('⚠️ V2 Batch API Error:', data._error.message);
@@ -90,13 +140,31 @@ export class MoralisV2Service {
         };
       }
       
+      // 🎯 WGEP ROI ANALYSIS: Analysiere die geladenen Transaktionen
+      const roiTransactions = (data.result || []).filter(tx => {
+        const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
+        const hasValue = parseFloat(tx.value || '0') > 0;
+        const fromContract = tx.from_address && tx.from_address.length === 42 && 
+                           !tx.from_address.startsWith('0x000000');
+        return isIncoming && hasValue && fromContract;
+      });
+      
+      if (roiTransactions.length > 0) {
+        console.log(`🎯 V2 ROI FOUND: ${roiTransactions.length} potentielle WGEP ROI-Transaktionen in diesem Batch`);
+        roiTransactions.slice(0, 3).forEach(tx => {
+          const ethValue = parseFloat(tx.value) / 1e18;
+          console.log(`  💰 ${ethValue.toFixed(6)} ETH von ${tx.from_address.slice(0,8)}... am ${new Date(tx.block_timestamp).toLocaleString('de-DE')}`);
+        });
+      }
+      
       return {
         success: true,
         result: data.result || [],
         cursor: data.cursor || null,
         hasMore: !!(data.cursor && data.result?.length === limit), // 🔥 FIX: hasMore nur wenn cursor UND full page
         count: data.result?.length || 0,
-        source: 'moralis_v2_batch'
+        roiCount: roiTransactions.length,
+        source: 'moralis_v2_batch_multi_endpoint'
       };
       
     } catch (error) {
