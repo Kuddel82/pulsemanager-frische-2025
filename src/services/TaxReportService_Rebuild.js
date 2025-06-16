@@ -60,16 +60,16 @@ export class TaxReportService_Rebuild {
         const isIncoming = to_address?.toLowerCase() === walletAddress.toLowerCase();
         const isOutgoing = from_address?.toLowerCase() === walletAddress.toLowerCase();
         
-        // 🔍 DEBUG: Zeige ALLE Transaktionen (nicht nur eingehende)
-        console.log(`🔍 ALL TX: isIncoming=${isIncoming}, isOutgoing=${isOutgoing}, from=${from_address?.slice(0,8)}, to=${to_address?.slice(0,8)}, wallet=${walletAddress?.slice(0,8)}`);
+        // 🔍 DEBUG: Zeige ALLE Transaktionen (nicht nur eingehende) - PRODUCTION VISIBLE
+        console.error(`🔍 ALL TX: isIncoming=${isIncoming}, isOutgoing=${isOutgoing}, from=${from_address?.slice(0,8)}, to=${to_address?.slice(0,8)}, wallet=${walletAddress?.slice(0,8)}`);
         
         // 🔍 DEBUG: Zeige alle eingehenden Transaktionen
         if (isIncoming && from_address !== walletAddress) {
             const ethValue = parseFloat(value || '0') / Math.pow(10, transaction.decimals || 18);
-            console.log(`🔍 INCOMING TX: ${ethValue.toFixed(6)} ${transaction.token_symbol || 'ETH'} von ${from_address?.slice(0,8)}... → Prüfe ROI...`);
-            console.log(`🔍 TX DETAILS: token_address=${transaction.token_address}, value=${value}, decimals=${transaction.decimals}, symbol=${transaction.token_symbol}`);
+            console.error(`🔍 INCOMING TX: ${ethValue.toFixed(6)} ${transaction.token_symbol || 'ETH'} von ${from_address?.slice(0,8)}... → Prüfe ROI...`);
+            console.error(`🔍 TX DETAILS: token_address=${transaction.token_address}, value=${value}, decimals=${transaction.decimals}, symbol=${transaction.token_symbol}`);
         } else {
-            console.log(`🔍 NOT INCOMING: isIncoming=${isIncoming}, from_address=${from_address?.slice(0,8)}, walletAddress=${walletAddress?.slice(0,8)}, same=${from_address === walletAddress}`);
+            console.error(`🔍 NOT INCOMING: isIncoming=${isIncoming}, from_address=${from_address?.slice(0,8)}, walletAddress=${walletAddress?.slice(0,8)}, same=${from_address === walletAddress}`);
         }
 
         // 🔥 ROI-ERKENNUNG: Eingehende Token von Contracts (UNIVERSELL für alle Chains)
@@ -78,7 +78,7 @@ export class TaxReportService_Rebuild {
             if (this.isROITransaction(transaction, walletAddress)) {
                 const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
                 const amount = this.getTokenAmount(transaction);
-                console.log(`🎯 ROI UNIVERSAL: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                console.error(`🎯 ROI UNIVERSAL: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
             
@@ -86,7 +86,7 @@ export class TaxReportService_Rebuild {
             if (this.isKnownROISource(from_address) || this.isDruckerTransaction(transaction)) {
                 const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
                 const amount = this.getTokenAmount(transaction);
-                console.log(`🎯 ROI FALLBACK: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                console.error(`🎯 ROI FALLBACK: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
         }
@@ -243,18 +243,18 @@ export class TaxReportService_Rebuild {
                 ethValue = rawValue;
             }
             
-            // 🔍 DEBUG: Zeige Token-Details
-            console.log(`🔍 TOKEN DEBUG: ${tokenSymbol} (${decimals} decimals) = ${rawValue.toFixed(8)} → ethValue: ${ethValue.toFixed(8)}`);
+            // 🔍 DEBUG: Zeige Token-Details - PRODUCTION VISIBLE
+            console.error(`🔍 TOKEN DEBUG: ${tokenSymbol} (${decimals} decimals) = ${rawValue.toFixed(8)} → ethValue: ${ethValue.toFixed(8)}`);
         } else {
             // Native ETH-Transaktion
             ethValue = parseFloat(value || '0') / 1e18;
         }
         
-        // 🔍 DEBUG: Zeige auch 0-Werte für Debugging
-        console.log(`🔍 ETH VALUE CALCULATED: ${ethValue.toFixed(8)} (from value: ${value}, decimals: ${transaction.decimals || 18})`);
+        // 🔍 DEBUG: Zeige auch 0-Werte für Debugging - PRODUCTION VISIBLE
+        console.error(`🔍 ETH VALUE CALCULATED: ${ethValue.toFixed(8)} (from value: ${value}, decimals: ${transaction.decimals || 18})`);
         
         if (ethValue <= 0) {
-            console.log(`❌ ZERO VALUE: Transaktion hat 0 ETH-Wert → AKZEPTIERE TROTZDEM FÜR TEST`);
+            console.error(`❌ ZERO VALUE: Transaktion hat 0 ETH-Wert → AKZEPTIERE TROTZDEM FÜR TEST`);
             // return false; // 🔥 TEMPORÄR DEAKTIVIERT für 0-Werte Test
         }
         
@@ -289,11 +289,11 @@ export class TaxReportService_Rebuild {
         if (isLikelyWGEPROI) {
             const roiType = isKnownWGEPContract ? 'KNOWN WGEP' : hasWGEPPattern ? 'WGEP PATTERN' : 'HEURISTIC';
             const tokenInfo = transaction.token_address ? `Token: ${transaction.token_symbol || 'Unknown'}` : 'Native ETH';
-            console.log(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... (${tokenInfo}, Gas: ${gas_used || 'unknown'})`);
+            console.error(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... (${tokenInfo}, Gas: ${gas_used || 'unknown'})`);
         } else {
-            // 🔍 DEBUG: Warum wurde es NICHT als ROI erkannt?
+            // 🔍 DEBUG: Warum wurde es NICHT als ROI erkannt? - PRODUCTION VISIBLE
             if (isFromContract) { // Auch 0-Werte zeigen
-                console.log(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isLargeWGEPValue=${isLargeWGEPValue}, isZeroValueTest=${isZeroValueTest}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
+                console.error(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isLargeWGEPValue=${isLargeWGEPValue}, isZeroValueTest=${isZeroValueTest}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
             }
         }
         
@@ -707,6 +707,7 @@ export class TaxReportService_Rebuild {
         const priceCache = new Map(); // Cache für Preise
 
         console.log(`🏷️ Kategorisiere ${transactions.length} Transaktionen...`);
+        console.error(`🔍 CATEGORIZE START: ${transactions.length} Transaktionen für Wallet ${walletAddress?.slice(0,8)}... - parseTransactionType wird aufgerufen!`);
 
         // 🚀 BATCH PROCESSING für Performance
         const batchSize = 1000;
