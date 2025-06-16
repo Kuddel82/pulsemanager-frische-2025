@@ -1332,6 +1332,7 @@ export class TaxReportService_Rebuild {
                     // USD-Preis zur Transaktionszeit ermitteln (MIT CACHE)
                     let usdPrice = 0;
                     let usdValue = 0;
+                    let tokenAmount = 0; // 🔥 WICHTIG: tokenAmount IMMER definieren
                     
                     if (tx.value && tx.value !== '0') {
                         const cacheKey = `${tx.token_address || 'native'}_${tx.block_timestamp}`;
@@ -1398,7 +1399,6 @@ export class TaxReportService_Rebuild {
                         }
                         
                         // 🔥 SICHERE USD-WERT BERECHNUNG mit Decimal-Validierung
-                        let tokenAmount = 0;
                         
                         try {
                             if (tx.token_address && tx.token_address !== 'native') {

@@ -418,20 +418,20 @@ const TaxReportNew = () => {
                         )}
 
                         {/* WGEP HOLDINGS & HALTEFRISTEN */}
-                        {report.report?.wgepHoldings && Object.keys(report.report.wgepHoldings).length > 0 && (
+                        {report.report?.wgepHoldings?.holdings && Object.keys(report.report.wgepHoldings.holdings).length > 0 && (
                           <div className="bg-purple-900/20 border border-purple-600 rounded-lg p-4">
                             <h4 className="text-lg font-bold text-purple-400 mb-3">🏭 WGEP Holdings & Haltefristen (§23 EStG)</h4>
                             <div className="space-y-3">
-                              {Object.entries(report.report.wgepHoldings).map(([token, holdings], idx) => (
+                              {Object.entries(report.report.wgepHoldings.holdings).map(([token, holdings], idx) => (
                                 <div key={idx} className="bg-purple-800/20 rounded p-3">
                                   <div className="flex justify-between items-center mb-2">
                                     <span className="text-purple-300 font-bold">{token}</span>
                                     <span className="text-white">
-                                      Total: {holdings.reduce((sum, h) => sum + h.amount, 0).toFixed(6)}
+                                      Total: {Array.isArray(holdings) ? holdings.reduce((sum, h) => sum + h.amount, 0).toFixed(6) : '0.000000'}
                                     </span>
                                   </div>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                                    {holdings.slice(0, 5).map((holding, hidx) => {
+                                    {Array.isArray(holdings) && holdings.slice(0, 5).map((holding, hidx) => {
                                       const holdingDays = Math.floor((Date.now() - new Date(holding.purchaseDate).getTime()) / (1000 * 60 * 60 * 24));
                                       const isSpeculative = holdingDays < 365;
                                       return (
@@ -455,13 +455,63 @@ const TaxReportNew = () => {
                                       );
                                     })}
                                   </div>
-                                  {holdings.length > 5 && (
+                                  {Array.isArray(holdings) && holdings.length > 5 && (
                                     <div className="text-center text-purple-400 mt-2 text-xs">
                                       ... und {holdings.length - 5} weitere Holdings
                                     </div>
                                   )}
                                 </div>
                               ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* WGEP DETAILED TRANSACTIONS */}
+                        {report.report?.wgepHoldings?.detailedTransactions && report.report.wgepHoldings.detailedTransactions.length > 0 && (
+                          <div className="bg-purple-900/20 border border-purple-600 rounded-lg p-4">
+                            <h4 className="text-lg font-bold text-purple-400 mb-3">📋 WGEP Transaktions-Historie</h4>
+                            <div className="max-h-64 overflow-y-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-purple-600">
+                                    <th className="text-left p-2 text-purple-300">Typ</th>
+                                    <th className="text-left p-2 text-purple-300">Datum</th>
+                                    <th className="text-left p-2 text-purple-300">Menge</th>
+                                    <th className="text-left p-2 text-purple-300">Preis</th>
+                                    <th className="text-left p-2 text-purple-300">Gewinn/Verlust</th>
+                                    <th className="text-left p-2 text-purple-300">Haltefrist</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {report.report.wgepHoldings.detailedTransactions.slice(0, 10).map((tx, idx) => (
+                                    <tr key={idx} className="border-b border-purple-800">
+                                      <td className={`p-2 font-bold ${tx.type === 'KAUF' ? 'text-green-400' : 'text-red-400'}`}>
+                                        {tx.type}
+                                      </td>
+                                      <td className="p-2 text-white">
+                                        {new Date(tx.date).toLocaleDateString('de-DE')}
+                                      </td>
+                                      <td className="p-2 text-purple-400">
+                                        {tx.amount.toFixed(6)} {tx.token}
+                                      </td>
+                                      <td className="p-2 text-white">
+                                        ${(tx.price || tx.purchasePrice || 0).toFixed(4)}
+                                      </td>
+                                      <td className={`p-2 font-bold ${(tx.gainLoss || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {tx.gainLoss ? `$${tx.gainLoss.toFixed(2)}` : '-'}
+                                      </td>
+                                      <td className={`p-2 ${tx.isSpeculative ? 'text-red-400' : 'text-green-400'}`}>
+                                        {tx.holdingDays ? `${tx.holdingDays} Tage ${tx.isSpeculative ? '⚠️' : '✅'}` : '-'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {report.report.wgepHoldings.detailedTransactions.length > 10 && (
+                                <div className="text-center text-purple-400 mt-2">
+                                  ... und {report.report.wgepHoldings.detailedTransactions.length - 10} weitere WGEP-Transaktionen
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
