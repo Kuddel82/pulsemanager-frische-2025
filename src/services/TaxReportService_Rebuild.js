@@ -186,6 +186,9 @@ export class TaxReportService_Rebuild {
                         cursor
                     );
                     
+                    // 🔍 ENHANCED DEBUG: Detaillierte Pagination-Logs
+                    console.log(`🔍 BATCH RESULT DEBUG: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${batchResult?.cursor || 'null'}, batchSize=${batchSize}`);
+                    
                     if (batchResult && batchResult.result && batchResult.result.length > 0) {
                         transactions.push(...batchResult.result);
                         cursor = batchResult.cursor;
@@ -194,6 +197,7 @@ export class TaxReportService_Rebuild {
                         pageCount++;
                         
                         console.log(`✅ Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length}), hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
+                        console.log(`🔍 PAGINATION LOGIC: cursor=${cursor ? 'EXISTS' : 'NULL'}, resultLength=${batchResult.result.length}, batchSize=${batchSize}, shouldContinue=${hasMore}`);
                         
                         // Rate limiting für große Wallets - REDUZIERT
                         if (pageCount % 20 === 0) {
@@ -202,6 +206,7 @@ export class TaxReportService_Rebuild {
                         }
                         
                     } else {
+                        console.log(`🔍 BATCH EMPTY: Keine Transaktionen in Batch, hasMore=false`);
                         hasMore = false;
                     }
                     
@@ -304,42 +309,52 @@ export class TaxReportService_Rebuild {
                                         console.warn(`⚠️ MORALIS PRICE: Failed for ${tx.token_address.slice(0, 8)}... - ${response.status}`);
                                     }
                                 } else {
-                                    // Für PLS: 1. PRIMÄR - Moralis für Native Token (PulseChain)
-                                    const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000', {
-                                        method: 'GET',
-                                        headers: {
-                                            'Accept': 'application/json',
-                                            'Content-Type': 'application/json'
-                                        }
-                                    });
+                                    // 🔥 FIX: PLS-Preis nur EINMAL pro Batch laden, nicht pro Transaktion!
+                                    const plsCacheKey = 'PLS_PRICE_CURRENT';
                                     
-                                    if (response.ok) {
-                                        const contentType = response.headers.get('content-type');
-                                        if (contentType && contentType.includes('application/json')) {
-                                            const data = await response.json();
-                                            usdPrice = data.usdPrice || 0;
-                                            if (usdPrice > 0) {
-                                                console.log(`✅ MORALIS PLS (PRIMARY): $${usdPrice}`);
+                                    if (priceCache.has(plsCacheKey)) {
+                                        usdPrice = priceCache.get(plsCacheKey);
+                                    } else {
+                                        // Für PLS: 1. PRIMÄR - Moralis für Native Token (PulseChain)
+                                        const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000', {
+                                            method: 'GET',
+                                            headers: {
+                                                'Accept': 'application/json',
+                                                'Content-Type': 'application/json'
+                                            }
+                                        });
+                                        
+                                        if (response.ok) {
+                                            const contentType = response.headers.get('content-type');
+                                            if (contentType && contentType.includes('application/json')) {
+                                                const data = await response.json();
+                                                usdPrice = data.usdPrice || 0;
+                                                if (usdPrice > 0) {
+                                                    console.log(`✅ MORALIS PLS (PRIMARY): $${usdPrice} - CACHED für alle PLS-Transaktionen`);
+                                                }
+                                            } else {
+                                                console.warn(`⚠️ MORALIS PRICE: Ungültige Antwort für PLS - Kein JSON`);
                                             }
                                         } else {
-                                            console.warn(`⚠️ MORALIS PRICE: Ungültige Antwort für PLS - Kein JSON`);
+                                            console.warn(`⚠️ MORALIS PRICE: Failed for PLS - ${response.status}`);
                                         }
-                                    } else {
-                                        console.warn(`⚠️ MORALIS PRICE: Failed for PLS - ${response.status}`);
-                                    }
-                                }
-                                
-                                // 2. FALLBACK: PulseScan API (nur wenn Moralis versagt)
-                                if (usdPrice === 0 && (!tx.token_address || tx.token_address === 'native')) {
-                                    try {
-                                        console.log('🔄 FALLBACK: Versuche PulseScan für PLS-Preis...');
-                                        const plsPrice = await PulseScanService.getPLSPrice();
-                                        if (plsPrice > 0) {
-                                            usdPrice = plsPrice;
-                                            console.log(`✅ PULSESCAN FALLBACK: PLS = $${plsPrice}`);
+                                        
+                                        // 2. FALLBACK: PulseScan API (nur wenn Moralis versagt)
+                                        if (usdPrice === 0) {
+                                            try {
+                                                console.log('🔄 FALLBACK: Versuche PulseScan für PLS-Preis...');
+                                                const plsPrice = await PulseScanService.getPLSPrice();
+                                                if (plsPrice > 0) {
+                                                    usdPrice = plsPrice;
+                                                    console.log(`✅ PULSESCAN FALLBACK: PLS = $${plsPrice} - CACHED für alle PLS-Transaktionen`);
+                                                }
+                                            } catch (pulseScanError) {
+                                                console.warn(`⚠️ PULSESCAN FALLBACK: Fehler beim PLS-Preis laden:`, pulseScanError.message);
+                                            }
                                         }
-                                    } catch (pulseScanError) {
-                                        console.warn(`⚠️ PULSESCAN FALLBACK: Fehler beim PLS-Preis laden:`, pulseScanError.message);
+                                        
+                                        // PLS-Preis für ALLE PLS-Transaktionen cachen
+                                        priceCache.set(plsCacheKey, usdPrice);
                                     }
                                 }
                                 
