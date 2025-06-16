@@ -144,15 +144,28 @@ export class TaxReportService_FINAL {
      * 🔥 SINGLE TRANSACTION BATCH LOADER
      * EINFACH UND ZUVERLÄSSIG - KEIN CHAOS
      */
-    static async loadTransactionBatch(walletAddress, endpoint, cursor = null, limit = 100) {
+    static async loadTransactionBatch(walletAddress, endpoint, cursor = null, limit = 500) {
         try {
             let url = `/api/moralis-proxy?endpoint=${endpoint}&address=${walletAddress}&chain=0x1&limit=${limit}`;
             if (cursor) url += `&cursor=${cursor}`;
             
             const response = await fetch(url);
+            
+            // 🚨 VERBESSERTE FEHLERBEHANDLUNG: Detaillierte 500 Error Logs
+            if (!response.ok) {
+                if (response.status === 500) {
+                    console.error(`❌ ${endpoint} 500 Error: Moralis API überlastet oder Limit zu hoch (${limit})`);
+                    console.error(`🔧 LÖSUNG: Reduziere Limit oder verwende andere Endpoints`);
+                } else {
+                    console.error(`❌ ${endpoint} ${response.status} Error: ${response.statusText}`);
+                }
+                return { success: false, transactions: [], cursor: null };
+            }
+            
             const data = await response.json();
             
-            if (!response.ok || data._error) {
+            if (data._error) {
+                console.error(`❌ ${endpoint} API Error:`, data._error);
                 return { success: false, transactions: [], cursor: null };
             }
             
@@ -163,7 +176,7 @@ export class TaxReportService_FINAL {
             };
             
         } catch (error) {
-            console.warn(`⚠️ Batch load error for ${endpoint}:`, error.message);
+            console.error(`💥 ${endpoint} Batch load CRASH:`, error.message);
             return { success: false, transactions: [], cursor: null };
         }
     }
@@ -294,8 +307,8 @@ export class TaxReportService_FINAL {
         let allEndpointTransactions = [];
         let cursor = null;
         let pageCount = 0;
-        const MAX_PAGES = 500; // DRASTISCH ERHÖHT: 500 Seiten = 1.000.000 Transaktionen
-        const PAGE_SIZE = 2000; // MAXIMALE PAGE SIZE: 2000 Transaktionen pro Request
+        const MAX_PAGES = 1000; // SEHR HOCH: 1000 Seiten = 500.000 Transaktionen pro Endpoint
+        const PAGE_SIZE = 500; // SICHERE PAGE SIZE: 500 Transaktionen pro Request (Moralis-Kompatibel)
         
         while (pageCount < MAX_PAGES) {
             const response = await this.loadTransactionBatch(walletAddress, endpoint, cursor, PAGE_SIZE);
