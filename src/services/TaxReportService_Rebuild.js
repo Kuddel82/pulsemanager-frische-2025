@@ -1265,7 +1265,12 @@ export class TaxReportService_Rebuild {
 
     // 🧮 SCHRITT 4: Berechne Steuerpflicht mit FIFO (ERWEITERT für WGEP)
     static calculateTaxability(transaction, holdingPeriodDays) {
-        const { taxCategory, amount, value } = transaction;
+        const { taxCategory } = transaction;
+        
+        // 🔧 SAFE NUMBER CONVERSION
+        const safeAmount = transaction.amount ? parseFloat(transaction.amount) : 0;
+        const safeValue = transaction.value ? parseFloat(transaction.value) : 0;
+        const safeHoldingDays = holdingPeriodDays ? parseInt(holdingPeriodDays) : 0;
         
         // 🔥 ROI-EINKOMMEN: Immer steuerpflichtig nach §22 EStG (sonstige Einkünfte)
         if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
@@ -1279,19 +1284,19 @@ export class TaxReportService_Rebuild {
         
         // 🔥 WGEP-VERKÄUFE: Spekulationsgeschäfte nach §23 EStG
         if (taxCategory === this.TAX_CATEGORIES.VERKAUF || taxCategory === this.TAX_CATEGORIES.SWAP) {
-            if (holdingPeriodDays < 365) {
+            if (safeHoldingDays < 365) {
                 return {
                     steuerpflichtig: 'Ja',
                     steuerart: 'Einkommensteuer (§23 EStG)',
                     steuersatz: '14-45% (persönlicher Steuersatz)',
-                    grund: `Haltefrist ${holdingPeriodDays} Tage < 365 Tage`
+                    grund: `Haltefrist ${safeHoldingDays} Tage < 365 Tage`
                 };
             } else {
                 return {
                     steuerpflichtig: 'Nein',
                     steuerart: 'Steuerfrei',
                     steuersatz: '0%',
-                    grund: `Haltefrist ${holdingPeriodDays} Tage ≥ 365 Tage`
+                    grund: `Haltefrist ${safeHoldingDays} Tage ≥ 365 Tage`
                 };
             }
         }
@@ -1396,9 +1401,13 @@ export class TaxReportService_Rebuild {
     static generateTaxNote(transaction) {
         const { taxCategory, amount, value, steuerpflichtig, steuerart } = transaction;
         
+        // 🔧 SAFE NUMBER CONVERSION für .toFixed() calls
+        const safeAmount = amount ? parseFloat(amount) : 0;
+        const safeValue = value ? parseFloat(value) : 0;
+        
         // 🔥 ROI-EINKOMMEN: Deutsche Steuerhinweise nach §22 EStG
         if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
-            return `ROI-Einkommen: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+            return `ROI-Einkommen: ${safeAmount.toFixed(6)} Token im Wert von €${safeValue.toFixed(2)}. ` +
                    `Steuerpflichtig nach §22 EStG (sonstige Einkünfte). ` +
                    `Einkommensteuer: 14-45% je nach persönlichem Steuersatz. ` +
                    `WICHTIG: ROI sind NICHT kapitalertragssteuerpflichtig!`;
@@ -1408,11 +1417,11 @@ export class TaxReportService_Rebuild {
         if (taxCategory === this.TAX_CATEGORIES.VERKAUF) {
             const isTaxable = steuerpflichtig === 'Ja';
             if (isTaxable) {
-                return `Verkauf: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+                return `Verkauf: ${safeAmount.toFixed(6)} Token im Wert von €${safeValue.toFixed(2)}. ` +
                        `Steuerpflichtig nach §23 EStG (Spekulationsgeschäfte). ` +
                        `Haltefrist < 1 Jahr. Einkommensteuer: 14-45% auf Gewinn.`;
             } else {
-                return `Verkauf: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+                return `Verkauf: ${safeAmount.toFixed(6)} Token im Wert von €${safeValue.toFixed(2)}. ` +
                        `Steuerfrei nach §23 EStG. Haltefrist ≥ 1 Jahr erfüllt.`;
             }
         }
@@ -1426,7 +1435,7 @@ export class TaxReportService_Rebuild {
         
         // 🔥 KÄUFE: Anschaffung (nicht steuerpflichtig)
         if (taxCategory === this.TAX_CATEGORIES.KAUF) {
-            return `Kauf: ${amount} Token im Wert von €${value?.toFixed(2) || 'N/A'}. ` +
+            return `Kauf: ${safeAmount.toFixed(6)} Token im Wert von €${safeValue.toFixed(2)}. ` +
                    `Anschaffung - nicht steuerpflichtig. Haltefrist beginnt.`;
         }
         
@@ -2284,13 +2293,17 @@ export class TaxReportService_Rebuild {
         );
         
         if (relatedTx) {
-            const amount = parseFloat(relatedTx.value || '0') / Math.pow(10, relatedTx.decimals || 18);
+            // 🔧 SAFE NUMBER CONVERSION
+            const rawValue = relatedTx.value ? parseFloat(relatedTx.value) : 0;
+            const decimals = relatedTx.decimals ? parseInt(relatedTx.decimals) : 18;
+            const amount = rawValue / Math.pow(10, decimals);
             const symbol = relatedTx.token_symbol || 'ETH';
+            const price = this.getTokenPrice(symbol);
             
             return {
                 coin: symbol,
                 menge: amount.toFixed(6),
-                preis: `$${(amount * this.getTokenPrice(symbol)).toFixed(2)}`,
+                preis: `$${(amount * price).toFixed(2)}`,
                 art: relatedTx.taxCategory,
                 bemerkung: `Korrigiert von USDC-Fehler`
             };
@@ -2322,8 +2335,9 @@ export class TaxReportService_Rebuild {
         };
         
         wgepTransactions.forEach(tx => {
-            const amount = parseFloat(tx.amount || '0');
-            const value = parseFloat(tx.value || '0');
+            // 🔧 SAFE NUMBER CONVERSION
+            const amount = tx.amount ? parseFloat(tx.amount) : 0;
+            const value = tx.value ? parseFloat(tx.value) : 0;
             const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
             
             if (isIncoming) {
