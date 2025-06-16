@@ -220,9 +220,25 @@ export class TaxReportService_Rebuild {
         let ethValue = 0;
         
         if (transaction.token_address && transaction.token_address !== 'native') {
-            // ERC20-Transfer: Verwende token value mit decimals
+            // 🎯 WGEP-TOKEN: Spezielle Behandlung für WGEP-Token
+            const tokenSymbol = transaction.token_symbol || transaction.symbol || '';
             const decimals = transaction.decimals || 18;
-            ethValue = parseFloat(value || '0') / Math.pow(10, decimals);
+            
+            // WGEP-Token haben oft 18 Dezimalstellen, aber die Werte sind in ETH-Äquivalent
+            const rawValue = parseFloat(value || '0') / Math.pow(10, decimals);
+            
+            // 🔥 WGEP-SPEZIFISCH: Wenn es ein WGEP-ähnlicher Token ist, behandle als ETH-Äquivalent
+            if (tokenSymbol.toUpperCase().includes('WGEP') || 
+                tokenSymbol.toUpperCase().includes('ETH') ||
+                this.isKnownROISource(from_address)) {
+                ethValue = rawValue;
+            } else {
+                // Für andere Token: Verwende den rohen Wert
+                ethValue = rawValue;
+            }
+            
+            // 🔍 DEBUG: Zeige Token-Details
+            console.log(`🔍 TOKEN DEBUG: ${tokenSymbol} (${decimals} decimals) = ${rawValue.toFixed(8)} → ethValue: ${ethValue.toFixed(8)}`);
         } else {
             // Native ETH-Transaktion
             ethValue = parseFloat(value || '0') / 1e18;
@@ -233,9 +249,12 @@ export class TaxReportService_Rebuild {
         }
         
         // 🔥 ERWEITERTE WGEP ROI Charakteristika (lockerer für mehr Erkennung):
-        // 1. WGEP-typische Beträge (0.0003 - 0.0007 ETH) ODER größere ROI-Beträge
-        const isROIAmount = ethValue >= 0.0001 && ethValue <= 10; // Erweitert: 0.0001 bis 10 ETH
+        // 1. WGEP-typische Beträge - ERWEITERT für falsche Dezimalstellen
+        const isROIAmount = ethValue >= 0.0001 && ethValue <= 10000000; // ERWEITERT: Bis 10M ETH für falsche Decimals
         const isWGEPAmount = this.isRegularWGEPAmount(ethValue); // Spezifische WGEP-Beträge
+        
+        // 🎯 WGEP-SPEZIFISCH: Auch sehr große Werte akzeptieren (falsche Dezimalstellen)
+        const isLargeWGEPValue = ethValue > 10 && ethValue < 10000000; // Große Werte durch falsche Decimals
         
         // 2. Von Contract-Adresse (nicht EOA) - ERWEITERTE PRÜFUNG
         const isFromContract = from_address && 
@@ -252,7 +271,7 @@ export class TaxReportService_Rebuild {
         const hasWGEPPattern = this.hasWGEPTransactionPattern(transaction);
         
         // Kombiniere alle Faktoren (lockerer für mehr ROI-Erkennung)
-        const isLikelyWGEPROI = (isROIAmount || isWGEPAmount) && isFromContract && hasValidGas;
+        const isLikelyWGEPROI = (isROIAmount || isWGEPAmount || isLargeWGEPValue) && isFromContract && hasValidGas;
         
         if (isLikelyWGEPROI) {
             const roiType = isKnownWGEPContract ? 'KNOWN WGEP' : hasWGEPPattern ? 'WGEP PATTERN' : 'HEURISTIC';
@@ -261,7 +280,7 @@ export class TaxReportService_Rebuild {
         } else {
             // 🔍 DEBUG: Warum wurde es NICHT als ROI erkannt?
             if (ethValue > 0 && isFromContract) {
-                console.log(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
+                console.log(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isLargeWGEPValue=${isLargeWGEPValue}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
             }
         }
         
