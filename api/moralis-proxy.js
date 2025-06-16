@@ -70,6 +70,12 @@ export default async function handler(req, res) {
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
+      case 'verbose':
+        // 🆕 MORALIS TRANSACTION LABELING: /verbose Endpoint für decoded_call/decoded_event
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/verbose?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
+        if (cursor) apiUrl += `&cursor=${cursor}`;
+        break;
+        
       case 'erc20-transfers':
         apiUrl = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
@@ -93,8 +99,8 @@ export default async function handler(req, res) {
         return res.status(400).json({
           error: `Unbekannter Endpoint: ${endpoint}`,
           success: false,
-          availableEndpoints: ['transactions', 'erc20-transfers', 'balances'],
-          note: 'native-transfers nicht unterstützt'
+          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'balances'],
+          note: 'native-transfers nicht unterstützt, verbose für Transaction Labeling'
         });
     }
 

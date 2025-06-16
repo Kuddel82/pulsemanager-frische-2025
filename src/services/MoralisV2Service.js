@@ -65,15 +65,17 @@ export class MoralisV2Service {
   /**
    * 📄 WALLET TRANSACTIONS BATCH (für Tax Report Rebuild) - ERWEITERT für WGEP ROI
    * Unterstützt bis zu 300.000 Transaktionen mit Cursor-Pagination
+   * 🆕 MORALIS TRANSACTION LABELING: Unterstützt /verbose Endpoints für decoded_call/decoded_event
    */
-  static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1', endpoint = null) {
+  static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1', endpoint = null, useVerbose = false) {
     try {
       // Debug log removed to prevent console spam
       console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit}, chain: ${chain})`);
       
       // 🔥 OPTIMIERTE ENDPOINT STRATEGY: Verwende spezifischen Endpoint wenn angegeben
+      // 🆕 VERBOSE ENDPOINTS: Für Transaction Labeling mit decoded_call/decoded_event
       const endpoints = endpoint ? [endpoint] : [
-        'transactions',      // Primär: Alle Transaktionen (ETH + Token)
+        useVerbose ? 'verbose' : 'transactions',      // Primär: Alle Transaktionen (mit/ohne Labeling)
         'erc20-transfers'    // Sekundär: Token-Transfers
         // nft-transfers und internal-transactions entfernt - erzeugen 400 Bad Request Spam
       ];
@@ -87,7 +89,7 @@ export class MoralisV2Service {
           let url = `/api/moralis-proxy?endpoint=${currentEndpoint}&address=${address}&chain=${chain}&limit=${limit}`;
           if (cursor) url += `&cursor=${cursor}`;
           
-          console.log(`🔍 V2: Versuche ${currentEndpoint} endpoint...`);
+          console.log(`🔍 V2: Versuche ${currentEndpoint} endpoint${useVerbose ? ' (VERBOSE MODE)' : ''}...`);
           
           const response = await fetch(url);
           

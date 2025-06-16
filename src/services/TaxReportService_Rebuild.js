@@ -46,6 +46,11 @@ export class TaxReportService_Rebuild {
         // 🔥 WRAPPED TOKEN-KATEGORIEN
         WRAP: 'Token-Wrap',             // ETH → WETH (nicht steuerrelevant)
         UNWRAP: 'Token-Unwrap',         // WETH → ETH (nicht steuerrelevant)
+        
+        // 🆕 MORALIS LABELING KATEGORIEN
+        STAKING_DEPOSIT: 'Staking-Deposit',     // Staking-Einzahlung
+        STAKING_WITHDRAWAL: 'Staking-Withdrawal', // Staking-Auszahlung
+        APPROVAL: 'Token-Approval'              // Token-Genehmigung (nicht steuerrelevant)
     };
 
     // ⏰ HALTEFRIST-KONSTANTEN
@@ -56,10 +61,19 @@ export class TaxReportService_Rebuild {
 
     // 🧠 TRANSAKTIONS-PARSER: Erkennt Transaktionstypen (ERWEITERT für WGEP ETH-ROI)
     static parseTransactionType(transaction, walletAddress) {
-        const { from_address, to_address, value, input } = transaction;
+        const { from_address, to_address, value, input, decoded_call, decoded_event } = transaction;
         
         const isIncoming = to_address?.toLowerCase() === walletAddress?.toLowerCase();
         const isOutgoing = from_address?.toLowerCase() === walletAddress?.toLowerCase();
+        
+        // 🆕 MORALIS TRANSACTION LABELING: Präzise Kategorisierung basierend auf decoded_call/decoded_event
+        if (decoded_call || decoded_event) {
+            const labelingResult = this.parseTransactionWithLabeling(transaction, walletAddress, decoded_call, decoded_event);
+            if (labelingResult) {
+                console.log(`🏷️ MORALIS LABELING: ${labelingResult.category} (${labelingResult.label}) - ${labelingResult.description}`);
+                return labelingResult.category;
+            }
+        }
         
         // 🔍 DEBUG: Zeige ALLE Transaktionen (nicht nur eingehende) - ONLY IN DEBUG MODE
         if (this.debugMode) {
@@ -170,6 +184,173 @@ export class TaxReportService_Rebuild {
         } else {
             return this.TAX_CATEGORIES.TRANSFER;
         }
+    }
+
+    // 🆕 MORALIS TRANSACTION LABELING PARSER (Präzise ABI-basierte Kategorisierung)
+    static parseTransactionWithLabeling(transaction, walletAddress, decoded_call, decoded_event) {
+        const { from_address, to_address, value } = transaction;
+        const isIncoming = to_address?.toLowerCase() === walletAddress?.toLowerCase();
+        const isOutgoing = from_address?.toLowerCase() === walletAddress?.toLowerCase();
+        
+        // 🔍 DECODED CALL ANALYSIS
+        if (decoded_call) {
+            const { label, signature, params } = decoded_call;
+            
+            switch (label?.toLowerCase()) {
+                case 'transfer':
+                    // ERC20 Transfer - prüfe Richtung
+                    const transferTo = params?.find(p => p.name === '_to' || p.name === 'to')?.value;
+                    const transferValue = params?.find(p => p.name === '_value' || p.name === 'value')?.value;
+                    
+                    if (transferTo?.toLowerCase() === walletAddress.toLowerCase()) {
+                        return {
+                            category: this.TAX_CATEGORIES.KAUF,
+                            label: 'Transfer (Incoming)',
+                            description: `Token-Empfang via ${signature}`
+                        };
+                    } else {
+                        return {
+                            category: this.TAX_CATEGORIES.VERKAUF,
+                            label: 'Transfer (Outgoing)',
+                            description: `Token-Versendung via ${signature}`
+                        };
+                    }
+                    
+                case 'approve':
+                    return {
+                        category: this.TAX_CATEGORIES.APPROVAL,
+                        label: 'Approve',
+                        description: `Token-Genehmigung via ${signature}`
+                    };
+                    
+                case 'mint':
+                    // Minting ist oft ROI (Staking Rewards, etc.)
+                    return {
+                        category: this.TAX_CATEGORIES.ROI_INCOME,
+                        label: 'Mint (ROI)',
+                        description: `Token-Minting via ${signature} - EINKOMMENSTEUERPFLICHTIG §22 EStG`
+                    };
+                    
+                case 'deposit':
+                    return {
+                        category: this.TAX_CATEGORIES.STAKING_DEPOSIT,
+                        label: 'Deposit',
+                        description: `Staking-Einzahlung via ${signature}`
+                    };
+                    
+                case 'withdraw':
+                    return {
+                        category: this.TAX_CATEGORIES.STAKING_WITHDRAWAL,
+                        label: 'Withdraw',
+                        description: `Staking-Auszahlung via ${signature}`
+                    };
+                    
+                case 'swap':
+                case 'swapexacttokensfortokens':
+                case 'swapexacttokensforeth':
+                case 'swapethforexacttokens':
+                    return {
+                        category: this.TAX_CATEGORIES.SWAP,
+                        label: 'Swap',
+                        description: `Token-Tausch via ${signature}`
+                    };
+                    
+                default:
+                    // Unbekannte Funktion - verwende Fallback-Logik
+                    break;
+            }
+        }
+        
+        // 🔍 DECODED EVENT ANALYSIS
+        if (decoded_event) {
+            const { label, signature, params } = decoded_event;
+            
+            switch (label?.toLowerCase()) {
+                case 'transfer':
+                    // ERC20 Transfer Event - präzise Richtungsanalyse
+                    const eventFrom = params?.find(p => p.name === 'from')?.value;
+                    const eventTo = params?.find(p => p.name === 'to')?.value;
+                    const eventValue = params?.find(p => p.name === 'value')?.value;
+                    
+                    // Prüfe ob es ein ROI-Transfer ist (von Contract zu Wallet)
+                    if (eventTo?.toLowerCase() === walletAddress.toLowerCase() && 
+                        eventFrom && eventFrom.length === 42 && 
+                        !eventFrom.startsWith('0x000000') &&
+                        eventFrom.toLowerCase() !== walletAddress.toLowerCase()) {
+                        
+                        // Prüfe ob es von einem bekannten ROI-Contract kommt
+                        if (this.isKnownROISource(eventFrom)) {
+                            return {
+                                category: this.TAX_CATEGORIES.ROI_INCOME,
+                                label: 'Transfer (ROI)',
+                                description: `ROI-Einkommen von ${eventFrom.slice(0,8)}... - EINKOMMENSTEUERPFLICHTIG §22 EStG`
+                            };
+                        }
+                        
+                        return {
+                            category: this.TAX_CATEGORIES.KAUF,
+                            label: 'Transfer (Incoming)',
+                            description: `Token-Empfang via ${signature}`
+                        };
+                    } else if (eventFrom?.toLowerCase() === walletAddress.toLowerCase()) {
+                        return {
+                            category: this.TAX_CATEGORIES.VERKAUF,
+                            label: 'Transfer (Outgoing)',
+                            description: `Token-Versendung via ${signature}`
+                        };
+                    }
+                    break;
+                    
+                case 'approval':
+                    return {
+                        category: this.TAX_CATEGORIES.APPROVAL,
+                        label: 'Approval',
+                        description: `Token-Genehmigung via ${signature}`
+                    };
+                    
+                case 'mint':
+                    // Mint Event - oft ROI
+                    const mintTo = params?.find(p => p.name === 'to')?.value;
+                    if (mintTo?.toLowerCase() === walletAddress.toLowerCase()) {
+                        return {
+                            category: this.TAX_CATEGORIES.ROI_INCOME,
+                            label: 'Mint (ROI)',
+                            description: `Token-Minting via ${signature} - EINKOMMENSTEUERPFLICHTIG §22 EStG`
+                        };
+                    }
+                    break;
+                    
+                case 'deposit':
+                case 'stake':
+                    return {
+                        category: this.TAX_CATEGORIES.STAKING_DEPOSIT,
+                        label: 'Deposit/Stake',
+                        description: `Staking-Einzahlung via ${signature}`
+                    };
+                    
+                case 'withdraw':
+                case 'unstake':
+                    return {
+                        category: this.TAX_CATEGORIES.STAKING_WITHDRAWAL,
+                        label: 'Withdraw/Unstake',
+                        description: `Staking-Auszahlung via ${signature}`
+                    };
+                    
+                case 'swap':
+                    return {
+                        category: this.TAX_CATEGORIES.SWAP,
+                        label: 'Swap',
+                        description: `Token-Tausch via ${signature}`
+                    };
+                    
+                default:
+                    // Unbekanntes Event - verwende Fallback-Logik
+                    break;
+            }
+        }
+        
+        // Kein Match gefunden - verwende Fallback-Logik
+        return null;
     }
 
     // 🔄 SWAP-TRANSACTION ANALYSIS (für USDT→WGEP Erkennung)
@@ -840,9 +1021,9 @@ export class TaxReportService_Rebuild {
                             console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                         }
                         
-                        // 🔄 Lade BEIDE: Native Transaktionen UND ERC20-Transfers
+                        // 🔄 Lade BEIDE: Native Transaktionen UND ERC20-Transfers (MIT MORALIS LABELING)
                         const [nativeResponse, erc20Response] = await Promise.all([
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'verbose', true),
                             MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers')
                         ]);
                         
