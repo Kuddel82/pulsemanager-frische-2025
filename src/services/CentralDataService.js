@@ -507,13 +507,14 @@ export class CentralDataService {
               
               // 🚨 CRITICAL ETH PRICE FIX: Der Wert wird falsch berechnet!
               if (tokenSymbol === 'ETH' && totalUsd > 200000) {
-                console.error(`🚨 ETH PRICE ERROR: Calculated $${totalUsd.toLocaleString()} but should be around $${(balanceReadable * 2400).toFixed(2)}`);
+                console.error(`🚨 ETH PRICE ERROR: Calculated $${totalUsd.toLocaleString()} - Loading real ETH price from Moralis`);
                 console.error(`🚨 ETH DEBUG: Balance=${balanceReadable}, Price=${finalPrice}, Calculation=${balanceReadable}*${finalPrice}=${totalUsd}`);
                 
-                // Force correct ETH price calculation
-                const correctedPrice = 2400; // Current ETH price
+                // Load real ETH price from Moralis
+                const realEthPrices = await this.fetchNativePricesFromMoralis('0x1');
+                const correctedPrice = realEthPrices['0x1']?.price || 2400; // Live ETH price with fallback
                 const correctedValue = balanceReadable * correctedPrice;
-                console.log(`🔧 ETH CORRECTED: $${correctedValue.toFixed(2)} (was $${totalUsd.toLocaleString()})`);
+                console.log(`🔧 ETH CORRECTED: $${correctedValue.toFixed(2)} (was $${totalUsd.toLocaleString()}) using LIVE price $${correctedPrice}`);
                 
                 // Override the calculated values
                 finalPrice = correctedPrice;

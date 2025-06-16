@@ -123,7 +123,22 @@ export default function ROICalculator() {
 
       // Price calculations (aktualisierte Preise - Stand Januar 2025)
       const plsUsdPrice = 0.000088; // Aktueller PLS Preis (ca. $0.000088)
-      const ethUsdPrice = await getEthRealTimePrice(); // Echter ETH Preis von Moralis
+      // Load real ETH price from Moralis
+      let ethUsdPrice = 2400; // Fallback
+      try {
+        const response = await fetch('https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=eth', {
+          headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.usdPrice) {
+            ethUsdPrice = parseFloat(data.usdPrice);
+            console.log(`🔥 REAL-TIME ETH PRICE: $${ethUsdPrice}`);
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Could not load live ETH price for ROI calculation: ${error.message}`);
+      }
 
       const walletValueUSD = (walletTotals.totalPLS * plsUsdPrice) + (walletTotals.totalETH * ethUsdPrice);
       const totalPortfolioValue = walletValueUSD + investmentTotals.totalInvestmentValue;

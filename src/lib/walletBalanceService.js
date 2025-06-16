@@ -79,11 +79,30 @@ export class WalletBalanceService {
     }
   }
 
-  // 💎 Calculate Portfolio Value
-  static calculatePortfolioValue(wallets) {
+  // 💎 Calculate Portfolio Value with REAL-TIME PRICES
+  static async calculatePortfolioValue(wallets) {
+    console.log('💰 LOADING REAL-TIME PRICES for portfolio calculation...');
+    
+    // Load real ETH price from Moralis
+    let realEthPrice = 2400; // Fallback
+    try {
+      const response = await fetch('https://deep-index.moralis.io/api/v2/erc20/0x0000000000000000000000000000000000000000/price?chain=eth', {
+        headers: { 'X-API-Key': import.meta.env.VITE_MORALIS_API_KEY }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.usdPrice) {
+          realEthPrice = parseFloat(data.usdPrice);
+          console.log(`🔥 REAL-TIME ETH PRICE: $${realEthPrice}`);
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Could not load live ETH price: ${error.message}`);
+    }
+    
     const prices = {
       369: 0.000088, // PLS price in USD
-      1: null        // ETH price loaded dynamically from Moralis
+      1: realEthPrice // REAL ETH price from Moralis!
     };
     
     let totalValue = 0;
@@ -118,11 +137,12 @@ export class WalletBalanceService {
       totalValue += value;
     });
     
-    console.log('💰 PORTFOLIO CALCULATION:', {
+    console.log('💰 PORTFOLIO CALCULATION WITH REAL PRICES:', {
       totalValue,
       breakdown,
       plsPrice: prices[369],
-      ethPrice: prices[1]
+      ethPrice: prices[1],
+      ethPriceSource: 'moralis_live'
     });
     
     return {
