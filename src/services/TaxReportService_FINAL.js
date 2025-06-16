@@ -127,14 +127,14 @@ export class TaxReportService_FINAL {
         
         console.log(`🎯 GUARANTEED LOADER COMPLETE: ${allTransactions.length} Transaktionen über ${currentPage} Seiten`);
         
-        // 🚨 FALLBACK: Wenn weniger als 200 Transaktionen, versuche alternative Strategie  
-        if (allTransactions.length < 200) {
-            console.log(`⚠️ FALLBACK: Nur ${allTransactions.length} Transaktionen geladen - versuche alternative Methode`);
-            const fallbackTransactions = await this.loadWithFallbackStrategy(walletAddress);
-            if (fallbackTransactions.length > allTransactions.length) {
-                console.log(`✅ FALLBACK SUCCESS: ${fallbackTransactions.length} Transaktionen (mehr als ${allTransactions.length})`);
-                return this.removeDuplicates(fallbackTransactions);
-            }
+        // 🚨 FORCE FALLBACK: IMMER aktivieren für 700+ Transaktionen
+        console.log(`🚨 FORCE FALLBACK: ${allTransactions.length} Transaktionen geladen - aktiviere aggressive Strategie für 700+`);
+        const fallbackTransactions = await this.loadWithFallbackStrategy(walletAddress);
+        if (fallbackTransactions.length > allTransactions.length) {
+            console.log(`✅ FALLBACK SUCCESS: ${fallbackTransactions.length} Transaktionen (deutlich mehr als ${allTransactions.length})`);
+            return this.removeDuplicates(fallbackTransactions);
+        } else {
+            console.log(`⚠️ FALLBACK: Keine Verbesserung (${fallbackTransactions.length} vs ${allTransactions.length}) - verwende Standard-Ergebnis`);
         }
         
         return this.removeDuplicates(allTransactions); // Final dedup
