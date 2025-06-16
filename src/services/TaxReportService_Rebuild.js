@@ -304,7 +304,7 @@ export class TaxReportService_Rebuild {
                                         console.warn(`⚠️ MORALIS PRICE: Failed for ${tx.token_address.slice(0, 8)}... - ${response.status}`);
                                     }
                                 } else {
-                                    // Für PLS: Verwende Moralis für Native Token (PulseChain)
+                                    // Für PLS: 1. PRIMÄR - Moralis für Native Token (PulseChain)
                                     const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000', {
                                         method: 'GET',
                                         headers: {
@@ -319,13 +319,27 @@ export class TaxReportService_Rebuild {
                                             const data = await response.json();
                                             usdPrice = data.usdPrice || 0;
                                             if (usdPrice > 0) {
-                                                console.log(`✅ MORALIS PLS: $${usdPrice}`);
+                                                console.log(`✅ MORALIS PLS (PRIMARY): $${usdPrice}`);
                                             }
                                         } else {
                                             console.warn(`⚠️ MORALIS PRICE: Ungültige Antwort für PLS - Kein JSON`);
                                         }
                                     } else {
                                         console.warn(`⚠️ MORALIS PRICE: Failed for PLS - ${response.status}`);
+                                    }
+                                }
+                                
+                                // 2. FALLBACK: PulseScan API (nur wenn Moralis versagt)
+                                if (usdPrice === 0 && (!tx.token_address || tx.token_address === 'native')) {
+                                    try {
+                                        console.log('🔄 FALLBACK: Versuche PulseScan für PLS-Preis...');
+                                        const plsPrice = await PulseScanService.getPLSPrice();
+                                        if (plsPrice > 0) {
+                                            usdPrice = plsPrice;
+                                            console.log(`✅ PULSESCAN FALLBACK: PLS = $${plsPrice}`);
+                                        }
+                                    } catch (pulseScanError) {
+                                        console.warn(`⚠️ PULSESCAN FALLBACK: Fehler beim PLS-Preis laden:`, pulseScanError.message);
                                     }
                                 }
                                 
