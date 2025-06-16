@@ -1684,8 +1684,8 @@ export class TaxReportService_Rebuild {
                 //     return; // Skip spam tokens
                 // }
                 
-                // 🔧 ECHTE PREISBERECHNUNGEN
-                let finalPrice = '$0.00';
+                // 🔧 ECHTE PREISBERECHNUNGEN (gemäß Memory-Regel: KEINE Phantasie-Preise)
+                let finalPrice = 'Preis unbekannt';
                 let calculatedValue = 0;
                 
                 const amount = transaction.amount ? parseFloat(transaction.amount) : 0;
@@ -1719,9 +1719,9 @@ export class TaxReportService_Rebuild {
                     finalPrice = `$${calculatedValue.toFixed(2)}`;
                 }
                 
-                // 🚨 WARNUNG wenn Fallback-Preise verwendet werden
-                if (!transaction.usd_price && !transaction.usdValue) {
-                    console.warn(`⚠️ FALLBACK-PREIS für ${symbol}: ${finalPrice} - NICHT historisch korrekt!`);
+                // 🚨 TRANSPARENTE WARNUNG wenn KEINE echten Preise verfügbar sind
+                if (!transaction.usd_price && !transaction.usdValue && finalPrice === 'Preis unbekannt') {
+                    console.warn(`❌ KEIN PREIS VERFÜGBAR für ${symbol} - Moralis API hat keine historischen Daten`);
                 }
                 
                 // 🚨 TRANSPARENZ: Zeige deutlich wenn Preise fehlen
@@ -2737,15 +2737,17 @@ export class TaxReportService_Rebuild {
         };
     }
 
-    // 💰 NUR ECHTE TOKEN-PREISE (KEINE HARDCODIERTEN WERTE!)
+    // 💰 TOKEN-PREISE: NUR ECHTE API-DATEN (gemäß Memory-Regel)
     static getTokenPrice(symbol) {
-        // 🚨 DIESE FUNKTION SOLL NUR ECHTE API-PREISE LIEFERN
-        // Keine hardcodierten Phantasie-Preise mehr!
+        // 🚨 KRITISCHE STEUERLICHE KORREKTUR: KEINE hardcodierten Phantasie-Preise
+        // Für deutsche Steuerkonformität dürfen KEINE hardcodierten Phantasie-Preise verwendet werden
+        // Das System verwendet ausschließlich echte Moralis-API-Daten
         
-        console.warn(`⚠️ getTokenPrice(${symbol}) aufgerufen - verwende stattdessen Moralis API-Daten!`);
+        console.warn(`❌ STEUER-WARNUNG: getTokenPrice(${symbol}) - KEINE hardcodierten Preise erlaubt!`);
+        console.warn(`🔧 LÖSUNG: Verwende transaction.usd_price oder transaction.value aus Moralis API`);
         
-        // Gebe 0 zurück um zu zeigen dass keine echten Daten verfügbar sind
-        return 0;
+        // Gebe null zurück um "Preis unbekannt" transparent anzuzeigen
+        return null;
     }
 
     // 📅 HISTORISCHE ETH-PREISE für korrekte Steuerberechnung

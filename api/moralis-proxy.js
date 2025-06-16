@@ -87,7 +87,17 @@ export default async function handler(req, res) {
         break;
         
       case 'internal-transactions':
-        // 🆕 INTERNAL TRANSACTIONS: Für vollständige Transaktionshistorie
+        // 🆕 INTERNAL TRANSACTIONS: Für vollständige Transaktionshistorie (OPTIONAL ENDPOINT)
+        // ⚠️ WARNUNG: Nicht alle Chains unterstützen internal-transactions
+        if (normalizedChain === '0x171') {
+          // PulseChain: Internal transactions nicht verfügbar
+          return res.status(400).json({
+            success: false,
+            error: 'internal-transactions für PulseChain nicht unterstützt',
+            alternative: 'Verwende transactions + erc20-transfers für vollständige Daten',
+            chain: normalizedChain
+          });
+        }
         apiUrl = `https://deep-index.moralis.io/api/v2/${address}/internal-transactions?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
