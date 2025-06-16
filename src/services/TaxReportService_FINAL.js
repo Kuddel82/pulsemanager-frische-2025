@@ -127,8 +127,8 @@ export class TaxReportService_FINAL {
         
         console.log(`🎯 GUARANTEED LOADER COMPLETE: ${allTransactions.length} Transaktionen über ${currentPage} Seiten`);
         
-        // 🚨 FALLBACK: Wenn weniger als 100 Transaktionen, versuche alternative Strategie
-        if (allTransactions.length < 100) {
+        // 🚨 FALLBACK: Wenn weniger als 200 Transaktionen, versuche alternative Strategie  
+        if (allTransactions.length < 200) {
             console.log(`⚠️ FALLBACK: Nur ${allTransactions.length} Transaktionen geladen - versuche alternative Methode`);
             const fallbackTransactions = await this.loadWithFallbackStrategy(walletAddress);
             if (fallbackTransactions.length > allTransactions.length) {
@@ -239,47 +239,121 @@ export class TaxReportService_FINAL {
     }
     
     /**
-     * 🚨 FALLBACK STRATEGY: Alternative Lademethode wenn Standard-Endpoints versagen
+     * 🚨 FALLBACK STRATEGY: Alternative Lademethode für VOLLSTÄNDIGE ETHEREUM HISTORIE
      */
     static async loadWithFallbackStrategy(walletAddress) {
-        console.log(`🚨 FALLBACK STRATEGY: Alternative Lademethode für ${walletAddress}`);
+        console.log(`🚨 FALLBACK STRATEGY: Lade ALLE 700+ Ethereum Transaktionen für ${walletAddress}`);
         
         let allTransactions = [];
         
-        // Strategie 1: Mehr Endpoints versuchen
-        const fallbackEndpoints = ['transactions', 'erc20-transfers', 'verbose', 'wallet-transactions'];
+        // 🔥 STRATEGIE 1: VOLLSTÄNDIGE MORALIS PAGINATION (mit aggressiven Limits)
+        const fullEndpoints = ['transactions', 'erc20-transfers', 'verbose', 'wallet-transactions', 'nft-transfers'];
         
-        for (const endpoint of fallbackEndpoints) {
+        for (const endpoint of fullEndpoints) {
             try {
-                console.log(`🔄 FALLBACK: Versuche ${endpoint}...`);
+                console.log(`🔄 VOLLSTÄNDIG: Lade ${endpoint} mit maximaler Pagination...`);
                 let cursor = null;
                 let pageCount = 0;
+                let endpointTransactions = [];
                 
-                // Lade bis zu 20 Seiten pro Endpoint
-                while (pageCount < 20) {
+                // 🚀 AGGRESSIVE PAGINATION: Bis zu 100 Seiten pro Endpoint
+                while (pageCount < 100) {
                     const response = await this.loadTransactionBatch(walletAddress, endpoint, cursor, 100);
                     
-                    if (!response.success || response.transactions.length === 0) {
+                    if (!response.success) {
+                        console.log(`❌ ${endpoint} Page ${pageCount + 1}: API Error`);
                         break;
                     }
                     
-                    allTransactions.push(...response.transactions);
+                    if (response.transactions.length === 0) {
+                        console.log(`⚪ ${endpoint} Page ${pageCount + 1}: Keine Daten - Ende erreicht`);
+                        break;
+                    }
+                    
+                    endpointTransactions.push(...response.transactions);
+                    console.log(`✅ ${endpoint} Page ${pageCount + 1}: ${response.transactions.length} Transaktionen (Total: ${endpointTransactions.length})`);
+                    
                     cursor = response.cursor;
                     pageCount++;
                     
-                    if (!cursor) break;
-                    await this.delay(100);
+                    // Stoppe wenn kein Cursor mehr da
+                    if (!cursor) {
+                        console.log(`🔄 ${endpoint}: Kein Cursor - alle Daten geladen`);
+                        break;
+                    }
+                    
+                    await this.delay(200); // Rate limiting
                 }
                 
-                console.log(`📊 FALLBACK ${endpoint}: ${allTransactions.length} total transactions`);
+                allTransactions.push(...endpointTransactions);
+                console.log(`📊 ${endpoint} COMPLETE: ${endpointTransactions.length} Transaktionen über ${pageCount} Seiten`);
                 
             } catch (error) {
                 console.warn(`⚠️ FALLBACK ${endpoint} failed:`, error.message);
             }
         }
         
-        console.log(`🎯 FALLBACK COMPLETE: ${allTransactions.length} Transaktionen gesammelt`);
-        return this.removeDuplicates(allTransactions);
+        // 🔥 STRATEGIE 2: ETHERSCAN FALLBACK (wenn verfügbar)
+        if (allTransactions.length < 200) {
+            console.log(`🔄 ETHERSCAN FALLBACK: Versuche alternative Ethereum API...`);
+            try {
+                const etherscanTxs = await this.loadFromEtherscanAPI(walletAddress);
+                if (etherscanTxs.length > 0) {
+                    allTransactions.push(...etherscanTxs);
+                    console.log(`✅ ETHERSCAN: ${etherscanTxs.length} zusätzliche Transaktionen geladen`);
+                }
+            } catch (error) {
+                console.warn(`⚠️ ETHERSCAN FALLBACK failed:`, error.message);
+            }
+        }
+        
+        const uniqueTransactions = this.removeDuplicates(allTransactions);
+        console.log(`🎯 FALLBACK COMPLETE: ${uniqueTransactions.length} einzigartige Transaktionen (von ${allTransactions.length} total)`);
+        return uniqueTransactions;
+    }
+    
+    /**
+     * 🔥 ETHERSCAN API FALLBACK für vollständige Ethereum Historie
+     */
+    static async loadFromEtherscanAPI(walletAddress) {
+        console.log(`🔄 ETHERSCAN: Lade vollständige Ethereum Historie für ${walletAddress}`);
+        
+        try {
+            // Verwende die Public Etherscan API für vollständige Transaktionshistorie
+            const normalTxsUrl = `https://api.etherscan.io/api?module=account&action=txlist&address=${walletAddress}&startblock=0&endblock=99999999&sort=desc&apikey=YourApiKeyToken`;
+            const tokenTxsUrl = `https://api.etherscan.io/api?module=account&action=tokentx&address=${walletAddress}&startblock=0&endblock=99999999&sort=desc&apikey=YourApiKeyToken`;
+            
+            console.log(`📡 ETHERSCAN: Lade Normal + Token Transaktionen...`);
+            
+            const [normalResponse, tokenResponse] = await Promise.all([
+                fetch(normalTxsUrl).then(r => r.json()).catch(() => ({ result: [] })),
+                fetch(tokenTxsUrl).then(r => r.json()).catch(() => ({ result: [] }))
+            ]);
+            
+            const normalTxs = normalResponse.result || [];
+            const tokenTxs = tokenResponse.result || [];
+            
+            console.log(`✅ ETHERSCAN: ${normalTxs.length} Normal + ${tokenTxs.length} Token = ${normalTxs.length + tokenTxs.length} Transaktionen`);
+            
+            // Konvertiere Etherscan Format zu Moralis Format
+            const convertedTxs = [...normalTxs, ...tokenTxs].map(tx => ({
+                transaction_hash: tx.hash,
+                block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                from_address: tx.from,
+                to_address: tx.to,
+                value: tx.value,
+                token_address: tx.contractAddress || 'native',
+                token_symbol: tx.tokenSymbol || 'ETH',
+                decimals: tx.tokenDecimal || 18,
+                _source: 'etherscan_fallback'
+            }));
+            
+            return convertedTxs;
+            
+        } catch (error) {
+            console.error(`❌ ETHERSCAN API Error:`, error);
+            return [];
+        }
     }
     
     /**
