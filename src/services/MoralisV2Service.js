@@ -77,6 +77,9 @@ export class MoralisV2Service {
       const response = await fetch(url);
       const data = await response.json();
       
+      // 🔍 DEBUG: Log pagination response
+      console.log(`🔍 V2 PAGINATION DEBUG: result=${data.result?.length || 0}, cursor=${data.cursor || 'null'}, success=${data.success}`);
+      
       if (data._error) {
         console.warn('⚠️ V2 Batch API Error:', data._error.message);
         return { 
