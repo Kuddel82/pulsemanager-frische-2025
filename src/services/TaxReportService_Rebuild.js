@@ -614,15 +614,19 @@ export class TaxReportService_Rebuild {
         const allTransactions = [];
         
         try {
-            console.log('🔍 Lade Multi-Chain Transaktionen mit WGEP ROI-Focus...');
+            console.log('🔍 Starte Smart Chain Detection für Wallet...');
             
-            // 🔥 MULTI-CHAIN: Beide Chains parallel laden
-            const chains = [
-                { id: '0x1', name: 'Ethereum', emoji: '🔵' },
-                { id: '0x171', name: 'PulseChain', emoji: '🟣' }
-            ];
+            // 🧠 SMART CHAIN DETECTION: Erkenne automatisch welche Chain die Adresse hat
+            const relevantChains = await this.detectRelevantChains(walletAddress);
             
-            for (const chain of chains) {
+            if (relevantChains.length === 0) {
+                console.warn('⚠️ Keine aktiven Chains für diese Adresse gefunden');
+                return [];
+            }
+            
+            console.log(`🎯 Lade Transaktionen für ${relevantChains.length} relevante Chain(s): ${relevantChains.map(c => c.name).join(', ')}`);
+            
+            for (const chain of relevantChains) {
                 console.log(`${chain.emoji} Lade ${chain.name} Transaktionen...`);
                 
                 const chainTransactions = await this.fetchChainTransactions(walletAddress, chain.id, chain.name, {
@@ -658,7 +662,7 @@ export class TaxReportService_Rebuild {
                         console.log(`  💰 ${ethValue.toFixed(6)} ETH von ${tx.from_address.slice(0,8)}... am ${new Date(tx.block_timestamp).toLocaleString('de-DE')}`);
                     });
                 } else {
-                    console.log(`⚠️ ${chain.emoji} KEINE ROI: Keine WGEP ROI-Transaktionen gefunden`);
+                    console.log(`ℹ️ ${chain.emoji} Keine ROI-Transaktionen gefunden`);
                 }
             }
             
@@ -670,57 +674,84 @@ export class TaxReportService_Rebuild {
                 return isIncoming && hasValue && fromContract;
             });
             
-            console.log(`✅ MULTI-CHAIN FINAL: ${allTransactions.length} Transaktionen total, ${totalROI.length} potentielle ROI (${chains.length} Chains)`);
-            
-            // 🚨 WGEP PROBLEM DIAGNOSIS: Wenn zu wenige Transaktionen (only in debug mode)
-            if (allTransactions.length < 10 && this.debugMode) {
-                console.warn(`🚨 WGEP DIAGNOSIS: Nur ${allTransactions.length} Transaktionen gefunden - das ist verdächtig wenig für WGEP Drucker!`);
-                console.warn(`🔍 MÖGLICHE URSACHEN:`);
-                console.warn(`  1. Wallet hat wenig Aktivität`);
-                console.warn(`  2. Moralis API-Limit oder Filter`);
-                console.warn(`  3. WGEP ROI-Transaktionen sind älter als Standard-Zeitraum`);
-                console.warn(`  4. WGEP verwendet andere Contract-Adressen`);
-                
-                // Zeige Details der gefundenen Transaktionen
-                allTransactions.forEach((tx, i) => {
-                    const ethValue = parseFloat(tx.value || '0') / 1e18;
-                    console.warn(`  TX${i+1}: ${ethValue.toFixed(6)} ETH von ${tx.from_address?.slice(0,8)}... zu ${tx.to_address?.slice(0,8)}... am ${new Date(tx.block_timestamp).toLocaleString('de-DE')}`);
-                });
-            }
+            console.log(`✅ SMART CHAIN FINAL: ${allTransactions.length} Transaktionen total, ${totalROI.length} potentielle ROI (${relevantChains.length} Chains)`);
             
             return allTransactions;
 
         } catch (error) {
-            console.error('❌ Fehler beim Multi-Chain Laden:', error);
-            throw new Error(`Multi-Chain Transaktionshistorie konnte nicht geladen werden: ${error.message}`);
+            console.error('❌ Fehler beim Smart Chain Laden:', error);
+            throw new Error(`Smart Chain Transaktionshistorie konnte nicht geladen werden: ${error.message}`);
         }
+    }
+
+    // 🧠 SMART CHAIN DETECTION: Erkennt automatisch welche Chains eine Adresse wirklich nutzt
+    static async detectRelevantChains(walletAddress) {
+        const potentialChains = [
+            { id: '0x1', name: 'Ethereum', emoji: '🔵' },
+            { id: '0x171', name: 'PulseChain', emoji: '🟣' }
+        ];
+        
+        const relevantChains = [];
+        
+        for (const chain of potentialChains) {
+            try {
+                console.log(`🔍 Teste ${chain.name} für Aktivität...`);
+                
+                // Schneller Test: Lade nur 1 Transaktion
+                const testResult = await this.fetchChainTransactions(walletAddress, chain.id, chain.name, {
+                    forceFullHistory: false,
+                    maxTestPages: 1
+                });
+                
+                if (testResult && testResult.length > 0) {
+                    console.log(`✅ ${chain.name}: ${testResult.length} Transaktionen gefunden - Chain ist aktiv`);
+                    relevantChains.push(chain);
+                } else {
+                    console.log(`⚪ ${chain.name}: Keine Transaktionen - Chain wird übersprungen`);
+                }
+                
+            } catch (error) {
+                console.log(`⚪ ${chain.name}: API-Fehler - Chain wird übersprungen`);
+            }
+        }
+        
+        return relevantChains;
     }
     
     // 🔗 Einzelne Chain laden (Helper-Methode)
     static async fetchChainTransactions(walletAddress, chainId, chainName, options = {}) {
         try {
             let transactions = [];
-            const { batchSize: customBatchSize, forceFullHistory = true, extendedTimeRange = false } = options;
+            const { batchSize: customBatchSize, forceFullHistory = true, extendedTimeRange = false, maxTestPages = null } = options;
             
             // Bestimme ob es sich um eine PulseChain oder Ethereum Adresse handelt
             const isPulseChain = chainId === '0x171';
             const isEthereum = chainId === '0x1' || chainId === '1';
             
-            console.log(`🔍 ${chainName} Chain Detection: isPulseChain=${isPulseChain}, isEthereum=${isEthereum}`);
+            // Für Test-Modus: Nur 1 Page laden
+            const isTestMode = maxTestPages !== null;
+            
+            if (isTestMode) {
+                console.log(`🧪 ${chainName} TEST MODE: Lade max ${maxTestPages} Page(s) für Chain-Detection`);
+            } else {
+                console.log(`🔍 ${chainName} FULL MODE: Chain Detection: isPulseChain=${isPulseChain}, isEthereum=${isEthereum}`);
+            }
             
             // Für Ethereum: Nur Moralis verwenden
             if (isEthereum) {
                 console.log(`📡 ${chainName}: Verwende Moralis API für Ethereum`);
                 
-                const batchSize = forceFullHistory ? 1000 : 500;
+                const batchSize = isTestMode ? 10 : (forceFullHistory ? 1000 : 500);
                 let cursor = null;
                 let pageCount = 0;
                 let hasMore = true;
-                const maxPages = forceFullHistory ? 100000 : 50000;
+                const maxPages = isTestMode ? maxTestPages : (forceFullHistory ? 100000 : 50000);
                 
                 while (hasMore && pageCount < maxPages) {
                     try {
-                        console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
+                        if (!isTestMode) {
+                            console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
+                        }
                         
                         const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
                             walletAddress, 
@@ -735,19 +766,30 @@ export class TaxReportService_Rebuild {
                             hasMore = !!cursor;
                             pageCount++;
                             
-                            console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen, Total: ${transactions.length}`);
+                            if (!isTestMode) {
+                                console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen, Total: ${transactions.length}`);
+                            }
+                            
+                            // Test-Modus: Stoppe nach erster erfolgreicher Page
+                            if (isTestMode) {
+                                break;
+                            }
                             
                             if (pageCount % 20 === 0) {
                                 await this.delay(500);
                             }
                         } else {
-                            console.log(`🔍 ${chainName} Keine weiteren Transaktionen gefunden`);
+                            if (!isTestMode) {
+                                console.log(`🔍 ${chainName} Keine weiteren Transaktionen gefunden`);
+                            }
                             hasMore = false;
                         }
                         
                     } catch (batchError) {
-                        console.warn(`❌ ${chainName} Fehler bei Page ${pageCount + 1}:`, batchError.message);
-                        if (pageCount > 0) {
+                        if (!isTestMode) {
+                            console.warn(`❌ ${chainName} Fehler bei Page ${pageCount + 1}:`, batchError.message);
+                        }
+                        if (pageCount > 0 && !isTestMode) {
                             await this.delay(2000);
                             continue;
                         } else {
@@ -756,7 +798,9 @@ export class TaxReportService_Rebuild {
                     }
                 }
                 
-                console.log(`✅ ${chainName}: ${transactions.length} Transaktionen über Moralis geladen`);
+                if (!isTestMode) {
+                    console.log(`✅ ${chainName}: ${transactions.length} Transaktionen über Moralis geladen`);
+                }
             }
             
             // Für PulseChain: Zuerst Moralis versuchen, dann PulseScan als Fallback
@@ -764,7 +808,8 @@ export class TaxReportService_Rebuild {
                 console.log(`📡 ${chainName}: Verwende PulseScan API für PulseChain`);
                 
                 try {
-                    const pulseScanTransactions = await PulseScanService.getTokenTransactions(walletAddress, null, 1, 1000);
+                    const limit = isTestMode ? 10 : 1000;
+                    const pulseScanTransactions = await PulseScanService.getTokenTransactions(walletAddress, null, 1, limit);
                     
                     if (pulseScanTransactions && pulseScanTransactions.length > 0) {
                         transactions.push(...pulseScanTransactions);
