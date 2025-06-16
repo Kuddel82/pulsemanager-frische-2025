@@ -592,10 +592,14 @@ export class TaxReportService_Rebuild {
                             usdPrice = priceCache.get(cacheKey);
                         } else {
                             try {
-                                // 1. PRIMARY: Moralis Pro API - VERBESSERTE FEHLERBEHANDLUNG
+                                // 🔥 CHAIN-SPEZIFISCHE PREISABFRAGE (ETH vs PLS)
+                                const txChain = tx.sourceChain || '0x1'; // Default: Ethereum
+                                const isEthereum = txChain === '0x1';
+                                const isPulseChain = txChain === '0x171';
+                                
                                 if (tx.token_address && tx.token_address !== 'native') {
-                                    // Für Token: Verwende Moralis Price API
-                                    const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=0x171&address=${tx.token_address}`, {
+                                    // Für Token: Verwende korrekte Chain
+                                    const response = await fetch(`/api/moralis-prices?endpoint=token-price&chain=${txChain}&address=${tx.token_address}`, {
                                         method: 'GET',
                                         headers: {
                                             'Accept': 'application/json',
@@ -614,14 +618,44 @@ export class TaxReportService_Rebuild {
                                     } else {
                                         console.warn(`⚠️ MORALIS PRICE: Failed for ${tx.token_address.slice(0, 8)}... - ${response.status}`);
                                     }
-                                } else {
-                                    // 🔥 FIX: PLS-Preis nur EINMAL pro Batch laden, nicht pro Transaktion!
+                                } else if (isEthereum) {
+                                    // 🔥 ETH-PREIS für Ethereum-Transaktionen (WGEP ROI!)
+                                    const ethCacheKey = 'ETH_PRICE_CURRENT';
+                                    
+                                    if (priceCache.has(ethCacheKey)) {
+                                        usdPrice = priceCache.get(ethCacheKey);
+                                    } else {
+                                        // ETH-Preis von Moralis (Ethereum Chain)
+                                        const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x1&address=0x0000000000000000000000000000000000000000', {
+                                            method: 'GET',
+                                            headers: {
+                                                'Accept': 'application/json',
+                                                'Content-Type': 'application/json'
+                                            }
+                                        });
+                                        
+                                        if (response.ok) {
+                                            const contentType = response.headers.get('content-type');
+                                            if (contentType && contentType.includes('application/json')) {
+                                                const data = await response.json();
+                                                usdPrice = data.usdPrice || 0;
+                                                if (usdPrice > 0) {
+                                                    console.log(`✅ MORALIS ETH (PRIMARY): $${usdPrice} - CACHED für alle ETH-Transaktionen`);
+                                                }
+                                            }
+                                        }
+                                        
+                                        // ETH-Preis für ALLE ETH-Transaktionen cachen
+                                        priceCache.set(ethCacheKey, usdPrice);
+                                    }
+                                } else if (isPulseChain) {
+                                    // 🔥 PLS-Preis für PulseChain-Transaktionen
                                     const plsCacheKey = 'PLS_PRICE_CURRENT';
                                     
                                     if (priceCache.has(plsCacheKey)) {
                                         usdPrice = priceCache.get(plsCacheKey);
                                     } else {
-                                        // Für PLS: 1. PRIMÄR - Moralis für Native Token (PulseChain)
+                                        // PLS-Preis von Moralis (PulseChain)
                                         const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000', {
                                             method: 'GET',
                                             headers: {
@@ -674,13 +708,18 @@ export class TaxReportService_Rebuild {
                         usdValue = (parseFloat(tx.value) / Math.pow(10, tx.decimals || 18)) * usdPrice;
                     }
 
+                    // 🔥 KORREKTES SYMBOL basierend auf Chain
+                    const txChain = tx.sourceChain || '0x1';
+                    const isEthereum = txChain === '0x1';
+                    const defaultSymbol = isEthereum ? 'ETH' : 'PLS';
+                    
                     const categorizedTx = {
                         ...tx,
                         taxCategory,
                         usdPrice,
                         usdValue,
                         amount: parseFloat(tx.value) / Math.pow(10, tx.decimals || 18),
-                        symbol: tx.token_symbol || 'PLS',
+                        symbol: tx.token_symbol || defaultSymbol,
                         isTaxRelevant: this.isTaxRelevant(taxCategory),
                         processedAt: new Date().toISOString()
                     };
