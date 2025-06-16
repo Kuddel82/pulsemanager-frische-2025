@@ -862,26 +862,31 @@ export class TaxReportService_Rebuild {
                             console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                         }
                         
-                        // 🔄 Lade sowohl normale Transaktionen als auch ERC20-Transfers
-                        const [nativeResponse, erc20Response] = await Promise.all([
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers')
-                        ]);
+                        // 🔄 Lade nur ERC20-Transfers (enthält alle relevanten Token-Transaktionen)
+                        const erc20Response = await MoralisV2Service.getWalletTransactionsBatch(
+                            walletAddress, batchSize, cursor, chainId, 'erc20-transfers'
+                        );
                         
                         let pageTransactions = [];
                         let nextCursor = null;
                         
-                        // Kombiniere beide Antworten
-                        if (nativeResponse?.success && nativeResponse.result?.length > 0) {
-                            console.log(`✅ V2: transactions erfolgreich - ${nativeResponse.result.length} Transaktionen`);
-                            pageTransactions.push(...nativeResponse.result);
-                            nextCursor = nativeResponse.cursor;
-                        }
-                        
+                        // 🚨 DUPLIKAT-VERMEIDUNG: Nur ERC20-Transfers verwenden
                         if (erc20Response?.success && erc20Response.result?.length > 0) {
                             console.log(`✅ V2: erc20-transfers erfolgreich - ${erc20Response.result.length} Transaktionen`);
-                            pageTransactions.push(...erc20Response.result);
-                            if (!nextCursor) nextCursor = erc20Response.cursor;
+                            
+                            // 🔧 DUPLIKAT-FILTER: Entferne doppelte Transaktionen basierend auf Hash
+                            const uniqueTransactions = new Map();
+                            erc20Response.result.forEach(tx => {
+                                const key = tx.transaction_hash || `${tx.block_timestamp}_${tx.from_address}_${tx.to_address}_${tx.value}`;
+                                if (!uniqueTransactions.has(key)) {
+                                    uniqueTransactions.set(key, tx);
+                                }
+                            });
+                            
+                            pageTransactions = Array.from(uniqueTransactions.values());
+                            nextCursor = erc20Response.cursor;
+                            
+                            console.log(`🔧 DUPLIKAT-FILTER: ${erc20Response.result.length} → ${pageTransactions.length} einzigartige Transaktionen`);
                         }
                         
                         if (pageTransactions.length === 0) {
@@ -894,13 +899,12 @@ export class TaxReportService_Rebuild {
                         cursor = nextCursor;
                         pageCount++;
                         
-                        // 🔥 ERWEITERTE FORTSETZUNGSBEDINGUNGEN (für ALLE ROI-Daten)
+                        // 🔥 REALISTISCHE FORTSETZUNGSBEDINGUNGEN (für echte Transaktionen)
                         const shouldContinue = 
-                            nextCursor ||                                    // Cursor vorhanden
-                            pageTransactions.length >= 40 ||                // Große Seite = mehr verfügbar
-                            pageCount <= 5 ||                               // Mindestens 5 Seiten
-                            (pageCount <= 50 && pageTransactions.length >= 20) || // Bis zu 50 Seiten wenn genug Daten
-                            (transactions.length >= 44 * pageCount && pageCount <= 100); // Bis zu 100 Seiten für große Wallets
+                            nextCursor &&                                   // Cursor vorhanden UND
+                            pageTransactions.length >= 10 &&                // Mindestens 10 neue Transaktionen
+                            pageCount <= 25 &&                              // Maximal 25 Seiten (ca. 1000 Transaktionen)
+                            transactions.length < 1200;                     // Stoppe bei 1200 Transaktionen total
                         
                         hasMore = shouldContinue;
                         
