@@ -20,16 +20,26 @@ const handleWGEPTest = async () => {
     if (testResult.success) {
       setGenerationStatus(`✅ WGEP Test erfolgreich: ${testResult.fileName}`);
       
-      showNotification(
-        `🎯 WGEP Test Report generiert!\n\n` +
-        `📊 ${testResult.transactionCount} Transaktionen\n` +
-        `🎯 ${testResult.wgepROICount} WGEP ROI-Einträge\n` +
-        `🔄 ${testResult.wgepSwapCount} WGEP Swaps\n` +
-        `💰 $${testResult.totalROIValue.toFixed(2)} Gesamt ROI\n` +
-        `⚠️ ${testResult.problematicEntries} Fehlerhafte Einträge korrigiert\n\n` +
-        `📁 PDF gespeichert: ${testResult.fileName}`,
-        'success'
-      );
+      // 📊 Aktualisiere UI mit echten Zahlen
+      setTaxReports([{
+        wallet: walletAddress,
+        transactionCount: testResult.validTransactions || 0,          // Verarbeitete Transaktionen
+        taxableCount: testResult.taxableTransactions || 0,            // Steuerpflichtige
+        roiIncome: testResult.roiIncome || 0,                         // ROI-Einkommen
+        status: 'success',
+        message: testResult.message || 'WGEP Test abgeschlossen'
+      }]);
+      
+      // 🎯 Detaillierte Logs für Debugging
+      console.log('🎯 WGEP TEST UI UPDATE:', {
+        totalLoaded: testResult.totalTransactions,
+        processed: testResult.validTransactions,
+        taxable: testResult.taxableTransactions,
+        roiCount: testResult.roiTransactions,
+        roiValue: testResult.roiIncome
+      });
+      
+      showNotification(`✅ WGEP Test erfolgreich! ${testResult.validTransactions} Transaktionen verarbeitet`, 'success');
       
       // Erweiterte Logs für User
       console.log('🎯 WGEP TEST ERGEBNIS:', testResult);
