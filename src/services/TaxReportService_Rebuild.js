@@ -162,13 +162,50 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 🔄 SCHRITT 1: Vollständige Transaktionshistorie laden (OPTIMIERT für 300K+ Transaktionen)
+    // 🔄 SCHRITT 1: Vollständige Transaktionshistorie laden (MULTI-CHAIN für ETH + PLS)
     static async fetchCompleteTransactionHistory(walletAddress) {
+        const allTransactions = [];
+        
+        try {
+            console.log('🔍 Lade Multi-Chain Transaktionen (ETH + PLS)...');
+            
+            // 🔥 MULTI-CHAIN: Beide Chains parallel laden
+            const chains = [
+                { id: '0x1', name: 'Ethereum', emoji: '🔵' },
+                { id: '0x171', name: 'PulseChain', emoji: '🟣' }
+            ];
+            
+            for (const chain of chains) {
+                console.log(`${chain.emoji} Lade ${chain.name} Transaktionen...`);
+                
+                const chainTransactions = await this.fetchChainTransactions(walletAddress, chain.id, chain.name);
+                
+                // Chain-Info zu jeder Transaktion hinzufügen
+                const taggedTransactions = chainTransactions.map(tx => ({
+                    ...tx,
+                    sourceChain: chain.id,
+                    sourceChainName: chain.name,
+                    sourceChainEmoji: chain.emoji
+                }));
+                
+                allTransactions.push(...taggedTransactions);
+                console.log(`${chain.emoji} ${chain.name}: ${chainTransactions.length} Transaktionen geladen`);
+            }
+            
+            console.log(`✅ MULTI-CHAIN: ${allTransactions.length} Transaktionen total (${chains.length} Chains)`);
+            return allTransactions;
+
+        } catch (error) {
+            console.error('❌ Fehler beim Multi-Chain Laden:', error);
+            throw new Error(`Multi-Chain Transaktionshistorie konnte nicht geladen werden: ${error.message}`);
+        }
+    }
+    
+    // 🔗 Einzelne Chain laden (Helper-Methode)
+    static async fetchChainTransactions(walletAddress, chainId, chainName) {
         const transactions = [];
         
         try {
-            console.log('🔍 Lade Transaktionen von Moralis (UNLIMITED)...');
-            
             // 🚀 OPTIMIERT: Batch-Loading für große Wallets
             const batchSize = 100;
             let cursor = null;
@@ -178,17 +215,17 @@ export class TaxReportService_Rebuild {
             // Primär: Moralis API mit Pagination - ERHÖHTES LIMIT
             while (hasMore && pageCount < 10000) { // Max 1.000.000 Transaktionen (100 * 10000)
                 try {
-                    console.log(`📄 Lade Page ${pageCount + 1}...`);
+                    console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                     
                     const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
                         walletAddress, 
                         batchSize, 
                         cursor,
-                        '0x171' // 🔥 FIX: PulseChain für WGEP ROI-Transaktionen!
+                        chainId
                     );
                     
                     // 🔍 ENHANCED DEBUG: Detaillierte Pagination-Logs
-                    console.log(`🔍 BATCH RESULT DEBUG: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${batchResult?.cursor || 'null'}, batchSize=${batchSize}`);
+                    console.log(`🔍 ${chainName} BATCH DEBUG: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${batchResult?.cursor || 'null'}, batchSize=${batchSize}`);
                     
                     if (batchResult && batchResult.result && batchResult.result.length > 0) {
                         transactions.push(...batchResult.result);
@@ -197,25 +234,25 @@ export class TaxReportService_Rebuild {
                         hasMore = !!(cursor && batchResult.result.length === batchSize);
                         pageCount++;
                         
-                        console.log(`✅ Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length}), hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
-                        console.log(`🔍 PAGINATION LOGIC: cursor=${cursor ? 'EXISTS' : 'NULL'}, resultLength=${batchResult.result.length}, batchSize=${batchSize}, shouldContinue=${hasMore}`);
+                        console.log(`✅ ${chainName} Page ${pageCount}: ${batchResult.result.length} Transaktionen (Total: ${transactions.length}), hasMore=${hasMore}, cursor=${cursor ? 'yes' : 'no'}`);
+                        console.log(`🔍 ${chainName} PAGINATION: cursor=${cursor ? 'EXISTS' : 'NULL'}, resultLength=${batchResult.result.length}, batchSize=${batchSize}, shouldContinue=${hasMore}`);
                         
                         // Rate limiting für große Wallets - REDUZIERT
                         if (pageCount % 20 === 0) {
-                            console.log(`⏳ Rate limiting: Pause nach ${pageCount} Pages...`);
+                            console.log(`⏳ ${chainName} Rate limiting: Pause nach ${pageCount} Pages...`);
                             await this.delay(500); // 0.5s Pause alle 20 Pages
                         }
                         
                     } else {
-                        console.log(`🔍 BATCH EMPTY: Keine Transaktionen in Batch, hasMore=false`);
+                        console.log(`🔍 ${chainName} BATCH EMPTY: Keine Transaktionen in Batch, hasMore=false`);
                         hasMore = false;
                     }
                     
                 } catch (batchError) {
-                    console.error(`❌ Fehler bei Page ${pageCount + 1}:`, batchError);
+                    console.error(`❌ ${chainName} Fehler bei Page ${pageCount + 1}:`, batchError);
                     // Bei Fehler nicht sofort aufhören, sondern 3x versuchen
                     if (pageCount > 0) {
-                        console.log('🔄 Versuche nächste Page...');
+                        console.log(`🔄 ${chainName} Versuche nächste Page...`);
                         await this.delay(2000);
                         continue;
                     } else {
@@ -224,11 +261,11 @@ export class TaxReportService_Rebuild {
                 }
             }
             
-            console.log(`✅ Moralis: ${transactions.length} Transaktionen geladen (${pageCount} Pages)`);
+            console.log(`✅ ${chainName}: ${transactions.length} Transaktionen geladen (${pageCount} Pages)`);
 
-            // Fallback: PulseScan API nur wenn Moralis leer
-            if (transactions.length === 0) {
-                console.log('🔄 Fallback zu PulseScan...');
+            // Fallback: PulseScan API nur für PulseChain wenn Moralis leer
+            if (transactions.length === 0 && chainId === '0x171') {
+                console.log('🔄 PulseChain Fallback zu PulseScan...');
                 const pulseScanTransactions = await PulseScanService.getTransactionHistory(walletAddress);
                 
                 if (pulseScanTransactions && pulseScanTransactions.length > 0) {
@@ -240,8 +277,8 @@ export class TaxReportService_Rebuild {
             return transactions;
 
         } catch (error) {
-            console.error('❌ Fehler beim Laden der Transaktionshistorie:', error);
-            throw new Error(`Transaktionshistorie konnte nicht geladen werden: ${error.message}`);
+            console.error(`❌ ${chainName} Fehler beim Laden:`, error);
+            return []; // Leeres Array zurückgeben, damit andere Chains weiter laden können
         }
     }
 
