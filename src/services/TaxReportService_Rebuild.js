@@ -57,19 +57,24 @@ export class TaxReportService_Rebuild {
     // 🧠 TRANSAKTIONS-PARSER: Erkennt Transaktionstypen (ERWEITERT für WGEP ETH-ROI)
     static parseTransactionType(transaction, walletAddress) {
         const { from_address, to_address, value, input } = transaction;
+        
         const isIncoming = to_address?.toLowerCase() === walletAddress.toLowerCase();
         const isOutgoing = from_address?.toLowerCase() === walletAddress.toLowerCase();
         
-        // 🔍 DEBUG: Zeige ALLE Transaktionen (nicht nur eingehende) - PRODUCTION VISIBLE
-        console.error(`🔍 ALL TX: isIncoming=${isIncoming}, isOutgoing=${isOutgoing}, from=${from_address?.slice(0,8)}, to=${to_address?.slice(0,8)}, wallet=${walletAddress?.slice(0,8)}`);
+        // 🔍 DEBUG: Zeige ALLE Transaktionen (nicht nur eingehende) - ONLY IN DEBUG MODE
+        if (this.debugMode) {
+            console.log(`🔍 ALL TX: isIncoming=${isIncoming}, isOutgoing=${isOutgoing}, from=${from_address?.slice(0,8)}, to=${to_address?.slice(0,8)}, wallet=${walletAddress?.slice(0,8)}`);
+        }
         
         // 🔍 DEBUG: Zeige alle eingehenden Transaktionen
         if (isIncoming && from_address !== walletAddress) {
             const ethValue = parseFloat(value || '0') / Math.pow(10, transaction.decimals || 18);
-            console.error(`🔍 INCOMING TX: ${ethValue.toFixed(6)} ${transaction.token_symbol || 'ETH'} von ${from_address?.slice(0,8)}... → Prüfe ROI...`);
-            console.error(`🔍 TX DETAILS: token_address=${transaction.token_address}, value=${value}, decimals=${transaction.decimals}, symbol=${transaction.token_symbol}`);
-        } else {
-            console.error(`🔍 NOT INCOMING: isIncoming=${isIncoming}, from_address=${from_address?.slice(0,8)}, walletAddress=${walletAddress?.slice(0,8)}, same=${from_address === walletAddress}`);
+            if (this.debugMode) {
+                console.log(`🔍 INCOMING TX: ${ethValue.toFixed(6)} ${transaction.token_symbol || 'ETH'} von ${from_address?.slice(0,8)}... → Prüfe ROI...`);
+                console.log(`🔍 TX DETAILS: token_address=${transaction.token_address}, value=${value}, decimals=${transaction.decimals}, symbol=${transaction.token_symbol}`);
+            }
+        } else if (this.debugMode) {
+            console.log(`🔍 NOT INCOMING: isIncoming=${isIncoming}, from_address=${from_address?.slice(0,8)}, walletAddress=${walletAddress?.slice(0,8)}, same=${from_address === walletAddress}`);
         }
 
         // 🔥 ROI-ERKENNUNG: Eingehende Token von Contracts (UNIVERSELL für alle Chains)
@@ -78,7 +83,9 @@ export class TaxReportService_Rebuild {
             if (this.isROITransaction(transaction, walletAddress)) {
                 const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
                 const amount = this.getTokenAmount(transaction);
-                console.error(`🎯 ROI UNIVERSAL: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                if (this.debugMode) {
+                    console.log(`🎯 ROI UNIVERSAL: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                }
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
             
@@ -86,7 +93,9 @@ export class TaxReportService_Rebuild {
             if (this.isKnownROISource(from_address) || this.isDruckerTransaction(transaction)) {
                 const tokenSymbol = transaction.token_symbol || transaction.symbol || 'ETH';
                 const amount = this.getTokenAmount(transaction);
-                console.error(`🎯 ROI FALLBACK: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                if (this.debugMode) {
+                    console.log(`🎯 ROI FALLBACK: ${amount} ${tokenSymbol} von ${from_address.slice(0,8)}... (KAPITALERTRAGSSTEUERPFLICHTIG)`);
+                }
                 return this.TAX_CATEGORIES.ROI_INCOME;
             }
         }
@@ -207,10 +216,10 @@ export class TaxReportService_Rebuild {
         const result = exactMatch || prefixMatch || suffixMatch || patternMatch || isLikelyROIContract;
         
         // 🔍 DEBUG: Zeige ROI-Source-Erkennung (nur für bekannte Quellen)
-        if (result && (exactMatch || prefixMatch || suffixMatch || patternMatch)) {
+        if (result && (exactMatch || prefixMatch || suffixMatch || patternMatch) && this.debugMode) {
             const matchType = exactMatch ? 'EXACT' : prefixMatch ? 'PREFIX' : 
                              suffixMatch ? 'SUFFIX' : patternMatch ? 'PATTERN' : 'CONTRACT';
-            console.error(`🎯 ROI SOURCE DETECTED: ${fromAddress.slice(0,8)}...${fromAddress.slice(-4)} (${matchType})`);
+            console.log(`🎯 ROI SOURCE DETECTED: ${fromAddress.slice(0,8)}...${fromAddress.slice(-4)} (${matchType})`);
         }
         
         return result;
@@ -228,8 +237,7 @@ export class TaxReportService_Rebuild {
         
         // WGEP-spezifische Erkennung: Contract-Adressen die ETH senden
         const isFromContract = from_address && from_address.length === 42 && 
-                              !from_address.startsWith('0x000000') &&
-                              from_address !== '0x0000000000000000000000000000000000000000';
+                              !from_address.startsWith('0x000000');
         
         return isDruckerValue || isDruckerGas || isDruckerMethod || isFromContract;
     }
@@ -636,8 +644,8 @@ export class TaxReportService_Rebuild {
             
             console.log(`✅ MULTI-CHAIN FINAL: ${allTransactions.length} Transaktionen total, ${totalROI.length} potentielle ROI (${chains.length} Chains)`);
             
-            // 🚨 WGEP PROBLEM DIAGNOSIS: Wenn zu wenige Transaktionen
-            if (allTransactions.length < 10) {
+            // 🚨 WGEP PROBLEM DIAGNOSIS: Wenn zu wenige Transaktionen (only in debug mode)
+            if (allTransactions.length < 10 && this.debugMode) {
                 console.warn(`🚨 WGEP DIAGNOSIS: Nur ${allTransactions.length} Transaktionen gefunden - das ist verdächtig wenig für WGEP Drucker!`);
                 console.warn(`🔍 MÖGLICHE URSACHEN:`);
                 console.warn(`  1. Wallet hat wenig Aktivität`);
@@ -924,7 +932,9 @@ export class TaxReportService_Rebuild {
                                 
                                 priceCache.set(cacheKey, usdPrice); // In Cache speichern
                             } catch (priceError) {
-                                console.warn(`⚠️ Preis nicht verfügbar für ${tx.hash}:`, priceError.message);
+                                if (this.debugMode) {
+                                    console.warn(`⚠️ Preis nicht verfügbar für ${tx.hash}:`, priceError.message);
+                                }
                                 priceCache.set(cacheKey, 0); // 0 cachen um wiederholte Aufrufe zu vermeiden
                             }
                         }
@@ -965,23 +975,25 @@ export class TaxReportService_Rebuild {
             console.log(`📊 Progress: ${progress}% (${categorized.length}/${transactions.length})`);
         }
 
-        // 📊 FINALE ZUSAMMENFASSUNG
-        console.error(`✅ CATEGORIZE COMPLETE: ${categorized.length} Transaktionen kategorisiert`);
-        console.error(`📊 KATEGORIEN: ${roiCount} ROI | ${transferCount} Transfers | ${otherCount} Andere`);
-        console.error(`💰 PREISE: ${priceCache.size} verschiedene Preise gecacht`);
-        
-        // 🎯 ROI-DETAILS (nur wenn ROI gefunden)
-        if (roiCount > 0) {
-            const roiTransactions = categorized.filter(tx => tx.taxCategory === 'WGEP_ROI' || tx.taxCategory === 'ROI');
-            const totalROIValue = roiTransactions.reduce((sum, tx) => sum + (tx.usdValue || 0), 0);
-            console.error(`🎯 ROI SUMMARY: ${roiCount} ROI-Transaktionen mit Gesamtwert $${totalROIValue.toFixed(2)}`);
+        // 📊 FINALE ZUSAMMENFASSUNG (nur im Debug-Modus)
+        if (this.debugMode) {
+            console.log(`✅ CATEGORIZE COMPLETE: ${categorized.length} Transaktionen kategorisiert`);
+            console.log(`📊 KATEGORIEN: ${roiCount} ROI | ${transferCount} Transfers | ${otherCount} Andere`);
+            console.log(`💰 PREISE: ${priceCache.size} verschiedene Preise gecacht`);
             
-            // Zeige erste 3 ROI-Transaktionen als Beispiel
-            const firstROI = roiTransactions.slice(0, 3);
-            firstROI.forEach(tx => {
-                const ethValue = parseFloat(tx.value) / 1e18;
-                console.error(`   💎 ROI: ${ethValue.toFixed(6)} ETH ($${(tx.usdValue || 0).toFixed(2)}) von ${tx.from_address?.slice(0,8)}...`);
-            });
+            // 🎯 ROI-DETAILS (nur wenn ROI gefunden)
+            if (roiCount > 0) {
+                const roiTransactions = categorized.filter(tx => tx.taxCategory === 'WGEP_ROI' || tx.taxCategory === 'ROI');
+                const totalROIValue = roiTransactions.reduce((sum, tx) => sum + (tx.usdValue || 0), 0);
+                console.log(`🎯 ROI SUMMARY: ${roiCount} ROI-Transaktionen mit Gesamtwert $${totalROIValue.toFixed(2)}`);
+                
+                // Zeige erste 3 ROI-Transaktionen als Beispiel
+                const firstROI = roiTransactions.slice(0, 3);
+                firstROI.forEach(tx => {
+                    const ethValue = parseFloat(tx.value) / 1e18;
+                    console.log(`   💎 ROI: ${ethValue.toFixed(6)} ETH ($${(tx.usdValue || 0).toFixed(2)}) von ${tx.from_address?.slice(0,8)}...`);
+                });
+            }
         }
         
         return categorized;

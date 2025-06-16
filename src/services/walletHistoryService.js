@@ -174,7 +174,9 @@ export class WalletHistoryService {
         }
 
       } catch (error) {
-        console.warn(`⚠️ Error processing transaction ${tx.hash}:`, error.message);
+        if (this.debugMode) {
+          console.warn(`⚠️ Error processing transaction ${tx.hash}:`, error.message);
+        }
       }
     });
 
