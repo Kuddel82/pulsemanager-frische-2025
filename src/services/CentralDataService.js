@@ -505,16 +505,15 @@ export class CentralDataService {
                 console.log(`🔍 DEBUG TOKEN: ${tokenSymbol} - Balance: ${balanceReadable}, Price: $${finalPrice}, Value: $${totalUsd}, Address: ${tokenAddress}, Source: ${priceSource}`);
               }
               
-              // 🚨 CRITICAL ETH PRICE FIX: Der Wert wird falsch berechnet!
+              // 🚨 CRITICAL ETH PRICE FIX: Use the real-time prices that were already loaded
               if (tokenSymbol === 'ETH' && totalUsd > 200000) {
-                console.error(`🚨 ETH PRICE ERROR: Calculated $${totalUsd.toLocaleString()} - Loading real ETH price from Moralis`);
+                console.error(`🚨 ETH PRICE ERROR: Calculated $${totalUsd.toLocaleString()} - Using real ETH price from structured pricing`);
                 console.error(`🚨 ETH DEBUG: Balance=${balanceReadable}, Price=${finalPrice}, Calculation=${balanceReadable}*${finalPrice}=${totalUsd}`);
                 
-                // Load real ETH price from Moralis
-                const realEthPrices = await this.fetchNativePricesFromMoralis('0x1');
-                const correctedPrice = realEthPrices['0x1']?.price || 2400; // Live ETH price with fallback
+                // Use structured pricing real ETH price (which loads live from Moralis)
+                const correctedPrice = finalPrice > 100 && finalPrice < 10000 ? finalPrice : 2400; // Trust Moralis if reasonable
                 const correctedValue = balanceReadable * correctedPrice;
-                console.log(`🔧 ETH CORRECTED: $${correctedValue.toFixed(2)} (was $${totalUsd.toLocaleString()}) using LIVE price $${correctedPrice}`);
+                console.log(`🔧 ETH CORRECTED: $${correctedValue.toFixed(2)} (was $${totalUsd.toLocaleString()}) using price $${correctedPrice}`);
                 
                 // Override the calculated values
                 finalPrice = correctedPrice;
