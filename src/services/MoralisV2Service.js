@@ -70,7 +70,8 @@ export class MoralisV2Service {
     try {
       console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit})`);
       
-      let url = `/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=${limit}`;
+      // 🔥 FIX: Use erc20-transfers for TOKEN transactions (WGEP ROI!)
+      let url = `/api/moralis-proxy?endpoint=erc20-transfers&address=${address}&chain=${chain}&limit=${limit}`;
       if (cursor) url += `&cursor=${cursor}`;
       
       const response = await fetch(url);
