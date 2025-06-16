@@ -1609,12 +1609,26 @@ export class TaxReportService_Rebuild {
                 currentY += 10;
                 
                 doc.setFontSize(10);
+                
+                // 🔧 FLEXIBLE SUMMARY HANDLING: Unterstützt beide Formate
+                const totalTransactions = germanSummary.totalTransactions || 0;
+                const taxableTransactions = germanSummary.taxableTransactions || 0;
+                const taxFreeTransactions = germanSummary.taxFreeTransactions || 0;
+                
+                // ROI-Einkommen: Unterstützt beide Formate (einfach und komplex)
+                const totalROIIncome = germanSummary.totalROIIncome || 
+                                     germanSummary.roiIncome?.total || 0;
+                
+                // Spekulationsgewinne: Unterstützt beide Formate
+                const totalSpeculationGains = germanSummary.totalSpeculationGains || 
+                                            germanSummary.speculativeTransactions?.withinSpeculationPeriod?.amount || 0;
+                
                 const summaryLines = [
-                    `Gesamte Transaktionen: ${germanSummary.totalTransactions}`,
-                    `Steuerpflichtige Transaktionen: ${germanSummary.taxableTransactions}`,
-                    `ROI-Einkommen (§22 EStG): €${germanSummary.totalROIIncome.toFixed(2)}`,
-                    `Spekulationsgewinne (§23 EStG): €${germanSummary.totalSpeculationGains.toFixed(2)}`,
-                    `Steuerfreie Transaktionen: ${germanSummary.taxFreeTransactions}`
+                    `Gesamte Transaktionen: ${totalTransactions}`,
+                    `Steuerpflichtige Transaktionen: ${taxableTransactions}`,
+                    `ROI-Einkommen (§22 EStG): €${totalROIIncome.toFixed(2)}`,
+                    `Spekulationsgewinne (§23 EStG): €${totalSpeculationGains.toFixed(2)}`,
+                    `Steuerfreie Transaktionen: ${taxFreeTransactions}`
                 ];
                 
                 summaryLines.forEach(line => {
@@ -1678,7 +1692,7 @@ export class TaxReportService_Rebuild {
     // 📊 Tax Summary berechnen
     static calculateTaxSummary(transactions) {
         const summary = {
-            totalTransactions: transactions.length,
+            totalTransactions: transactions?.length || 0,
             taxableTransactions: 0,
             totalTaxableValue: 0,
             roiIncome: 0,
