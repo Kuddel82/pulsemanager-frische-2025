@@ -582,7 +582,7 @@ export class TaxReportService_Rebuild {
             // SCHRITT 6: PDF nur generieren wenn explizit angefordert
             let pdfGenerated = false;
             if (generatePDF) {
-                await this.generateAndSavePDF(taxTable, walletAddress, { startDate, endDate });
+                await this.generateAndSavePDF(taxTable, walletAddress, { startDate, endDate }, validatedROI >= 0 ? this.calculateGermanTaxSummary(taxCalculatedTransactions) : null);
                 pdfGenerated = true;
                 console.log('✅ PDF wurde automatisch generiert und gespeichert');
             }
@@ -593,6 +593,7 @@ export class TaxReportService_Rebuild {
                 transactions: taxCalculatedTransactions,
                 table: taxTable,
                 summary: this.calculateTaxSummary(taxCalculatedTransactions),
+                germanSummary: this.calculateGermanTaxSummary(taxCalculatedTransactions), // 🇩🇪 NEUE DEUTSCHE STEUER-ZUSAMMENFASSUNG
                 generatedAt: new Date().toISOString(),
                 version: '2.0.0-rebuild',
                 pdfGenerated
@@ -1298,11 +1299,11 @@ export class TaxReportService_Rebuild {
     // 📄 SEPARATE FUNKTION: PDF manuell generieren (ohne automatische Ausführung)
     static async generatePDFManually(taxReport, options = {}) {
         try {
-            const { walletAddress, table: taxTable, period } = taxReport;
+            const { walletAddress, table: taxTable, period, germanSummary } = taxReport;
             
             console.log('📄 Generiere PDF-Steuerreport manuell...');
             
-            await this.generateAndSavePDF(taxTable, walletAddress, period);
+            await this.generateAndSavePDF(taxTable, walletAddress, period, germanSummary); // 🇩🇪 DEUTSCHE STEUER-ZUSAMMENFASSUNG
             
             console.log('✅ PDF manuell generiert und gespeichert');
             return true;
@@ -1314,9 +1315,9 @@ export class TaxReportService_Rebuild {
     }
 
     // 📄 SCHRITT 6: PDF automatisch generieren und speichern
-    static async generateAndSavePDF(taxTable, walletAddress, options) {
+    static async generateAndSavePDF(taxTable, walletAddress, options, germanSummary = null) {
         try {
-            console.log('📄 Generiere PDF-Steuerreport...');
+            console.log('📄 Generiere PDF-Steuerreport mit deutscher Steuer-Zusammenfassung...');
             
             const doc = new jsPDF('p', 'mm', 'a4');
             
@@ -1369,6 +1370,135 @@ export class TaxReportService_Rebuild {
                 headStyles: { fillColor: [41, 128, 185] },
                 margin: { top: 95 }
             });
+
+            // 🇩🇪 DEUTSCHE STEUER-ZUSAMMENFASSUNG (neue Seite)
+            if (germanSummary) {
+                doc.addPage();
+                let currentY = 20;
+                
+                // Überschrift
+                doc.setFontSize(16);
+                doc.setTextColor(0, 0, 0);
+                doc.text('📊 DEUTSCHE STEUER-ZUSAMMENFASSUNG', 20, currentY);
+                currentY += 15;
+                
+                // 💰 ROI-EINKOMMEN SEKTION
+                doc.setFontSize(14);
+                doc.setTextColor(0, 100, 0);
+                doc.text('💰 ROI-EINKOMMEN (§23 EStG)', 20, currentY);
+                currentY += 10;
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Gesamt ROI-Einkommen: €${germanSummary.roiIncome.total.toFixed(2)}`, 25, currentY);
+                currentY += 6;
+                doc.text(`Anzahl ROI-Transaktionen: ${germanSummary.roiIncome.count}`, 25, currentY);
+                currentY += 6;
+                doc.text(`• Staking Rewards: €${germanSummary.roiIncome.categories.staking.amount.toFixed(2)} (${germanSummary.roiIncome.categories.staking.count}x)`, 30, currentY);
+                currentY += 5;
+                doc.text(`• Mining Rewards: €${germanSummary.roiIncome.categories.mining.amount.toFixed(2)} (${germanSummary.roiIncome.categories.mining.count}x)`, 30, currentY);
+                currentY += 5;
+                doc.text(`• Airdrops: €${germanSummary.roiIncome.categories.airdrops.amount.toFixed(2)} (${germanSummary.roiIncome.categories.airdrops.count}x)`, 30, currentY);
+                currentY += 5;
+                doc.text(`• Sonstige ROI: €${germanSummary.roiIncome.categories.general.amount.toFixed(2)} (${germanSummary.roiIncome.categories.general.count}x)`, 30, currentY);
+                currentY += 12;
+                
+                // 🔄 VERKÄUFE & SPEKULATIONSGESCHÄFTE
+                doc.setFontSize(14);
+                doc.setTextColor(0, 0, 150);
+                doc.text('🔄 VERKÄUFE & SPEKULATIONSGESCHÄFTE', 20, currentY);
+                currentY += 10;
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Gesamt Verkäufe: €${germanSummary.speculativeTransactions.total.toFixed(2)}`, 25, currentY);
+                currentY += 6;
+                doc.text(`Anzahl Verkäufe: ${germanSummary.speculativeTransactions.count}`, 25, currentY);
+                currentY += 6;
+                doc.text(`• Innerhalb Spekulationsfrist (<365 Tage): €${germanSummary.speculativeTransactions.withinSpeculationPeriod.amount.toFixed(2)} (${germanSummary.speculativeTransactions.withinSpeculationPeriod.count}x)`, 30, currentY);
+                currentY += 5;
+                doc.text(`• Nach Spekulationsfrist (>365 Tage): €${germanSummary.speculativeTransactions.afterSpeculationPeriod.amount.toFixed(2)} (${germanSummary.speculativeTransactions.afterSpeculationPeriod.count}x)`, 30, currentY);
+                currentY += 12;
+                
+                // ⏰ HALTEFRIST-ANALYSE
+                doc.setFontSize(14);
+                doc.setTextColor(150, 0, 0);
+                doc.text('⏰ HALTEFRIST-ANALYSE', 20, currentY);
+                currentY += 10;
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Durchschnittliche Haltezeit: ${germanSummary.holdingPeriodAnalysis.avgHoldingDays.toFixed(0)} Tage`, 25, currentY);
+                currentY += 6;
+                doc.text(`Verkäufe unter 365 Tagen: €${germanSummary.holdingPeriodAnalysis.under365Days.amount.toFixed(2)} (${germanSummary.holdingPeriodAnalysis.under365Days.count}x)`, 25, currentY);
+                currentY += 5;
+                doc.text(`Verkäufe über 365 Tagen: €${germanSummary.holdingPeriodAnalysis.over365Days.amount.toFixed(2)} (${germanSummary.holdingPeriodAnalysis.over365Days.count}x)`, 25, currentY);
+                currentY += 12;
+                
+                // 🇩🇪 STEUERRECHTLICHE EINORDNUNG
+                doc.setFontSize(14);
+                doc.setTextColor(100, 0, 100);
+                doc.text('🇩🇪 STEUERRECHTLICHE EINORDNUNG', 20, currentY);
+                currentY += 10;
+                
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Einkommensteuerpflichtig (§23 EStG): €${germanSummary.germanTaxClassification.einkommensteuerPflichtig.amount.toFixed(2)}`, 25, currentY);
+                currentY += 6;
+                doc.text(`Steuerfreie Veräußerungen (>365 Tage): €${germanSummary.germanTaxClassification.steuerfreieVeräußerungen.amount.toFixed(2)}`, 25, currentY);
+                currentY += 8;
+                
+                // 600€ FREIGRENZE
+                doc.setFontSize(12);
+                if (germanSummary.germanTaxClassification.freigrenze600Euro.exceeded) {
+                    doc.setTextColor(200, 0, 0);
+                    doc.text(`⚠️ 600€ FREIGRENZE ÜBERSCHRITTEN: €${germanSummary.germanTaxClassification.freigrenze600Euro.amount.toFixed(2)}`, 25, currentY);
+                } else if (germanSummary.germanTaxClassification.freigrenze600Euro.applicable) {
+                    doc.setTextColor(0, 150, 0);
+                    doc.text(`✅ 600€ FREIGRENZE EINGEHALTEN: €${germanSummary.germanTaxClassification.freigrenze600Euro.amount.toFixed(2)}`, 25, currentY);
+                }
+                currentY += 12;
+                
+                // 🏦 GEHALTENE COINS (FIFO-BASIS)
+                doc.setFontSize(14);
+                doc.setTextColor(0, 100, 100);
+                doc.text('🏦 GEHALTENE COINS (FIFO-BASIS)', 20, currentY);
+                currentY += 10;
+                
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                if (germanSummary.holdingOverview.currentHoldings.size > 0) {
+                    for (const [coin, holding] of germanSummary.holdingOverview.currentHoldings) {
+                        if (holding.currentAmount > 0) {
+                            doc.text(`• ${coin}: ${holding.currentAmount.toFixed(6)} (Käufe: ${holding.purchases.toFixed(6)}, Verkäufe: ${holding.sales.toFixed(6)})`, 25, currentY);
+                            currentY += 4;
+                        }
+                    }
+                } else {
+                    doc.text('Keine gehaltenen Coins gefunden', 25, currentY);
+                }
+                
+                // 📊 WICHTIGER HINWEIS
+                currentY += 15;
+                doc.setFontSize(10);
+                doc.setTextColor(150, 0, 0);
+                doc.text('📊 WICHTIGER HINWEIS FÜR STEUERBERATER:', 20, currentY);
+                currentY += 6;
+                doc.setFontSize(8);
+                doc.setTextColor(0, 0, 0);
+                const taxAdvice = [
+                    '• Alle ROI-Erträge sind einkommensteuerpflichtig (14-45% persönlicher Steuersatz)',
+                    '• Verkäufe innerhalb 365 Tage unterliegen der Spekulationssteuer (§23 EStG)',
+                    '• 600€ Freigrenze pro Jahr für private Veräußerungsgeschäfte',
+                    '• FIFO-Methode wurde für Haltefrist-Berechnung verwendet',
+                    '• Haltefristen beginnen mit Kauf und enden bei Verkauf',
+                    '• Diese Berechnung ersetzt nicht die professionelle Steuerberatung'
+                ];
+                
+                taxAdvice.forEach((line, index) => {
+                    doc.text(line, 25, currentY + (index * 4));
+                });
+            }
 
             // Footer
             const pageCount = doc.internal.getNumberOfPages();
@@ -1626,6 +1756,185 @@ export class TaxReportService_Rebuild {
             };
         }
     }
+
+    // 📊 DEUTSCHE STEUER-ZUSAMMENFASSUNG (Finanzamt-konform)
+    static calculateGermanTaxSummary(transactions) {
+        const summary = {
+            // 📋 GRUNDDATEN
+            totalTransactions: transactions.length,
+            taxableTransactions: 0,
+            nonTaxableTransactions: 0,
+            
+            // 💰 ROI-EINKOMMEN (§23 EStG - Private Veräußerungsgeschäfte)
+            roiIncome: {
+                total: 0,
+                count: 0,
+                transactions: [],
+                categories: {
+                    staking: { amount: 0, count: 0 },
+                    mining: { amount: 0, count: 0 },
+                    airdrops: { amount: 0, count: 0 },
+                    general: { amount: 0, count: 0 }
+                }
+            },
+            
+            // 🔄 VERKÄUFE & SWAPS (§23 EStG - Spekulationsgeschäfte)
+            speculativeTransactions: {
+                total: 0,
+                count: 0,
+                withinSpeculationPeriod: { amount: 0, count: 0 },
+                afterSpeculationPeriod: { amount: 0, count: 0 },
+                transactions: []
+            },
+            
+            // 🏦 GEHALTENE COINS (FIFO-Basis)
+            holdingOverview: {
+                currentHoldings: new Map(),
+                totalPurchases: 0,
+                totalSales: 0,
+                avgHoldingPeriods: new Map()
+            },
+            
+            // ⏰ HALTEFRIST-ANALYSE
+            holdingPeriodAnalysis: {
+                under365Days: { count: 0, amount: 0 },
+                over365Days: { count: 0, amount: 0 },
+                avgHoldingDays: 0
+            },
+            
+            // 📊 STEUERLICHE KATEGORIEN
+            taxCategories: {},
+            
+            // 🇩🇪 STEUERRECHTLICHE EINORDNUNG
+            germanTaxClassification: {
+                einkommensteuerPflichtig: { amount: 0, count: 0, note: "§23 EStG - Private Veräußerungsgeschäfte" },
+                steuerfreieVeräußerungen: { amount: 0, count: 0, note: "Haltefrist >365 Tage erfüllt" },
+                freigrenze600Euro: { applicable: false, exceeded: false, amount: 0 }
+            }
+        };
+
+        // 🔍 TRANSACTION ANALYSIS
+        let totalTaxableGains = 0;
+        const holdingsByToken = new Map();
+        
+        transactions.forEach(tx => {
+            // Kategorien zählen
+            if (!summary.taxCategories[tx.taxCategory]) {
+                summary.taxCategories[tx.taxCategory] = { count: 0, amount: 0 };
+            }
+            summary.taxCategories[tx.taxCategory].count++;
+            summary.taxCategories[tx.taxCategory].amount += tx.usdValue || 0;
+
+            // 💰 ROI-EINKOMMEN ANALYSE
+            const roiCategories = [
+                this.TAX_CATEGORIES.ROI_INCOME,
+                this.TAX_CATEGORIES.STAKING_REWARD,
+                this.TAX_CATEGORIES.MINING_REWARD,
+                this.TAX_CATEGORIES.AIRDROP
+            ];
+            
+            if (roiCategories.includes(tx.taxCategory)) {
+                summary.roiIncome.total += tx.usdValue || 0;
+                summary.roiIncome.count++;
+                summary.roiIncome.transactions.push({
+                    date: tx.block_timestamp,
+                    amount: tx.amount,
+                    symbol: tx.symbol,
+                    usdValue: tx.usdValue || 0,
+                    category: tx.taxCategory,
+                    from: tx.from_address?.slice(0,8) + '...'
+                });
+                
+                // Unterkategorien
+                if (tx.taxCategory === this.TAX_CATEGORIES.STAKING_REWARD) {
+                    summary.roiIncome.categories.staking.amount += tx.usdValue || 0;
+                    summary.roiIncome.categories.staking.count++;
+                } else if (tx.taxCategory === this.TAX_CATEGORIES.MINING_REWARD) {
+                    summary.roiIncome.categories.mining.amount += tx.usdValue || 0;
+                    summary.roiIncome.categories.mining.count++;
+                } else if (tx.taxCategory === this.TAX_CATEGORIES.AIRDROP) {
+                    summary.roiIncome.categories.airdrops.amount += tx.usdValue || 0;
+                    summary.roiIncome.categories.airdrops.count++;
+                } else {
+                    summary.roiIncome.categories.general.amount += tx.usdValue || 0;
+                    summary.roiIncome.categories.general.count++;
+                }
+            }
+            
+            // 🔄 VERKÄUFE & SWAPS ANALYSE
+            const saleCategories = [
+                this.TAX_CATEGORIES.VERKAUF,
+                this.TAX_CATEGORIES.ETH_VERKAUF,
+                this.TAX_CATEGORIES.PLS_VERKAUF,
+                this.TAX_CATEGORIES.SWAP
+            ];
+            
+            if (saleCategories.includes(tx.taxCategory)) {
+                summary.speculativeTransactions.total += tx.usdValue || 0;
+                summary.speculativeTransactions.count++;
+                summary.speculativeTransactions.transactions.push({
+                    date: tx.block_timestamp,
+                    amount: tx.amount,
+                    symbol: tx.symbol,
+                    usdValue: tx.usdValue || 0,
+                    holdingPeriodDays: tx.holdingPeriodDays || 0,
+                    taxable: tx.isTaxable
+                });
+                
+                // Haltefrist-Analyse für Verkäufe
+                if (tx.holdingPeriodDays !== undefined) {
+                    if (tx.holdingPeriodDays < 365) {
+                        summary.speculativeTransactions.withinSpeculationPeriod.amount += tx.usdValue || 0;
+                        summary.speculativeTransactions.withinSpeculationPeriod.count++;
+                        summary.holdingPeriodAnalysis.under365Days.amount += tx.usdValue || 0;
+                        summary.holdingPeriodAnalysis.under365Days.count++;
+                    } else {
+                        summary.speculativeTransactions.afterSpeculationPeriod.amount += tx.usdValue || 0;
+                        summary.speculativeTransactions.afterSpeculationPeriod.count++;
+                        summary.holdingPeriodAnalysis.over365Days.amount += tx.usdValue || 0;
+                        summary.holdingPeriodAnalysis.over365Days.count++;
+                    }
+                }
+            }
+            
+            // 📊 STEUERPFLICHT-ZÄHLUNG
+            if (tx.isTaxable) {
+                summary.taxableTransactions++;
+                totalTaxableGains += tx.usdValue || 0;
+            } else {
+                summary.nonTaxableTransactions++;
+            }
+            
+            // 🏦 HOLDING TRACKING
+            const tokenKey = tx.symbol || 'UNKNOWN';
+            if (!holdingsByToken.has(tokenKey)) {
+                holdingsByToken.set(tokenKey, { purchases: 0, sales: 0, currentAmount: 0 });
+            }
+            
+            const holding = holdingsByToken.get(tokenKey);
+            if (tx.taxCategory.includes('KAUF')) {
+                holding.purchases += tx.amount || 0;
+                holding.currentAmount += tx.amount || 0;
+                summary.holdingOverview.totalPurchases += tx.usdValue || 0;
+            } else if (saleCategories.includes(tx.taxCategory)) {
+                holding.sales += tx.amount || 0;
+                holding.currentAmount -= tx.amount || 0;
+                summary.holdingOverview.totalSales += tx.usdValue || 0;
+            }
+        });
+        
+        // 🇩🇪 DEUTSCHE STEUERRECHTLICHE EINORDNUNG
+        summary.germanTaxClassification.einkommensteuerPflichtig.amount = 
+            summary.roiIncome.total + summary.speculativeTransactions.withinSpeculationPeriod.amount;
+        summary.germanTaxClassification.einkommensteuerPflichtig.count = 
+            summary.roiIncome.count + summary.speculativeTransactions.withinSpeculationPeriod.count;
+            
+        summary.germanTaxClassification.steuerfreieVeräußerungen.amount = 
+            summary.speculativeTransactions.afterSpeculationPeriod.amount;
+        summary.germanTaxClassification.steuerfreieVeräußerungen.count = 
+            summary.speculativeTransactions.afterSpeculationPeriod.count;
+        
+        // 600€ FREIGRENZE PRÜFUNG (§23 EStG)
 }
 
 // 🎯 Export für Verwendung
