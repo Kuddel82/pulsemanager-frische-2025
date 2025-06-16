@@ -75,49 +75,68 @@ export class TaxReportService_FINAL {
             console.log(`📄 FINAL LOADER Page ${currentPage}...`);
             
             let pageTransactions = [];
-            let nextCursor = null;
+            let allCursors = [];
             
-            // 🔥 LOAD FROM MULTIPLE ENDPOINTS PARALLEL
-            for (const endpoint of STABLE_ENDPOINTS) {
+            // 🔥 AGGRESSIVE PARALLEL LOADING FROM ALL ENDPOINTS
+            const loadPromises = STABLE_ENDPOINTS.map(async (endpoint) => {
                 try {
                     const response = await this.loadTransactionBatch(walletAddress, endpoint, cursor, 100);
                     
                     if (response.success && response.transactions.length > 0) {
                         console.log(`✅ ${endpoint}: ${response.transactions.length} Transaktionen`);
-                        pageTransactions.push(...response.transactions);
-                        
-                        // Verwende ersten verfügbaren Cursor
-                        if (!nextCursor && response.cursor) {
-                            nextCursor = response.cursor;
-                        }
+                        if (response.cursor) allCursors.push(response.cursor);
+                        return response.transactions;
                     }
+                    return [];
                 } catch (error) {
                     console.warn(`⚠️ ${endpoint} failed: ${error.message}`);
-                    // Continue with other endpoints
+                    return [];
                 }
-            }
+            });
+            
+            // Wait for all endpoints to complete
+            const results = await Promise.all(loadPromises);
+            results.forEach(txs => pageTransactions.push(...txs));
             
             // 🔧 REMOVE DUPLICATES
             const uniqueTransactions = this.removeDuplicates(pageTransactions);
             allTransactions.push(...uniqueTransactions);
             
-            // 🎯 PAGINATION LOGIC: EINFACH UND ZUVERLÄSSIG
-            cursor = nextCursor;
-            hasMore = nextCursor !== null && uniqueTransactions.length > 0;
+            // 🚀 AGGRESSIVE CURSOR LOGIC: Continue if ANY endpoint has cursor
+            cursor = allCursors.length > 0 ? allCursors[0] : null;
             
-            console.log(`📊 Page ${currentPage}: ${uniqueTransactions.length} unique, Total: ${allTransactions.length}, Next: ${hasMore ? 'Yes' : 'No'}`);
+            // 🔥 FORCE CONTINUE: Load at least 10 pages even without perfect cursors
+            const forceMorePages = currentPage < 10;
+            const hasNewData = uniqueTransactions.length > 0;
+            const hasCursor = cursor !== null;
             
-            // 🚨 SAFETY: Stoppe wenn keine neuen Transaktionen
-            if (uniqueTransactions.length === 0) {
-                console.log(`🔄 FINAL LOADER: Keine neuen Transaktionen - STOP`);
+            hasMore = (hasCursor && hasNewData) || forceMorePages;
+            
+            console.log(`📊 Page ${currentPage}: ${uniqueTransactions.length} unique, Total: ${allTransactions.length}`);
+            console.log(`🔍 PAGINATION: cursor=${!!hasCursor}, newData=${hasNewData}, force=${forceMorePages}, continue=${hasMore}`);
+            
+            // 🚨 SAFETY: Stoppe nur wenn WIRKLICH keine Daten mehr
+            if (uniqueTransactions.length === 0 && !forceMorePages) {
+                console.log(`🔄 FINAL LOADER: Keine neuen Transaktionen und Force-Mode beendet - STOP`);
                 break;
             }
             
             // Rate limiting
-            await this.delay(100);
+            await this.delay(200);
         }
         
         console.log(`🎯 GUARANTEED LOADER COMPLETE: ${allTransactions.length} Transaktionen über ${currentPage} Seiten`);
+        
+        // 🚨 FALLBACK: Wenn weniger als 100 Transaktionen, versuche alternative Strategie
+        if (allTransactions.length < 100) {
+            console.log(`⚠️ FALLBACK: Nur ${allTransactions.length} Transaktionen geladen - versuche alternative Methode`);
+            const fallbackTransactions = await this.loadWithFallbackStrategy(walletAddress);
+            if (fallbackTransactions.length > allTransactions.length) {
+                console.log(`✅ FALLBACK SUCCESS: ${fallbackTransactions.length} Transaktionen (mehr als ${allTransactions.length})`);
+                return this.removeDuplicates(fallbackTransactions);
+            }
+        }
+        
         return this.removeDuplicates(allTransactions); // Final dedup
     }
     
@@ -217,6 +236,50 @@ export class TaxReportService_FINAL {
             taxNotes: notes.join('; '),
             processedAt: new Date().toISOString()
         };
+    }
+    
+    /**
+     * 🚨 FALLBACK STRATEGY: Alternative Lademethode wenn Standard-Endpoints versagen
+     */
+    static async loadWithFallbackStrategy(walletAddress) {
+        console.log(`🚨 FALLBACK STRATEGY: Alternative Lademethode für ${walletAddress}`);
+        
+        let allTransactions = [];
+        
+        // Strategie 1: Mehr Endpoints versuchen
+        const fallbackEndpoints = ['transactions', 'erc20-transfers', 'verbose', 'wallet-transactions'];
+        
+        for (const endpoint of fallbackEndpoints) {
+            try {
+                console.log(`🔄 FALLBACK: Versuche ${endpoint}...`);
+                let cursor = null;
+                let pageCount = 0;
+                
+                // Lade bis zu 20 Seiten pro Endpoint
+                while (pageCount < 20) {
+                    const response = await this.loadTransactionBatch(walletAddress, endpoint, cursor, 100);
+                    
+                    if (!response.success || response.transactions.length === 0) {
+                        break;
+                    }
+                    
+                    allTransactions.push(...response.transactions);
+                    cursor = response.cursor;
+                    pageCount++;
+                    
+                    if (!cursor) break;
+                    await this.delay(100);
+                }
+                
+                console.log(`📊 FALLBACK ${endpoint}: ${allTransactions.length} total transactions`);
+                
+            } catch (error) {
+                console.warn(`⚠️ FALLBACK ${endpoint} failed:`, error.message);
+            }
+        }
+        
+        console.log(`🎯 FALLBACK COMPLETE: ${allTransactions.length} Transaktionen gesammelt`);
+        return this.removeDuplicates(allTransactions);
     }
     
     /**
