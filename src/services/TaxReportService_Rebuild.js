@@ -674,13 +674,13 @@ export class TaxReportService_Rebuild {
         const transactions = [];
         
         try {
-            // 🚀 ULTRA-OPTIMIERT: Massive Limits für MILLIONEN-ETH ROI-Wallets
-            const batchSize = forceFullHistory ? 500 : 250; // MASSIV erhöht für ROI-Wallets
+            // 🚀 WGEP-OPTIMIERT: Mehr Transaktionen pro Batch für bessere ROI-Abdeckung
+            const batchSize = forceFullHistory ? 1000 : 500; // 🔥 ERHÖHT für mehr Transaktionen
             let cursor = null;
             let pageCount = 0;
             let hasMore = true;
             
-            // 🎯 WGEP ROI MEGA-LIMITS: Für Wallets mit MILLIONEN ETH ROI
+            // 🎯 WGEP PAGINATION: Unbegrenzte Pages für vollständige Historie
             const maxPages = forceFullHistory ? 100000 : 50000; // Bis zu 25M Transaktionen für WGEP!
             
             console.log(`🔍 ${chainName} WGEP CONFIG: batchSize=${batchSize}, maxPages=${maxPages}, extendedTime=${extendedTimeRange}`);
@@ -699,6 +699,7 @@ export class TaxReportService_Rebuild {
                     
                     // 🔍 ENHANCED DEBUG: Detaillierte Pagination-Logs
                     console.log(`🔍 ${chainName} BATCH DEBUG: success=${batchResult?.success}, resultLength=${batchResult?.result?.length || 0}, cursor=${batchResult?.cursor || 'null'}, batchSize=${batchSize}`);
+                    console.log(`🚨 44-PROBLEM-DEBUG: requestedBatchSize=${batchSize}, actualResults=${batchResult?.result?.length || 0}, hasCursor=${!!batchResult?.cursor}, cursorValue='${batchResult?.cursor || 'NO_CURSOR'}'`);
                     
                     if (batchResult && batchResult.result && batchResult.result.length > 0) {
                         // 🎯 WGEP ROI DETECTION: Zähle potentielle ROI-Transaktionen in diesem Batch
