@@ -86,6 +86,12 @@ export default async function handler(req, res) {
         if (cursor) apiUrl += `&cursor=${cursor}`;
         break;
         
+      case 'internal-transactions':
+        // 🆕 INTERNAL TRANSACTIONS: Für vollständige Transaktionshistorie
+        apiUrl = `https://deep-index.moralis.io/api/v2/${address}/internal-transactions?chain=${normalizedChain}&limit=${Math.min(limit, 100)}`;
+        if (cursor) apiUrl += `&cursor=${cursor}`;
+        break;
+        
       case 'native-transfers':
         // 🚨 DEPRECATED: native-transfers nicht unterstützt, verwende transactions
         return res.status(400).json({
@@ -99,8 +105,8 @@ export default async function handler(req, res) {
         return res.status(400).json({
           error: `Unbekannter Endpoint: ${endpoint}`,
           success: false,
-          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'balances'],
-          note: 'native-transfers nicht unterstützt, verbose für Transaction Labeling'
+          availableEndpoints: ['transactions', 'verbose', 'erc20-transfers', 'internal-transactions', 'balances'],
+          note: 'native-transfers nicht unterstützt, verbose für Transaction Labeling, internal-transactions für vollständige Historie'
         });
     }
 

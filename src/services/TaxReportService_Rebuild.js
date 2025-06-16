@@ -1021,30 +1021,46 @@ export class TaxReportService_Rebuild {
                             console.log(`📄 ${chainName} Page ${pageCount + 1}...`);
                         }
                         
-                        // 🔄 Lade BEIDE: Native Transaktionen UND ERC20-Transfers (MIT MORALIS LABELING)
-                        const [nativeResponse, erc20Response] = await Promise.all([
+                        // 🔄 Lade ALLE VERFÜGBAREN TRANSAKTIONSTYPEN für vollständige Historie (4 Endpoints!)
+                        const [verboseResponse, transactionsResponse, erc20Response, internalResponse] = await Promise.all([
                             MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'verbose', true),
-                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers')
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'transactions'),
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'erc20-transfers'),
+                            MoralisV2Service.getWalletTransactionsBatch(walletAddress, batchSize, cursor, chainId, 'internal-transactions')
                         ]);
                         
                         let pageTransactions = [];
                         let nextCursor = null;
                         
-                        // 🔧 KOMBINIERE BEIDE ENDPOINTS mit intelligentem Duplikat-Filter
+                        // 🔧 KOMBINIERE ALLE DREI ENDPOINTS für vollständige Datenabdeckung
                         const allTransactions = [];
                         
-                        // Native Transaktionen hinzufügen
-                        if (nativeResponse?.success && nativeResponse.result?.length > 0) {
-                            console.log(`✅ V2: transactions erfolgreich - ${nativeResponse.result.length} Transaktionen`);
-                            allTransactions.push(...nativeResponse.result);
-                            nextCursor = nativeResponse.cursor || nextCursor;
+                        // Verbose Transaktionen hinzufügen (mit Moralis Labeling)
+                        if (verboseResponse?.success && verboseResponse.result?.length > 0) {
+                            console.log(`✅ V2: verbose erfolgreich - ${verboseResponse.result.length} Transaktionen (MIT LABELING)`);
+                            allTransactions.push(...verboseResponse.result);
+                            nextCursor = verboseResponse.cursor || nextCursor;
                         }
                         
-                        // ERC20 Transaktionen hinzufügen
+                        // Standard Transaktionen hinzufügen (Native ETH)
+                        if (transactionsResponse?.success && transactionsResponse.result?.length > 0) {
+                            console.log(`✅ V2: transactions erfolgreich - ${transactionsResponse.result.length} Transaktionen (NATIVE ETH)`);
+                            allTransactions.push(...transactionsResponse.result);
+                            nextCursor = transactionsResponse.cursor || nextCursor;
+                        }
+                        
+                        // ERC20 Transaktionen hinzufügen (Token-Transfers)
                         if (erc20Response?.success && erc20Response.result?.length > 0) {
-                            console.log(`✅ V2: erc20-transfers erfolgreich - ${erc20Response.result.length} Transaktionen`);
+                            console.log(`✅ V2: erc20-transfers erfolgreich - ${erc20Response.result.length} Transaktionen (TOKEN-TRANSFERS)`);
                             allTransactions.push(...erc20Response.result);
                             nextCursor = erc20Response.cursor || nextCursor;
+                        }
+                        
+                        // Internal Transaktionen hinzufügen (Contract-Calls)
+                        if (internalResponse?.success && internalResponse.result?.length > 0) {
+                            console.log(`✅ V2: internal-transactions erfolgreich - ${internalResponse.result.length} Transaktionen (INTERNAL-CALLS)`);
+                            allTransactions.push(...internalResponse.result);
+                            nextCursor = internalResponse.cursor || nextCursor;
                         }
                         
                         // 🔧 INTELLIGENTER DUPLIKAT-FILTER: Entferne echte Duplikate
@@ -1074,12 +1090,12 @@ export class TaxReportService_Rebuild {
                         cursor = nextCursor;
                         pageCount++;
                         
-                        // 🔥 OPTIMIERTE FORTSETZUNGSBEDINGUNGEN (für vollständige Historie)
+                        // 🔥 ERWEITERTE FORTSETZUNGSBEDINGUNGEN (für VOLLSTÄNDIGE STEUERREPORT-DATEN)
                         const shouldContinue = 
                             nextCursor &&                                   // Cursor vorhanden UND
                             pageTransactions.length > 0 &&                  // Mindestens 1 neue Transaktion
-                            pageCount <= 50 &&                              // Maximal 50 Seiten (ca. 2000 Transaktionen)
-                            transactions.length < 2000;                     // Stoppe bei 2000 Transaktionen total
+                            pageCount <= 100 &&                             // Maximal 100 Seiten (ca. 10.000 Transaktionen)
+                            transactions.length < 10000;                    // Stoppe bei 10.000 Transaktionen total
                         
                         hasMore = shouldContinue;
                         
