@@ -490,10 +490,10 @@ export class TaxReportService_Rebuild {
             startDate = '2025-01-01', // 🔥 FEST: Steuerreport 2025
             endDate = '2025-12-31',   // 🔥 FEST: Steuerreport 2025
             includeTransfers = false,
-            debugMode = true, // 🔥 TEMPORÄR AKTIVIERT FÜR $144 MILLIARDEN DEBUG
+            debugMode = true, // 🔥 TEMPORÄR AKTIVIERT FÜR ROI-DEBUG
             generatePDF = false, // 🔥 NEU: PDF nur auf Anfrage generieren
-            extendedTimeRange = false, // 🎯 NEU: Erweiterte Zeitspanne für WGEP ROI
-            forceFullHistory = false   // 🎯 NEU: Erzwinge vollständige Historie
+            extendedTimeRange = true, // 🎯 AKTIVIERT: Erweiterte Zeitspanne für WGEP ROI
+            forceFullHistory = true   // 🎯 AKTIVIERT: Erzwinge vollständige Historie
         } = options;
 
         console.log(`🎯 Tax Report Rebuild - Start für Wallet: ${walletAddress}`);
@@ -1191,7 +1191,7 @@ export class TaxReportService_Rebuild {
         }));
     }
 
-    // 🔥 ROI-GESAMT-OBERGRENZE: Verhindere unrealistische Gesamtsummen
+    // 🔥 ROI-GESAMT-OBERGRENZE: Verhindere unrealistische Gesamtsummen (ANGEPASST für WGEP)
     static validateTotalROI(transactions) {
         const roiTransactions = transactions.filter(tx => 
             tx.taxCategory === this.TAX_CATEGORIES.ROI_INCOME || 
@@ -1201,19 +1201,41 @@ export class TaxReportService_Rebuild {
         
         const totalROI = roiTransactions.reduce((sum, tx) => sum + (tx.usdValue || 0), 0);
         
-        // 🚨 MEGA-ROI-FILTER: Max $1 Million Gesamt-ROI pro Wallet
-        if (totalROI > 1000000) {
-            console.warn(`🚫 UNREALISTISCHES GESAMT-ROI: $${totalROI.toFixed(2)} - setze auf $0 zurück`);
+        // 🎯 WGEP-FREUNDLICHER FILTER: Erhöht Limit für echte ROI-User
+        // WGEP generiert über Monate hinweg durchaus mehrere tausend Dollar ROI
+        const maxRealisticROI = 50000; // $50k statt $1M für realistischere Grenze
+        
+        if (totalROI > maxRealisticROI) {
+            console.warn(`🚫 UNREALISTISCHES GESAMT-ROI: $${totalROI.toFixed(2)} - Prüfe einzelne Transaktionen...`);
             
-            // Setze alle ROI-USD-Werte auf 0
+            // 🔍 INTELLIGENTE FILTERUNG: Nur offensichtlich falsche Werte entfernen
+            let filteredTotal = 0;
+            let validROICount = 0;
+            
             roiTransactions.forEach(tx => {
-                tx.usdValue = 0;
-                tx.usdPrice = 0;
+                const usdValue = tx.usdValue || 0;
+                
+                // 🎯 WGEP-PATTERN: Kleine ETH-Beträge sind legitim (0.0003-0.002 ETH)
+                const isWGEPRange = usdValue >= 0.50 && usdValue <= 100; // $0.50 - $100 pro ROI
+                
+                // 🔍 EINZELTRANSAKTIONS-FILTER: Max $1000 pro ROI-Transaktion
+                const isSingleTxRealistic = usdValue <= 1000;
+                
+                if (isWGEPRange || isSingleTxRealistic) {
+                    filteredTotal += usdValue;
+                    validROICount++;
+                } else {
+                    console.warn(`🚫 EINZELNE ROI ENTFERNT: $${usdValue.toFixed(2)} - zu unrealistisch`);
+                    tx.usdValue = 0;
+                    tx.usdPrice = 0;
+                }
             });
             
-            return 0;
+            console.log(`✅ ROI GEFILTERT: ${validROICount}/${roiTransactions.length} Transaktionen, $${filteredTotal.toFixed(2)} Gesamt-ROI`);
+            return filteredTotal;
         }
         
+        console.log(`✅ ROI VALIDIERT: $${totalROI.toFixed(2)} Gesamt-ROI (${roiTransactions.length} Transaktionen)`);
         return totalROI;
     }
 
