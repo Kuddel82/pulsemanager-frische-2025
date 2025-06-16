@@ -620,34 +620,12 @@ export class TaxReportService_Rebuild {
         }
 
         try {
-            // 🚨 API KEY CHECK: Prüfe ob Moralis API verfügbar ist
+            // 🔑 API KEY CHECK: Prüfe ob Moralis API verfügbar ist (nicht-blockierend)
             const apiStatus = await this.checkAPIAvailability();
             if (!apiStatus.moralisAvailable) {
-                console.warn('⚠️ MORALIS API NICHT VERFÜGBAR - Fallback-Modus aktiviert');
+                console.warn('⚠️ MORALIS API NICHT VERFÜGBAR - Versuche trotzdem fortzufahren');
                 console.warn('🔧 LÖSUNG: Erstelle .env Datei mit MORALIS_API_KEY für vollständige WGEP ROI-Erkennung');
-                
-                return {
-                    success: false,
-                    error: '🚨 MORALIS API KEY FEHLT',
-                    message: 'Tax Report kann nicht vollständig generiert werden ohne Moralis API Key',
-                    solution: {
-                        step1: 'Erstelle .env Datei im Root-Verzeichnis',
-                        step2: 'Füge hinzu: MORALIS_API_KEY=dein_echter_api_key',
-                        step3: 'Hole API Key von https://admin.moralis.io/',
-                        step4: 'Starte Server neu: npm run dev'
-                    },
-                    fallbackData: {
-                        transactions: [],
-                        taxTable: [],
-                        summary: {
-                            totalTransactions: 0,
-                            roiTransactions: 0,
-                            taxableGains: 0,
-                            taxFreeGains: 0
-                        }
-                    },
-                    setupGuide: 'Siehe MORALIS_API_KEY_SETUP_URGENT.md für detaillierte Anleitung'
-                };
+                // NICHT blockieren - versuche trotzdem fortzufahren
             }
 
             // SCHRITT 1: Vollständige Transaktionshistorie laden
@@ -1911,8 +1889,8 @@ export class TaxReportService_Rebuild {
         try {
             console.log(`🔑 Prüfe API-Verfügbarkeit für echte Blockchain-Daten...`);
             
-            // Test Moralis API mit einem einfachen Request
-            const testResponse = await fetch('/api/moralis-proxy?endpoint=transactions&address=0x0000000000000000000000000000000000000001&chain=eth&limit=1');
+            // Test Moralis API mit einer gültigen Ethereum-Adresse (Vitalik's Adresse)
+            const testResponse = await fetch('/api/moralis-proxy?endpoint=erc20-transfers&address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045&chain=0x1&limit=1');
             const testData = await testResponse.json();
             
             const moralisAvailable = testData.success !== false && !testData.error?.includes('API KEY');
