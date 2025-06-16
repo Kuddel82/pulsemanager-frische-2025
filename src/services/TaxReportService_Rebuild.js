@@ -275,11 +275,11 @@ export class TaxReportService_Rebuild {
             return false;
         }
         
-        // 🚨 SPAM-TOKEN-FILTER: Blockiere bekannte Spam-Contract-Adressen
+        // 🚨 SPAM-TOKEN-FILTER: Blockiere bekannte Spam-Contract-Adressen (NICHT echte ROI!)
         const spamContracts = [
-            '0xb8713b', // Spam Token mit falschen Decimals (MILLIONEN ETH)
-            '0x74dec0', // Weitere Spam-Contracts
-            '0x8c8d7c'  // Weitere Spam-Contracts
+            '0xb8713b', // Spam Token mit falschen Decimals (912301+ ETH = MILLIONEN!)
+            // ENTFERNT: '0x74dec0', '0x8c8d7c' - könnten echte Micro-ROI sein
+            // WICHTIG: 0xfd...357c ist ECHTE ROI-QUELLE - NICHT blockieren!
         ];
         
         const isSpamContract = spamContracts.some(spam => 
