@@ -143,22 +143,36 @@ export class TaxReportService_Rebuild {
         return isLikelyWGEPROI;
     }
 
-    // 📊 HAUPTFUNKTION: Tax Report generieren
+    // 📊 HAUPTFUNKTION: Tax Report generieren (ERWEITERT für WGEP ROI)
     static async generateTaxReport(walletAddress, options = {}) {
         const {
             startDate = `${new Date().getFullYear()}-01-01`,
             endDate = `${new Date().getFullYear()}-12-31`,
             includeTransfers = false,
             debugMode = false,
-            generatePDF = false // 🔥 NEU: PDF nur auf Anfrage generieren
+            generatePDF = false, // 🔥 NEU: PDF nur auf Anfrage generieren
+            extendedTimeRange = false, // 🎯 NEU: Erweiterte Zeitspanne für WGEP ROI
+            forceFullHistory = false   // 🎯 NEU: Erzwinge vollständige Historie
         } = options;
 
         console.log(`🎯 Tax Report Rebuild - Start für Wallet: ${walletAddress}`);
         console.log(`📅 Zeitraum: ${startDate} bis ${endDate}`);
+        
+        // 🎯 WGEP ROI OPTIMIZATION: Erweiterte Optionen für bessere ROI-Erkennung
+        if (extendedTimeRange) {
+            console.log(`🔍 WGEP MODE: Erweiterte Zeitspanne aktiviert für bessere ROI-Erkennung`);
+        }
+        if (forceFullHistory) {
+            console.log(`🔍 WGEP MODE: Vollständige Historie erzwungen (ignoriert Pagination-Limits)`);
+        }
 
         try {
             // SCHRITT 1: Vollständige Transaktionshistorie laden
-            const allTransactions = await this.fetchCompleteTransactionHistory(walletAddress);
+            const allTransactions = await this.fetchCompleteTransactionHistory(walletAddress, {
+                extendedTimeRange,
+                forceFullHistory,
+                debugMode
+            });
             
             if (debugMode) {
                 console.log(`📊 Gesamte Transaktionen geladen: ${allTransactions.length}`);
@@ -215,12 +229,13 @@ export class TaxReportService_Rebuild {
         }
     }
 
-    // 🔄 SCHRITT 1: Vollständige Transaktionshistorie laden (MULTI-CHAIN für ETH + PLS)
-    static async fetchCompleteTransactionHistory(walletAddress) {
+    // 🔄 SCHRITT 1: Vollständige Transaktionshistorie laden (MULTI-CHAIN + WGEP ROI FOCUS)
+    static async fetchCompleteTransactionHistory(walletAddress, options = {}) {
+        const { extendedTimeRange = false, forceFullHistory = false, debugMode = false } = options;
         const allTransactions = [];
         
         try {
-            console.log('🔍 Lade Multi-Chain Transaktionen (ETH + PLS)...');
+            console.log('🔍 Lade Multi-Chain Transaktionen mit WGEP ROI-Focus...');
             
             // 🔥 MULTI-CHAIN: Beide Chains parallel laden
             const chains = [
@@ -231,7 +246,11 @@ export class TaxReportService_Rebuild {
             for (const chain of chains) {
                 console.log(`${chain.emoji} Lade ${chain.name} Transaktionen...`);
                 
-                const chainTransactions = await this.fetchChainTransactions(walletAddress, chain.id, chain.name);
+                const chainTransactions = await this.fetchChainTransactions(walletAddress, chain.id, chain.name, {
+                    extendedTimeRange,
+                    forceFullHistory,
+                    debugMode
+                });
                 
                 // Chain-Info zu jeder Transaktion hinzufügen
                 const taggedTransactions = chainTransactions.map(tx => ({
@@ -243,9 +262,53 @@ export class TaxReportService_Rebuild {
                 
                 allTransactions.push(...taggedTransactions);
                 console.log(`${chain.emoji} ${chain.name}: ${chainTransactions.length} Transaktionen geladen`);
+                
+                // 🎯 WGEP ROI ANALYSIS: Analysiere geladene Transaktionen pro Chain
+                const roiTransactions = taggedTransactions.filter(tx => {
+                    const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+                    const hasValue = parseFloat(tx.value || '0') > 0;
+                    const fromContract = tx.from_address && tx.from_address.length === 42 && 
+                                       !tx.from_address.startsWith('0x000000');
+                    return isIncoming && hasValue && fromContract;
+                });
+                
+                if (roiTransactions.length > 0) {
+                    console.log(`🎯 ${chain.emoji} ROI FOUND: ${roiTransactions.length} potentielle WGEP ROI-Transaktionen`);
+                    roiTransactions.slice(0, 2).forEach(tx => {
+                        const ethValue = parseFloat(tx.value) / 1e18;
+                        console.log(`  💰 ${ethValue.toFixed(6)} ETH von ${tx.from_address.slice(0,8)}... am ${new Date(tx.block_timestamp).toLocaleString('de-DE')}`);
+                    });
+                } else {
+                    console.log(`⚠️ ${chain.emoji} KEINE ROI: Keine WGEP ROI-Transaktionen gefunden`);
+                }
             }
             
-            console.log(`✅ MULTI-CHAIN: ${allTransactions.length} Transaktionen total (${chains.length} Chains)`);
+            // 🔍 FINAL ANALYSIS: Gesamtanalyse aller Transaktionen
+            const totalROI = allTransactions.filter(tx => {
+                const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+                const hasValue = parseFloat(tx.value || '0') > 0;
+                const fromContract = tx.from_address && tx.from_address.length === 42;
+                return isIncoming && hasValue && fromContract;
+            });
+            
+            console.log(`✅ MULTI-CHAIN FINAL: ${allTransactions.length} Transaktionen total, ${totalROI.length} potentielle ROI (${chains.length} Chains)`);
+            
+            // 🚨 WGEP PROBLEM DIAGNOSIS: Wenn zu wenige Transaktionen
+            if (allTransactions.length < 10) {
+                console.warn(`🚨 WGEP DIAGNOSIS: Nur ${allTransactions.length} Transaktionen gefunden - das ist verdächtig wenig für WGEP Drucker!`);
+                console.warn(`🔍 MÖGLICHE URSACHEN:`);
+                console.warn(`  1. Wallet hat wenig Aktivität`);
+                console.warn(`  2. Moralis API-Limit oder Filter`);
+                console.warn(`  3. WGEP ROI-Transaktionen sind älter als Standard-Zeitraum`);
+                console.warn(`  4. WGEP verwendet andere Contract-Adressen`);
+                
+                // Zeige Details der gefundenen Transaktionen
+                allTransactions.forEach((tx, i) => {
+                    const ethValue = parseFloat(tx.value || '0') / 1e18;
+                    console.warn(`  TX${i+1}: ${ethValue.toFixed(6)} ETH von ${tx.from_address?.slice(0,8)}... zu ${tx.to_address?.slice(0,8)}... am ${new Date(tx.block_timestamp).toLocaleString('de-DE')}`);
+                });
+            }
+            
             return allTransactions;
 
         } catch (error) {
@@ -255,18 +318,24 @@ export class TaxReportService_Rebuild {
     }
     
     // 🔗 Einzelne Chain laden (Helper-Methode)
-    static async fetchChainTransactions(walletAddress, chainId, chainName) {
+    static async fetchChainTransactions(walletAddress, chainId, chainName, options = {}) {
+        const { extendedTimeRange = false, forceFullHistory = false, debugMode = false } = options;
         const transactions = [];
         
         try {
-            // 🚀 OPTIMIERT: Batch-Loading für große Wallets
-            const batchSize = 100;
+            // 🚀 OPTIMIERT: Batch-Loading für große Wallets (WGEP ROI ENHANCED)
+            const batchSize = forceFullHistory ? 200 : 100; // Größere Batches für vollständige Historie
             let cursor = null;
             let pageCount = 0;
             let hasMore = true;
             
+            // 🎯 WGEP ROI LIMITS: Erweiterte Limits für bessere ROI-Erkennung
+            const maxPages = forceFullHistory ? 50000 : 10000; // Bis zu 10M Transaktionen für WGEP
+            
+            console.log(`🔍 ${chainName} WGEP CONFIG: batchSize=${batchSize}, maxPages=${maxPages}, extendedTime=${extendedTimeRange}`);
+            
             // Primär: Moralis API mit Pagination - ERHÖHTES LIMIT für WGEP ROI
-            while (hasMore && pageCount < 10000) { // Max 1.000.000 Transaktionen (100 * 10000)
+            while (hasMore && pageCount < maxPages) {
                 try {
                     console.log(`📄 ${chainName} Page ${pageCount + 1} (Suche nach WGEP ROI-Transaktionen)...`);
                     
@@ -793,6 +862,97 @@ export class TaxReportService_Rebuild {
         if (this.debugMode) {
             console.log(`🔍 [${step}] TX: ${transaction.hash} | Type: ${transaction.taxCategory} | Value: ${transaction.usdValue}`);
         }
+    }
+
+    // 🎯 WGEP TEST REPORT: Speziell für WGEP ROI-Debugging
+    static async generateWGEPTestReport(walletAddress) {
+        console.log(`🎯 WGEP TEST REPORT - Start für Wallet: ${walletAddress}`);
+        console.log(`🔍 Erweiterte WGEP ROI-Erkennung mit vollständiger Historie...`);
+
+        try {
+            // WGEP-optimierte Optionen
+            const wgepOptions = {
+                extendedTimeRange: true,
+                forceFullHistory: true,
+                debugMode: true,
+                startDate: '2020-01-01', // Sehr weiter Zeitraum für WGEP
+                endDate: `${new Date().getFullYear() + 1}-12-31`,
+                includeTransfers: true
+            };
+
+            // Generiere Tax Report mit WGEP-Optimierungen
+            const report = await this.generateTaxReport(walletAddress, wgepOptions);
+
+            // WGEP-spezifische Analyse
+            const wgepAnalysis = this.analyzeWGEPTransactions(report.transactions, walletAddress);
+
+            console.log(`🎯 WGEP ANALYSIS COMPLETE:`);
+            console.log(`  📊 Total Transaktionen: ${report.transactions.length}`);
+            console.log(`  💰 ROI Transaktionen: ${wgepAnalysis.roiCount}`);
+            console.log(`  🔥 WGEP ROI: ${wgepAnalysis.wgepROICount}`);
+            console.log(`  💵 Total ROI Value: $${wgepAnalysis.totalROIValue.toFixed(2)}`);
+
+            return {
+                ...report,
+                wgepAnalysis,
+                isWGEPTest: true,
+                wgepOptimized: true
+            };
+
+        } catch (error) {
+            console.error('❌ WGEP Test Report fehlgeschlagen:', error);
+            throw error;
+        }
+    }
+
+    // 🔍 WGEP TRANSACTION ANALYSIS
+    static analyzeWGEPTransactions(transactions, walletAddress) {
+        const roiTransactions = transactions.filter(tx => 
+            tx.taxCategory === this.TAX_CATEGORIES.ROI_INCOME
+        );
+
+        const wgepROITransactions = transactions.filter(tx => {
+            const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+            const hasValue = parseFloat(tx.value || '0') > 0;
+            const fromContract = tx.from_address && tx.from_address.length === 42;
+            const ethValue = parseFloat(tx.value || '0') / 1e18;
+            
+            // WGEP-spezifische Kriterien
+            const isWGEPAmount = ethValue >= 0.001 && ethValue <= 10; // Typische WGEP ROI-Beträge
+            const isFromContract = fromContract && !tx.from_address.startsWith('0x000000');
+            
+            return isIncoming && hasValue && isFromContract && isWGEPAmount;
+        });
+
+        const totalROIValue = roiTransactions.reduce((sum, tx) => {
+            const ethValue = parseFloat(tx.value || '0') / 1e18;
+            return sum + (ethValue * 2400); // ETH Preis für USD-Schätzung
+        }, 0);
+
+        // Zeige Top WGEP ROI-Transaktionen
+        const topWGEPROI = wgepROITransactions
+            .sort((a, b) => parseFloat(b.value || '0') - parseFloat(a.value || '0'))
+            .slice(0, 5);
+
+        console.log(`🎯 TOP WGEP ROI TRANSACTIONS:`);
+        topWGEPROI.forEach((tx, i) => {
+            const ethValue = parseFloat(tx.value || '0') / 1e18;
+            const usdValue = ethValue * 2400;
+            console.log(`  ${i+1}. ${ethValue.toFixed(6)} ETH ($${usdValue.toFixed(2)}) von ${tx.from_address?.slice(0,8)}... am ${new Date(tx.block_timestamp).toLocaleString('de-DE')}`);
+        });
+
+        return {
+            roiCount: roiTransactions.length,
+            wgepROICount: wgepROITransactions.length,
+            totalROIValue,
+            topWGEPROI,
+            analysis: {
+                hasWGEPActivity: wgepROITransactions.length > 0,
+                avgROIAmount: wgepROITransactions.length > 0 ? 
+                    wgepROITransactions.reduce((sum, tx) => sum + parseFloat(tx.value || '0'), 0) / wgepROITransactions.length / 1e18 : 0,
+                uniqueContracts: [...new Set(wgepROITransactions.map(tx => tx.from_address))].length
+            }
+        };
     }
 }
 

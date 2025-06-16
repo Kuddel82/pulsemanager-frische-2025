@@ -124,6 +124,67 @@ const TaxReportNew = () => {
     }
   };
 
+  // 🎯 WGEP TEST FUNCTION
+  const handleWGEPTest = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🎯 WGEP TEST START...');
+      
+      // Lade User-Wallets
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeROI: false,
+        includeTax: false
+      });
+      
+      const wallets = portfolioData?.wallets || [];
+      
+      if (wallets.length === 0) {
+        setError('Keine Wallets gefunden für WGEP Test.');
+        return;
+      }
+      
+      // Teste erstes Wallet mit WGEP-optimierten Einstellungen
+      const testWallet = wallets[0];
+      console.log(`🎯 WGEP TEST für Wallet: ${testWallet.address}`);
+      
+      const wgepReport = await TaxReportService_Rebuild.generateWGEPTestReport(testWallet.address);
+      
+      // Zeige WGEP-spezifische Ergebnisse
+      if (wgepReport.wgepAnalysis) {
+        const analysis = wgepReport.wgepAnalysis;
+        alert(`🎯 WGEP TEST COMPLETE!\n\n` +
+              `📊 Total Transaktionen: ${wgepReport.transactions.length}\n` +
+              `💰 ROI Transaktionen: ${analysis.roiCount}\n` +
+              `🔥 WGEP ROI: ${analysis.wgepROICount}\n` +
+              `💵 Total ROI Value: $${analysis.totalROIValue.toFixed(2)}\n` +
+              `🏭 Unique Contracts: ${analysis.analysis.uniqueContracts}`);
+      }
+      
+      // Setze WGEP Test Daten
+      setData({
+        isWGEPTest: true,
+        wgepAnalysis: wgepReport.wgepAnalysis,
+        totalWallets: 1,
+        successfulReports: 1,
+        reports: [{
+          wallet: testWallet.address,
+          report: wgepReport,
+          success: true
+        }]
+      });
+      
+    } catch (error) {
+      console.error('❌ WGEP Test Fehler:', error);
+      setError(`WGEP Test fehlgeschlagen: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-7xl mx-auto">
@@ -154,16 +215,27 @@ const TaxReportNew = () => {
           </Button>
 
           {/* 📄 PDF BUTTON */}
-          {data && data.successfulReports > 0 && (
+          {data && data.successfulReports > 0 && !data.isWGEPTest && (
             <Button
               onClick={generatePDFManually}
-              className="bg-green-600 hover:bg-green-700 border-4 border-green-400 text-white font-bold shadow-xl px-6 py-4 text-lg"
+              className="bg-green-600 hover:bg-green-700 border-4 border-green-400 text-white font-bold shadow-xl px-6 py-4 text-lg mr-4"
               size="lg"
             >
               <Download className="h-5 w-5 mr-2" />
               📄 PDFs GENERIEREN
             </Button>
           )}
+
+          {/* 🎯 WGEP TEST BUTTON */}
+          <Button
+            onClick={handleWGEPTest}
+            disabled={loading}
+            className="bg-orange-600 hover:bg-orange-700 border-4 border-orange-400 text-white font-bold shadow-xl px-6 py-4 text-lg"
+            size="lg"
+          >
+            <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            🎯 WGEP ROI TEST
+          </Button>
         </div>
 
         {/* ERROR */}
