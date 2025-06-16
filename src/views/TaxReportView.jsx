@@ -198,6 +198,28 @@ const TaxReportNew = () => {
             <p className="text-xl text-white mb-4">
               Vollständig steuerrechtlich konform • Deutsche FIFO-Berechnung • Automatische PDF-Generierung
             </p>
+            
+            {/* 🚨 RECHTLICHER HAFTUNGSAUSSCHLUSS */}
+            <div className="mt-6 p-4 bg-red-900/50 border-2 border-red-500 rounded-lg text-left">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="text-red-400 mt-1 flex-shrink-0" size={20} />
+                <div className="text-sm text-red-100">
+                  <h3 className="font-bold text-red-300 mb-2">⚖️ RECHTLICHER HAFTUNGSAUSSCHLUSS</h3>
+                  <p className="mb-2">
+                    <strong>Keine Steuerberatung:</strong> Diese Software stellt keine steuerliche Beratung dar und ersetzt nicht die Beratung durch einen qualifizierten Steuerberater oder Wirtschaftsprüfer.
+                  </p>
+                  <p className="mb-2">
+                    <strong>Keine Gewähr für Vollständigkeit:</strong> Es wird keine Gewähr für die Vollständigkeit, Richtigkeit oder Aktualität der bereitgestellten Informationen und Berechnungen übernommen.
+                  </p>
+                  <p className="mb-2">
+                    <strong>Professionelle Prüfung erforderlich:</strong> Alle generierten Steuerberichte müssen zwingend von einem qualifizierten Steuerberater geprüft und validiert werden, bevor sie für steuerliche Zwecke verwendet werden.
+                  </p>
+                  <p className="text-red-200 font-semibold">
+                    Die Nutzung dieser Software erfolgt auf eigene Verantwortung. Der Anbieter übernimmt keine Haftung für Schäden, die durch die Verwendung der bereitgestellten Informationen entstehen.
+                  </p>
+                </div>
+              </div>
+            </div>
             <div className="text-lg text-green-400">
               ✅ Bis zu 300.000 Transaktionen • ✅ EStG-konform • ✅ Keine Fantasie-Milliarden mehr!
             </div>

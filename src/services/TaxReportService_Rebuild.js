@@ -1102,6 +1102,23 @@ export class TaxReportService_Rebuild {
             doc.text(`Wallet: ${walletAddress}`, 20, 35);
             doc.text(`Zeitraum: ${options.startDate} - ${options.endDate}`, 20, 45);
             doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')}`, 20, 55);
+            
+            // 🚨 RECHTLICHER HAFTUNGSAUSSCHLUSS im PDF
+            doc.setFontSize(10);
+            doc.setTextColor(255, 0, 0); // Rot
+            doc.text('RECHTLICHER HAFTUNGSAUSSCHLUSS:', 20, 70);
+            doc.setTextColor(0, 0, 0); // Schwarz
+            doc.setFontSize(8);
+            const disclaimerText = [
+                'Diese Software stellt keine steuerliche Beratung dar und ersetzt nicht die Beratung',
+                'durch einen qualifizierten Steuerberater. Es wird keine Gewähr für Vollständigkeit,',
+                'Richtigkeit oder Aktualität übernommen. Alle Berichte müssen von einem Steuerberater',
+                'geprüft werden. Nutzung auf eigene Verantwortung - keine Haftung für Schäden.'
+            ];
+            
+            disclaimerText.forEach((line, index) => {
+                doc.text(line, 20, 78 + (index * 4));
+            });
 
             // Tabelle
             const tableColumns = [
@@ -1122,10 +1139,10 @@ export class TaxReportService_Rebuild {
             doc.autoTable({
                 head: [tableColumns],
                 body: tableRows,
-                startY: 70,
+                startY: 95, // Verschoben wegen Haftungsausschluss
                 styles: { fontSize: 8 },
                 headStyles: { fillColor: [41, 128, 185] },
-                margin: { top: 70 }
+                margin: { top: 95 }
             });
 
             // Footer
