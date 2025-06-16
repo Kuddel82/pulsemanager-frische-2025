@@ -304,7 +304,7 @@ export class TaxReportService_Rebuild {
                                         console.warn(`⚠️ MORALIS PRICE: Failed for ${tx.token_address.slice(0, 8)}... - ${response.status}`);
                                     }
                                 } else {
-                                    // Für PLS: Verwende Moralis für Native Token
+                                    // Für PLS: Verwende Moralis für Native Token (PulseChain)
                                     const response = await fetch('/api/moralis-prices?endpoint=token-price&chain=0x171&address=0x0000000000000000000000000000000000000000', {
                                         method: 'GET',
                                         headers: {
@@ -318,25 +318,14 @@ export class TaxReportService_Rebuild {
                                         if (contentType && contentType.includes('application/json')) {
                                             const data = await response.json();
                                             usdPrice = data.usdPrice || 0;
+                                            if (usdPrice > 0) {
+                                                console.log(`✅ MORALIS PLS: $${usdPrice}`);
+                                            }
                                         } else {
                                             console.warn(`⚠️ MORALIS PRICE: Ungültige Antwort für PLS - Kein JSON`);
                                         }
                                     } else {
                                         console.warn(`⚠️ MORALIS PRICE: Failed for PLS - ${response.status}`);
-                                    }
-                                }
-                                
-                                // 2. BACKUP: PulseScan API (falls Moralis 0 zurückgibt)
-                                if (usdPrice === 0 && (!tx.token_address || tx.token_address === 'native')) {
-                                    try {
-                                        // PLS-Preis von PulseScan Stats API
-                                        const plsPrice = await PulseScanService.getPLSPrice();
-                                        if (plsPrice > 0) {
-                                            usdPrice = plsPrice;
-                                            console.log(`✅ PULSESCAN BACKUP: PLS = $${plsPrice}`);
-                                        }
-                                    } catch (pulseScanError) {
-                                        console.warn(`⚠️ PULSESCAN BACKUP: Fehler beim PLS-Preis laden:`, pulseScanError.message);
                                     }
                                 }
                                 
