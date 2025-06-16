@@ -616,15 +616,12 @@ export class TaxReportService_Rebuild {
         try {
             console.log('🔍 Starte Smart Chain Detection für Wallet...');
             
-            // 🧠 SMART CHAIN DETECTION: Erkenne automatisch welche Chain die Adresse hat
-            const relevantChains = await this.detectRelevantChains(walletAddress);
+            // 🔥 TEMPORÄR: Direkt Ethereum laden (Chain Detection später reparieren)
+            const relevantChains = [
+                { id: '0x1', name: 'Ethereum', emoji: '🔵' }
+            ];
             
-            if (relevantChains.length === 0) {
-                console.warn('⚠️ Keine aktiven Chains für diese Adresse gefunden');
-                return [];
-            }
-            
-            console.log(`🎯 Lade Transaktionen für ${relevantChains.length} relevante Chain(s): ${relevantChains.map(c => c.name).join(', ')}`);
+            console.log(`🎯 Lade Transaktionen für ${relevantChains.length} Chain(s): ${relevantChains.map(c => c.name).join(', ')}`);
             
             for (const chain of relevantChains) {
                 console.log(`${chain.emoji} Lade ${chain.name} Transaktionen...`);
@@ -1376,22 +1373,7 @@ export class TaxReportService_Rebuild {
             doc.text(`Zeitraum: ${options.startDate} - ${options.endDate}`, 20, 45);
             doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')}`, 20, 55);
             
-            // 🚨 RECHTLICHER HAFTUNGSAUSSCHLUSS im PDF
-            doc.setFontSize(10);
-            doc.setTextColor(255, 0, 0); // Rot
-            doc.text('RECHTLICHER HAFTUNGSAUSSCHLUSS:', 20, 70);
-            doc.setTextColor(0, 0, 0); // Schwarz
-            doc.setFontSize(8);
-            const disclaimerText = [
-                'Diese Software stellt keine steuerliche Beratung dar und ersetzt nicht die Beratung',
-                'durch einen qualifizierten Steuerberater. Es wird keine Gewähr für Vollständigkeit,',
-                'Richtigkeit oder Aktualität übernommen. Alle Berichte müssen von einem Steuerberater',
-                'geprüft werden. Nutzung auf eigene Verantwortung - keine Haftung für Schäden.'
-            ];
-            
-            disclaimerText.forEach((line, index) => {
-                doc.text(line, 20, 78 + (index * 4));
-            });
+            // Entfernt - wird durch Benutzerhinweise ersetzt
 
             // Tabelle
             const tableColumns = [
@@ -1412,7 +1394,7 @@ export class TaxReportService_Rebuild {
             // Benutzerhinweise oberhalb der Tabelle
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.text('WICHTIGE BENUTZERHINWEISE:', 20, 70);
+            doc.text('WICHTIGE BENUTZERHINWEISE:', 20, 65);
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
             const userHints = [
@@ -1421,7 +1403,7 @@ export class TaxReportService_Rebuild {
                 '• Übergeben Sie diesen Bericht zur Überprüfung an Ihren Steuerberater/Wirtschaftsprüfer'
             ];
             
-            let hintY = 75;
+            let hintY = 70;
             userHints.forEach(line => {
                 doc.text(line, 20, hintY);
                 hintY += 5;
@@ -1430,10 +1412,10 @@ export class TaxReportService_Rebuild {
             doc.autoTable({
                 head: [tableColumns],
                 body: tableRows,
-                startY: 92, // Angepasst für Benutzerhinweise
+                startY: 87, // Korrekte Position nach Benutzerhinweisen
                 styles: { fontSize: 8 },
                 headStyles: { fillColor: [41, 128, 185] },
-                margin: { top: 92 }
+                margin: { top: 87 }
             });
 
             // 🇩🇪 DEUTSCHE STEUER-ZUSAMMENFASSUNG (neue Seite)
