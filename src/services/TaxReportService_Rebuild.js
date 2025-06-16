@@ -286,15 +286,10 @@ export class TaxReportService_Rebuild {
         // Kombiniere alle Faktoren (lockerer für mehr ROI-Erkennung)
         const isLikelyWGEPROI = (isROIAmount || isWGEPAmount || isLargeWGEPValue || isZeroValueTest) && isFromContract && hasValidGas;
         
+        // 🎯 STILLE ROI-ERKENNUNG (nur bei tatsächlichem ROI loggen)
         if (isLikelyWGEPROI) {
             const roiType = isKnownWGEPContract ? 'KNOWN WGEP' : hasWGEPPattern ? 'WGEP PATTERN' : 'HEURISTIC';
-            const tokenInfo = transaction.token_address ? `Token: ${transaction.token_symbol || 'Unknown'}` : 'Native ETH';
-            console.error(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... (${tokenInfo}, Gas: ${gas_used || 'unknown'})`);
-        } else {
-            // 🔍 DEBUG: Warum wurde es NICHT als ROI erkannt? - PRODUCTION VISIBLE
-            if (isFromContract) { // Auch 0-Werte zeigen
-                console.error(`❌ ROI REJECTED: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}... - Grund: isROIAmount=${isROIAmount}, isWGEPAmount=${isWGEPAmount}, isLargeWGEPValue=${isLargeWGEPValue}, isZeroValueTest=${isZeroValueTest}, isFromContract=${isFromContract}, hasValidGas=${hasValidGas}`);
-            }
+            console.error(`🎯 WGEP ${roiType}: ${ethValue.toFixed(6)} ETH von ${from_address.slice(0,8)}...`);
         }
         
         return isLikelyWGEPROI;
@@ -707,16 +702,11 @@ export class TaxReportService_Rebuild {
     static async categorizeTransactionsForTax(transactions, walletAddress) {
         const categorized = [];
         const priceCache = new Map(); // Cache für Preise
+        let roiCount = 0;
+        let transferCount = 0;
+        let otherCount = 0;
 
-        console.log(`🏷️ Kategorisiere ${transactions.length} Transaktionen...`);
-        console.error(`🔍 CATEGORIZE START: ${transactions.length} Transaktionen für Wallet ${walletAddress?.slice(0,8)}... - parseTransactionType wird aufgerufen!`);
-        console.error(`🔍 FIRST 3 TRANSACTIONS:`, transactions.slice(0,3).map(tx => ({
-            hash: tx.transaction_hash?.slice(0,10),
-            from: tx.from_address?.slice(0,8),
-            to: tx.to_address?.slice(0,8),
-            value: tx.value,
-            symbol: tx.token_symbol || 'ETH'
-        })));
+        console.error(`🔍 CATEGORIZE START: ${transactions.length} Transaktionen für Wallet ${walletAddress?.slice(0,8)}...`);
 
         // 🚀 BATCH PROCESSING für Performance
         const batchSize = 1000;
@@ -727,9 +717,16 @@ export class TaxReportService_Rebuild {
             for (const tx of batch) {
                 try {
                     // Transaktionstyp bestimmen
-                    console.error(`🔍 CALLING parseTransactionType for TX: ${tx.transaction_hash?.slice(0,10)} from ${tx.from_address?.slice(0,8)} to ${tx.to_address?.slice(0,8)} value=${tx.value}`);
                     const taxCategory = this.parseTransactionType(tx, walletAddress);
-                    console.error(`🔍 parseTransactionType RESULT: ${taxCategory} for TX: ${tx.transaction_hash?.slice(0,10)}`);
+                    
+                    // Zähle Kategorien für Summary
+                    if (taxCategory === 'WGEP_ROI' || taxCategory === 'ROI') {
+                        roiCount++;
+                    } else if (taxCategory === 'TRANSFER_IN' || taxCategory === 'TRANSFER_OUT') {
+                        transferCount++;
+                    } else {
+                        otherCount++;
+                    }
                     
                     // USD-Preis zur Transaktionszeit ermitteln (MIT CACHE)
                     let usdPrice = 0;
@@ -790,9 +787,6 @@ export class TaxReportService_Rebuild {
                                             if (contentType && contentType.includes('application/json')) {
                                                 const data = await response.json();
                                                 usdPrice = data.usdPrice || 0;
-                                                if (usdPrice > 0) {
-                                                    console.log(`✅ MORALIS ETH (PRIMARY): $${usdPrice} - CACHED für alle ETH-Transaktionen`);
-                                                }
                                             }
                                         }
                                         
@@ -820,24 +814,15 @@ export class TaxReportService_Rebuild {
                                             if (contentType && contentType.includes('application/json')) {
                                                 const data = await response.json();
                                                 usdPrice = data.usdPrice || 0;
-                                                if (usdPrice > 0) {
-                                                    console.log(`✅ MORALIS PLS (PRIMARY): $${usdPrice} - CACHED für alle PLS-Transaktionen`);
-                                                }
-                                            } else {
-                                                console.warn(`⚠️ MORALIS PRICE: Ungültige Antwort für PLS - Kein JSON`);
                                             }
-                                        } else {
-                                            console.warn(`⚠️ MORALIS PRICE: Failed for PLS - ${response.status}`);
                                         }
                                         
                                         // 2. FALLBACK: PulseScan API (nur wenn Moralis versagt)
                                         if (usdPrice === 0) {
                                             try {
-                                                console.log('🔄 FALLBACK: Versuche PulseScan für PLS-Preis...');
                                                 const plsPrice = await PulseScanService.getPLSPrice();
                                                 if (plsPrice > 0) {
                                                     usdPrice = plsPrice;
-                                                    console.log(`✅ PULSESCAN FALLBACK: PLS = $${plsPrice} - CACHED für alle PLS-Transaktionen`);
                                                 }
                                             } catch (pulseScanError) {
                                                 console.warn(`⚠️ PULSESCAN FALLBACK: Fehler beim PLS-Preis laden:`, pulseScanError.message);
@@ -892,7 +877,25 @@ export class TaxReportService_Rebuild {
             console.log(`📊 Progress: ${progress}% (${categorized.length}/${transactions.length})`);
         }
 
-        console.log(`✅ Kategorisierung abgeschlossen: ${categorized.length} Transaktionen, Cache: ${priceCache.size} Preise`);
+        // 📊 FINALE ZUSAMMENFASSUNG
+        console.error(`✅ CATEGORIZE COMPLETE: ${categorized.length} Transaktionen kategorisiert`);
+        console.error(`📊 KATEGORIEN: ${roiCount} ROI | ${transferCount} Transfers | ${otherCount} Andere`);
+        console.error(`💰 PREISE: ${priceCache.size} verschiedene Preise gecacht`);
+        
+        // 🎯 ROI-DETAILS (nur wenn ROI gefunden)
+        if (roiCount > 0) {
+            const roiTransactions = categorized.filter(tx => tx.taxCategory === 'WGEP_ROI' || tx.taxCategory === 'ROI');
+            const totalROIValue = roiTransactions.reduce((sum, tx) => sum + (tx.usdValue || 0), 0);
+            console.error(`🎯 ROI SUMMARY: ${roiCount} ROI-Transaktionen mit Gesamtwert $${totalROIValue.toFixed(2)}`);
+            
+            // Zeige erste 3 ROI-Transaktionen als Beispiel
+            const firstROI = roiTransactions.slice(0, 3);
+            firstROI.forEach(tx => {
+                const ethValue = parseFloat(tx.value) / 1e18;
+                console.error(`   💎 ROI: ${ethValue.toFixed(6)} ETH ($${(tx.usdValue || 0).toFixed(2)}) von ${tx.from_address?.slice(0,8)}...`);
+            });
+        }
+        
         return categorized;
     }
 
