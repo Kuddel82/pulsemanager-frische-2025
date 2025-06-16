@@ -183,7 +183,8 @@ export class TaxReportService_Rebuild {
                     const batchResult = await MoralisV2Service.getWalletTransactionsBatch(
                         walletAddress, 
                         batchSize, 
-                        cursor
+                        cursor,
+                        '0x171' // 🔥 FIX: PulseChain für WGEP ROI-Transaktionen!
                     );
                     
                     // 🔍 ENHANCED DEBUG: Detaillierte Pagination-Logs
