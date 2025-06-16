@@ -858,6 +858,23 @@ export class TaxReportService_Rebuild {
                 console.log('✅ PDF wurde automatisch generiert und gespeichert');
             }
 
+            // 🏭 WGEP HOLDINGS BERECHNUNG
+            const wgepHoldings = this.calculateWGEPHoldings(taxCalculatedTransactions, walletAddress);
+            
+            // 📊 CHAIN STATISTICS
+            const chainStats = {};
+            taxCalculatedTransactions.forEach(tx => {
+                const chain = tx.sourceChainName || 'Unknown';
+                if (!chainStats[chain]) {
+                    chainStats[chain] = { count: 0, roiCount: 0, totalValue: 0 };
+                }
+                chainStats[chain].count++;
+                if (tx.taxCategory === 'ROI_INCOME') {
+                    chainStats[chain].roiCount++;
+                }
+                chainStats[chain].totalValue += tx.usdValue || 0;
+            });
+
             const report = {
                 walletAddress,
                 period: { startDate, endDate },
@@ -865,6 +882,8 @@ export class TaxReportService_Rebuild {
                 table: taxTable,
                 summary: this.calculateTaxSummary(taxCalculatedTransactions),
                 germanSummary: this.calculateGermanTaxSummary(taxCalculatedTransactions), // 🇩🇪 NEUE DEUTSCHE STEUER-ZUSAMMENFASSUNG
+                wgepHoldings: wgepHoldings, // 🏭 WGEP HOLDINGS & HALTEFRISTEN
+                chainStats: chainStats, // 📊 CHAIN STATISTICS
                 generatedAt: new Date().toISOString(),
                 version: '2.0.0-rebuild',
                 pdfGenerated
@@ -1452,9 +1471,24 @@ export class TaxReportService_Rebuild {
                         taxCategory,
                         usdPrice,
                         usdValue,
-                        amount: parseFloat(tx.value) / Math.pow(10, tx.decimals || 18),
+                        tokenAmount: tokenAmount, // Korrekte Token-Menge
+                        ethAmount: tx.token_address ? 0 : tokenAmount, // ETH-Menge nur für native Transaktionen
+                        amount: tokenAmount, // Für Kompatibilität
                         symbol: tx.token_symbol || defaultSymbol,
+                        tokenSymbol: tx.token_symbol || defaultSymbol,
                         isTaxRelevant: this.isTaxRelevant(taxCategory),
+                        // 🏷️ MORALIS LABELS & ENTITIES übertragen
+                        from_address_label: tx.from_address_label || null,
+                        to_address_label: tx.to_address_label || null,
+                        from_address_entity: tx.from_address_entity || null,
+                        to_address_entity: tx.to_address_entity || null,
+                        from_address_entity_logo: tx.from_address_entity_logo || null,
+                        to_address_entity_logo: tx.to_address_entity_logo || null,
+                        // 📅 Timestamp normalisieren
+                        timestamp: tx.block_timestamp || tx.timestamp || tx.timeStamp,
+                        // 📍 Adressen normalisieren
+                        fromAddress: tx.from_address || tx.from,
+                        toAddress: tx.to_address || tx.to,
                         processedAt: new Date().toISOString()
                     };
 
@@ -2571,43 +2605,146 @@ export class TaxReportService_Rebuild {
         return swapInfo.isWGEPSwap;
     }
 
-    // 🏦 WGEP HOLDINGS CALCULATOR (FIFO-Basis)
+    // 🏦 WGEP HOLDINGS CALCULATOR (FIFO-Basis mit detaillierter Haltefrist-Analyse)
     static calculateWGEPHoldings(transactions, walletAddress) {
         const wgepTransactions = transactions.filter(tx => 
-            tx.token_symbol === 'WGEP' || tx.token_symbol === '🖨️'
+            tx.tokenSymbol === 'WGEP' || tx.token_symbol === 'WGEP' || tx.token_symbol === '🖨️'
         );
         
-        let holdings = {
-            purchased: 0,
-            sold: 0,
-            current: 0,
-            totalPurchaseValue: 0,
-            totalSaleValue: 0,
-            unrealizedGainLoss: 0,
-            averagePurchasePrice: 0
-        };
+        console.log(`🏭 WGEP HOLDINGS: Analysiere ${wgepTransactions.length} WGEP-Transaktionen`);
+        
+        // 📊 FIFO-basierte Holdings mit Haltefrist-Tracking
+        const holdings = {};
+        const detailedHoldings = [];
         
         wgepTransactions.forEach(tx => {
-            // 🔧 SAFE NUMBER CONVERSION
-            const amount = tx.amount ? parseFloat(tx.amount) : 0;
-            const value = tx.value ? parseFloat(tx.value) : 0;
-            const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+            const tokenSymbol = tx.tokenSymbol || tx.token_symbol || 'WGEP';
+            const amount = parseFloat(tx.tokenAmount || tx.amount || 0);
+            const usdValue = parseFloat(tx.usdValue || 0);
+            const timestamp = tx.timestamp || tx.block_timestamp;
+            const isIncoming = tx.toAddress?.toLowerCase() === walletAddress.toLowerCase() || 
+                              tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
             
-            if (isIncoming) {
-                holdings.purchased += amount;
-                holdings.totalPurchaseValue += value;
-            } else {
-                holdings.sold += amount;
-                holdings.totalSaleValue += value;
+            if (amount > 0) {
+                if (!holdings[tokenSymbol]) {
+                    holdings[tokenSymbol] = [];
+                }
+                
+                if (isIncoming) {
+                    // 📈 KAUF: Füge zu Holdings hinzu
+                    const purchasePrice = amount > 0 ? usdValue / amount : 0;
+                    const holding = {
+                        amount: amount,
+                        purchaseDate: timestamp,
+                        purchasePrice: purchasePrice,
+                        purchaseValue: usdValue,
+                        transactionHash: tx.hash || tx.transaction_hash,
+                        fromEntity: tx.from_address_entity || null,
+                        fromLabel: tx.from_address_label || null
+                    };
+                    
+                    holdings[tokenSymbol].push(holding);
+                    detailedHoldings.push({
+                        type: 'KAUF',
+                        token: tokenSymbol,
+                        amount: amount,
+                        price: purchasePrice,
+                        date: timestamp,
+                        hash: tx.hash?.slice(0, 10) + '...',
+                        from: tx.from_address_entity || tx.from_address_label || `${tx.fromAddress?.slice(0, 8)}...`
+                    });
+                    
+                    console.log(`📈 WGEP KAUF: ${amount.toFixed(6)} ${tokenSymbol} @ $${purchasePrice.toFixed(4)} am ${new Date(timestamp).toLocaleDateString('de-DE')}`);
+                    
+                } else {
+                    // 📉 VERKAUF: Reduziere Holdings (FIFO)
+                    let remainingToSell = amount;
+                    
+                    while (remainingToSell > 0 && holdings[tokenSymbol]?.length > 0) {
+                        const oldestHolding = holdings[tokenSymbol][0];
+                        
+                        if (oldestHolding.amount <= remainingToSell) {
+                            // Komplettes Holding verkauft
+                            remainingToSell -= oldestHolding.amount;
+                            holdings[tokenSymbol].shift(); // Entferne erstes Element (FIFO)
+                            
+                            const salePrice = amount > 0 ? usdValue / amount : 0;
+                            const holdingDays = Math.floor((new Date(timestamp) - new Date(oldestHolding.purchaseDate)) / (1000 * 60 * 60 * 24));
+                            const gainLoss = (salePrice - oldestHolding.purchasePrice) * oldestHolding.amount;
+                            
+                            detailedHoldings.push({
+                                type: 'VERKAUF',
+                                token: tokenSymbol,
+                                amount: oldestHolding.amount,
+                                purchasePrice: oldestHolding.purchasePrice,
+                                salePrice: salePrice,
+                                gainLoss: gainLoss,
+                                holdingDays: holdingDays,
+                                isSpeculative: holdingDays < 365,
+                                date: timestamp,
+                                hash: tx.hash?.slice(0, 10) + '...',
+                                to: tx.to_address_entity || tx.to_address_label || `${tx.toAddress?.slice(0, 8)}...`
+                            });
+                            
+                            console.log(`📉 WGEP VERKAUF: ${oldestHolding.amount.toFixed(6)} ${tokenSymbol} nach ${holdingDays} Tagen, Gewinn/Verlust: $${gainLoss.toFixed(2)}`);
+                            
+                        } else {
+                            // Teilverkauf
+                            oldestHolding.amount -= remainingToSell;
+                            
+                            const salePrice = amount > 0 ? usdValue / amount : 0;
+                            const holdingDays = Math.floor((new Date(timestamp) - new Date(oldestHolding.purchaseDate)) / (1000 * 60 * 60 * 24));
+                            const gainLoss = (salePrice - oldestHolding.purchasePrice) * remainingToSell;
+                            
+                            detailedHoldings.push({
+                                type: 'TEILVERKAUF',
+                                token: tokenSymbol,
+                                amount: remainingToSell,
+                                purchasePrice: oldestHolding.purchasePrice,
+                                salePrice: salePrice,
+                                gainLoss: gainLoss,
+                                holdingDays: holdingDays,
+                                isSpeculative: holdingDays < 365,
+                                date: timestamp,
+                                hash: tx.hash?.slice(0, 10) + '...',
+                                to: tx.to_address_entity || tx.to_address_label || `${tx.toAddress?.slice(0, 8)}...`
+                            });
+                            
+                            console.log(`📉 WGEP TEILVERKAUF: ${remainingToSell.toFixed(6)} ${tokenSymbol} nach ${holdingDays} Tagen, Gewinn/Verlust: $${gainLoss.toFixed(2)}`);
+                            
+                            remainingToSell = 0;
+                        }
+                    }
+                }
             }
         });
         
-        holdings.current = holdings.purchased - holdings.sold;
-        holdings.averagePurchasePrice = holdings.purchased > 0 ? 
-            holdings.totalPurchaseValue / holdings.purchased : 0;
-        holdings.unrealizedGainLoss = holdings.current * (0.85 - holdings.averagePurchasePrice); // WGEP aktuelle Preis ~$0.85
+        // 📊 ZUSAMMENFASSUNG
+        const summary = {};
+        Object.keys(holdings).forEach(token => {
+            const tokenHoldings = holdings[token];
+            const totalAmount = tokenHoldings.reduce((sum, h) => sum + h.amount, 0);
+            const totalValue = tokenHoldings.reduce((sum, h) => sum + h.purchaseValue, 0);
+            const avgPrice = totalAmount > 0 ? totalValue / totalAmount : 0;
+            
+            summary[token] = {
+                totalAmount: totalAmount,
+                totalValue: totalValue,
+                averagePrice: avgPrice,
+                holdingsCount: tokenHoldings.length,
+                oldestHolding: tokenHoldings.length > 0 ? tokenHoldings[0].purchaseDate : null,
+                newestHolding: tokenHoldings.length > 0 ? tokenHoldings[tokenHoldings.length - 1].purchaseDate : null
+            };
+        });
         
-        return holdings;
+        console.log(`🏭 WGEP HOLDINGS SUMMARY:`, summary);
+        console.log(`📋 WGEP DETAILED TRANSACTIONS: ${detailedHoldings.length} Einträge`);
+        
+        return {
+            holdings: holdings, // Für FIFO-Berechnungen
+            detailedTransactions: detailedHoldings, // Für UI-Anzeige
+            summary: summary // Für Übersicht
+        };
     }
 
     // 💰 NUR ECHTE TOKEN-PREISE (KEINE HARDCODIERTEN WERTE!)

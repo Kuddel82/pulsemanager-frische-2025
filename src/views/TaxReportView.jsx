@@ -318,15 +318,15 @@ const TaxReportNew = () => {
             {/* DETAILS */}
             <div className="bg-gray-800 border-2 border-gray-600 rounded-lg p-6">
               <h3 className="text-2xl font-bold text-white mb-4">
-                📊 Detaillierte Ergebnisse
+                📊 Detaillierte Steuerreport-Analyse
               </h3>
               
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {data.reports.map((report, index) => (
-                  <div key={index} className="bg-gray-700 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-mono text-white">
-                        Wallet: {report.wallet.slice(0, 12)}...{report.wallet.slice(-8)}
+                  <div key={index} className="bg-gray-700 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="font-mono text-white text-lg">
+                        🏦 Wallet: {report.wallet.slice(0, 12)}...{report.wallet.slice(-8)}
                       </div>
                       <div className={`px-3 py-1 rounded-full text-sm ${
                         report.success 
@@ -337,32 +337,225 @@ const TaxReportNew = () => {
                       </div>
                     </div>
                     
-                    {report.success ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <div className="text-gray-400">Transaktionen</div>
-                          <div className="text-white font-bold">
-                            {report.report?.transactions?.length || 0}
+                    {report.success && report.report ? (
+                      <div className="space-y-6">
+                        {/* ÜBERSICHT */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div className="bg-gray-600 p-3 rounded">
+                            <div className="text-gray-400">Total Transaktionen</div>
+                            <div className="text-white font-bold text-xl">
+                              {report.report?.transactions?.length || 0}
+                            </div>
+                          </div>
+                          <div className="bg-orange-600/20 p-3 rounded">
+                            <div className="text-gray-400">Steuerpflichtig</div>
+                            <div className="text-orange-400 font-bold text-xl">
+                              {report.report?.summary?.taxableTransactions || 0}
+                            </div>
+                          </div>
+                          <div className="bg-green-600/20 p-3 rounded">
+                            <div className="text-gray-400">ROI Einkommen</div>
+                            <div className="text-green-400 font-bold text-xl">
+                              ${(report.report?.summary?.roiIncome || 0).toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="bg-blue-600/20 p-3 rounded">
+                            <div className="text-gray-400">Chains</div>
+                            <div className="text-blue-400 font-bold text-xl">
+                              {report.report?.chainStats ? Object.keys(report.report.chainStats).length : 0}
+                            </div>
                           </div>
                         </div>
-                        <div>
-                          <div className="text-gray-400">Steuerpflichtig</div>
-                          <div className="text-orange-400 font-bold">
-                            {report.report?.summary?.taxableTransactions || 0}
+
+                        {/* ROI TRANSAKTIONEN DETAILS */}
+                        {report.report?.transactions && (
+                          <div className="bg-green-900/20 border border-green-600 rounded-lg p-4">
+                            <h4 className="text-lg font-bold text-green-400 mb-3">💰 ROI-Transaktionen (§22 EStG)</h4>
+                            <div className="max-h-64 overflow-y-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-green-600">
+                                    <th className="text-left p-2 text-green-300">Datum</th>
+                                    <th className="text-left p-2 text-green-300">Token</th>
+                                    <th className="text-left p-2 text-green-300">Menge</th>
+                                    <th className="text-left p-2 text-green-300">USD Wert</th>
+                                    <th className="text-left p-2 text-green-300">Von (Label)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {report.report.transactions
+                                    .filter(tx => tx.taxCategory === 'ROI_INCOME')
+                                    .slice(0, 10)
+                                    .map((tx, idx) => (
+                                    <tr key={idx} className="border-b border-green-800">
+                                      <td className="p-2 text-white">
+                                        {new Date(tx.timestamp).toLocaleDateString('de-DE')}
+                                      </td>
+                                      <td className="p-2 text-green-400 font-mono">
+                                        {tx.tokenSymbol || 'ETH'}
+                                      </td>
+                                      <td className="p-2 text-white">
+                                        {parseFloat(tx.tokenAmount || tx.ethAmount || 0).toFixed(6)}
+                                      </td>
+                                      <td className="p-2 text-green-400 font-bold">
+                                        ${(tx.usdValue || 0).toFixed(2)}
+                                      </td>
+                                      <td className="p-2 text-blue-300">
+                                        {tx.from_address_label || tx.from_address_entity || 
+                                         `${tx.fromAddress?.slice(0, 8)}...`}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {report.report.transactions.filter(tx => tx.taxCategory === 'ROI_INCOME').length > 10 && (
+                                <div className="text-center text-green-400 mt-2">
+                                  ... und {report.report.transactions.filter(tx => tx.taxCategory === 'ROI_INCOME').length - 10} weitere ROI-Transaktionen
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div>
-                          <div className="text-gray-400">ROI Einkommen</div>
-                          <div className="text-green-400 font-bold">
-                            ${(report.report?.summary?.roiIncome || 0).toFixed(2)}
+                        )}
+
+                        {/* WGEP HOLDINGS & HALTEFRISTEN */}
+                        {report.report?.wgepHoldings && Object.keys(report.report.wgepHoldings).length > 0 && (
+                          <div className="bg-purple-900/20 border border-purple-600 rounded-lg p-4">
+                            <h4 className="text-lg font-bold text-purple-400 mb-3">🏭 WGEP Holdings & Haltefristen (§23 EStG)</h4>
+                            <div className="space-y-3">
+                              {Object.entries(report.report.wgepHoldings).map(([token, holdings], idx) => (
+                                <div key={idx} className="bg-purple-800/20 rounded p-3">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-purple-300 font-bold">{token}</span>
+                                    <span className="text-white">
+                                      Total: {holdings.reduce((sum, h) => sum + h.amount, 0).toFixed(6)}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                    {holdings.slice(0, 5).map((holding, hidx) => {
+                                      const holdingDays = Math.floor((Date.now() - new Date(holding.purchaseDate).getTime()) / (1000 * 60 * 60 * 24));
+                                      const isSpeculative = holdingDays < 365;
+                                      return (
+                                        <div key={hidx} className={`p-2 rounded ${isSpeculative ? 'bg-red-900/30' : 'bg-green-900/30'}`}>
+                                          <div className="flex justify-between">
+                                            <span>Menge: {holding.amount.toFixed(6)}</span>
+                                            <span className={isSpeculative ? 'text-red-400' : 'text-green-400'}>
+                                              {holdingDays} Tage
+                                            </span>
+                                          </div>
+                                          <div className="text-gray-400">
+                                            Kauf: {new Date(holding.purchaseDate).toLocaleDateString('de-DE')}
+                                          </div>
+                                          <div className="text-gray-400">
+                                            Preis: ${holding.purchasePrice.toFixed(2)}
+                                          </div>
+                                          <div className={`text-xs ${isSpeculative ? 'text-red-400' : 'text-green-400'}`}>
+                                            {isSpeculative ? '⚠️ Spekulationsfrist' : '✅ Steuerfrei'}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  {holdings.length > 5 && (
+                                    <div className="text-center text-purple-400 mt-2 text-xs">
+                                      ... und {holdings.length - 5} weitere Holdings
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                        <div>
-                          <div className="text-gray-400">Status</div>
-                          <div className="text-blue-400 font-bold">
-                            ✅ Bereit für PDF
+                        )}
+
+                        {/* VERKÄUFE & GEWINNE/VERLUSTE */}
+                        {report.report?.transactions && (
+                          <div className="bg-orange-900/20 border border-orange-600 rounded-lg p-4">
+                            <h4 className="text-lg font-bold text-orange-400 mb-3">💸 Verkäufe & Gewinne/Verluste (§23 EStG)</h4>
+                            <div className="max-h-64 overflow-y-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-orange-600">
+                                    <th className="text-left p-2 text-orange-300">Datum</th>
+                                    <th className="text-left p-2 text-orange-300">Token</th>
+                                    <th className="text-left p-2 text-orange-300">Menge</th>
+                                    <th className="text-left p-2 text-orange-300">Verkaufspreis</th>
+                                    <th className="text-left p-2 text-orange-300">Gewinn/Verlust</th>
+                                    <th className="text-left p-2 text-orange-300">Haltefrist</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {report.report.transactions
+                                    .filter(tx => tx.taxCategory === 'VERKAUF')
+                                    .slice(0, 10)
+                                    .map((tx, idx) => (
+                                    <tr key={idx} className="border-b border-orange-800">
+                                      <td className="p-2 text-white">
+                                        {new Date(tx.timestamp).toLocaleDateString('de-DE')}
+                                      </td>
+                                      <td className="p-2 text-orange-400 font-mono">
+                                        {tx.tokenSymbol || 'ETH'}
+                                      </td>
+                                      <td className="p-2 text-white">
+                                        {parseFloat(tx.tokenAmount || tx.ethAmount || 0).toFixed(6)}
+                                      </td>
+                                      <td className="p-2 text-orange-400">
+                                        ${(tx.usdValue || 0).toFixed(2)}
+                                      </td>
+                                      <td className={`p-2 font-bold ${(tx.gainLoss || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                        ${(tx.gainLoss || 0).toFixed(2)}
+                                      </td>
+                                      <td className={`p-2 ${(tx.holdingPeriodDays || 0) >= 365 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {tx.holdingPeriodDays || 0} Tage
+                                        {(tx.holdingPeriodDays || 0) >= 365 ? ' ✅' : ' ⚠️'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {report.report.transactions.filter(tx => tx.taxCategory === 'VERKAUF').length > 10 && (
+                                <div className="text-center text-orange-400 mt-2">
+                                  ... und {report.report.transactions.filter(tx => tx.taxCategory === 'VERKAUF').length - 10} weitere Verkäufe
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {/* MORALIS LABELS & ENTITIES */}
+                        {report.report?.transactions && (
+                          <div className="bg-blue-900/20 border border-blue-600 rounded-lg p-4">
+                            <h4 className="text-lg font-bold text-blue-400 mb-3">🏷️ Moralis Labels & Entities</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <h5 className="text-blue-300 font-semibold mb-2">🏢 Erkannte Entities:</h5>
+                                <div className="space-y-1 max-h-32 overflow-y-auto">
+                                  {[...new Set(report.report.transactions
+                                    .filter(tx => tx.from_address_entity || tx.to_address_entity)
+                                    .flatMap(tx => [tx.from_address_entity, tx.to_address_entity])
+                                    .filter(Boolean)
+                                  )].slice(0, 10).map((entity, idx) => (
+                                    <div key={idx} className="bg-blue-800/30 px-2 py-1 rounded text-sm">
+                                      {entity}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <h5 className="text-blue-300 font-semibold mb-2">🏷️ Erkannte Labels:</h5>
+                                <div className="space-y-1 max-h-32 overflow-y-auto">
+                                  {[...new Set(report.report.transactions
+                                    .filter(tx => tx.from_address_label || tx.to_address_label)
+                                    .flatMap(tx => [tx.from_address_label, tx.to_address_label])
+                                    .filter(Boolean)
+                                  )].slice(0, 10).map((label, idx) => (
+                                    <div key={idx} className="bg-blue-800/30 px-2 py-1 rounded text-sm">
+                                      {label}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-red-400 text-sm">
