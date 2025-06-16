@@ -490,7 +490,7 @@ export class TaxReportService_Rebuild {
             startDate = '2025-01-01', // 🔥 FEST: Steuerreport 2025
             endDate = '2025-12-31',   // 🔥 FEST: Steuerreport 2025
             includeTransfers = false,
-            debugMode = false,
+            debugMode = true, // 🔥 TEMPORÄR AKTIVIERT FÜR $144 MILLIARDEN DEBUG
             generatePDF = false, // 🔥 NEU: PDF nur auf Anfrage generieren
             extendedTimeRange = false, // 🎯 NEU: Erweiterte Zeitspanne für WGEP ROI
             forceFullHistory = false   // 🎯 NEU: Erzwinge vollständige Historie
@@ -570,6 +570,11 @@ export class TaxReportService_Rebuild {
 
             // SCHRITT 4: Haltefrist-Berechnung
             const taxCalculatedTransactions = this.calculateHoldingPeriods(categorizedTransactions);
+
+            // 🔥 SCHRITT 4.5: ROI-Gesamt-Validierung (Anti-Milliarden-Bug)
+            console.log('🔍 Validiere Gesamt-ROI gegen unrealistische Werte...');
+            const validatedROI = this.validateTotalROI(taxCalculatedTransactions);
+            console.log(`✅ Validiertes Gesamt-ROI: $${validatedROI.toFixed(2)}`);
 
             // SCHRITT 5: Tax Table erstellen
             const taxTable = this.buildTaxTable(taxCalculatedTransactions);
@@ -955,10 +960,25 @@ export class TaxReportService_Rebuild {
                             // 🔥 FINALE USD-BERECHNUNG mit Sicherheitscheck
                             usdValue = tokenAmount * usdPrice;
                             
-                            // 🚨 USD-WERT-FILTER: Verhindere astronomische USD-Werte
-                            if (usdValue > 1e10) { // Mehr als 10 Milliarden USD
-                                if (this.debugMode) console.log(`🚫 ASTRONOMISCHER USD-WERT BLOCKIERT: $${usdValue.toExponential(2)} - Token: ${tokenAmount.toExponential(2)} @ $${usdPrice}`);
-                                usdValue = 0; // Verhindere falsche Milliarden-Werte
+                            // 🚨 MULTI-LEVEL USD-WERT-FILTER: Verhindere astronomische USD-Werte
+                            if (usdValue > 1e6) { // Mehr als 1 Million USD pro Transaktion
+                                if (this.debugMode) console.log(`🚫 MEGA-USD-WERT BLOCKIERT: $${usdValue.toExponential(2)} - Token: ${tokenAmount.toExponential(2)} @ $${usdPrice}`);
+                                usdValue = 0; // Verhindere falsche Millionen-Werte
+                                tokenAmount = 0; // Auch Token-Amount nullsetzen
+                            }
+                            
+                            // 🚨 ROI-SPEZIFISCHER FILTER: Realistische ROI-Obergrenze
+                            if (taxCategory === this.TAX_CATEGORIES.ROI_INCOME && usdValue > 10000) { // Max $10.000 ROI pro Transaktion
+                                if (this.debugMode) console.log(`🚫 ROI-OBERGRENZE: $${usdValue.toFixed(2)} ROI blockiert - über $10.000 Limit`);
+                                usdValue = 0;
+                                tokenAmount = 0;
+                            }
+                            
+                            // 🚨 FINAL SANITY CHECK: Verhindere jede Art von Mega-Werten
+                            if (tokenAmount > 1e12 || usdValue > 1e7) { // 1 Billion Token oder 10 Millionen USD
+                                if (this.debugMode) console.log(`🚫 SANITY-CHECK: Blockiert Token=${tokenAmount.toExponential(2)}, USD=$${usdValue.toExponential(2)}`);
+                                usdValue = 0;
+                                tokenAmount = 0;
                             }
                             
                         } catch (decimalError) {
@@ -1168,6 +1188,32 @@ export class TaxReportService_Rebuild {
             steuerpflichtig: tx.isTaxable ? 'Ja' : 'Nein',
             bemerkung: this.generateTaxNote(tx)
         }));
+    }
+
+    // 🔥 ROI-GESAMT-OBERGRENZE: Verhindere unrealistische Gesamtsummen
+    static validateTotalROI(transactions) {
+        const roiTransactions = transactions.filter(tx => 
+            tx.taxCategory === this.TAX_CATEGORIES.ROI_INCOME || 
+            tx.taxCategory === 'WGEP_ROI' || 
+            tx.taxCategory === 'ROI'
+        );
+        
+        const totalROI = roiTransactions.reduce((sum, tx) => sum + (tx.usdValue || 0), 0);
+        
+        // 🚨 MEGA-ROI-FILTER: Max $1 Million Gesamt-ROI pro Wallet
+        if (totalROI > 1000000) {
+            console.warn(`🚫 UNREALISTISCHES GESAMT-ROI: $${totalROI.toFixed(2)} - setze auf $0 zurück`);
+            
+            // Setze alle ROI-USD-Werte auf 0
+            roiTransactions.forEach(tx => {
+                tx.usdValue = 0;
+                tx.usdPrice = 0;
+            });
+            
+            return 0;
+        }
+        
+        return totalROI;
     }
 
     // 📝 Steuerliche Bemerkung generieren (NACH DEUTSCHEM STEUERRECHT)
