@@ -64,6 +64,7 @@ export class TaxReportService_Rebuild {
         if (isIncoming && from_address !== walletAddress) {
             const ethValue = parseFloat(value || '0') / Math.pow(10, transaction.decimals || 18);
             console.log(`🔍 INCOMING TX: ${ethValue.toFixed(6)} ${transaction.token_symbol || 'ETH'} von ${from_address?.slice(0,8)}... → Prüfe ROI...`);
+            console.log(`🔍 TX DETAILS: token_address=${transaction.token_address}, value=${value}, decimals=${transaction.decimals}, symbol=${transaction.token_symbol}`);
         }
 
         // 🔥 ROI-ERKENNUNG: Eingehende Token von Contracts (UNIVERSELL für alle Chains)
@@ -244,7 +245,11 @@ export class TaxReportService_Rebuild {
             ethValue = parseFloat(value || '0') / 1e18;
         }
         
+        // 🔍 DEBUG: Zeige auch 0-Werte für Debugging
+        console.log(`🔍 ETH VALUE CALCULATED: ${ethValue.toFixed(8)} (from value: ${value}, decimals: ${transaction.decimals || 18})`);
+        
         if (ethValue <= 0) {
+            console.log(`❌ ZERO VALUE: Transaktion hat 0 ETH-Wert → Überspringe ROI-Prüfung`);
             return false;
         }
         
