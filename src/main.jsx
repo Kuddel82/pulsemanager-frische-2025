@@ -2,7 +2,7 @@
 // import './lib/DeepBundleFix.js'; // 🧹 REMOVED: Clean mode activated
 
 // 🚨 EMERGENCY HEADERS FIX - Muss als erstes geladen werden!
-// import './lib/EmergencyHeadersFix.js'; // 🧹 REMOVED: Clean mode activated
+import './lib/SupabaseHeadersFix.js'; // 🔧 MINIMAL: Nur für Supabase Headers Error
 
 // 🔇 ERROR SUPPRESSION - Muss vor allem anderen geladen werden
 import './lib/errorSuppression.js';
