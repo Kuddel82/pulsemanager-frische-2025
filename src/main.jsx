@@ -1,8 +1,8 @@
 // ☢️ DEEP BUNDLE FIX - Nuclear Option für minifizierte Module (MUSS ZUERST GELADEN WERDEN!)
-import './lib/DeepBundleFix.js';
+// import './lib/DeepBundleFix.js'; // 🧹 REMOVED: Clean mode activated
 
 // 🚨 EMERGENCY HEADERS FIX - Muss als erstes geladen werden!
-import './lib/EmergencyHeadersFix.js';
+// import './lib/EmergencyHeadersFix.js'; // 🧹 REMOVED: Clean mode activated
 
 // 🔇 ERROR SUPPRESSION - Muss vor allem anderen geladen werden
 import './lib/errorSuppression.js';
