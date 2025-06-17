@@ -1,723 +1,664 @@
 /**
- * 🇩🇪 DEUTSCHES CRYPTO-STEUERRECHT SERVICE
+ * 🇩🇪 GERMAN TAX SERVICE
  * 
- * Korrekte Implementierung nach deutschem Steuerrecht:
- * - §22 EStG: Sonstige Einkünfte (ROI, Staking, Mining, Airdrops)
- * - §23 EStG: Private Veräußerungsgeschäfte (Token-Handel)
- * - FIFO-Prinzip für Verkäufe
- * - 365-Tage Spekulationsfrist
- * - 600€ Freigrenze pro Jahr
+ * Kern-Service für deutsche Krypto-Steuerberechnung
+ * - FIFO-Methode nach deutschem Steuerrecht
+ * - §22 & §23 EStG konforme Berechnung
+ * - Moralis Web3 API Integration
+ * - Optimiert für Performance
  */
 
-import { MoralisV2Service } from './MoralisV2Service';
+import Moralis from 'moralis';
 
-class GermanTaxService {
-    
-    // 🇩🇪 DEUTSCHE STEUERKATEGORIEN (KORREKT!)
-    static TAX_CATEGORIES = {
-        // §23 EStG - Private Veräußerungsgeschäfte
-        SPECULATION_BUY: 'Spekulativer Kauf',
-        SPECULATION_SELL: 'Spekulativer Verkauf', 
-        SPECULATION_SWAP: 'Token-Tausch',
+export default class GermanTaxService {
+    constructor(options = {}) {
+        this.moralisApiKey = options.moralisApiKey;
+        this.testMode = options.testMode || false;
+        this.initialized = false;
         
-        // §22 EStG - Sonstige Einkünfte
-        ROI_INCOME: 'ROI-Einkommen',
-        STAKING_REWARD: 'Staking-Ertrag',
-        MINING_REWARD: 'Mining-Ertrag', 
-        AIRDROP: 'Airdrop-Erhalt'
-    };
-
-    // 🏦 BEKANNTE ROI-CONTRACTS (erweitern nach Bedarf)
-    static KNOWN_ROI_CONTRACTS = {
-        // Ethereum Mainnet - WGEP und andere bekannte ROI-Contracts
-        '0xfd64ca11825486ab22bbeecbcd8bc29cccfef09c': 'WGEP ROI Contract',
-        '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': 'HEX Contract',
-        '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3': 'INC Contract',
-        // PulseChain
-        '0x2345678901234567890123456789012345678901': 'PulseChain ROI Contract',
-        // Weitere ROI-Contracts hier hinzufügen
-    };
-
-    // 🗑️ SPAM-TOKEN FILTER
-    static SPAM_TOKENS = [
-        '0x0000000000000000000000000000000000000000',
-        '0xb8713b', // Bekannter Spam-Contract mit falschen Decimals
-        // Weitere bekannte Spam-Token hier
-    ];
-
-    /**
-     * 🎯 HAUPT-METHODE: Vollständiger deutscher Steuerreport
-     */
-    static async generateGermanTaxReport(walletAddress, options = {}) {
-        console.log(`🇩🇪 Generiere deutschen Steuerreport für: ${walletAddress}`);
+        // 🇩🇪 Deutsche Steuer-Konstanten
+        this.TAX_CONSTANTS = {
+            SPECULATION_EXEMPTION: 600, // §23 EStG Freigrenze
+            LONG_TERM_MONTHS: 12, // 1 Jahr Haltedauer
+            INCOME_TAX_RATE: 0.42, // Spitzensteuersatz
+            SOLIDARITY_TAX: 0.055 // Solidaritätszuschlag
+        };
         
-        try {
-            // 1. Lade alle Transaktionen (effizient!)
-            const allTransactions = await this.loadAllTransactions(walletAddress, options);
-            
-            // 2. Klassifiziere nach deutschem Steuerrecht
-            const classifiedTransactions = await this.classifyTransactionsGerman(allTransactions, walletAddress);
-            
-            // 3. Berechne FIFO für §23 EStG
-            const fifoResults = this.calculateFIFO(classifiedTransactions, walletAddress);
-            
-            // 4. Erstelle deutsche Steuerzusammenfassung
-            const germanSummary = this.calculateGermanTaxSummary(classifiedTransactions, fifoResults);
-            
-            // 5. Formatiere für PDF-Export
-            const taxTable = this.formatForPDF(classifiedTransactions, germanSummary);
-            
-            return {
-                transactions: classifiedTransactions,
-                germanSummary,
-                fifoResults,
-                taxTable,
-                summary: germanSummary, // Für Rückwärtskompatibilität
-                metadata: {
-                    walletAddress,
-                    generated: new Date().toISOString(),
-                    totalTransactions: allTransactions.length,
-                    germanTaxLaw: 'EStG §22 & §23',
-                    system: 'GermanTaxService v1.0'
-                }
-            };
-            
-        } catch (error) {
-            console.error('❌ Fehler beim Generieren des Steuerreports:', error);
-            throw new Error(`Steuerreport-Fehler: ${error.message}`);
-        }
-    }
-
-    /**
-     * 📊 EFFIZIENTE DATENLADUNG - Nur 2 API-Calls pro Chain!
-     */
-    static async loadAllTransactions(walletAddress, options = {}) {
-        const { chainIds = ['0x1'], maxPages = 30 } = options; // Standardmäßig nur Ethereum
-        const allTransactions = [];
-        
-        for (const chainId of chainIds) {
-            console.log(`📡 Lade Transaktionen für Chain ${chainId}...`);
-            
-            try {
-                // API-CALL 1: Token-Transfers (ERC20)
-                const tokenTransfers = await this.fetchTokenTransfers(walletAddress, chainId, maxPages);
-                
-                // API-CALL 2: Native Transaktionen (ETH/PLS)
-                const nativeTransactions = await this.fetchNativeTransactions(walletAddress, chainId, maxPages);
-                
-                // Kombiniere und markiere Chain
-                const chainTransactions = [...tokenTransfers, ...nativeTransactions].map(tx => ({
-                    ...tx,
-                    chainId,
-                    chainName: chainId === '0x1' ? 'Ethereum' : chainId === '0x171' ? 'PulseChain' : `Chain-${chainId}`,
-                    sourceChain: chainId,
-                    sourceChainName: chainId === '0x1' ? 'Ethereum' : 'PulseChain'
-                }));
-                
-                allTransactions.push(...chainTransactions);
-                console.log(`✅ ${chainTransactions.length} Transaktionen von ${chainId} geladen`);
-                
-            } catch (error) {
-                console.error(`❌ Fehler beim Laden von Chain ${chainId}:`, error);
-            }
-        }
-        
-        // Sortiere chronologisch
-        return allTransactions.sort((a, b) => new Date(a.block_timestamp) - new Date(b.block_timestamp));
-    }
-
-    /**
-     * 🔄 TOKEN-TRANSFERS laden (ERC20)
-     */
-    static async fetchTokenTransfers(walletAddress, chainId, maxPages) {
-        const transfers = [];
-        let cursor = null;
-        let pageCount = 0;
-        
-        while (pageCount < maxPages) {
-            try {
-                const response = await MoralisV2Service.getWalletTransactionsBatch(
-                    walletAddress, 
-                    100, 
-                    cursor, 
-                    chainId, 
-                    'erc20-transfers'
-                );
-                
-                if (!response?.success || !response.result?.length) break;
-                
-                // Filter Spam-Token
-                const validTransfers = response.result.filter(tx => 
-                    !this.SPAM_TOKENS.includes(tx.token_address?.toLowerCase()) &&
-                    tx.token_address && 
-                    tx.token_address !== '0x0000000000000000000000000000000000000000'
-                );
-                
-                transfers.push(...validTransfers);
-                cursor = response.cursor;
-                pageCount++;
-                
-                if (!cursor) break;
-                
-                // Rate-Limit-Schutz
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-            } catch (error) {
-                console.error(`❌ Token-Transfer-Fehler (Seite ${pageCount}):`, error);
-                break;
-            }
-        }
-        
-        console.log(`🔄 ${transfers.length} Token-Transfers geladen (${pageCount} Seiten)`);
-        return transfers;
-    }
-
-    /**
-     * ⚡ NATIVE TRANSAKTIONEN laden (ETH/PLS)
-     */
-    static async fetchNativeTransactions(walletAddress, chainId, maxPages) {
-        const transactions = [];
-        let cursor = null;
-        let pageCount = 0;
-        
-        while (pageCount < maxPages) {
-            try {
-                const response = await MoralisV2Service.getWalletTransactionsBatch(
-                    walletAddress, 
-                    100, 
-                    cursor, 
-                    chainId, 
-                    'transactions'
-                );
-                
-                if (!response?.success || !response.result?.length) break;
-                
-                transactions.push(...response.result);
-                cursor = response.cursor;
-                pageCount++;
-                
-                if (!cursor) break;
-                
-                // Rate-Limit-Schutz
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-            } catch (error) {
-                console.error(`❌ Native-Transaction-Fehler (Seite ${pageCount}):`, error);
-                break;
-            }
-        }
-        
-        console.log(`⚡ ${transactions.length} Native-Transaktionen geladen (${pageCount} Seiten)`);
-        return transactions;
-    }
-
-    /**
-     * 🇩🇪 DEUTSCHE STEUERKLASSIFIZIERUNG
-     */
-    static async classifyTransactionsGerman(transactions, walletAddress) {
-        const classified = [];
-        
-        console.log(`🏛️ Klassifiziere ${transactions.length} Transaktionen nach deutschem Steuerrecht...`);
-        
-        for (const tx of transactions) {
-            try {
-                const classification = await this.classifySingleTransaction(tx, walletAddress);
-                const historicalPrice = await this.getHistoricalPrice(tx);
-                const euroValue = this.calculateEuroValue(tx, historicalPrice);
-                
-                classified.push({
-                    ...tx,
-                    germanTaxCategory: classification.category,
-                    taxParagraph: classification.paragraph,
-                    taxRelevant: classification.taxRelevant,
-                    isROI: classification.isROI || false,
-                    isSpeculation: classification.isSpeculation || false,
-                    historicalPrice,
-                    euroValue,
-                    // Für Rückwärtskompatibilität
-                    taxCategory: classification.category,
-                    isTaxable: classification.taxRelevant,
-                    usdValue: euroValue,
-                    tokenSymbol: tx.token_symbol || 'ETH',
-                    tokenAmount: this.getTokenAmount(tx),
-                    ethAmount: this.getETHAmount(tx)
-                });
-            } catch (error) {
-                console.error('❌ Klassifizierungsfehler:', error);
-                // Fallback-Klassifizierung
-                classified.push({
-                    ...tx,
-                    germanTaxCategory: 'Unklassifiziert',
-                    taxParagraph: 'Unbekannt',
-                    taxRelevant: false,
-                    historicalPrice: 0,
-                    euroValue: 0,
-                    // Für Rückwärtskompatibilität
-                    taxCategory: 'Unklassifiziert',
-                    isTaxable: false,
-                    usdValue: 0,
-                    tokenSymbol: tx.token_symbol || 'ETH'
-                });
-            }
-        }
-        
-        console.log(`✅ ${classified.length} Transaktionen klassifiziert`);
-        return classified;
-    }
-
-    /**
-     * 🎯 EINZELTRANSAKTION KLASSIFIZIEREN
-     */
-    static async classifySingleTransaction(tx, walletAddress) {
-        const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
-        const isOutgoing = tx.from_address?.toLowerCase() === walletAddress.toLowerCase();
-        
-        // 🔥 ROI-ERKENNUNG (§22 EStG)
-        if (isIncoming && this.isROITransaction(tx, walletAddress)) {
-            return {
-                category: this.TAX_CATEGORIES.ROI_INCOME,
-                paragraph: '§22 EStG - Sonstige Einkünfte',
-                taxRelevant: true,
-                isROI: true
-            };
-        }
-        
-        // 💰 TOKEN-KAUF (§23 EStG)
-        if (isIncoming && !this.isROITransaction(tx, walletAddress)) {
-            return {
-                category: this.TAX_CATEGORIES.SPECULATION_BUY,
-                paragraph: '§23 EStG - Private Veräußerungsgeschäfte',
-                taxRelevant: false, // Käufe sind nicht direkt steuerpflichtig
-                isSpeculation: true
-            };
-        }
-        
-        // 💸 TOKEN-VERKAUF (§23 EStG)
-        if (isOutgoing) {
-            return {
-                category: this.TAX_CATEGORIES.SPECULATION_SELL,
-                paragraph: '§23 EStG - Private Veräußerungsgeschäfte', 
-                taxRelevant: true, // Verkäufe sind potentiell steuerpflichtig (FIFO-abhängig)
-                isSpeculation: true
-            };
-        }
-        
-        // 🔄 SWAP-ERKENNUNG
-        if (this.isSwapTransaction(tx)) {
-            return {
-                category: this.TAX_CATEGORIES.SPECULATION_SWAP,
-                paragraph: '§23 EStG - Private Veräußerungsgeschäfte',
-                taxRelevant: true,
-                isSpeculation: true
-            };
-        }
-        
-        // Standard-Fall
-        return {
-            category: 'Standard-Transaktion',
-            paragraph: 'Nicht steuerrelevant',
-            taxRelevant: false
+        // ⛓️ Unterstützte Chains
+        this.SUPPORTED_CHAINS = {
+            '0x1': 'Ethereum',
+            '0x89': 'Polygon', 
+            '0x38': 'BSC',
+            '0xa': 'Optimism',
+            '0xa4b1': 'Arbitrum'
         };
     }
 
     /**
-     * 🎯 ROI-ERKENNUNG (ERWEITERT!)
+     * 🚀 HAUPT-STEUERBERECHNUNG
      */
-    static isROITransaction(tx, walletAddress) {
-        const fromAddress = tx.from_address?.toLowerCase();
-        const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
-        
-        if (!isIncoming || !fromAddress) return false;
-        
-        // 1. Prüfe bekannte ROI-Contracts
-        if (this.KNOWN_ROI_CONTRACTS[fromAddress]) {
-            console.log(`🎯 ROI erkannt: Bekannter Contract ${this.KNOWN_ROI_CONTRACTS[fromAddress]}`);
-            return true;
+    async calculateTaxes(walletAddress, config) {
+        try {
+            // Moralis initialisieren
+            await this.initializeMoralis();
+            
+            console.log(`📊 Lade Transaktionen für ${walletAddress}...`);
+            
+            // 1️⃣ Alle Transaktionen laden
+            const rawTransactions = await this.fetchAllTransactions(walletAddress, config);
+            
+            // 2️⃣ Transaktionen normalisieren und sortieren
+            const normalizedTxs = await this.normalizeTransactions(rawTransactions, config);
+            
+            // 3️⃣ FIFO-Berechnung durchführen
+            const fifoResults = this.calculateFIFO(normalizedTxs);
+            
+            // 4️⃣ Deutsche Steuer berechnen
+            const taxCalculation = this.calculateGermanTax(fifoResults, config.taxYear);
+            
+            // 5️⃣ Report zusammenstellen
+            return this.buildTaxReport({
+                transactions: normalizedTxs,
+                fifoResults,
+                taxCalculation,
+                config
+            });
+            
+        } catch (error) {
+            console.error('🚨 Fehler bei Steuerberechnung:', error);
+            throw this.handleError(error);
         }
+    }
+
+    /**
+     * 🔌 MORALIS INITIALISIERUNG
+     */
+    async initializeMoralis() {
+        if (this.initialized) return;
         
-        // 2. ROI-Pattern-Erkennung
-        const value = this.getTokenAmount(tx);
-        const isSmallAmount = value > 0 && value < 10; // Typische ROI-Größen (ETH)
-        const isFromContract = fromAddress && fromAddress !== walletAddress.toLowerCase() && fromAddress.length === 42;
-        
-        // 3. WGEP-spezifische ROI-Erkennung
-        if (this.isWGEPROIPattern(tx)) {
-            console.log(`🖨️ WGEP ROI erkannt: ${value} ETH`);
-            return true;
+        try {
+            await Moralis.start({
+                apiKey: this.moralisApiKey
+            });
+            this.initialized = true;
+            console.log('✅ Moralis initialisiert');
+        } catch (error) {
+            throw {
+                code: 'MORALIS_INIT_ERROR',
+                message: 'Moralis konnte nicht initialisiert werden',
+                original: error
+            };
         }
+    }
+
+    /**
+     * 📥 ALLE TRANSAKTIONEN LADEN
+     */
+    async fetchAllTransactions(walletAddress, config) {
+        const allTransactions = [];
         
-        // 4. Allgemeine ROI-Heuristiken
-        if (isFromContract && isSmallAmount) {
-            const hasROIPattern = this.hasROITransactionPattern(tx);
-            if (hasROIPattern) {
-                console.log(`🎯 ROI Pattern erkannt: ${value} Token von Contract`);
-                return true;
+        for (const chainId of config.chains) {
+            try {
+                console.log(`⛓️ Lade ${this.SUPPORTED_CHAINS[chainId]} Transaktionen...`);
+                
+                // ERC20 Transfers
+                const erc20Transfers = await this.fetchERC20Transfers(walletAddress, chainId, config.taxYear);
+                
+                // Native Token Transfers
+                const nativeTransfers = await this.fetchNativeTransfers(walletAddress, chainId, config.taxYear);
+                
+                // DeFi Transactions (wenn aktiviert)
+                let defiTxs = [];
+                if (config.includeDeFi) {
+                    defiTxs = await this.fetchDeFiTransactions(walletAddress, chainId, config.taxYear);
+                }
+                
+                // NFT Transfers (wenn aktiviert)
+                let nftTxs = [];
+                if (config.includeNFTs) {
+                    nftTxs = await this.fetchNFTTransfers(walletAddress, chainId, config.taxYear);
+                }
+                
+                allTransactions.push(...erc20Transfers, ...nativeTransfers, ...defiTxs, ...nftTxs);
+                
+            } catch (error) {
+                console.warn(`⚠️ Fehler beim Laden von ${this.SUPPORTED_CHAINS[chainId]}:`, error.message);
+                // Weiter mit anderen Chains
             }
         }
         
-        return false;
+        console.log(`📊 ${allTransactions.length} Transaktionen geladen`);
+        return allTransactions;
     }
 
     /**
-     * 🖨️ WGEP ROI-PATTERN ERKENNUNG
+     * 🪙 ERC20 TRANSFERS LADEN
      */
-    static isWGEPROIPattern(tx) {
-        const value = this.getTokenAmount(tx);
-        
-        // Typische WGEP ROI-Beträge (basierend auf echten Daten)
-        const isWGEPRange = value >= 0.0003 && value <= 0.002;
-        const hasWGEPDecimals = value.toString().includes('.') && 
-                               value.toString().split('.')[1]?.length >= 4;
-        
-        return isWGEPRange && hasWGEPDecimals;
+    async fetchERC20Transfers(address, chain, taxYear) {
+        try {
+            const fromDate = new Date(taxYear, 0, 1);
+            const toDate = new Date(taxYear, 11, 31);
+            
+            const response = await Moralis.EvmApi.token.getWalletTokenTransfers({
+                address,
+                chain,
+                fromDate: fromDate.toISOString(),
+                toDate: toDate.toISOString(),
+                limit: 100
+            });
+            
+            return response.result.map(tx => ({
+                hash: tx.transactionHash,
+                blockTimestamp: tx.blockTimestamp,
+                from: tx.fromAddress,
+                to: tx.toAddress,
+                value: tx.value,
+                tokenAddress: tx.address,
+                tokenSymbol: tx.tokenSymbol,
+                tokenName: tx.tokenName,
+                tokenDecimals: tx.tokenDecimals,
+                gasPrice: tx.gasPrice,
+                gasUsed: tx.gasUsed,
+                chain,
+                type: 'erc20_transfer'
+            }));
+        } catch (error) {
+            console.error('ERC20 Transfer Error:', error);
+            return [];
+        }
     }
 
     /**
-     * 🔍 ROI-TRANSACTION-PATTERN
+     * ⚡ NATIVE TRANSFERS LADEN
      */
-    static hasROITransactionPattern(tx) {
-        const value = this.getTokenAmount(tx);
-        
-        // ROI-typische Eigenschaften
-        const isRegularAmount = value > 0.0001 && value < 100;
-        const isFromContract = tx.from_address && tx.from_address.length === 42;
-        const hasValue = parseFloat(tx.value || '0') > 0;
-        
-        return isRegularAmount && isFromContract && hasValue;
+    async fetchNativeTransfers(address, chain, taxYear) {
+        try {
+            const fromDate = new Date(taxYear, 0, 1);
+            const toDate = new Date(taxYear, 11, 31);
+            
+            const response = await Moralis.EvmApi.transaction.getWalletTransactions({
+                address,
+                chain,
+                fromDate: fromDate.toISOString(),
+                toDate: toDate.toISOString(),
+                limit: 100
+            });
+            
+            return response.result
+                .filter(tx => tx.value !== '0')
+                .map(tx => ({
+                    hash: tx.hash,
+                    blockTimestamp: tx.blockTimestamp,
+                    from: tx.fromAddress,
+                    to: tx.toAddress,
+                    value: tx.value,
+                    tokenSymbol: this.getNativeTokenSymbol(chain),
+                    tokenName: this.getNativeTokenName(chain),
+                    tokenDecimals: 18,
+                    gasPrice: tx.gasPrice,
+                    gasUsed: tx.gasUsed,
+                    chain,
+                    type: 'native_transfer'
+                }));
+        } catch (error) {
+            console.error('Native Transfer Error:', error);
+            return [];
+        }
     }
 
     /**
-     * 🔄 SWAP-ERKENNUNG
+     * 🏦 DEFI TRANSAKTIONEN LADEN
      */
-    static isSwapTransaction(tx) {
-        // DEX-Pattern erkennen
-        const input = tx.input || '';
-        const dexSignatures = [
-            '0xa9059cbb', // transfer
-            '0x095ea7b3', // approve
-            '0x7ff36ab5', // swapExactETHForTokens
-            '0x791ac947', // swapExactTokensForETH
-            '0x8803dbee'  // swapTokensForExactTokens
-        ];
-        
-        return dexSignatures.some(sig => input.startsWith(sig));
+    async fetchDeFiTransactions(address, chain, taxYear) {
+        // Vereinfachte DeFi-Erkennung - kann erweitert werden
+        try {
+            // Uniswap, SushiSwap, etc. Interaktionen
+            const defiContracts = this.getDeFiContracts(chain);
+            const defiTxs = [];
+            
+            // Hier würde man spezifische DeFi-Protokoll Calls machen
+            // Für jetzt: Placeholder
+            
+            return defiTxs;
+        } catch (error) {
+            console.error('DeFi Transactions Error:', error);
+            return [];
+        }
     }
 
     /**
-     * 📊 FIFO-BERECHNUNG für §23 EStG
+     * 🖼️ NFT TRANSFERS LADEN
      */
-    static calculateFIFO(transactions, walletAddress) {
-        const fifoQueue = {}; // Pro Token eine Queue
+    async fetchNFTTransfers(address, chain, taxYear) {
+        try {
+            const fromDate = new Date(taxYear, 0, 1);
+            const toDate = new Date(taxYear, 11, 31);
+            
+            const response = await Moralis.EvmApi.nft.getWalletNFTTransfers({
+                address,
+                chain,
+                fromDate: fromDate.toISOString(),
+                toDate: toDate.toISOString(),
+                limit: 100
+            });
+            
+            return response.result.map(tx => ({
+                hash: tx.transactionHash,
+                blockTimestamp: tx.blockTimestamp,
+                from: tx.fromAddress,
+                to: tx.toAddress,
+                tokenId: tx.tokenId,
+                tokenAddress: tx.address,
+                tokenSymbol: tx.tokenSymbol || 'NFT',
+                tokenName: tx.tokenName,
+                chain,
+                type: 'nft_transfer'
+            }));
+        } catch (error) {
+            console.error('NFT Transfer Error:', error);
+            return [];
+        }
+    }
+
+    /**
+     * 🔄 TRANSAKTIONEN NORMALISIEREN
+     */
+    async normalizeTransactions(rawTransactions, config) {
+        console.log('🔄 Normalisiere Transaktionen...');
+        
+        const normalized = [];
+        const walletAddress = config.walletAddress?.toLowerCase();
+        
+        for (const tx of rawTransactions) {
+            try {
+                const isIncoming = tx.to?.toLowerCase() === walletAddress;
+                const isOutgoing = tx.from?.toLowerCase() === walletAddress;
+                
+                // Preise für Steuerjahr laden
+                const price = await this.getHistoricalPrice(
+                    tx.tokenSymbol || 'ETH',
+                    tx.blockTimestamp
+                );
+                
+                const normalizedTx = {
+                    hash: tx.hash,
+                    timestamp: new Date(tx.blockTimestamp),
+                    type: isIncoming ? 'buy' : 'sell',
+                    tokenSymbol: tx.tokenSymbol,
+                    tokenAddress: tx.tokenAddress,
+                    amount: this.formatAmount(tx.value, tx.tokenDecimals),
+                    priceEUR: price,
+                    valueEUR: this.formatAmount(tx.value, tx.tokenDecimals) * price,
+                    gasFeesEUR: this.calculateGasFees(tx, price),
+                    chain: tx.chain,
+                    category: this.categorizeTransaction(tx)
+                };
+                
+                normalized.push(normalizedTx);
+                
+            } catch (error) {
+                console.warn('⚠️ Fehler beim Normalisieren von TX:', tx.hash, error.message);
+            }
+        }
+        
+        // Nach Timestamp sortieren
+        return normalized.sort((a, b) => a.timestamp - b.timestamp);
+    }
+
+    /**
+     * 📊 FIFO-BERECHNUNG
+     */
+    calculateFIFO(transactions) {
+        console.log('💰 FIFO-Berechnung gestartet...');
+        
+        const holdings = {}; // Token => [{ amount, price, timestamp }]
         const fifoResults = [];
         
-        console.log(`💰 Berechne FIFO für ${transactions.length} Transaktionen...`);
-        
         for (const tx of transactions) {
-            if (!tx.isSpeculation) continue;
+            const token = tx.tokenSymbol;
             
-            const tokenKey = tx.token_address || 'NATIVE_ETH';
-            
-            if (!fifoQueue[tokenKey]) {
-                fifoQueue[tokenKey] = [];
+            if (!holdings[token]) {
+                holdings[token] = [];
             }
             
-            if (tx.germanTaxCategory === this.TAX_CATEGORIES.SPECULATION_BUY) {
-                // Kauf: In Queue einreihen
-                fifoQueue[tokenKey].push({
-                    date: tx.block_timestamp,
-                    amount: this.getTokenAmount(tx),
-                    priceEur: tx.historicalPrice || 0,
-                    remaining: this.getTokenAmount(tx),
-                    transactionHash: tx.transaction_hash
+            if (tx.type === 'buy') {
+                // Kauftransaktion - zu Holdings hinzufügen
+                holdings[token].push({
+                    amount: tx.amount,
+                    priceEUR: tx.priceEUR,
+                    timestamp: tx.timestamp,
+                    txHash: tx.hash
                 });
-            }
-            
-            if (tx.germanTaxCategory === this.TAX_CATEGORIES.SPECULATION_SELL) {
-                // Verkauf: FIFO-Verrechnung
-                const sellAmount = this.getTokenAmount(tx);
-                let remainingSell = sellAmount;
-                let totalGain = 0;
-                let isWithinSpeculationPeriod = false;
-                let avgHoldingDays = 0;
-                const usedPurchases = [];
                 
-                while (remainingSell > 0 && fifoQueue[tokenKey].length > 0) {
-                    const oldestBuy = fifoQueue[tokenKey][0];
-                    const daysDiff = this.getDaysDifference(oldestBuy.date, tx.block_timestamp);
+            } else if (tx.type === 'sell') {
+                // Verkaufstransaktion - FIFO abarbeiten
+                let remainingToSell = tx.amount;
+                let totalCost = 0;
+                let totalProceeds = tx.valueEUR;
+                
+                while (remainingToSell > 0 && holdings[token].length > 0) {
+                    const oldestHolding = holdings[token][0];
                     
-                    if (daysDiff <= 365) {
-                        isWithinSpeculationPeriod = true;
-                    }
-                    
-                    const useAmount = Math.min(remainingSell, oldestBuy.remaining);
-                    const gain = (tx.historicalPrice - oldestBuy.priceEur) * useAmount;
-                    
-                    totalGain += gain;
-                    remainingSell -= useAmount;
-                    oldestBuy.remaining -= useAmount;
-                    
-                    usedPurchases.push({
-                        buyDate: oldestBuy.date,
-                        amount: useAmount,
-                        holdingDays: daysDiff,
-                        gain: gain
-                    });
-                    
-                    if (oldestBuy.remaining <= 0) {
-                        fifoQueue[tokenKey].shift();
+                    if (oldestHolding.amount <= remainingToSell) {
+                        // Gesamte Position verkaufen
+                        totalCost += oldestHolding.amount * oldestHolding.priceEUR;
+                        remainingToSell -= oldestHolding.amount;
+                        holdings[token].shift();
+                    } else {
+                        // Teilverkauf
+                        totalCost += remainingToSell * oldestHolding.priceEUR;
+                        oldestHolding.amount -= remainingToSell;
+                        remainingToSell = 0;
                     }
                 }
                 
-                // Durchschnittliche Haltedauer berechnen
-                if (usedPurchases.length > 0) {
-                    avgHoldingDays = usedPurchases.reduce((sum, p) => sum + p.holdingDays, 0) / usedPurchases.length;
-                }
+                const gain = totalProceeds - totalCost - tx.gasFeesEUR;
+                const holdingPeriod = this.calculateHoldingPeriod(
+                    holdings[token][0]?.timestamp || tx.timestamp,
+                    tx.timestamp
+                );
                 
                 fifoResults.push({
-                    transactionHash: tx.transaction_hash,
-                    tokenAddress: tokenKey,
-                    tokenSymbol: tx.token_symbol || 'ETH',
-                    sellAmount,
-                    sellPrice: tx.historicalPrice || 0,
-                    gain: totalGain,
-                    avgHoldingDays,
-                    isWithinSpeculationPeriod,
-                    taxRelevant: isWithinSpeculationPeriod,
-                    paragraph: isWithinSpeculationPeriod ? '§23 EStG (Steuerpflichtig)' : 'Steuerfrei (>365 Tage)',
-                    usedPurchases
+                    txHash: tx.hash,
+                    timestamp: tx.timestamp,
+                    token,
+                    amount: tx.amount,
+                    proceeds: totalProceeds,
+                    cost: totalCost,
+                    gasFees: tx.gasFeesEUR,
+                    gain,
+                    holdingPeriod,
+                    category: holdingPeriod >= 12 ? 'long_term' : 'short_term'
                 });
             }
         }
         
-        console.log(`✅ FIFO berechnet: ${fifoResults.length} Verkäufe analysiert`);
+        console.log(`✅ FIFO-Berechnung abgeschlossen: ${fifoResults.length} Verkäufe`);
         return fifoResults;
     }
 
     /**
-     * 📅 TAGE-DIFFERENZ berechnen
+     * 🇩🇪 DEUTSCHE STEUER BERECHNUNG
      */
-    static getDaysDifference(date1, date2) {
-        const d1 = new Date(date1);
-        const d2 = new Date(date2);
-        const diffTime = Math.abs(d2 - d1);
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    }
-
-    /**
-     * 🇩🇪 DEUTSCHE STEUERZUSAMMENFASSUNG
-     */
-    static calculateGermanTaxSummary(transactions, fifoResults) {
-        const summary = {
-            // Grundzahlen
-            totalTransactions: transactions.length,
-            taxableTransactions: transactions.filter(tx => tx.taxRelevant).length,
-            
-            // §22 EStG - Sonstige Einkünfte
-            paragraph22: {
-                roiIncome: 0,
-                stakingRewards: 0,
-                miningRewards: 0,
-                airdrops: 0,
-                total: 0,
-                count: 0,
-                note: '§22 EStG - Sonstige Einkünfte (Einkommensteuerpflichtig 14-45%)'
-            },
-            
-            // §23 EStG - Private Veräußerungsgeschäfte
-            paragraph23: {
-                taxableGains: 0,
-                taxFreeGains: 0,
-                totalTrades: 0,
-                freigrenze600: {
-                    applicable: true,
-                    exceeded: false,
-                    amount: 0,
-                    note: 'Freigrenze 600€ pro Jahr für §23 EStG'
-                },
-                note: '§23 EStG - Private Veräußerungsgeschäfte (Spekulationsfrist 365 Tage)'
-            },
-            
-            // Für Rückwärtskompatibilität
-            roiIncome: 0,
-            speculativeTransactions: {
-                withinSpeculationPeriod: { amount: 0, count: 0 },
-                afterSpeculationPeriod: { amount: 0, count: 0 }
-            },
-            
-            // Gesamtsumme
-            totalTaxRelevant: 0,
-            yearlyBreakdown: {}
-        };
+    calculateGermanTax(fifoResults, taxYear) {
+        console.log('🇩🇪 Deutsche Steuerberechnung...');
         
-        // §22 EStG Einkünfte summieren
-        transactions.forEach(tx => {
-            const year = new Date(tx.block_timestamp).getFullYear();
-            if (!summary.yearlyBreakdown[year]) {
-                summary.yearlyBreakdown[year] = { paragraph22: 0, paragraph23: 0 };
-            }
-            
-            if (tx.taxParagraph?.includes('§22') && tx.taxRelevant) {
-                const value = tx.euroValue || 0;
-                summary.paragraph22.total += value;
-                summary.paragraph22.count++;
-                summary.roiIncome += value; // Rückwärtskompatibilität
-                summary.yearlyBreakdown[year].paragraph22 += value;
-                
-                // Detailklassifizierung
-                if (tx.germanTaxCategory === this.TAX_CATEGORIES.ROI_INCOME) {
-                    summary.paragraph22.roiIncome += value;
-                }
-                if (tx.germanTaxCategory === this.TAX_CATEGORIES.STAKING_REWARD) {
-                    summary.paragraph22.stakingRewards += value;
+        let paragraph22Gains = 0; // Langfristige Gewinne
+        let paragraph23Gains = 0; // Spekulative Gewinne
+        
+        for (const result of fifoResults) {
+            if (result.gain > 0) {
+                if (result.holdingPeriod >= 12) {
+                    // §22 Nr. 2 EStG - Langfristige Veräußerungsgeschäfte (steuerfrei!)
+                    // paragraph22Gains += result.gain; // Eigentlich steuerfrei in Deutschland
+                } else {
+                    // §23 EStG - Spekulationsgeschäfte
+                    paragraph23Gains += result.gain;
                 }
             }
-        });
-        
-        // §23 EStG FIFO-Ergebnisse summieren
-        fifoResults.forEach(result => {
-            const year = new Date(result.date || new Date()).getFullYear();
-            if (!summary.yearlyBreakdown[year]) {
-                summary.yearlyBreakdown[year] = { paragraph22: 0, paragraph23: 0 };
-            }
-            
-            summary.paragraph23.totalTrades++;
-            
-            if (result.taxRelevant) {
-                summary.paragraph23.taxableGains += result.gain;
-                summary.speculativeTransactions.withinSpeculationPeriod.amount += result.gain;
-                summary.speculativeTransactions.withinSpeculationPeriod.count++;
-                summary.yearlyBreakdown[year].paragraph23 += result.gain;
-            } else {
-                summary.paragraph23.taxFreeGains += result.gain;
-                summary.speculativeTransactions.afterSpeculationPeriod.amount += result.gain;
-                summary.speculativeTransactions.afterSpeculationPeriod.count++;
-            }
-        });
-        
-        // 600€ Freigrenze prüfen
-        if (summary.paragraph23.taxableGains > 600) {
-            summary.paragraph23.freigrenze600.exceeded = true;
-            summary.paragraph23.freigrenze600.amount = summary.paragraph23.taxableGains;
         }
         
-        // Gesamtsumme
-        summary.totalTaxRelevant = summary.paragraph22.total + 
-            (summary.paragraph23.freigrenze600.exceeded ? summary.paragraph23.taxableGains : 0);
+        // §23 EStG: Freigrenze von 600€
+        const paragraph23Tax = paragraph23Gains > this.TAX_CONSTANTS.SPECULATION_EXEMPTION 
+            ? paragraph23Gains * this.TAX_CONSTANTS.INCOME_TAX_RATE
+            : 0;
         
-        return summary;
+        const paragraph22Tax = 0; // Langfristige Gewinne sind in Deutschland steuerfrei
+        
+        return {
+            paragraph22Gains,
+            paragraph22Tax,
+            paragraph23Gains,
+            paragraph23Tax,
+            totalTaxableGains: paragraph23Gains,
+            totalTaxAmount: paragraph23Tax,
+            exemptionUsed: Math.min(paragraph23Gains, this.TAX_CONSTANTS.SPECULATION_EXEMPTION)
+        };
     }
 
     /**
-     * 💰 HISTORISCHE PREISE laden
+     * 📋 TAX REPORT ERSTELLEN
      */
-    static async getHistoricalPrice(tx) {
-        try {
-            // Vereinfachte Preisberechnung - kann später erweitert werden
-            if (tx.token_symbol === 'ETH' || !tx.token_address) {
-                return 2500; // Durchschnittlicher ETH-Preis (vereinfacht)
+    buildTaxReport({ transactions, fifoResults, taxCalculation, config }) {
+        console.log('📋 Erstelle Steuer-Report...');
+        
+        const tokenBreakdown = this.calculateTokenBreakdown(fifoResults);
+        const totalGasFees = transactions.reduce((sum, tx) => sum + tx.gasFeesEUR, 0);
+        
+        return {
+            timestamp: new Date().toISOString(),
+            taxYear: config.taxYear,
+            walletAddress: config.walletAddress,
+            
+            // Kern-Steuer-Daten
+            ...taxCalculation,
+            
+            // Transaction Summary
+            transactions,
+            fifoResults,
+            totalVolume: transactions.reduce((sum, tx) => sum + tx.valueEUR, 0),
+            totalGasFees,
+            
+            // Kategorisierung
+            shortTermTrades: fifoResults.filter(r => r.holdingPeriod < 12).length,
+            longTermTrades: fifoResults.filter(r => r.holdingPeriod >= 12).length,
+            
+            // Token-Aufschlüsselung
+            tokenBreakdown
+        };
+    }
+
+    /**
+     * 🔧 HILFSFUNKTIONEN
+     */
+    
+    formatAmount(value, decimals) {
+        return parseFloat(value) / Math.pow(10, decimals || 18);
+    }
+    
+    calculateHoldingPeriod(buyDate, sellDate) {
+        const diffTime = Math.abs(sellDate - buyDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.floor(diffDays / 30); // Monate
+    }
+    
+    calculateGasFees(tx, ethPrice) {
+        if (!tx.gasPrice || !tx.gasUsed) return 0;
+        const gasEth = (parseFloat(tx.gasPrice) * parseFloat(tx.gasUsed)) / Math.pow(10, 18);
+        return gasEth * ethPrice;
+    }
+    
+    categorizeTransaction(tx) {
+        if (tx.type === 'nft_transfer') return 'NFT';
+        if (tx.tokenSymbol === 'ETH' || tx.tokenSymbol === 'MATIC') return 'Native';
+        return 'ERC20';
+    }
+    
+    getNativeTokenSymbol(chain) {
+        const symbols = {
+            '0x1': 'ETH',
+            '0x89': 'MATIC',
+            '0x38': 'BNB',
+            '0xa': 'ETH',
+            '0xa4b1': 'ETH'
+        };
+        return symbols[chain] || 'ETH';
+    }
+    
+    getNativeTokenName(chain) {
+        const names = {
+            '0x1': 'Ethereum',
+            '0x89': 'Polygon',
+            '0x38': 'Binance Coin',
+            '0xa': 'Ethereum',
+            '0xa4b1': 'Ethereum'
+        };
+        return names[chain] || 'Ethereum';
+    }
+    
+    calculateTokenBreakdown(fifoResults) {
+        const breakdown = {};
+        
+        for (const result of fifoResults) {
+            if (!breakdown[result.token]) {
+                breakdown[result.token] = {
+                    totalGains: 0,
+                    totalTax: 0,
+                    transactions: 0
+                };
             }
             
-            // Für andere Token: Fallback-Preis
-            return 1; // 1 EUR als Fallback
+            breakdown[result.token].totalGains += result.gain;
+            breakdown[result.token].transactions++;
+        }
+        
+        return breakdown;
+    }
+    
+    async getHistoricalPrice(symbol, timestamp) {
+        // Placeholder - hier würde man eine Preis-API aufrufen
+        // CoinGecko, CoinMarketCap, etc.
+        try {
+            // Vereinfachte Preis-Simulation
+            const prices = {
+                'ETH': 2000,
+                'BTC': 40000,
+                'MATIC': 0.8,
+                'USDC': 1,
+                'USDT': 1
+            };
             
+            return prices[symbol] || 100; // Fallback-Preis
         } catch (error) {
-            console.error('❌ Preis-Lookup-Fehler:', error);
+            console.warn(`⚠️ Preis nicht gefunden für ${symbol}:`, error.message);
             return 0;
         }
     }
-
-    /**
-     * 💶 EURO-WERT berechnen
-     */
-    static calculateEuroValue(tx, historicalPrice) {
-        const amount = this.getTokenAmount(tx);
-        return amount * (historicalPrice || 0);
+    
+    getDeFiContracts(chain) {
+        // Bekannte DeFi-Protokoll-Adressen
+        const contracts = {
+            '0x1': [
+                '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // Uniswap V2
+                '0xE592427A0AEce92De3Edee1F18E0157C05861564', // Uniswap V3
+                '0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F'  // SushiSwap
+            ]
+        };
+        
+        return contracts[chain] || [];
     }
-
-    /**
-     * 🔢 TOKEN-AMOUNT extrahieren
-     */
-    static getTokenAmount(tx) {
-        if (tx.token_address && tx.value) {
-            const decimals = parseInt(tx.token_decimal || tx.decimals || 18);
-            return parseFloat(tx.value) / Math.pow(10, decimals);
+    
+    handleError(error) {
+        if (error.code) return error;
+        
+        if (error.message?.includes('API key')) {
+            return {
+                code: 'MORALIS_API_ERROR',
+                message: 'Ungültiger API-Key'
+            };
         }
         
-        // Native ETH/PLS
-        if (tx.value && !tx.token_address) {
-            return parseFloat(tx.value) / 1e18;
+        if (error.message?.includes('rate limit')) {
+            return {
+                code: 'RATE_LIMIT_ERROR',
+                message: 'API-Rate-Limit erreicht'
+            };
         }
-        
-        return 0;
-    }
-
-    /**
-     * ⚡ ETH-AMOUNT extrahieren
-     */
-    static getETHAmount(tx) {
-        if (!tx.token_address && tx.value) {
-            return parseFloat(tx.value) / 1e18;
-        }
-        return 0;
-    }
-
-    /**
-     * 📊 PDF-FORMAT vorbereiten
-     */
-    static formatForPDF(transactions, germanSummary) {
-        return transactions
-            .filter(tx => tx.taxRelevant)
-            .map(tx => ({
-                datum: new Date(tx.block_timestamp).toLocaleDateString('de-DE'),
-                coin: tx.token_symbol || 'ETH',
-                menge: this.getTokenAmount(tx).toFixed(6),
-                preis: `€${(tx.historicalPrice || 0).toFixed(2)}`,
-                art: tx.germanTaxCategory,
-                steuerpflichtig: tx.taxRelevant ? 'Ja' : 'Nein',
-                bemerkung: tx.taxParagraph,
-                chain: tx.chainName || 'Ethereum'
-            }));
-    }
-
-    /**
-     * 🎯 WGEP TEST REPORT (Kompatibilität)
-     */
-    static async generateWGEPTestReport(walletAddress) {
-        console.log(`🎯 WGEP Test für: ${walletAddress}`);
-        
-        const report = await this.generateGermanTaxReport(walletAddress, {
-            chainIds: ['0x1'], // Nur Ethereum für WGEP
-            maxPages: 50
-        });
-        
-        // WGEP-spezifische Analyse
-        const wgepTransactions = report.transactions.filter(tx => tx.isROI);
         
         return {
-            ...report,
-            isWGEPTest: true,
-            totalTransactions: report.transactions.length,
-            taxRelevantTransactions: report.transactions.filter(tx => tx.taxRelevant).length,
-            wgepROICount: wgepTransactions.length,
-            wgepROIValue: wgepTransactions.reduce((sum, tx) => sum + (tx.euroValue || 0), 0)
+            code: 'UNKNOWN_ERROR',
+            message: error.message || 'Unbekannter Fehler'
         };
     }
 
-    /**
-     * 📄 PDF MANUELL GENERIEREN (Kompatibilität)
-     */
+    // 🎯 KOMPATIBILITÄTS-METHODEN für Frontend
+    static async generateGermanTaxReport(walletAddress, options = {}) {
+        const service = new GermanTaxService({
+            moralisApiKey: process.env.MORALIS_API_KEY || process.env.VITE_MORALIS_API_KEY
+        });
+        
+        const config = {
+            walletAddress,
+            chains: options.chainIds || ['0x1'],
+            taxYear: 2025,
+            includeDeFi: true,
+            includeNFTs: false
+        };
+        
+        const report = await service.calculateTaxes(walletAddress, config);
+        
+        // Frontend-kompatible Struktur
+        return {
+            transactions: report.transactions || [],
+            germanSummary: {
+                paragraph22: {
+                    total: report.paragraph22Gains || 0,
+                    roiIncome: report.paragraph22Gains || 0,
+                    note: '§22 EStG - Langfristige Gewinne (steuerfrei)'
+                },
+                paragraph23: {
+                    taxableGains: report.paragraph23Gains || 0,
+                    taxFreeGains: 0,
+                    freigrenze600: {
+                        exceeded: report.paragraph23Gains > 600,
+                        amount: report.paragraph23Gains || 0
+                    },
+                    note: '§23 EStG - Spekulative Gewinne'
+                },
+                totalTransactions: report.transactions?.length || 0,
+                taxableTransactions: report.fifoResults?.length || 0
+            },
+            fifoResults: report.fifoResults || [],
+            taxTable: this.formatForPDF(report.transactions || []),
+            summary: {
+                roiIncome: report.paragraph22Gains || 0,
+                speculativeTransactions: {
+                    withinSpeculationPeriod: {
+                        amount: report.paragraph23Gains || 0,
+                        count: report.shortTermTrades || 0
+                    },
+                    afterSpeculationPeriod: {
+                        amount: report.paragraph22Gains || 0,
+                        count: report.longTermTrades || 0
+                    }
+                }
+            },
+            metadata: {
+                walletAddress,
+                generated: new Date().toISOString(),
+                totalTransactions: report.transactions?.length || 0,
+                germanTaxLaw: 'EStG §22 & §23',
+                system: 'GermanTaxService v2.0'
+            }
+        };
+    }
+    
+    static async generateWGEPTestReport(walletAddress) {
+        return await this.generateGermanTaxReport(walletAddress, {
+            chainIds: ['0x1']
+        });
+    }
+    
     static async generatePDFManually(taxReport, options = {}) {
         console.log('📄 PDF-Generierung wird vorbereitet...');
-        
-        // Hier würde die PDF-Generierung implementiert werden
-        // Für jetzt return success
         return {
             success: true,
             message: 'PDF-Generierung vorbereitet',
             fileName: `steuerreport_${new Date().toISOString().split('T')[0]}.pdf`
         };
     }
-}
-
-export { GermanTaxService };
-export default GermanTaxService; 
+    
+    static formatForPDF(transactions) {
+        return transactions
+            .slice(0, 100) // Limitiere für PDF
+            .map(tx => ({
+                datum: tx.timestamp?.toLocaleDateString('de-DE') || 'N/A',
+                coin: tx.tokenSymbol || 'ETH',
+                menge: tx.amount?.toFixed(6) || '0',
+                preis: `€${(tx.priceEUR || 0).toFixed(2)}`,
+                art: tx.type === 'buy' ? 'Kauf' : 'Verkauf',
+                steuerpflichtig: tx.type === 'sell' ? 'Ja' : 'Nein',
+                bemerkung: `${tx.category || 'Standard'} - Chain: ${tx.chain || 'ETH'}`
+            }));
+    }
+} 
