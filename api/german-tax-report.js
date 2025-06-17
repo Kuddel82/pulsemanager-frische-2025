@@ -47,11 +47,15 @@ function safeTaxCalculation(reports) {
 }
 
 export default async function handler(req, res) {
+    console.log('🚨 API CALLED:', req.method, req.url);
+    
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
+        console.log('🔍 Request body:', req.body);
+        
         const { address, phase } = req.body;
 
         if (!address) {
@@ -67,39 +71,50 @@ export default async function handler(req, res) {
             case 'TRIAL_SAFE_MODE':
                 console.log('🚨 TRIAL-SAFE: Bug-Fix Mode Processing...');
                 
-                // EINFACHER TRIAL-SAFE MODUS (ohne externe Services)
-                const demoEvents = [
-                    {
-                        date: new Date().toISOString(),
-                        token: 'WGEP',
-                        type: 'ROI_EVENT',
-                        valueEUR: 850,
-                        tax: 212.50,
-                        gains: 510
-                    },
-                    {
-                        date: new Date().toISOString(),
-                        token: 'ETH',
-                        type: 'DEMO_EVENT',
-                        valueEUR: 3500,
-                        tax: 875,
-                        gains: 2100
-                    }
-                ];
+                try {
+                    // EINFACHER TRIAL-SAFE MODUS (ohne externe Services)
+                    const demoEvents = [
+                        {
+                            date: new Date().toISOString(),
+                            token: 'WGEP',
+                            type: 'ROI_EVENT',
+                            valueEUR: 850,
+                            tax: 212.50,
+                            gains: 510
+                        },
+                        {
+                            date: new Date().toISOString(),
+                            token: 'ETH',
+                            type: 'DEMO_EVENT',
+                            valueEUR: 3500,
+                            tax: 875,
+                            gains: 2100
+                        }
+                    ];
 
-                const summary = safeTaxCalculation(demoEvents);
+                    console.log('🚨 Demo events created:', demoEvents);
 
-                taxReport = {
-                    reports: demoEvents,
-                    summary: summary,
-                    transactionsProcessed: 2,
-                    totalTransactions: 2,
-                    totalROIIncome: summary.totalGains,
-                    totalSpeculativeGains: summary.totalTax,
-                    phase: 'TRIAL_SAFE_MODE',
-                    priceSource: 'Demo Data (Trial Mode)',
-                    trialInfo: '3 Tage verbleibend - Bug-Fix aktiv'
-                };
+                    const summary = safeTaxCalculation(demoEvents);
+                    console.log('🚨 Summary calculated:', summary);
+
+                    taxReport = {
+                        reports: demoEvents,
+                        summary: summary,
+                        transactionsProcessed: 2,
+                        totalTransactions: 2,
+                        totalROIIncome: summary.totalGains,
+                        totalSpeculativeGains: summary.totalTax,
+                        phase: 'TRIAL_SAFE_MODE',
+                        priceSource: 'Demo Data (Trial Mode)',
+                        trialInfo: '3 Tage verbleibend - Bug-Fix aktiv'
+                    };
+                    
+                    console.log('🚨 Tax report created:', taxReport);
+                    
+                } catch (trialError) {
+                    console.error('🚨 TRIAL-SAFE Error:', trialError);
+                    throw trialError;
+                }
                 break;
 
             case 'PHASE_2_HISTORICAL':
@@ -141,6 +156,8 @@ export default async function handler(req, res) {
                 break;
         }
 
+        console.log('🔍 Tax report ready, preparing response...');
+
         // PDF Generation (optional - nur wenn verfügbar)
         let pdfBuffer = null;
         try {
@@ -153,7 +170,7 @@ export default async function handler(req, res) {
             // PDF-Fehler nicht kritisch - weiter ohne PDF
         }
 
-        return res.status(200).json({
+        const response = {
             success: true,
             taxReport: {
                 ...taxReport,
@@ -161,17 +178,25 @@ export default async function handler(req, res) {
             },
             phase: phase || 'STANDARD',
             timestamp: new Date().toISOString()
-        });
+        };
+
+        console.log('✅ Sending successful response');
+        return res.status(200).json(response);
 
     } catch (error) {
         console.error(`❌ German Tax Report API Error:`, error);
+        console.error(`❌ Error stack:`, error.stack);
         
-        return res.status(500).json({
+        const errorResponse = {
             success: false,
             error: error.message,
-            phase: req.body.phase || 'STANDARD',
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+            phase: req.body?.phase || 'STANDARD',
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            timestamp: new Date().toISOString()
+        };
+
+        console.log('❌ Sending error response:', errorResponse);
+        return res.status(500).json(errorResponse);
     }
 }
 
