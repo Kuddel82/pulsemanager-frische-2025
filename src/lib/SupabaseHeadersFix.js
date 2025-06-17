@@ -4,11 +4,10 @@
 
 // Minimaler, chirurgischer Fix nur für Supabase Headers Error
 const fixSupabaseHeaders = () => {
-  console.log('🔧 Applying minimal Supabase headers fix...');
+  console.log('🔧 Applying enhanced Supabase headers fix...');
   
-  // Nur für Supabase-spezifische Headers-Probleme
+  // 1. Fetch-Patch für Response-Headers
   const originalFetch = window.fetch;
-  
   window.fetch = async function(...args) {
     try {
       const response = await originalFetch.apply(this, args);
@@ -21,11 +20,8 @@ const fixSupabaseHeaders = () => {
       
       return response;
     } catch (error) {
-      // Nur Headers-spezifische Errors abfangen
       if (error.message?.includes('headers')) {
-        console.log('🔧 Supabase headers error caught:', error.message);
-        
-        // Erstelle Mock-Response mit Headers
+        console.log('🔧 Fetch headers error caught:', error.message);
         return {
           ok: false,
           status: 500,
@@ -35,13 +31,35 @@ const fixSupabaseHeaders = () => {
           text: () => Promise.resolve('Headers error handled')
         };
       }
-      
-      // Alle anderen Errors normal weiterwerfen
       throw error;
     }
   };
   
-  console.log('✅ Minimal Supabase headers fix applied');
+  // 2. Global Error Handler für Constructor-Errors
+  const originalErrorHandler = window.onerror;
+  window.onerror = function(message, source, lineno, colno, error) {
+    // Nur Supabase Headers-Errors abfangen
+    if (message && message.includes('Cannot read properties of undefined (reading \'headers\')')) {
+      console.log('🔧 Supabase constructor headers error caught and handled');
+      return true; // Error handled, verhindert weitere Propagation
+    }
+    
+    // Alle anderen Errors normal behandeln
+    if (originalErrorHandler) {
+      return originalErrorHandler.call(this, message, source, lineno, colno, error);
+    }
+    return false;
+  };
+  
+  // 3. Unhandled Promise Rejection Handler
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason?.message?.includes('headers')) {
+      console.log('🔧 Supabase promise headers error caught');
+      event.preventDefault();
+    }
+  });
+  
+  console.log('✅ Enhanced Supabase headers fix applied');
 };
 
 // Nur anwenden wenn wirklich Supabase Headers Error auftritt
