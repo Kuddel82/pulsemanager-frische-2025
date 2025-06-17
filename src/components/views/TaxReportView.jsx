@@ -248,13 +248,73 @@ const TaxReportView = () => {
     }
   };
 
+  // 🇩🇪 REAL TAX REPORT (echte Transaktionen)
+  const handleRealTaxReport = async () => {
+    if (!walletAddress) {
+      alert('Bitte Wallet-Adresse eingeben');
+      return;
+    }
+
+    setIsLoading(true);
+    setTaxData(null);
+    setError(null);
+
+    try {
+      console.log('🇩🇪 REAL TAX: Echte Transaktionen laden...');
+      
+      const response = await fetch('/api/real-tax-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          address: walletAddress,
+          year: 2024,
+          chains: ['0x1', '0x171'] // Ethereum + PulseChain
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ REAL TAX: Echte Daten erfolgreich geladen');
+        
+        // Transformiere für UI-Kompatibilität
+        const transformedData = {
+          phase: 'REAL_TRANSACTIONS',
+          totalTransactions: data.statistics.totalTransactions,
+          totalROIIncome: data.germanTaxSummary.paragraph22.roiIncome,
+          totalSpeculativeGains: data.germanTaxSummary.paragraph23.speculativeGains,
+          priceSource: 'Echte Moralis API-Daten',
+          trialInfo: `${data.statistics.totalTransactions} echte Transaktionen verarbeitet`,
+          realTaxData: data // Vollständige echte Daten
+        };
+        
+        setTaxData(transformedData);
+        
+      } else {
+        throw new Error(data.error || 'Real Tax API Fehler');
+      }
+
+    } catch (error) {
+      console.error('❌ REAL TAX Fehler:', error);
+      setError(`Real Tax Fehler: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Card className="max-w-4xl mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-6 w-6" />
-            🚨 STEUERREPORT - TRIAL-SAFE + BUG-FIXES
+            🇩🇪 STEUERREPORT - Echte Transaktionen + Deutsches Steuerrecht
           </CardTitle>
         </CardHeader>
         
@@ -273,14 +333,28 @@ const TaxReportView = () => {
             />
           </div>
 
-          {/* EMERGENCY BUTTON (OBERSTE PRIORITÄT) */}
+          {/* REAL TAX REPORT BUTTON (HÖCHSTE PRIORITÄT) */}
+          <div className="mb-6">
+            <button
+              onClick={handleRealTaxReport}
+              disabled={isLoading}
+              className="w-full px-6 py-4 bg-gradient-to-r from-green-800 to-emerald-600 text-white rounded-lg font-bold hover:from-green-900 hover:to-emerald-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-green-400 shadow-lg"
+            >
+              {isLoading ? '⏳ Lädt echte Daten...' : '🇩🇪 REAL TAX REPORT: Echte Transaktionen'}
+            </button>
+            <p className="text-sm text-green-700 mt-2 text-center font-semibold">
+              ✅ Lädt echte Moralis-Transaktionen + Deutsches Steuerrecht (§22 & §23 EStG)
+            </p>
+          </div>
+
+          {/* EMERGENCY BUTTON (FALLBACK) */}
           <div className="mb-6">
             <button
               onClick={handleEmergencyTest}
               disabled={isLoading}
               className="w-full px-6 py-4 bg-gradient-to-r from-red-800 to-red-600 text-white rounded-lg font-bold hover:from-red-900 hover:to-red-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-red-400"
             >
-              {isLoading ? '⏳ Lädt...' : '🚨 EMERGENCY: API-Fix (Alle APIs offline)'}
+              {isLoading ? '⏳ Lädt...' : '🚨 EMERGENCY: Demo-Daten (Falls APIs offline)'}
             </button>
             <p className="text-sm text-red-600 mt-2 text-center font-semibold">
               🆘 Notfall-Modus: Funktioniert wenn alle anderen APIs versagen
