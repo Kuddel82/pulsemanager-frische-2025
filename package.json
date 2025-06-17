@@ -66,6 +66,8 @@
     "i18next-http-backend": "^2.5.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.344.0",
+    "moralis": "^2.22.4",
+    "@moralisweb3/common-evm-utils": "^2.22.4",
     "node-cache": "^5.1.2",
     "pdfkit": "^0.14.0",
     "react": "^18.2.0",
