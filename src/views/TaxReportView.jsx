@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Download, AlertCircle } from 'lucide-react';
-import { TaxReportService_Rebuild } from '@/services/TaxReportService_Rebuild';
+import GermanTaxService from '@/services/GermanTaxService';
 import { useAuth } from '@/contexts/AuthContext';
 import CentralDataService from '@/services/CentralDataService';
 
@@ -51,9 +51,8 @@ const TaxReportNew = () => {
         console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
         
         try {
-          // 🔥 FINAL SERVICE: Komplett ersetzen durch zuverlässigen Service
-          const { TaxReportService_FINAL } = await import('../services/TaxReportService_FINAL.js');
-          const report = await TaxReportService_FINAL.generateCompleteReport(wallet.address);
+          // 🇩🇪 GERMAN TAX SERVICE: Neues deutsches Steuerrecht
+          const report = await GermanTaxService.generateGermanTaxReport(wallet.address);
           
           reports.push({
             wallet: wallet.address,
@@ -108,7 +107,7 @@ const TaxReportNew = () => {
       
       for (const reportData of data.reports) {
         if (reportData.report && reportData.success) {
-          await TaxReportService_Rebuild.generatePDFManually(reportData.report);
+          await GermanTaxService.generatePDFManually(reportData.report);
           console.log(`✅ PDF für Wallet ${reportData.wallet} generiert`);
         }
       }
@@ -148,9 +147,8 @@ const TaxReportNew = () => {
       const testWallet = wallets[0];
       console.log(`🎯 WGEP TEST für Wallet: ${testWallet.address}`);
       
-      // 🔥 VERWENDE DEN NEUEN FINAL SERVICE (UI bleibt gleich!)
-      const { TaxReportService_FINAL } = await import('../services/TaxReportService_FINAL.js');
-      const wgepReport = await TaxReportService_FINAL.generateCompleteReport(testWallet.address);
+      // 🇩🇪 VERWENDE DEN NEUEN GERMAN TAX SERVICE
+      const wgepReport = await GermanTaxService.generateWGEPTestReport(testWallet.address);
       
               // Zeige FINAL SERVICE Ergebnisse (gleiche UI-Meldung)
         const totalTransactions = wgepReport.totalTransactions || 0;
