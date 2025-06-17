@@ -1,0 +1,11 @@
+{
+  "result": [
+    {
+      "token_address": "0x1234567890abcdef",
+      "symbol": "WGEP",
+      "name": "WGEP Token",
+      "balance": "1000000000000000000",
+      "decimals": 18
+    }
+  ]
+}

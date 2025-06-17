@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "data": {
+    "walletAddress": "0x308e77f4c2ebdaf7c8e5c8a5e5b5a7c2f8e9a1b2",
+    "period": {
+      "year": 2024
+    },
+    "transactions": [
+      {
+        "hash": "0x123abc",
+        "date": "2024-01-15",
+        "type": "ROI",
+        "tokenSymbol": "WGEP",
+        "amount": "1000",
+        "valueEUR": 50,
+        "taxType": "§22 EStG"
+      }
+    ],
+    "summary": {
+      "totalROIIncome": 50,
+      "totalCapitalGains": 0,
+      "totalTaxableAmount": 50,
+      "estimatedTax": 12.5
+    }
+  }
+}

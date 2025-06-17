@@ -1,0 +1,83 @@
+name: 🧪 PulseManager Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: 🟢 Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: 📦 Install Dependencies
+      run: npm ci
+    
+    - name: 🧪 Run Unit Tests
+      run: npm run test:services
+    
+    - name: 💰 Run Tax System Tests
+      run: npm run test:tax
+    
+    - name: 🔒 Run Security Tests
+      run: npm run test:security
+    
+    - name: ⚡ Run Performance Tests
+      run: npm run test:performance
+    
+    - name: 📊 Generate Coverage Report
+      run: npm run test:coverage
+    
+    - name: 📈 Upload Coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: pulsemanager-coverage
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: 📦 Install Dependencies
+      run: npm ci
+    
+    - name: 🚀 Start Development Server
+      run: npm run dev &
+      
+    - name: ⏳ Wait for Server
+      run: npx wait-on http://localhost:3000
+    
+    - name: 🤖 Run E2E Tests
+      run: npm run test:e2e
+    
+    - name: 📸 Upload Screenshots
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: cypress-screenshots
+        path: cypress/screenshots

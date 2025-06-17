@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "data": {
+    "transactions": [],
+    "summary": {
+      "totalROIIncome": 0,
+      "totalCapitalGains": 0,
+      "totalTaxableAmount": 0,
+      "estimatedTax": 0
+    }
+  }
+}
