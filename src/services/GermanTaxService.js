@@ -17,10 +17,10 @@ export default class GermanTaxService {
         this.testMode = options.testMode || false;
         this.initialized = false;
         
-        // 💰 PriceService initialisieren
+        // 💰 Price Service initialisieren
         this.priceService = new PriceService({
-            coinGeckoApiKey: options.coinGeckoApiKey || process.env.COINGECKO_API_KEY,
-            cmcApiKey: options.cmcApiKey || process.env.CMC_API_KEY,
+            coinGeckoApiKey: options.coinGeckoApiKey,
+            cmcApiKey: options.cmcApiKey,
             testMode: this.testMode
         });
         
@@ -277,26 +277,16 @@ export default class GermanTaxService {
         const normalized = [];
         const walletAddress = config.walletAddress?.toLowerCase();
         
-        // 📦 BULK-PRICE-LOADING für Performance
-        const priceRequests = rawTransactions.map(tx => ({
-            symbol: tx.tokenSymbol || 'ETH',
-            timestamp: tx.blockTimestamp,
-            currency: 'eur'
-        }));
-        
-        console.log(`💰 Lade ${priceRequests.length} Preise in Bulk...`);
-        const bulkPrices = await this.priceService.getBulkHistoricalPrices(priceRequests);
-        
         for (const tx of rawTransactions) {
             try {
                 const isIncoming = tx.to?.toLowerCase() === walletAddress;
                 const isOutgoing = tx.from?.toLowerCase() === walletAddress;
                 
-                // Preis aus Bulk-Results holen
-                const priceKey = `${tx.tokenSymbol || 'ETH'}_${tx.blockTimestamp}_eur`;
-                const price = bulkPrices.get(priceKey) || await this.getHistoricalPrice(
+                // Preise für Steuerjahr laden
+                const price = await this.priceService.getHistoricalPrice(
                     tx.tokenSymbol || 'ETH',
-                    tx.blockTimestamp
+                    tx.blockTimestamp,
+                    'eur'
                 );
                 
                 const normalizedTx = {
@@ -535,13 +525,8 @@ export default class GermanTaxService {
     }
     
     async getHistoricalPrice(symbol, timestamp) {
-        // 💰 Robuste Preisberechnung mit echten APIs
-        try {
-            return await this.priceService.getHistoricalPrice(symbol, timestamp, 'eur');
-        } catch (error) {
-            console.warn(`⚠️ Preis nicht gefunden für ${symbol}:`, error.message);
-            return 0;
-        }
+        // Diese Funktion ist jetzt deprecated - verwende priceService direkt
+        return await this.priceService.getHistoricalPrice(symbol, timestamp, 'eur');
     }
     
     getDeFiContracts(chain) {
@@ -670,4 +655,5 @@ export default class GermanTaxService {
                 bemerkung: `${tx.category || 'Standard'} - Chain: ${tx.chain || 'ETH'}`
             }));
     }
+
 } 
