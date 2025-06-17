@@ -10,6 +10,7 @@
 
 // Import des neuen GermanTaxService
 import GermanTaxService from '../src/services/GermanTaxService.js';
+import ExportService from '../src/services/ExportService.js';
 
 export default async function handler(req, res) {
     console.log('🇩🇪 Deutsche Steuer-API: Request empfangen');
@@ -112,9 +113,21 @@ export default async function handler(req, res) {
             
             // 📄 EXPORT-OPTIONEN
             exports: {
-                pdf: `Manuelle PDF-Generierung verfügbar`,
-                csv: `CSV-Export in Entwicklung`,
-                germanTaxReport: `Vollständiger deutscher Steuerreport`
+                pdf: {
+                    available: true,
+                    endpoint: `/api/export-pdf?wallet=${targetWallet}&year=${config.taxYear}`,
+                    note: 'PDF-Export verfügbar'
+                },
+                csv: {
+                    available: true,
+                    endpoint: `/api/export-csv?wallet=${targetWallet}&year=${config.taxYear}`,
+                    note: 'CSV-Export verfügbar'
+                },
+                elster: {
+                    available: true,
+                    endpoint: `/api/export-elster?wallet=${targetWallet}&year=${config.taxYear}`,
+                    note: 'ELSTER XML-Export verfügbar'
+                }
             }
         };
 

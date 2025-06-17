@@ -10,6 +10,7 @@
 
 import Moralis from 'moralis';
 import PriceService from './PriceService.js';
+import ExportService from './ExportService.js';
 
 export default class GermanTaxService {
     constructor(options = {}) {
@@ -22,6 +23,12 @@ export default class GermanTaxService {
             coinGeckoApiKey: options.coinGeckoApiKey,
             cmcApiKey: options.cmcApiKey,
             testMode: this.testMode
+        });
+        
+        // 📄 Export Service initialisieren
+        this.exportService = new ExportService({
+            testMode: this.testMode,
+            outputDir: options.outputDir || './exports'
         });
         
         // 🇩🇪 Deutsche Steuer-Konstanten
@@ -654,6 +661,33 @@ export default class GermanTaxService {
                 steuerpflichtig: tx.type === 'sell' ? 'Ja' : 'Nein',
                 bemerkung: `${tx.category || 'Standard'} - Chain: ${tx.chain || 'ETH'}`
             }));
+    }
+
+    /**
+     * 📄 EXPORT-METHODEN
+     */
+    
+    async exportToPDF(taxReport, options = {}) {
+        return await this.exportService.generatePDFReport(taxReport, options);
+    }
+    
+    async exportToCSV(taxReport, options = {}) {
+        return await this.exportService.generateCSVReport(taxReport, options);
+    }
+    
+    async exportToElsterXML(taxReport, taxpayerData, options = {}) {
+        return await this.exportService.generateElsterXML(taxReport, taxpayerData, options);
+    }
+    
+    async exportAll(taxReport, taxpayerData, options = {}) {
+        const results = {
+            pdf: await this.exportToPDF(taxReport, options),
+            csv: await this.exportToCSV(taxReport, options),
+            xml: await this.exportToElsterXML(taxReport, taxpayerData, options)
+        };
+        
+        console.log('✅ Alle Export-Formate erstellt');
+        return results;
     }
 
 } 
