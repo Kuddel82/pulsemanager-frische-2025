@@ -110,6 +110,13 @@ class SimpleSupabaseAPI {
             return builder; // Return builder for chaining
           },
           
+          order: (column, options = {}) => {
+            const { ascending = true } = options;
+            const direction = ascending ? 'asc' : 'desc';
+            filters.push(`order=${column}.${direction}`);
+            return builder; // Return builder for chaining
+          },
+          
           single: async () => {
             try {
               const filterQuery = filters.length > 0 ? `&${filters.join('&')}` : '';
