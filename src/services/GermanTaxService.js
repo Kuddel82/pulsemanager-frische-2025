@@ -9,12 +9,20 @@
  */
 
 import Moralis from 'moralis';
+import PriceService from './PriceService.js';
 
 export default class GermanTaxService {
     constructor(options = {}) {
         this.moralisApiKey = options.moralisApiKey;
         this.testMode = options.testMode || false;
         this.initialized = false;
+        
+        // 💰 PriceService initialisieren
+        this.priceService = new PriceService({
+            coinGeckoApiKey: options.coinGeckoApiKey || process.env.COINGECKO_API_KEY,
+            cmcApiKey: options.cmcApiKey || process.env.CMC_API_KEY,
+            testMode: this.testMode
+        });
         
         // 🇩🇪 Deutsche Steuer-Konstanten
         this.TAX_CONSTANTS = {
@@ -269,13 +277,24 @@ export default class GermanTaxService {
         const normalized = [];
         const walletAddress = config.walletAddress?.toLowerCase();
         
+        // 📦 BULK-PRICE-LOADING für Performance
+        const priceRequests = rawTransactions.map(tx => ({
+            symbol: tx.tokenSymbol || 'ETH',
+            timestamp: tx.blockTimestamp,
+            currency: 'eur'
+        }));
+        
+        console.log(`💰 Lade ${priceRequests.length} Preise in Bulk...`);
+        const bulkPrices = await this.priceService.getBulkHistoricalPrices(priceRequests);
+        
         for (const tx of rawTransactions) {
             try {
                 const isIncoming = tx.to?.toLowerCase() === walletAddress;
                 const isOutgoing = tx.from?.toLowerCase() === walletAddress;
                 
-                // Preise für Steuerjahr laden
-                const price = await this.getHistoricalPrice(
+                // Preis aus Bulk-Results holen
+                const priceKey = `${tx.tokenSymbol || 'ETH'}_${tx.blockTimestamp}_eur`;
+                const price = bulkPrices.get(priceKey) || await this.getHistoricalPrice(
                     tx.tokenSymbol || 'ETH',
                     tx.blockTimestamp
                 );
@@ -516,19 +535,9 @@ export default class GermanTaxService {
     }
     
     async getHistoricalPrice(symbol, timestamp) {
-        // Placeholder - hier würde man eine Preis-API aufrufen
-        // CoinGecko, CoinMarketCap, etc.
+        // 💰 Robuste Preisberechnung mit echten APIs
         try {
-            // Vereinfachte Preis-Simulation
-            const prices = {
-                'ETH': 2000,
-                'BTC': 40000,
-                'MATIC': 0.8,
-                'USDC': 1,
-                'USDT': 1
-            };
-            
-            return prices[symbol] || 100; // Fallback-Preis
+            return await this.priceService.getHistoricalPrice(symbol, timestamp, 'eur');
         } catch (error) {
             console.warn(`⚠️ Preis nicht gefunden für ${symbol}:`, error.message);
             return 0;
