@@ -18,27 +18,28 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session - SimpleSupabaseAPI kompatibel
     const getInitialSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('🔍 Getting initial auth session...');
+        const { data } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('Auth session error:', error);
-          setSession(null);
-          setUser(null);
-          setIsAuthenticated(false);
-        } else if (session) {
+        // SimpleSupabaseAPI gibt { data: { session: {...} } } zurück
+        const session = data?.session;
+        
+        if (session?.user) {
+          console.log('✅ Found existing session for:', session.user.email);
           setSession(session);
           setUser(session.user);
           setIsAuthenticated(true);
         } else {
+          console.log('❌ No valid session found');
           setSession(null);
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('❌ Auth initialization error:', error);
         setSession(null);
         setUser(null);
         setIsAuthenticated(false);
@@ -121,12 +122,20 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       
+      // 🔙 SIMPLE API KOMPATIBILITÄT: signInWithPassword → auth.signInWithPassword
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) throw error;
+
+      // SimpleSupabaseAPI erwartet user und session
+      if (data?.user) {
+        setSession(data.session);
+        setUser(data.user);
+        setIsAuthenticated(true);
+      }
 
       return { data, error: null };
     } catch (error) {
