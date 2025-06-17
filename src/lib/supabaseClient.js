@@ -139,6 +139,19 @@ class SimpleSupabaseAPI {
                   'Prefer': 'return=minimal'
                 };
               }
+            } else {
+              // 🔥 KEIN REFRESH TOKEN = ALTE SESSION = FORCE LOGOUT
+              console.error('❌ No refresh token found - old session detected, forcing logout');
+              localStorage.removeItem('supabase_token');
+              localStorage.removeItem('supabase_refresh_token');
+              localStorage.removeItem('user_data');
+              
+              // Redirect to login page
+              if (window.location.pathname !== '/login') {
+                alert('Deine Session ist abgelaufen. Bitte logge dich neu ein.');
+                window.location.href = '/login';
+                return;
+              }
             }
             
             // If refresh fails, clear invalid tokens
