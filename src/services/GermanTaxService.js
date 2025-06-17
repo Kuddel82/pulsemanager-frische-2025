@@ -1,10 +1,11 @@
 /**
- * 🇩�� GERMAN TAX SERVICE - BROWSER-SAFE VERSION
+ * 🇩🇪 GERMAN TAX SERVICE - BROWSER-SAFE VERSION
  * 
  * Kern-Service für deutsche Krypto-Steuerberechnung
  * - FIFO-Methode nach deutschem Steuerrecht
  * - §22 & §23 EStG konforme Berechnung
  * - Browser-kompatible API-Calls (kein direkter Moralis-Import)
+ * - Emergency Headers Fix Integration
  * - Optimiert für Performance
  */
 
@@ -46,6 +47,74 @@ export default class GermanTaxService {
             '0xa': 'Optimism',
             '0xa4b1': 'Arbitrum'
         };
+    }
+
+    /**
+     * 🛡️ SAFE FETCH WRAPPER (mit Emergency Fix Integration)
+     */
+    async safeFetch(url, options = {}) {
+        try {
+            // Verwende Emergency Fix wenn verfügbar
+            if (window.safeFetchCall) {
+                console.log('🛡️ Using Emergency Headers Fix for API call');
+                return await window.safeFetchCall(url, options);
+            }
+            
+            // Fallback zu normaler fetch mit Sicherheitsmaßnahmen
+            const safeOptions = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                ...options
+            };
+            
+            // Ensure headers exist
+            if (!safeOptions.headers) {
+                safeOptions.headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                };
+            }
+            
+            const response = await fetch(url, safeOptions);
+            
+            // Safe headers access
+            const responseHeaders = response.headers || new Headers();
+            
+            let data = null;
+            try {
+                const contentType = responseHeaders.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = await response.text();
+                }
+            } catch (parseError) {
+                console.warn('⚠️ Response parsing failed:', parseError);
+                data = null;
+            }
+            
+            return {
+                ok: response.ok || false,
+                status: response.status || 0,
+                statusText: response.statusText || 'Unknown',
+                headers: responseHeaders,
+                data: data
+            };
+            
+        } catch (error) {
+            console.error('❌ Safe fetch error:', error);
+            return {
+                ok: false,
+                status: 0,
+                statusText: error.message,
+                headers: new Headers(),
+                data: null,
+                error: error.message
+            };
+        }
     }
 
     /**
@@ -110,11 +179,11 @@ export default class GermanTaxService {
     }
 
     /**
-     * 🪙 ERC20 TRANSFERS VIA API (Browser-Safe)
+     * 🪙 ERC20 TRANSFERS VIA API (Browser-Safe mit Emergency Fix)
      */
     async fetchERC20TransfersAPI(address, chain, taxYear) {
         try {
-            const response = await fetch('/api/moralis-token-transfers', {
+            const response = await this.safeFetch('/api/moralis-token-transfers', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -130,9 +199,9 @@ export default class GermanTaxService {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const data = await response.json();
+            const data = response.data;
             
-            if (!data.success || !data.result) {
+            if (!data || !data.success || !data.result) {
                 console.warn('⚠️ ERC20 API Response leer:', data);
                 return [];
             }
@@ -157,19 +226,19 @@ export default class GermanTaxService {
     }
 
     /**
-     * ⚡ NATIVE TRANSFERS VIA API (Browser-Safe)
+     * ⚡ NATIVE TRANSFERS VIA API (Browser-Safe mit Emergency Fix)
      */
     async fetchNativeTransfersAPI(address, chain, taxYear) {
         try {
-            const response = await fetch(`/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=100`);
+            const response = await this.safeFetch(`/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=100`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const data = await response.json();
+            const data = response.data;
             
-            if (!data.success || !data.result) {
+            if (!data || !data.success || !data.result) {
                 console.warn('⚠️ Native Transfers API Response leer:', data);
                 return [];
             }

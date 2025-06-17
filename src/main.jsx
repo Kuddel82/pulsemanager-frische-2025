@@ -1,3 +1,6 @@
+// 🚨 EMERGENCY HEADERS FIX - Muss als erstes geladen werden!
+import './lib/EmergencyHeadersFix.js';
+
 // 🔇 ERROR SUPPRESSION - Muss vor allem anderen geladen werden
 import './lib/errorSuppression.js';
 
