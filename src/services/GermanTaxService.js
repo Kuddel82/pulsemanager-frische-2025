@@ -1,9 +1,10 @@
 // =============================================================================
-// 🇩🇪 GERMAN TAX SERVICE - UPDATED VERSION
+// 🇩🇪 GERMAN TAX SERVICE - FIXED VERSION (NO DEPENDENCIES)
 // =============================================================================
 
-import PriceService from './PriceService';
-import ExportService from './ExportService';
+// Removed problematic imports that cause constructor errors
+// import PriceService from './PriceService';
+// import ExportService from './ExportService';
 
 // =============================================================================
 // 🔧 ENHANCED CONFIGURATION
@@ -288,8 +289,9 @@ class GermanTaxAPIService {
 class GermanTaxService {
   constructor() {
     this.apiService = new GermanTaxAPIService();
-    this.priceService = new PriceService();
-    this.exportService = new ExportService();
+    // Removed problematic dependencies that cause constructor errors:
+    // this.priceService = new PriceService();
+    // this.exportService = new ExportService();
   }
 
   // Haupt-API: Deutsche Steuerberechnung
@@ -436,7 +438,7 @@ class GermanTaxService {
     }
   }
 
-  // PDF Export Vorbereitung
+  // PDF Export Vorbereitung (ohne ExportService dependency)
   async generatePDFManually(taxReport, options = {}) {
     console.log(`📄 Preparing PDF export...`);
 
@@ -595,7 +597,7 @@ class GermanTaxService {
     for (const tx of transactions) {
       if (tx.isIncoming) {
         // Kauf
-        const buyPrice = await this.getHistoricalPrice(tx.tokenAddress, tx.timestamp);
+        const buyPrice = this.getEstimatedTokenPrice(tx.tokenAddress);
         
         fifoQueue.push({
           amount: tx.amount,
@@ -607,7 +609,7 @@ class GermanTaxService {
 
       } else {
         // Verkauf
-        const sellPrice = await this.getHistoricalPrice(tx.tokenAddress, tx.timestamp);
+        const sellPrice = this.getEstimatedTokenPrice(tx.tokenAddress);
         let remainingSellAmount = tx.amount;
 
         while (remainingSellAmount > 0 && fifoQueue.length > 0) {
@@ -683,19 +685,8 @@ class GermanTaxService {
     return groups;
   }
 
-  async getHistoricalPrice(tokenAddress, timestamp) {
-    // Vereinfachte Preisermittlung
-    const fallbackPrices = {
-      [WGEP_CONTRACT.toLowerCase()]: 0.50,
-      'eth': 3000,
-      'usdc': 1.00,
-      'usdt': 1.00
-    };
-
-    return fallbackPrices[tokenAddress?.toLowerCase()] || 1.00;
-  }
-
   getEstimatedTokenPrice(tokenAddress) {
+    // Direct price estimation without PriceService dependency
     const prices = {
       [WGEP_CONTRACT.toLowerCase()]: 0.50,
       'eth': 3000,
@@ -704,22 +695,6 @@ class GermanTaxService {
     };
 
     return prices[tokenAddress?.toLowerCase()] || 1.00;
-  }
-
-  // Static methods for backward compatibility
-  static async generateGermanTaxReport(walletAddress, options = {}) {
-    const service = new GermanTaxService();
-    return await service.generateGermanTaxReport(walletAddress, options);
-  }
-
-  static async generateWGEPTestReport(walletAddress) {
-    const service = new GermanTaxService();
-    return await service.generateWGEPTestReport(walletAddress);
-  }
-
-  static async generatePDFManually(taxReport, options = {}) {
-    const service = new GermanTaxService();
-    return await service.generatePDFManually(taxReport, options);
   }
 }
 
