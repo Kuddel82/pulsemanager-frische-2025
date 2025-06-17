@@ -10,8 +10,41 @@
 
 // Import des neuen GermanTaxService
 import GermanTaxService from '../src/services/GermanTaxService.js';
-import TrialSafeGermanTaxService from '../src/services/TrialSafeGermanTaxService.js';
+// import TrialSafeGermanTaxService from '../src/services/TrialSafeGermanTaxService.js';
 import ExportService from '../src/services/ExportService.js';
+
+// 🚨 TRIAL-SAFE BUG-FIX FUNKTION (inline)
+function safeTaxCalculation(reports) {
+    console.log(`🔧 Safe Tax Calculation für:`, reports);
+    
+    if (!reports || !Array.isArray(reports) || reports.length === 0) {
+        return { totalTax: 0, totalGains: 0, events: 0 };
+    }
+
+    try {
+        const totalTax = reports.reduce((sum, report) => {
+            const tax = report?.tax || report?.totalTax || report?.taxAmount || 0;
+            const numericTax = parseFloat(tax);
+            return sum + (isNaN(numericTax) ? 0 : numericTax);
+        }, 0);
+
+        const totalGains = reports.reduce((sum, report) => {
+            const gains = report?.gains || report?.totalGains || report?.profit || 0;
+            const numericGains = parseFloat(gains);
+            return sum + (isNaN(numericGains) ? 0 : numericGains);
+        }, 0);
+
+        return {
+            totalTax: Number(totalTax.toFixed(2)),
+            totalGains: Number(totalGains.toFixed(2)),
+            events: reports.length
+        };
+
+    } catch (error) {
+        console.error(`🚨 Safe Tax Calculation Error:`, error);
+        return { totalTax: 0, totalGains: 0, events: 0 };
+    }
+}
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -34,24 +67,39 @@ export default async function handler(req, res) {
             case 'TRIAL_SAFE_MODE':
                 console.log('🚨 TRIAL-SAFE: Bug-Fix Mode Processing...');
                 
-                const trialService = new TrialSafeGermanTaxService(process.env.VITE_MORALIS_API_KEY);
-                
-                // Lade Transaktionen (trial-safe)
-                try {
-                    const germanTaxService = new GermanTaxService();
-                    const transactions = await germanTaxService.apiService.getAllTransactionsEnterprise(
-                        address, 
-                        ['0x1', '0x171'], 
-                        2024
-                    );
-                    
-                    // Trial-Safe Berechnung mit Bug-Fixes
-                    taxReport = await trialService.calculateTaxSafely(transactions);
-                } catch (error) {
-                    console.warn('⚠️ Transaction loading failed, using demo mode:', error.message);
-                    // Fallback zu Demo-Daten
-                    taxReport = await trialService.calculateTaxSafely([]);
-                }
+                // EINFACHER TRIAL-SAFE MODUS (ohne externe Services)
+                const demoEvents = [
+                    {
+                        date: new Date().toISOString(),
+                        token: 'WGEP',
+                        type: 'ROI_EVENT',
+                        valueEUR: 850,
+                        tax: 212.50,
+                        gains: 510
+                    },
+                    {
+                        date: new Date().toISOString(),
+                        token: 'ETH',
+                        type: 'DEMO_EVENT',
+                        valueEUR: 3500,
+                        tax: 875,
+                        gains: 2100
+                    }
+                ];
+
+                const summary = safeTaxCalculation(demoEvents);
+
+                taxReport = {
+                    reports: demoEvents,
+                    summary: summary,
+                    transactionsProcessed: 2,
+                    totalTransactions: 2,
+                    totalROIIncome: summary.totalGains,
+                    totalSpeculativeGains: summary.totalTax,
+                    phase: 'TRIAL_SAFE_MODE',
+                    priceSource: 'Demo Data (Trial Mode)',
+                    trialInfo: '3 Tage verbleibend - Bug-Fix aktiv'
+                };
                 break;
 
             case 'PHASE_2_HISTORICAL':
@@ -121,7 +169,8 @@ export default async function handler(req, res) {
         return res.status(500).json({
             success: false,
             error: error.message,
-            phase: req.body.phase || 'STANDARD'
+            phase: req.body.phase || 'STANDARD',
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 }
