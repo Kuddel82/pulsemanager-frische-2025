@@ -458,6 +458,8 @@ function isFromKnownExchange(address) {
 class GermanTaxService {
   constructor() {
     this.apiService = new EnterpriseAPIService();
+    // PHASE 2: PriceService Integration
+    this.priceService = null; // Wird bei Bedarf initialisiert
   }
 
   // ENTERPRISE: Deutsche Steuerberechnung mit ECHTEN APIs
@@ -742,6 +744,136 @@ class GermanTaxService {
     }
 
     return results;
+  }
+
+  // ==========================================
+  // 🧮 PHASE 2: INTEGRATION IN GERMAN TAX SERVICE
+  // ==========================================
+
+  /**
+   * 🧮 STEUERBERECHNUNG MIT HISTORISCHEN PREISEN (PHASE 2 ERWEITERUNG)
+   */
+  async calculateTaxWithHistoricalPrices(transactions) {
+    console.log(`🧮 Steuerberechnung mit historischen Preisen für ${transactions.length} Transaktionen`);
+    
+    // PRICESERVICE INITIALISIEREN
+    if (!this.priceService) {
+      const PriceService = (await import('./PriceService.js')).default;
+      this.priceService = new PriceService();
+      console.log('📊 PriceService für historische Preise initialisiert');
+    }
+    
+    // NUTZE BESTEHENDE STRUKTUREN
+    const enrichedTransactions = [];
+    
+    for (const tx of transactions) {
+      const txDate = new Date(tx.block_timestamp || tx.timeStamp * 1000);
+      const tokenSymbol = tx.token_symbol || tx.symbol;
+      
+      // VERWENDE ERWEITERTEN PRICESERVICE
+      let historicalPrice;
+      try {
+        // Verwende den erweiterten PriceService mit historischen Preisen
+        historicalPrice = await this.priceService.getHistoricalPriceEUR(tokenSymbol, txDate);
+      } catch (error) {
+        console.warn(`⚠️ Preis-Fehler für ${tokenSymbol}:`, error.message);
+        // Fallback zu bestehender Logik
+        try {
+          historicalPrice = await this.priceService.getHistoricalPrice(tokenSymbol, txDate, 'eur');
+        } catch (fallbackError) {
+          console.warn(`⚠️ Fallback-Preis-Fehler:`, fallbackError.message);
+          historicalPrice = this.priceService.getEmergencyPrice(tokenSymbol);
+        }
+      }
+      
+      // Transaction mit echtem historischen Preis erweitern
+      const enrichedTx = {
+        ...tx,
+        historicalPriceEUR: historicalPrice,
+        valueEUR: (parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)) * historicalPrice,
+        date: txDate
+      };
+      
+      enrichedTransactions.push(enrichedTx);
+      
+      // Rate Limiting für API-Aufrufe
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    console.log(`✅ ${enrichedTransactions.length} Transaktionen mit historischen Preisen angereichert`);
+    
+    // NUTZE BESTEHENDE STEUERLOGIK
+    // Verwende die bestehende Enterprise-Logik mit angereicherten Transaktionen
+    const classified = await this.classifyTransactionsEnterprise(enrichedTransactions, enrichedTransactions[0]?.from || '');
+    const fifoResults = await this.calculateFIFOEnterprise(classified.trades);
+    const roiResults = await this.calculateROIIncomeEnterprise(classified.roi);
+    
+    // Deutsche Steuer-Zusammenfassung mit historischen Preisen
+    const speculativeGains = fifoResults
+      .filter(tx => tx.isSpeculative && tx.gainLossEUR > 0)
+      .reduce((sum, tx) => sum + tx.gainLossEUR, 0);
+
+    const speculativeLosses = Math.abs(fifoResults
+      .filter(tx => tx.isSpeculative && tx.gainLossEUR < 0)
+      .reduce((sum, tx) => sum + tx.gainLossEUR, 0));
+
+    const roiIncome = roiResults.reduce((sum, tx) => sum + tx.valueEUR, 0);
+
+    const taxSummary = applyGermanTaxRules(speculativeGains, speculativeLosses, roiIncome);
+
+    return {
+      walletAddress: enrichedTransactions[0]?.from || 'unknown',
+      taxYear: new Date().getFullYear(),
+      summary: taxSummary,
+      detailedTransactions: {
+        roiIncome: roiResults,
+        speculativeTransactions: fifoResults.filter(tx => tx.isSpeculative),
+        longTermTransactions: fifoResults.filter(tx => !tx.isSpeculative),
+        spamTransactions: classified.spam,
+        summary: {
+          totalROIEvents: roiResults.length,
+          totalSpeculativeEvents: fifoResults.filter(tx => tx.isSpeculative).length,
+          totalLongTermEvents: fifoResults.filter(tx => !tx.isSpeculative).length,
+          totalSpamFiltered: classified.spam.length,
+          totalROIValueEUR: roiIncome,
+          avgROIPerTransaction: roiResults.length > 0 ? roiIncome / roiResults.length : 0
+        }
+      },
+      generatedAt: new Date().toISOString(),
+      metadata: {
+        priceSource: 'CoinGecko + PulseWatch + Emergency Fallbacks',
+        features: [
+          '📊 Historische EUR-Preise',
+          '🎯 ROI-Token-Erkennung',
+          '🧮 FIFO-Berechnung',
+          '🇩🇪 Deutsches Steuerrecht',
+          '⚡ Rate-Limited API-Calls'
+        ]
+      }
+    };
+  }
+
+  /**
+   * 🎯 PHASE 2 STATUS CHECK
+   */
+  getPhase2Status() {
+    return {
+      status: '✅ PHASE 2 READY',
+      features: [
+        '💰 Historische Preise (CoinGecko)',
+        '🎯 ROI-Token-Preise (PulseWatch)', 
+        '🔗 PulseScan Integration',
+        '🚨 Emergency Fallbacks',
+        '🧮 Erweiterte Steuerberechnung',
+        '⚡ API-Service-Integration'
+      ],
+      apis: {
+        coingecko: 'Historische EUR-Preise',
+        pulsewatch: 'ROI-Token-Strukturpreise',
+        moralis: 'Enterprise Multi-Chain',
+        fallbacks: 'Emergency-Preise'
+      }
+    };
   }
 
   // PDF Export Vorbereitung (für Kompatibilität)

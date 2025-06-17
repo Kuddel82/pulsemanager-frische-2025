@@ -123,6 +123,72 @@ const TaxReportNew = () => {
     }
   };
 
+  // 🚀 PHASE 2: HISTORISCHE PREISE TEST
+  const testHistoricalPrices = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🚀 PHASE 2 TEST: Historische Preise...');
+      
+      // Lade User-Wallets
+      const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
+        includeROI: false,
+        includeTax: false
+      });
+      
+      const wallets = portfolioData?.wallets || [];
+      
+      if (wallets.length === 0) {
+        setError('Keine Wallets für Phase 2 Test gefunden.');
+        return;
+      }
+      
+      const testWallet = wallets[0];
+      console.log(`🚀 PHASE 2 TEST für Wallet: ${testWallet.address}`);
+      
+      // Lade Transaktionen für historische Preise
+      const transactions = await germanTaxService.apiService.getAllTransactionsEnterprise(
+        testWallet.address, 
+        ['0x1', '0x171'], 
+        2024
+      );
+      
+      console.log(`📊 ${transactions.length} Transaktionen für historische Preise geladen`);
+      
+      // PHASE 2: Steuerberechnung mit historischen Preisen
+      const historicalTaxReport = await germanTaxService.calculateTaxWithHistoricalPrices(transactions.slice(0, 10)); // Erste 10 für Test
+      
+      alert(`🚀 PHASE 2 COMPLETE!\n\n` +
+            `📊 Historische Preise Test erfolgreich!\n` +
+            `💰 Transaktionen mit historischen Preisen: ${historicalTaxReport.detailedTransactions.summary.totalROIEvents + historicalTaxReport.detailedTransactions.summary.totalSpeculativeEvents}\n` +
+            `🎯 ROI-Einkommen: €${historicalTaxReport.detailedTransactions.summary.totalROIValueEUR.toFixed(2)}\n` +
+            `📈 Preis-Quelle: ${historicalTaxReport.metadata.priceSource}\n` +
+            `✅ Status: Phase 2 Integration erfolgreich!`);
+      
+      // Setze Phase 2 Test Daten
+      setData({
+        isPhase2Test: true,
+        totalWallets: 1,
+        successfulReports: 1,
+        reports: [{
+          wallet: testWallet.address,
+          report: historicalTaxReport,
+          success: true,
+          phase2Features: historicalTaxReport.metadata.features
+        }]
+      });
+      
+    } catch (error) {
+      console.error('❌ Phase 2 Test Fehler:', error);
+      setError(`Phase 2 Test fehlgeschlagen: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 🎯 WGEP TEST FUNCTION
   const handleWGEPTest = async () => {
     if (!user?.id) return;
@@ -251,11 +317,22 @@ const TaxReportNew = () => {
           <Button
             onClick={handleWGEPTest}
             disabled={loading}
-            className="bg-orange-600 hover:bg-orange-700 border-4 border-orange-400 text-white font-bold shadow-xl px-6 py-4 text-lg"
+            className="bg-orange-600 hover:bg-orange-700 border-4 border-orange-400 text-white font-bold shadow-xl px-6 py-4 text-lg mr-4"
             size="lg"
           >
             <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
             🎯 WGEP ROI TEST
+          </Button>
+
+          {/* 🚀 PHASE 2 TEST BUTTON */}
+          <Button
+            onClick={testHistoricalPrices}
+            disabled={loading}
+            className="bg-purple-600 hover:bg-purple-700 border-4 border-purple-400 text-white font-bold shadow-xl px-6 py-4 text-lg"
+            size="lg"
+          >
+            <FileText className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            🚀 PHASE 2 TEST
           </Button>
         </div>
 

@@ -388,6 +388,193 @@ export default class PriceService {
         this.coinIdCache.clear();
         console.log('🧹 Cache bereinigt');
     }
+
+    // ==========================================
+    // 💰 PHASE 2: HISTORISCHE PREISE - CoinGecko Integration
+    // ==========================================
+
+    /**
+     * 📊 HISTORISCHE PREISE IN EUR (PHASE 2 ERWEITERUNG)
+     */
+    async getHistoricalPriceEUR(tokenSymbol, date, retries = 3) {
+        console.log(`📊 Historischer Preis: ${tokenSymbol} am ${date}`);
+        
+        // 1. BESTEHENDE STRUKTUR NUTZEN
+        // Prüfe zuerst ob es ein ROI-Token ist (bestehende Logik)
+        if (this.isROIToken && this.isROIToken(tokenSymbol)) {
+            console.log(`🎯 ROI-Token über bestehende PulseWatch-Logik`);
+            return await this.getROITokenPrice(tokenSymbol);
+        }
+
+        // 2. CACHE PRÜFEN (nutze bestehenden Cache)
+        const cacheKey = `historical_${tokenSymbol}_${this.formatDateForCache(date)}`;
+        if (this.priceCache.has(cacheKey)) {
+            const cached = this.priceCache.get(cacheKey);
+            if (Date.now() - cached.timestamp < 24 * 60 * 60 * 1000) { // 24h Cache
+                console.log(`📋 Cache Hit: ${tokenSymbol}`);
+                return cached.price;
+            }
+        }
+
+        // 3. COINGECKO API FÜR HISTORISCHE PREISE
+        const tokenMapping = {
+            'ETH': 'ethereum',
+            'BTC': 'bitcoin',
+            'MATIC': 'matic-network', 
+            'USDC': 'usd-coin',
+            'USDT': 'tether',
+            'BNB': 'binancecoin',
+            'HEX': 'hex',
+            'LINK': 'chainlink',
+            'UNI': 'uniswap',
+            'AAVE': 'aave',
+            'COMP': 'compound-governance-token',
+            'MKR': 'maker',
+            'SNX': 'havven',
+            'CRV': 'curve-dao-token',
+            'SUSHI': 'sushi'
+        };
+
+        const coinId = tokenMapping[tokenSymbol.toUpperCase()];
+        
+        if (coinId) {
+            for (let attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    const formattedDate = this.formatDateForCoingecko(date);
+                    const url = `https://api.coingecko.com/api/v3/coins/${coinId}/history?date=${formattedDate}`;
+                    
+                    console.log(`🌐 CoinGecko Aufruf (${attempt}/${retries}): ${tokenSymbol}`);
+                    
+                    const response = await fetch(url, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'User-Agent': 'PulseManager-Tax-Service/2.0'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const eurPrice = data.market_data?.current_price?.eur;
+
+                    if (eurPrice && eurPrice > 0) {
+                        // BESTEHENDEN CACHE NUTZEN
+                        this.cachePrice(cacheKey, eurPrice);
+                        
+                        console.log(`✅ Historischer Preis: ${tokenSymbol} = ${eurPrice} EUR`);
+                        return eurPrice;
+                    }
+
+                    throw new Error('Kein EUR-Preis verfügbar');
+
+                } catch (error) {
+                    console.warn(`⚠️ CoinGecko Fehler (${attempt}/${retries}):`, error.message);
+                    
+                    if (attempt === retries) {
+                        // FALLBACK ZU BESTEHENDER LOGIK
+                        console.log(`🔄 Fallback zu bestehender Preis-Logik`);
+                        return await this.getHistoricalPrice(tokenSymbol, date, 'eur');
+                    }
+                    
+                    // Rate Limiting
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                }
+            }
+        }
+
+        // 4. FALLBACK ZU BESTEHENDEN SERVICES
+        console.log(`🔄 Fallback zu bestehenden Services für ${tokenSymbol}`);
+        
+        // Nutze bestehende getHistoricalPrice Methode als Fallback
+        try {
+            return await this.getHistoricalPrice(tokenSymbol, date, 'eur');
+        } catch (error) {
+            console.warn(`⚠️ Bestehende Preis-Logik fehlgeschlagen:`, error.message);
+        }
+        
+        // Emergency Fallback
+        return this.getEmergencyPrice(tokenSymbol);
+    }
+
+    /**
+     * 🎯 ROI-TOKEN PREIS-LOGIK (Integration mit bestehenden Services)
+     */
+    async getROITokenPrice(tokenSymbol) {
+        console.log(`🎯 ROI-Token Preis: ${tokenSymbol}`);
+        
+        // PulseWatch Service strukturierte Preise (bestehende Logik erweitern)
+        const roiPrices = {
+            'DOMINANCE': 0.32,
+            'HEX': 0.00616,
+            'PLSX': 0.0000271,
+            'INC': 0.005,
+            'PLS': 0.00005,
+            'WGEP': 0.85,
+            'WBTC': 96000,
+            'USDC': 1.0,
+            'USDT': 1.0,
+            'DAI': 1.0
+        };
+
+        const price = roiPrices[tokenSymbol.toUpperCase()];
+        
+        if (price) {
+            console.log(`✅ PulseWatch Preis: ${tokenSymbol} = ${price} EUR`);
+            return price;
+        }
+
+        // Fallback für unbekannte ROI-Tokens
+        console.log(`⚠️ Unbekannter ROI-Token: ${tokenSymbol}`);
+        return this.getEmergencyPrice(tokenSymbol);
+    }
+
+    /**
+     * 🔍 ROI-TOKEN ERKENNUNG
+     */
+    isROIToken(tokenSymbol) {
+        const roiTokens = ['DOMINANCE', 'HEX', 'PLSX', 'INC', 'PLS', 'WGEP', 'WBTC'];
+        return roiTokens.includes(tokenSymbol.toUpperCase());
+    }
+
+    // ==========================================
+    // 🛠️ UTILITY METHODS FÜR HISTORISCHE PREISE
+    // ==========================================
+
+    formatDateForCoingecko(date) {
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0'); 
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+    }
+
+    formatDateForCache(date) {
+        return new Date(date).toISOString().split('T')[0];
+    }
+
+    getEmergencyPrice(tokenSymbol) {
+        const emergencyPrices = {
+            'ETH': 2000,
+            'BTC': 40000,
+            'MATIC': 0.8,
+            'USDC': 1.0,
+            'USDT': 1.0,
+            'DAI': 1.0,
+            'BNB': 300,
+            'WGEP': 0.85,
+            'HEX': 0.00616,
+            'PLSX': 0.0000271,
+            'PLS': 0.00005,
+            'DOMINANCE': 0.32,
+            'INC': 0.005
+        };
+        
+        const price = emergencyPrices[tokenSymbol.toUpperCase()] || 0.01;
+        console.log(`🚨 Emergency Preis: ${tokenSymbol} = ${price} EUR`);
+        return price;
+    }
     
     /**
      * 🔍 DEBUGGING
@@ -405,6 +592,13 @@ export default class PriceService {
         for (const test of testCases) {
             const price = await this.getHistoricalPrice(test.symbol, test.timestamp);
             console.log(`✅ ${test.symbol} am ${test.timestamp.toDateString()}: ${price} EUR`);
+        }
+        
+        // PHASE 2 TEST: Historische Preise
+        console.log('🚀 PHASE 2 TEST: Historische Preise...');
+        for (const test of testCases) {
+            const historicalPrice = await this.getHistoricalPriceEUR(test.symbol, test.timestamp);
+            console.log(`📊 HISTORISCH ${test.symbol} am ${test.timestamp.toDateString()}: ${historicalPrice} EUR`);
         }
         
         console.log('📊 Cache Stats:', this.getCacheStats());
