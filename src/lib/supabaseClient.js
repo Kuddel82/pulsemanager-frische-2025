@@ -90,13 +90,24 @@ class SimpleSupabaseAPI {
 
   // 🔥 EINFACHE DATABASE METHODEN mit Auth-Headers
   from(table) {
-    // Helper für Auth-Headers
+    // Helper für Auth-Headers mit verbesserter Token-Behandlung
     const getAuthHeaders = () => {
       const token = localStorage.getItem('supabase_token');
+      const userData = localStorage.getItem('user_data');
+      
+      // Debug-Info für Auth-Status
+      console.log(`🔐 Auth Headers for ${table}:`, {
+        hasToken: !!token,
+        hasUserData: !!userData,
+        tokenLength: token?.length || 0
+      });
+      
       return {
         'Content-Type': 'application/json',
         'apikey': this.key,
-        'Authorization': token ? `Bearer ${token}` : `Bearer ${this.key}`
+        'Authorization': token ? `Bearer ${token}` : `Bearer ${this.key}`,
+        // Zusätzliche Headers für bessere Kompatibilität
+        'Prefer': 'return=minimal'
       };
     };
 
@@ -120,10 +131,22 @@ class SimpleSupabaseAPI {
           single: async () => {
             try {
               const filterQuery = filters.length > 0 ? `&${filters.join('&')}` : '';
-              const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}${filterQuery}&limit=1`, {
-                headers: getAuthHeaders()
+              const headers = getAuthHeaders();
+              
+              console.log(`🔍 Single select from ${table}:`, {
+                url: `${this.url}/rest/v1/${table}?select=${columns}${filterQuery}&limit=1`,
+                headers: { ...headers, Authorization: headers.Authorization?.substring(0, 20) + '...' }
               });
-              if (!response.ok) throw new Error(`Database error: ${response.status}`);
+              
+              const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}${filterQuery}&limit=1`, {
+                headers
+              });
+              
+              if (!response.ok) {
+                console.error(`❌ Single select failed: ${response.status} ${response.statusText}`);
+                throw new Error(`Database error: ${response.status}`);
+              }
+              
               const data = await response.json();
               return { data: data[0] || null, error: null };
             } catch (error) {
@@ -137,10 +160,22 @@ class SimpleSupabaseAPI {
             const execute = async () => {
               try {
                 const filterQuery = filters.length > 0 ? `&${filters.join('&')}` : '';
-                const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}${filterQuery}`, {
-                  headers: getAuthHeaders()
+                const headers = getAuthHeaders();
+                
+                console.log(`🔍 Select from ${table}:`, {
+                  url: `${this.url}/rest/v1/${table}?select=${columns}${filterQuery}`,
+                  headers: { ...headers, Authorization: headers.Authorization?.substring(0, 20) + '...' }
                 });
-                if (!response.ok) throw new Error(`Database error: ${response.status}`);
+                
+                const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}${filterQuery}`, {
+                  headers
+                });
+                
+                if (!response.ok) {
+                  console.error(`❌ Select failed: ${response.status} ${response.statusText}`);
+                  throw new Error(`Database error: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 return { data, error: null };
               } catch (error) {
@@ -153,6 +188,83 @@ class SimpleSupabaseAPI {
         };
         
         return builder;
+      },
+
+      // 🔥 UPSERT METHOD - FEHLTE KOMPLETT!
+      upsert: (values, options = {}) => {
+        const upsertBuilder = {
+          select: (columns = '*') => {
+            const selectBuilder = {
+              single: async () => {
+                try {
+                  const headers = {
+                    ...getAuthHeaders(),
+                    'Prefer': 'return=representation,resolution=merge-duplicates'
+                  };
+                  
+                  console.log(`🔄 Upsert to ${table}:`, {
+                    values,
+                    headers: { ...headers, Authorization: headers.Authorization?.substring(0, 20) + '...' }
+                  });
+                  
+                  const response = await fetch(`${this.url}/rest/v1/${table}`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(values)
+                  });
+                  
+                  if (!response.ok) {
+                    console.error(`❌ Upsert failed: ${response.status} ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error('❌ Error details:', errorText);
+                    throw new Error(`Database error: ${response.status} - ${errorText}`);
+                  }
+                  
+                  const data = await response.json();
+                  return { data: data[0] || data, error: null };
+                } catch (error) {
+                  console.error('❌ Upsert error:', error);
+                  return { data: null, error: { message: error.message } };
+                }
+              },
+              
+              // For direct await without .single()
+              then: (resolve, reject) => {
+                return selectBuilder.single().then(resolve, reject);
+              }
+            };
+            return selectBuilder;
+          },
+          
+          // Direct upsert without select
+          then: (resolve, reject) => {
+            const execute = async () => {
+              try {
+                const headers = {
+                  ...getAuthHeaders(),
+                  'Prefer': 'return=minimal,resolution=merge-duplicates'
+                };
+                
+                const response = await fetch(`${this.url}/rest/v1/${table}`, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify(values)
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`Database error: ${response.status}`);
+                }
+                
+                return { data: null, error: null };
+              } catch (error) {
+                console.error('❌ Upsert error:', error);
+                return { data: null, error: { message: error.message } };
+              }
+            };
+            return execute().then(resolve, reject);
+          }
+        };
+        return upsertBuilder;
       },
 
       insert: (values) => {
