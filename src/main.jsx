@@ -1,3 +1,6 @@
+// ☢️ DEEP BUNDLE FIX - Nuclear Option für minifizierte Module (MUSS ZUERST GELADEN WERDEN!)
+import './lib/DeepBundleFix.js';
+
 // 🚨 EMERGENCY HEADERS FIX - Muss als erstes geladen werden!
 import './lib/EmergencyHeadersFix.js';
 
