@@ -88,64 +88,90 @@ class SimpleSupabaseAPI {
     }
   };
 
-  // Database Methoden für bestehenden Code
+  // 🔥 EINFACHE DATABASE METHODEN mit Auth-Headers
   from(table) {
+    // Helper für Auth-Headers
+    const getAuthHeaders = () => {
+      const token = localStorage.getItem('supabase_token');
+      return {
+        'Content-Type': 'application/json',
+        'apikey': this.key,
+        'Authorization': token ? `Bearer ${token}` : `Bearer ${this.key}`
+      };
+    };
+
     return {
-      select: async (columns = '*') => {
-        try {
-          const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}`, {
-            headers: this.headers
-          });
-          if (!response.ok) throw new Error(`Error: ${response.status}`);
-          const data = await response.json();
-          return { data, error: null };
-        } catch (error) {
-          return { data: null, error: { message: error.message } };
-        }
-      },
-
-      insert: async (values) => {
-        try {
-          const response = await fetch(`${this.url}/rest/v1/${table}`, {
-            method: 'POST',
-            headers: this.headers,
-            body: JSON.stringify(values)
-          });
-          if (!response.ok) throw new Error(`Error: ${response.status}`);
-          const data = await response.json();
-          return { data, error: null };
-        } catch (error) {
-          return { data: null, error: { message: error.message } };
-        }
-      },
-
-      update: async (values) => {
-        return {
-          eq: async (column, value) => {
-            try {
-              const response = await fetch(`${this.url}/rest/v1/${table}?${column}=eq.${value}`, {
-                method: 'PATCH',
-                headers: this.headers,
-                body: JSON.stringify(values)
-              });
-              if (!response.ok) throw new Error(`Error: ${response.status}`);
-              const data = await response.json();
-              return { data, error: null };
-            } catch (error) {
-              return { data: null, error: { message: error.message } };
-            }
+      select: (columns = '*') => ({
+        eq: async (column, value) => {
+          try {
+            const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}&${column}=eq.${encodeURIComponent(value)}`, {
+              headers: getAuthHeaders()
+            });
+            if (!response.ok) throw new Error(`Database error: ${response.status}`);
+            const data = await response.json();
+            return { data, error: null };
+          } catch (error) {
+            console.error('❌ Select error:', error);
+            return { data: null, error: { message: error.message } };
           }
-        };
-      },
+        }
+      }),
+
+      insert: (values) => ({
+        select: async (columns = '*') => {
+          try {
+            const headers = {
+              ...getAuthHeaders(),
+              'Prefer': 'return=representation'
+            };
+            
+            const response = await fetch(`${this.url}/rest/v1/${table}`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(values)
+            });
+            
+            if (!response.ok) {
+              console.error(`❌ Insert error: ${response.status} ${response.statusText}`);
+              throw new Error(`Database error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return { data, error: null };
+          } catch (error) {
+            console.error('❌ Insert error:', error);
+            return { data: null, error: { message: error.message } };
+          }
+        }
+      }),
+
+      update: (values) => ({
+        eq: async (column, value) => {
+          try {
+            const response = await fetch(`${this.url}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}`, {
+              method: 'PATCH',
+              headers: getAuthHeaders(),
+              body: JSON.stringify(values)
+            });
+            
+            if (!response.ok) throw new Error(`Database error: ${response.status}`);
+            const data = await response.json();
+            return { data, error: null };
+          } catch (error) {
+            return { data: null, error: { message: error.message } };
+          }
+        }
+      }),
 
       delete: () => ({
         eq: async (column, value) => {
           try {
-            const response = await fetch(`${this.url}/rest/v1/${table}?${column}=eq.${value}`, {
+            const response = await fetch(`${this.url}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}`, {
               method: 'DELETE',
-              headers: this.headers
+              headers: getAuthHeaders()
             });
-            if (!response.ok) throw new Error(`Error: ${response.status}`);
+            
+            if (!response.ok) throw new Error(`Database error: ${response.status}`);
             return { error: null };
           } catch (error) {
             return { error: { message: error.message } };
