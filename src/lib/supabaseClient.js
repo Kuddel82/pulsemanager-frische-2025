@@ -101,21 +101,52 @@ class SimpleSupabaseAPI {
     };
 
     return {
-      select: (columns = '*') => ({
-        eq: async (column, value) => {
-          try {
-            const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}&${column}=eq.${encodeURIComponent(value)}`, {
-              headers: getAuthHeaders()
-            });
-            if (!response.ok) throw new Error(`Database error: ${response.status}`);
-            const data = await response.json();
-            return { data, error: null };
-          } catch (error) {
-            console.error('❌ Select error:', error);
-            return { data: null, error: { message: error.message } };
+      select: (columns = '*') => {
+        const filters = [];
+        
+        const builder = {
+          eq: (column, value) => {
+            filters.push(`${column}=eq.${encodeURIComponent(value)}`);
+            return builder; // Return builder for chaining
+          },
+          
+          single: async () => {
+            try {
+              const filterQuery = filters.length > 0 ? `&${filters.join('&')}` : '';
+              const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}${filterQuery}&limit=1`, {
+                headers: getAuthHeaders()
+              });
+              if (!response.ok) throw new Error(`Database error: ${response.status}`);
+              const data = await response.json();
+              return { data: data[0] || null, error: null };
+            } catch (error) {
+              console.error('❌ Single select error:', error);
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          
+          // For direct await without .single()
+          then: (resolve, reject) => {
+            const execute = async () => {
+              try {
+                const filterQuery = filters.length > 0 ? `&${filters.join('&')}` : '';
+                const response = await fetch(`${this.url}/rest/v1/${table}?select=${columns}${filterQuery}`, {
+                  headers: getAuthHeaders()
+                });
+                if (!response.ok) throw new Error(`Database error: ${response.status}`);
+                const data = await response.json();
+                return { data, error: null };
+              } catch (error) {
+                console.error('❌ Select error:', error);
+                return { data: null, error: { message: error.message } };
+              }
+            };
+            return execute().then(resolve, reject);
           }
-        }
-      }),
+        };
+        
+        return builder;
+      },
 
       insert: (values) => ({
         select: async (columns = '*') => {
