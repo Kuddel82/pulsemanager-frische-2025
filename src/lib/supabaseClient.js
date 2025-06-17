@@ -155,33 +155,67 @@ class SimpleSupabaseAPI {
         return builder;
       },
 
-      insert: (values) => ({
-        select: async (columns = '*') => {
-          try {
-            const headers = {
-              ...getAuthHeaders(),
-              'Prefer': 'return=representation'
+      insert: (values) => {
+        const insertBuilder = {
+          select: (columns = '*') => {
+            const selectBuilder = {
+              single: async () => {
+                try {
+                  // UPSERT Logic: INSERT mit ON CONFLICT DO UPDATE
+                  const headers = {
+                    ...getAuthHeaders(),
+                    'Prefer': 'return=representation,resolution=merge-duplicates'
+                  };
+                  
+                  const response = await fetch(`${this.url}/rest/v1/${table}`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(values)
+                  });
+                  
+                  if (!response.ok && response.status !== 409) {
+                    console.error(`❌ Insert error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Database error: ${response.status}`);
+                  }
+                  
+                  let data;
+                  if (response.status === 409) {
+                    // Conflict - Update existing entry instead
+                    console.log('📝 Wallet exists - updating instead of inserting');
+                    const updateResponse = await fetch(`${this.url}/rest/v1/${table}?wallet_address=eq.${encodeURIComponent(values.wallet_address)}`, {
+                      method: 'PATCH',
+                      headers: {
+                        ...getAuthHeaders(),
+                        'Prefer': 'return=representation'
+                      },
+                      body: JSON.stringify(values)
+                    });
+                    
+                    if (!updateResponse.ok) {
+                      throw new Error(`Update error: ${updateResponse.status}`);
+                    }
+                    data = await updateResponse.json();
+                  } else {
+                    data = await response.json();
+                  }
+                  
+                  return { data: data[0] || data, error: null };
+                } catch (error) {
+                  console.error('❌ Insert/Update error:', error);
+                  return { data: null, error: { message: error.message } };
+                }
+              },
+              
+              // For direct await without .single()
+              then: (resolve, reject) => {
+                return selectBuilder.single().then(resolve, reject);
+              }
             };
-            
-            const response = await fetch(`${this.url}/rest/v1/${table}`, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify(values)
-            });
-            
-            if (!response.ok) {
-              console.error(`❌ Insert error: ${response.status} ${response.statusText}`);
-              throw new Error(`Database error: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return { data, error: null };
-          } catch (error) {
-            console.error('❌ Insert error:', error);
-            return { data: null, error: { message: error.message } };
+            return selectBuilder;
           }
-        }
-      }),
+        };
+        return insertBuilder;
+      },
 
       update: (values) => ({
         eq: async (column, value) => {
