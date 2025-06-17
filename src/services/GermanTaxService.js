@@ -106,7 +106,7 @@ class EnterpriseAPIService {
         if (chainId === '0x171') {
           // PulseChain: Nutze DEINE PulseScan + PulseWatch APIs
           chainTransactions = await this.getPulseChainTransactionsEnterprise(walletAddress, yearStart, yearEnd);
-        } else {
+                } else {
           // Ethereum/andere: Nutze Moralis mit Aggressive Pagination
           chainTransactions = await this.getMoralisTransactionsEnterprise(walletAddress, chainConfig.moralisChain, yearStart, yearEnd);
         }
@@ -117,8 +117,8 @@ class EnterpriseAPIService {
         
         // Rate Limiting für Enterprise-Nutzung
         await this.sleep(this.rateLimitDelay);
-        
-      } catch (error) {
+            
+        } catch (error) {
         console.error(`❌ Failed to load ${chainConfig?.name || chainId}:`, error.message);
       }
     }
@@ -190,8 +190,8 @@ class EnterpriseAPIService {
 
       console.log(`✅ Moralis ${chain}: ${allTransactions.length} transactions (${pageCount} pages)`);
       return allTransactions;
-
-    } catch (error) {
+                
+            } catch (error) {
       console.error(`❌ Moralis Enterprise ${chain} failed:`, error);
       return [];
     }
@@ -236,7 +236,7 @@ class EnterpriseAPIService {
       console.log(`🔗 Total PulseChain: ${allPulseTransactions.length} transactions`);
       return allPulseTransactions;
 
-    } catch (error) {
+        } catch (error) {
       console.error(`❌ PulseChain Enterprise loading failed:`, error);
       
       // Fallback: Direct PulseChain Scan API call
@@ -273,7 +273,7 @@ class EnterpriseAPIService {
           transaction_hash: tx.hash,
           to_address: tx.to,
           from_address: tx.from,
-          value: tx.value,
+                    value: tx.value,
           token_address: tx.contractAddress,
           token_symbol: tx.tokenSymbol,
           token_name: tx.tokenName,
@@ -287,11 +287,11 @@ class EnterpriseAPIService {
 
       return [];
 
-    } catch (error) {
+        } catch (error) {
       console.error(`❌ PulseChain fallback failed:`, error);
-      return [];
+            return [];
+        }
     }
-  }
 
   // ENTERPRISE: Echte historische Preise (DEIN PriceService)
   async getHistoricalPriceEnterprise(tokenAddress, timestamp, tokenSymbol) {
@@ -336,8 +336,8 @@ class EnterpriseAPIService {
 
       console.warn(`⚠️ No price found for ${tokenSymbol}, using $1.00`);
       return 1.00;
-
-    } catch (error) {
+                
+            } catch (error) {
       console.error(`❌ Historical price lookup failed for ${tokenSymbol}:`, error);
       return 1.00;
     }
@@ -823,7 +823,7 @@ class GermanTaxService {
 
     const taxSummary = applyGermanTaxRules(speculativeGains, speculativeLosses, roiIncome);
 
-    return {
+            return {
       walletAddress: enrichedTransactions[0]?.from || 'unknown',
       taxYear: new Date().getFullYear(),
       summary: taxSummary,
@@ -859,7 +859,7 @@ class GermanTaxService {
    * 🎯 PHASE 2 STATUS CHECK
    */
   getPhase2Status() {
-    return {
+        return {
       status: '✅ PHASE 2 READY',
       features: [
         '💰 Historische Preise (CoinGecko)',
@@ -893,7 +893,7 @@ class GermanTaxService {
         taxYear: taxReport.taxYear || new Date().getFullYear(),
         generatedAt: new Date().toISOString(),
         
-        summary: {
+            summary: {
           totalTaxableIncome: taxReport.summary.totalTaxableIncome,
           roiIncome: taxReport.summary.roiIncome.totalEUR,
           speculativeGains: taxReport.summary.speculativeGains.taxableGainsEUR
@@ -973,7 +973,7 @@ class GermanTaxService {
           cacheStats: this.moralisProService.getCacheStats()
       };
       
-      return {
+        return {
           ...taxCalculation,
           moralisProData: {
               walletTokens,

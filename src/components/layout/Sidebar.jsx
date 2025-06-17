@@ -196,6 +196,15 @@ const Sidebar = () => {
     isSidebarLink: true
   };
 
+  // 🚨 STEUERREPORT ITEM (TRIAL-SAFE BUG-FIXES)
+  const STEUERREPORT_ITEM = {
+    id: 'tax-report',
+    icon: FileText,
+    translationKey: 'steuerreportTitle',
+    name: '🚨 STEUERREPORT',
+    isSidebarLink: true
+  };
+
   // 🇩🇪 TAX EXPORT ITEM
   const TAX_EXPORT_ITEM = {
     id: 'taxExport',

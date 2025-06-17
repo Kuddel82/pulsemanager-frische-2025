@@ -461,6 +461,6 @@ class SimpleSupabaseAPI {
 export const supabase = new SimpleSupabaseAPI(supabaseUrl, supabaseAnonKey);
 
 // Export für Kompatibilität mit bestehenden Imports
-export default supabase;
+export default supabase; 
 
 console.log("✅ Simple Supabase Client loaded (SDK-compatible)"); 
