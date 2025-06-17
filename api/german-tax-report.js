@@ -13,157 +13,79 @@ import GermanTaxService from '../src/services/GermanTaxService.js';
 import ExportService from '../src/services/ExportService.js';
 
 export default async function handler(req, res) {
-    console.log('🇩🇪 Deutsche Steuer-API: Request empfangen');
-    
-    // CORS Headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
-    
-    // 📋 INPUT-VALIDIERUNG
-    const { 
-        wallet, 
-        walletAddress, 
-        chainIds, 
-        chain = 'ethereum',
-        options = {},
-        getAllPages = 'true',
-        maxTransactions = 300000
-    } = req.method === 'POST' ? req.body : req.query;
-    
-    // Flexibilität: wallet oder walletAddress
-    const targetWallet = wallet || walletAddress;
-    
-    if (!targetWallet) {
-        return res.status(400).json({
-            error: 'Wallet-Adresse ist erforderlich',
-            usage: 'POST /api/german-tax-report mit {"walletAddress": "0x..."}'
-        });
-    }
-    
-    if (!isValidWalletAddress(targetWallet)) {
-        return res.status(400).json({
-            error: 'Ungültige Wallet-Adresse',
-            format: 'Ethereum-Format (0x...) erwartet',
-            received: targetWallet
-        });
-    }
-
-    // 🔧 STANDARD-KONFIGURATION
-    const config = {
-        chainIds: chainIds || ['0x1'], // Standardmäßig nur Ethereum für WGEP
-        maxPages: getAllPages === 'true' ? 50 : 10,
-        taxYear: options.taxYear || 2025,
-        includeROI: true,
-        includeTax: true
-    };
-
-    console.log(`🚀 Deutsche Steuerberechnung für: ${targetWallet}`);
-    console.log(`📅 Steuerjahr: ${config.taxYear}`);
-    console.log(`⛓️  Chains: ${config.chainIds.join(', ')}`);
 
     try {
-        // 🏭 STEUERBERECHNUNG DURCHFÜHREN
-        const startTime = Date.now();
-        
-        console.log('🇩🇪 Starte GermanTaxService...');
-        const taxReport = await GermanTaxService.generateGermanTaxReport(targetWallet, config);
-        
-        const duration = Date.now() - startTime;
-        console.log(`✅ Steuerberechnung abgeschlossen in ${duration}ms`);
+        const { address, phase } = req.body;
 
-        // 📊 RESPONSE AUFBAUEN (kompatibel mit Frontend)
-        const response = {
+        if (!address) {
+            return res.status(400).json({ error: 'Wallet address is required' });
+        }
+
+        console.log(`🔥 German Tax Report API: ${phase || 'STANDARD'} für ${address}`);
+
+        const germanTaxService = new GermanTaxService();
+
+        let taxReport;
+
+        // PHASE ROUTING
+        switch (phase) {
+            case 'PHASE_2_HISTORICAL':
+                console.log('🚀 PHASE 2: CoinGecko Historical Processing...');
+                
+                // Lade Transaktionen
+                const transactions = await germanTaxService.apiService.getAllTransactionsEnterprise(
+                    address, 
+                    ['0x1', '0x171'], 
+                    2024
+                );
+                
+                // Phase 2 Berechnung mit historischen Preisen
+                taxReport = await germanTaxService.calculateTaxWithHistoricalPrices(transactions);
+                break;
+
+            case 'PHASE_3_MORALIS_PRO':
+                console.log('🔥 PHASE 3: Moralis Pro Processing...');
+                
+                // Lade Transaktionen
+                const moralisTransactions = await germanTaxService.apiService.getAllTransactionsEnterprise(
+                    address, 
+                    ['0x1', '0x171'], 
+                    2024
+                );
+                
+                // Phase 3 Berechnung mit Moralis Pro
+                taxReport = await germanTaxService.calculateTaxWithMoralisPro(moralisTransactions, address);
+                break;
+
+            default:
+                console.log('📊 STANDARD: Normale Steuerberechnung...');
+                taxReport = await germanTaxService.generateGermanTaxReport(address);
+                break;
+        }
+
+        // PDF Generation
+        const pdfBuffer = await germanTaxService.generatePDF(taxReport, address);
+
+        return res.status(200).json({
             success: true,
-            timestamp: new Date().toISOString(),
-            duration: `${duration}ms`,
-            wallet: targetWallet,
-            taxYear: config.taxYear,
-            
-            // 🇩🇪 DEUTSCHE STEUER-ZUSAMMENFASSUNG
-            germanSummary: taxReport.germanSummary,
-            
-            // 📈 TRANSACTION DATA (für Frontend-Kompatibilität)
-            transactions: taxReport.transactions,
-            summary: taxReport.summary || taxReport.germanSummary,
-            
-            // 📊 FIFO-ERGEBNISSE
-            fifoResults: taxReport.fifoResults,
-            
-            // 📄 PDF-TABELLE
-            taxTable: taxReport.taxTable,
-            
-            // 🔍 METADATA
-            metadata: taxReport.metadata,
-            
-            // 📊 KOMPATIBILITÄTS-FELDER (für altes Frontend)
-            totalTransactions: taxReport.transactions?.length || 0,
-            taxRelevantTransactions: taxReport.transactions?.filter(tx => tx.taxRelevant).length || 0,
-            
-            // 💰 ROI-ZUSAMMENFASSUNG
-            roiIncome: taxReport.germanSummary?.paragraph22?.total || 0,
-            speculativeTransactions: taxReport.germanSummary?.speculativeTransactions || {
-                withinSpeculationPeriod: { amount: 0, count: 0 },
-                afterSpeculationPeriod: { amount: 0, count: 0 }
+            taxReport: {
+                ...taxReport,
+                pdfBuffer: pdfBuffer
             },
-            
-            // 📄 EXPORT-OPTIONEN
-            exports: {
-                pdf: {
-                    available: true,
-                    endpoint: `/api/export-pdf?wallet=${targetWallet}&year=${config.taxYear}`,
-                    note: 'PDF-Export verfügbar'
-                },
-                csv: {
-                    available: true,
-                    endpoint: `/api/export-csv?wallet=${targetWallet}&year=${config.taxYear}`,
-                    note: 'CSV-Export verfügbar'
-                },
-                elster: {
-                    available: true,
-                    endpoint: `/api/export-elster?wallet=${targetWallet}&year=${config.taxYear}`,
-                    note: 'ELSTER XML-Export verfügbar'
-                }
-            }
-        };
-
-        // 🎯 SUCCESS RESPONSE
-        console.log(`✅ API Response bereit: ${response.totalTransactions} Transaktionen`);
-        return res.status(200).json(response);
+            phase: phase || 'STANDARD',
+            timestamp: new Date().toISOString()
+        });
 
     } catch (error) {
-        console.error('🚨 Deutsche Steuerberechnung fehlgeschlagen:', error);
+        console.error(`❌ German Tax Report API Error:`, error);
         
-        // 🔧 SPEZIFISCHES ERROR HANDLING
-        if (error.message?.includes('Moralis')) {
-            return res.status(503).json({
-                error: 'Blockchain-Daten nicht verfügbar',
-                message: 'Moralis API temporär nicht erreichbar',
-                suggestion: 'Bitte versuchen Sie es in wenigen Minuten erneut',
-                retryAfter: 60
-            });
-        }
-        
-        if (error.message?.includes('keine Transaktionen')) {
-            return res.status(404).json({
-                error: 'Keine Transaktionen gefunden',
-                wallet: targetWallet,
-                suggestion: 'Überprüfen Sie die Wallet-Adresse und Chain-IDs',
-                supportedChains: ['0x1 (Ethereum)', '0x171 (PulseChain)']
-            });
-        }
-        
-        // 🚨 GENERAL ERROR
         return res.status(500).json({
-            error: 'Interner Serverfehler',
-            message: process.env.NODE_ENV === 'development' ? error.message : 'Steuerberechnung fehlgeschlagen',
-            timestamp: new Date().toISOString(),
-            wallet: targetWallet,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            success: false,
+            error: error.message,
+            phase: req.body.phase || 'STANDARD'
         });
     }
 }

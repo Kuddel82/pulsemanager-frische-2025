@@ -6,6 +6,7 @@
 import PriceService from './PriceService';
 import { PulseScanService } from './PulseScanService';
 import { PulseWatchService } from './pulseWatchService';
+import MoralisProHistoricalService from './MoralisProHistoricalService.js';
 
 // =============================================================================
 // 🔧 ENHANCED CONFIGURATION für Enterprise APIs
@@ -458,6 +459,7 @@ function isFromKnownExchange(address) {
 class GermanTaxService {
   constructor() {
     this.apiService = new EnterpriseAPIService();
+    this.moralisProService = new MoralisProHistoricalService();
     // PHASE 2: PriceService Integration
     this.priceService = null; // Wird bei Bedarf initialisiert
   }
@@ -916,6 +918,135 @@ class GermanTaxService {
       console.error('❌ PDF preparation failed:', error);
       throw error;
     }
+  }
+
+  // PHASE 3: MORALIS PRO INTEGRATION
+  async calculateTaxWithMoralisPro(transactions, walletAddress) {
+    console.log(`🚀 PHASE 3: Moralis Pro Steuerberechnung für ${transactions.length} Transaktionen`);
+    
+    try {
+      // 1) Wallet Token Portfolio mit aktuellen Preisen laden
+      const walletTokens = await this.moralisProService.getWalletTokensWithPrices(walletAddress, 'eth');
+      console.log(`💼 Wallet Portfolio: ${walletTokens.length} Tokens geladen`);
+      
+      // 2) Alle einzigartigen Token-Adressen aus Transaktionen extrahieren
+      const uniqueTokens = [...new Set(
+          transactions
+              .filter(tx => tx.token_address)
+              .map(tx => tx.token_address.toLowerCase())
+      )];
+      
+      console.log(`🔍 Einzigartige Tokens: ${uniqueTokens.length}`);
+      
+      // 3) Bulk Token-Preise laden (effizienter)
+      const tokenPrices = await this.moralisProService.getBulkTokenPrices(uniqueTokens, 'eth');
+      console.log(`💰 Token-Preise geladen: ${Object.keys(tokenPrices).length}`);
+      
+      // 4) Transaktionen mit Moralis Pro Preisen anreichern
+      const enrichedTransactions = transactions.map(tx => {
+          const tokenAddress = tx.token_address?.toLowerCase();
+          const moralisPrice = tokenPrices[tokenAddress];
+          
+          if (moralisPrice) {
+              const amount = parseFloat(tx.value) / Math.pow(10, tx.decimals || 18);
+              const valueEUR = amount * moralisPrice;
+              
+              return {
+                  ...tx,
+                  priceEUR: moralisPrice,
+                  valueEUR: valueEUR,
+                  priceSource: 'Moralis Pro'
+              };
+          }
+          
+          return tx;
+      });
+      
+      // 5) Deutsche Steuerberechnung mit angereicherten Daten
+      const taxCalculation = await this.calculateGermanTax(enrichedTransactions);
+      
+      // 6) Zusätzliche Moralis Pro Statistiken
+      const moralisStats = {
+          walletTokensCount: walletTokens.length,
+          pricesLoadedCount: Object.keys(tokenPrices).length,
+          totalWalletValueEUR: walletTokens.reduce((sum, token) => sum + (token.valueEUR || 0), 0),
+          cacheStats: this.moralisProService.getCacheStats()
+      };
+      
+      return {
+          ...taxCalculation,
+          moralisProData: {
+              walletTokens,
+              tokenPrices,
+              stats: moralisStats
+          },
+          phase: 'PHASE_3_MORALIS_PRO'
+      };
+      
+    } catch (error) {
+        console.error(`❌ Moralis Pro Steuerberechnung Fehler:`, error);
+        
+        // Fallback zur normalen Berechnung
+        console.log(`🔄 Fallback zu Standard-Steuerberechnung`);
+        return await this.calculateGermanTax(transactions);
+    }
+  }
+
+  // ROI TOKEN DETECTION mit Moralis Pro
+  async detectROITokensWithMoralis(walletAddress) {
+    console.log(`🔍 ROI Token Detection mit Moralis Pro`);
+    
+    try {
+        const walletTokens = await this.moralisProService.getWalletTokensWithPrices(walletAddress, 'eth');
+        
+        // Bekannte ROI Token Adressen
+        const roiTokenAddresses = [
+            '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // HEX
+            '0x95b303987a60c71504d99aa1b13b4da07b0790ab', // PLSX
+            '0xa1077a294dde1b09bb078844df40758a5d0f9a27', // WGEP
+            '0x0d86eb9f43c57f6ff3bc9e23d8f9d82503f0e84b'  // PLS
+        ];
+        
+        const roiTokens = walletTokens.filter(token => 
+            roiTokenAddresses.includes(token.token_address.toLowerCase())
+        );
+        
+        console.log(`✅ ROI Tokens gefunden: ${roiTokens.length}`);
+        
+        return roiTokens.map(token => ({
+            symbol: token.symbol,
+            address: token.token_address,
+            balance: parseFloat(token.balance) / Math.pow(10, token.decimals),
+            priceEUR: token.currentPriceEUR,
+            valueEUR: token.valueEUR,
+            isROI: true
+        }));
+        
+    } catch (error) {
+        console.error(`❌ ROI Token Detection Fehler:`, error);
+        return [];
+    }
+  }
+
+  // PHASE 3 STATUS
+  getPhase3Status() {
+    return {
+        phase: 'PHASE_3_MORALIS_PRO',
+        features: [
+            'Moralis Pro Historical Service',
+            'Bulk Token Price Loading',
+            'Wallet Portfolio Analysis',
+            'ROI Token Detection',
+            'German Tax Compliance (§22 & §23 EStG)',
+            'USD to EUR Conversion',
+            'Rate Limited API Calls (5/sec)',
+            'Intelligent Caching (7 Tage)',
+            'CoinGecko Fallback',
+            'Emergency Price Fallbacks'
+        ],
+        moralisProService: this.moralisProService.getCacheStats(),
+        ready: true
+    };
   }
 }
 
