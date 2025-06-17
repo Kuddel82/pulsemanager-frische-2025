@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext();
+
+// 🔥 DIREKTE API-CALLS - KEIN SDK!
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://lalgwvltirtqknlyuept.supabase.co';  
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -18,19 +21,21 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Get initial session - SimpleSupabaseAPI kompatibel
+    // 🔥 DIREKTE API - Checke localStorage für bestehende Session
     const getInitialSession = async () => {
       try {
-        console.log('🔍 Getting initial auth session...');
-        const { data } = await supabase.auth.getSession();
+        console.log('🔍 Checking for existing auth session...');
         
-        // SimpleSupabaseAPI gibt { data: { session: {...} } } zurück
-        const session = data?.session;
+        const token = localStorage.getItem('supabase_token');
+        const userData = localStorage.getItem('user_data');
         
-        if (session?.user) {
-          console.log('✅ Found existing session for:', session.user.email);
+        if (token && userData) {
+          const user = JSON.parse(userData);
+          const session = { user, access_token: token };
+          
+          console.log('✅ Found existing session for:', user.email);
           setSession(session);
-          setUser(session.user);
+          setUser(user);
           setIsAuthenticated(true);
         } else {
           console.log('❌ No valid session found');
@@ -50,69 +55,69 @@ export const AuthProvider = ({ children }) => {
 
     getInitialSession();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event);
-        
-        if (session) {
-          setSession(session);
-          setUser(session.user);
-          setIsAuthenticated(true);
-        } else {
-          setSession(null);
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-        
-        setLoading(false);
+    // 🔥 KEIN SDK AUTH LISTENER - Direkte LocalStorage Events
+    const handleStorageChange = (e) => {
+      if (e.key === 'supabase_token' || e.key === 'user_data') {
+        console.log('🔄 Auth storage changed, refreshing...');
+        getInitialSession();
       }
-    );
+    };
+
+    window.addEventListener('storage', handleStorageChange);
 
     return () => {
-      subscription?.unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
   const signUp = async (email, password, options = {}) => {
     try {
       setLoading(true);
-      
-      // 🔐 ENHANCED DUPLICATE EMAIL PROTECTION
       console.log('🔍 Registering user with email:', email);
       
       const normalizedEmail = email.toLowerCase().trim();
       
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail, // Always use normalized email
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          ...options
-        }
+      // 🔥 DIREKTE API - KEIN SDK!
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            ...options
+          }
+        })
       });
 
-      if (error) {
-        // 🚨 COMPREHENSIVE ERROR HANDLING FOR DUPLICATES
+      if (!response.ok) {
+        const error = await response.json();
         console.error('Registration error details:', error);
         
-        if (error.message.includes('User already registered') ||
-            error.message.includes('already exists') ||
-            error.message.includes('Email already taken') ||
-            error.message.includes('duplicate key value') ||
-            error.message.includes('already been taken') ||
-            error.message.includes('email address is already') ||
+        // 🚨 COMPREHENSIVE ERROR HANDLING FOR DUPLICATES
+        if (error.message?.includes('User already registered') ||
+            error.message?.includes('already exists') ||
+            error.message?.includes('Email already taken') ||
+            error.message?.includes('duplicate key value') ||
+            error.message?.includes('already been taken') ||
+            error.message?.includes('email address is already') ||
             error.code === 'user_already_exists') {
           throw new Error('🚫 Ein Benutzer mit dieser E-Mail-Adresse existiert bereits. Bitte verwende eine andere E-Mail oder melde dich an.');
         }
-        throw error;
+        throw new Error(error.error_description || error.message || 'Registration failed');
       }
 
+      const data = await response.json();
       console.log('✅ User registration successful:', data.user?.email);
+      
       return { data, error: null };
     } catch (error) {
       console.error('❌ Sign up error:', error);
-      return { data: null, error };
+      return { data: null, error: { message: error.message } };
     } finally {
       setLoading(false);
     }
@@ -121,26 +126,41 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     try {
       setLoading(true);
+      console.log('🔐 Signing in:', email);
       
-      // 🔙 SIMPLE API KOMPATIBILITÄT: signInWithPassword → auth.signInWithPassword
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      // 🔥 DIREKTE API - KEIN SDK!
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ email, password })
       });
 
-      if (error) throw error;
-
-      // SimpleSupabaseAPI erwartet user und session
-      if (data?.user) {
-        setSession(data.session);
-        setUser(data.user);
-        setIsAuthenticated(true);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error_description || 'Login failed');
       }
 
-      return { data, error: null };
+      const data = await response.json();
+      
+      // Speichere Session in localStorage
+      localStorage.setItem('supabase_token', data.access_token);
+      localStorage.setItem('user_data', JSON.stringify(data.user));
+      
+      // Update State direkt
+      const session = { user: data.user, access_token: data.access_token };
+      setSession(session);
+      setUser(data.user);
+      setIsAuthenticated(true);
+      
+      console.log('✅ Login successful for:', data.user.email);
+
+      return { data: { user: data.user, session }, error: null };
     } catch (error) {
-      console.error('Sign in error:', error);
-      return { data: null, error };
+      console.error('❌ Sign in error:', error);
+      return { data: null, error: { message: error.message } };
     } finally {
       setLoading(false);
     }
@@ -149,15 +169,35 @@ export const AuthProvider = ({ children }) => {
   const signOut = async () => {
     try {
       setLoading(true);
+      console.log('🚪 Signing out...');
       
-      const { error } = await supabase.auth.signOut();
+      // 🔥 DIREKTE API - KEIN SDK!
+      const token = localStorage.getItem('supabase_token');
+      if (token) {
+        await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`, 
+            'apikey': SUPABASE_ANON_KEY 
+          }
+        });
+      }
       
-      if (error) throw error;
+      // Clear localStorage
+      localStorage.removeItem('supabase_token');
+      localStorage.removeItem('user_data');
+      
+      // Update State
+      setSession(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      console.log('✅ Signed out successfully');
 
       return { error: null };
     } catch (error) {
-      console.error('Sign out error:', error);
-      return { error };
+      console.error('❌ Sign out error:', error);
+      return { error: { message: error.message } };
     } finally {
       setLoading(false);
     }
