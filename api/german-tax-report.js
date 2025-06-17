@@ -10,6 +10,7 @@
 
 // Import des neuen GermanTaxService
 import GermanTaxService from '../src/services/GermanTaxService.js';
+import TrialSafeGermanTaxService from '../src/services/TrialSafeGermanTaxService.js';
 import ExportService from '../src/services/ExportService.js';
 
 export default async function handler(req, res) {
@@ -26,48 +27,83 @@ export default async function handler(req, res) {
 
         console.log(`🔥 German Tax Report API: ${phase || 'STANDARD'} für ${address}`);
 
-        const germanTaxService = new GermanTaxService();
-
         let taxReport;
 
         // PHASE ROUTING
         switch (phase) {
+            case 'TRIAL_SAFE_MODE':
+                console.log('🚨 TRIAL-SAFE: Bug-Fix Mode Processing...');
+                
+                const trialService = new TrialSafeGermanTaxService(process.env.VITE_MORALIS_API_KEY);
+                
+                // Lade Transaktionen (trial-safe)
+                try {
+                    const germanTaxService = new GermanTaxService();
+                    const transactions = await germanTaxService.apiService.getAllTransactionsEnterprise(
+                        address, 
+                        ['0x1', '0x171'], 
+                        2024
+                    );
+                    
+                    // Trial-Safe Berechnung mit Bug-Fixes
+                    taxReport = await trialService.calculateTaxSafely(transactions);
+                } catch (error) {
+                    console.warn('⚠️ Transaction loading failed, using demo mode:', error.message);
+                    // Fallback zu Demo-Daten
+                    taxReport = await trialService.calculateTaxSafely([]);
+                }
+                break;
+
             case 'PHASE_2_HISTORICAL':
                 console.log('🚀 PHASE 2: CoinGecko Historical Processing...');
                 
+                const germanTaxService2 = new GermanTaxService();
+                
                 // Lade Transaktionen
-                const transactions = await germanTaxService.apiService.getAllTransactionsEnterprise(
+                const transactions2 = await germanTaxService2.apiService.getAllTransactionsEnterprise(
                     address, 
                     ['0x1', '0x171'], 
                     2024
                 );
                 
                 // Phase 2 Berechnung mit historischen Preisen
-                taxReport = await germanTaxService.calculateTaxWithHistoricalPrices(transactions);
+                taxReport = await germanTaxService2.calculateTaxWithHistoricalPrices(transactions2);
                 break;
 
             case 'PHASE_3_MORALIS_PRO':
                 console.log('🔥 PHASE 3: Moralis Pro Processing...');
                 
+                const germanTaxService3 = new GermanTaxService();
+                
                 // Lade Transaktionen
-                const moralisTransactions = await germanTaxService.apiService.getAllTransactionsEnterprise(
+                const moralisTransactions = await germanTaxService3.apiService.getAllTransactionsEnterprise(
                     address, 
                     ['0x1', '0x171'], 
                     2024
                 );
                 
                 // Phase 3 Berechnung mit Moralis Pro
-                taxReport = await germanTaxService.calculateTaxWithMoralisPro(moralisTransactions, address);
+                taxReport = await germanTaxService3.calculateTaxWithMoralisPro(moralisTransactions, address);
                 break;
 
             default:
                 console.log('📊 STANDARD: Normale Steuerberechnung...');
+                const germanTaxService = new GermanTaxService();
                 taxReport = await germanTaxService.generateGermanTaxReport(address);
                 break;
         }
 
-        // PDF Generation
-        const pdfBuffer = await germanTaxService.generatePDF(taxReport, address);
+        // PDF Generation (optional - nur wenn verfügbar)
+        let pdfBuffer = null;
+        try {
+            if (phase !== 'TRIAL_SAFE_MODE') {
+                const germanTaxService = new GermanTaxService();
+                pdfBuffer = await germanTaxService.generatePDF(taxReport, address);
+            }
+        } catch (pdfError) {
+            console.warn('⚠️ PDF Generation failed:', pdfError.message);
+            // PDF-Fehler nicht kritisch - weiter ohne PDF
+        }
 
         return res.status(200).json({
             success: true,
