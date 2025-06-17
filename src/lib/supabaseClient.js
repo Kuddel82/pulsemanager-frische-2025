@@ -182,7 +182,18 @@ class SimpleSupabaseAPI {
                   if (response.status === 409) {
                     // Conflict - Update existing entry instead
                     console.log('📝 Wallet exists - updating instead of inserting');
-                    const updateResponse = await fetch(`${this.url}/rest/v1/${table}?wallet_address=eq.${encodeURIComponent(values.wallet_address)}`, {
+                    console.log('🔍 Values for update:', values);
+                    
+                    // Validierung: wallet_address ODER address muss definiert sein
+                    const walletAddress = values.wallet_address || values.address;
+                    if (!walletAddress || walletAddress === 'undefined') {
+                      console.error('❌ CRITICAL: wallet_address/address is undefined!', values);
+                      throw new Error('Wallet address is required but undefined');
+                    }
+                    
+                    // Bestimme den richtigen Schlüssel für das Update
+                    const updateKey = table === 'wallets' ? 'address' : 'wallet_address';
+                    const updateResponse = await fetch(`${this.url}/rest/v1/${table}?${updateKey}=eq.${encodeURIComponent(walletAddress)}`, {
                       method: 'PATCH',
                       headers: {
                         ...getAuthHeaders(),
@@ -192,7 +203,9 @@ class SimpleSupabaseAPI {
                     });
                     
                     if (!updateResponse.ok) {
-                      throw new Error(`Update error: ${updateResponse.status}`);
+                      const errorText = await updateResponse.text();
+                      console.error('❌ Update failed:', updateResponse.status, errorText);
+                      throw new Error(`Update error: ${updateResponse.status} - ${errorText}`);
                     }
                     data = await updateResponse.json();
                   } else {
