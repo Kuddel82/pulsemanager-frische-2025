@@ -13,6 +13,7 @@ import { translationsDe as settingsDe } from './de/settings';
 import { translationsDe as subscriptionDe } from './de/subscription';
 import { translationsDe as swapDe } from './de/swap';
 import { translationsDe as taxReportDe } from './de/taxReport';
+import { translationsDe as taxExportDe } from './de/taxExport';
 import { translationsDe as walletDe } from './de/wallet';
 import { translationsDe as bridgeDe } from './de/bridge';
 import { translationsDe as yieldOptimizerDe } from './de/yieldOptimizer';
@@ -36,6 +37,7 @@ export const translationsDe = {
   ...subscriptionDe,
   ...swapDe,
   ...taxReportDe,
+  ...taxExportDe,
   ...walletDe,
   ...bridgeDe,
   ...yieldOptimizerDe,

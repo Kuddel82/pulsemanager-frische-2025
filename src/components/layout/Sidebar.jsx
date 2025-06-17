@@ -196,12 +196,22 @@ const Sidebar = () => {
     isSidebarLink: true
   };
 
+  // 🇩🇪 TAX EXPORT ITEM
+  const TAX_EXPORT_ITEM = {
+    id: 'taxExport',
+    icon: FileText,
+    translationKey: 'taxExportTitle',
+    name: 'Tax Export',
+    isSidebarLink: true
+  };
+
   // 🎯 SIMPLIFIED: Main menu items in correct order - KORRIGIERT FÜR NEUES BUSINESS MODEL + EMERGENCY WGEP
   const mainMenuItems = [
     'dashboard',     // Portfolio - 3-TAGE TRIAL → Premium
     'wallets',       // Wallets - 3-TAGE TRIAL → Premium
     'roiTracker',    // ROI Tracker - PREMIUM ONLY
     'taxReport',     // Tax Report - PREMIUM ONLY
+    'taxExport',     // Tax Export - PREMIUM ONLY
     'tokenTrade',    // Token Trade - 3-TAGE TRIAL → Premium
     'bridge',        // Bridge - 3-TAGE TRIAL → Premium
     'wgep',          // WGEP - 3-TAGE TRIAL → Premium ⚠️ PROBLEM HIER!
@@ -227,6 +237,12 @@ const Sidebar = () => {
         if (id === 'wgep') {
           console.log('🚨 EMERGENCY: Adding WGEP manually');
           return EMERGENCY_WGEP_ITEM;
+        }
+        
+        // 🇩🇪 EMERGENCY: Tax Export manuell hinzufügen
+        if (id === 'taxExport') {
+          console.log('🇩🇪 EMERGENCY: Adding Tax Export manually');
+          return TAX_EXPORT_ITEM;
         }
         
         return null;
