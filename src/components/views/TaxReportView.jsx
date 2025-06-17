@@ -1,5 +1,5 @@
 // 🚨 TAX REPORT VIEW - TRIAL-SAFE MIT BUG-FIXES
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -8,11 +8,11 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
-import { AuthContext } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import DirectMoralisRealTaxService from '../../services/DirectMoralisRealTaxService';
 
 const TaxReportView = () => {
-  const { user, isAuthenticated } = useContext(AuthContext);
+  const { user, isAuthenticated } = useAuth();
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [taxData, setTaxData] = useState(null);
