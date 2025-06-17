@@ -41,7 +41,10 @@ class SimpleSupabaseAPI {
 
         const data = await response.json();
         localStorage.setItem('supabase_token', data.access_token);
+        localStorage.setItem('supabase_refresh_token', data.refresh_token); // 🔥 REFRESH TOKEN SPEICHERN
         localStorage.setItem('user_data', JSON.stringify(data.user));
+        
+        console.log('✅ Login successful with refresh token saved');
         
         return { 
           data: { user: data.user, session: { user: data.user, access_token: data.access_token } },
@@ -62,6 +65,7 @@ class SimpleSupabaseAPI {
           });
         }
         localStorage.removeItem('supabase_token');
+        localStorage.removeItem('supabase_refresh_token'); // 🔥 REFRESH TOKEN AUCH LÖSCHEN
         localStorage.removeItem('user_data');
         return { error: null };
       } catch (error) {
@@ -90,10 +94,71 @@ class SimpleSupabaseAPI {
 
   // 🔥 EINFACHE DATABASE METHODEN mit Auth-Headers
   from(table) {
-    // Helper für Auth-Headers mit verbesserter Token-Behandlung
-    const getAuthHeaders = () => {
+    // Helper für Auth-Headers mit TOKEN VALIDATION & REFRESH
+    const getAuthHeaders = async () => {
       const token = localStorage.getItem('supabase_token');
       const userData = localStorage.getItem('user_data');
+      
+      // 🔥 TOKEN VALIDATION: Check if token is still valid
+      if (token) {
+        try {
+          // Test token with a simple request
+          const testResponse = await fetch(`${this.url}/rest/v1/user_profiles?select=id&limit=1`, {
+            headers: {
+              'apikey': this.key,
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (testResponse.status === 401) {
+            console.warn('🔄 Token expired, attempting refresh...');
+            
+            // Try to refresh token using refresh_token if available
+            const refreshToken = localStorage.getItem('supabase_refresh_token');
+            if (refreshToken) {
+              const refreshResponse = await fetch(`${this.url}/auth/v1/token?grant_type=refresh_token`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': this.key
+                },
+                body: JSON.stringify({ refresh_token: refreshToken })
+              });
+              
+              if (refreshResponse.ok) {
+                const refreshData = await refreshResponse.json();
+                localStorage.setItem('supabase_token', refreshData.access_token);
+                localStorage.setItem('supabase_refresh_token', refreshData.refresh_token);
+                localStorage.setItem('user_data', JSON.stringify(refreshData.user));
+                
+                console.log('✅ Token refreshed successfully');
+                return {
+                  'Content-Type': 'application/json',
+                  'apikey': this.key,
+                  'Authorization': `Bearer ${refreshData.access_token}`,
+                  'Prefer': 'return=minimal'
+                };
+              }
+            }
+            
+            // If refresh fails, clear invalid tokens
+            console.error('❌ Token refresh failed, clearing auth data');
+            localStorage.removeItem('supabase_token');
+            localStorage.removeItem('supabase_refresh_token');
+            localStorage.removeItem('user_data');
+            
+            // Use service key as fallback
+            return {
+              'Content-Type': 'application/json',
+              'apikey': this.key,
+              'Authorization': `Bearer ${this.key}`,
+              'Prefer': 'return=minimal'
+            };
+          }
+        } catch (error) {
+          console.warn('🔄 Token validation failed:', error.message);
+        }
+      }
       
       // Debug-Info für Auth-Status
       console.log(`🔐 Auth Headers for ${table}:`, {
@@ -131,7 +196,7 @@ class SimpleSupabaseAPI {
           single: async () => {
             try {
               const filterQuery = filters.length > 0 ? `&${filters.join('&')}` : '';
-              const headers = getAuthHeaders();
+              const headers = await getAuthHeaders();
               
               console.log(`🔍 Single select from ${table}:`, {
                 url: `${this.url}/rest/v1/${table}?select=${columns}${filterQuery}&limit=1`,
@@ -160,7 +225,7 @@ class SimpleSupabaseAPI {
             const execute = async () => {
               try {
                 const filterQuery = filters.length > 0 ? `&${filters.join('&')}` : '';
-                const headers = getAuthHeaders();
+                const headers = await getAuthHeaders();
                 
                 console.log(`🔍 Select from ${table}:`, {
                   url: `${this.url}/rest/v1/${table}?select=${columns}${filterQuery}`,
@@ -198,7 +263,7 @@ class SimpleSupabaseAPI {
               single: async () => {
                 try {
                   const headers = {
-                    ...getAuthHeaders(),
+                    ...await getAuthHeaders(),
                     'Prefer': 'return=representation,resolution=merge-duplicates'
                   };
                   
@@ -241,7 +306,7 @@ class SimpleSupabaseAPI {
             const execute = async () => {
               try {
                 const headers = {
-                  ...getAuthHeaders(),
+                  ...await getAuthHeaders(),
                   'Prefer': 'return=minimal,resolution=merge-duplicates'
                 };
                 
@@ -275,7 +340,7 @@ class SimpleSupabaseAPI {
                 try {
                   // UPSERT Logic: INSERT mit ON CONFLICT DO UPDATE
                   const headers = {
-                    ...getAuthHeaders(),
+                    ...await getAuthHeaders(),
                     'Prefer': 'return=representation,resolution=merge-duplicates'
                   };
                   
@@ -308,7 +373,7 @@ class SimpleSupabaseAPI {
                     const updateResponse = await fetch(`${this.url}/rest/v1/${table}?${updateKey}=eq.${encodeURIComponent(walletAddress)}`, {
                       method: 'PATCH',
                       headers: {
-                        ...getAuthHeaders(),
+                        ...await getAuthHeaders(),
                         'Prefer': 'return=representation'
                       },
                       body: JSON.stringify(values)
@@ -347,7 +412,7 @@ class SimpleSupabaseAPI {
           try {
             const response = await fetch(`${this.url}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}`, {
               method: 'PATCH',
-              headers: getAuthHeaders(),
+              headers: await getAuthHeaders(),
               body: JSON.stringify(values)
             });
             
@@ -365,7 +430,7 @@ class SimpleSupabaseAPI {
           try {
             const response = await fetch(`${this.url}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}`, {
               method: 'DELETE',
-              headers: getAuthHeaders()
+              headers: await getAuthHeaders()
             });
             
             if (!response.ok) throw new Error(`Database error: ${response.status}`);
