@@ -751,6 +751,48 @@ class GermanTaxService {
 
     return results;
   }
+
+  // PDF Export Vorbereitung (für Kompatibilität)
+  async generatePDFManually(taxReport, options = {}) {
+    console.log(`📄 Preparing PDF export...`);
+
+    try {
+      if (!taxReport || taxReport.error) {
+        throw new Error('Invalid tax report data');
+      }
+
+      // Für jetzt: einfacher Download-Link
+      const pdfData = {
+        walletAddress: taxReport.walletAddress,
+        taxYear: taxReport.taxYear || new Date().getFullYear(),
+        generatedAt: new Date().toISOString(),
+        
+        summary: {
+          totalTaxableIncome: taxReport.summary.totalTaxableIncome,
+          roiIncome: taxReport.summary.roiIncome.totalEUR,
+          speculativeGains: taxReport.summary.speculativeGains.taxableGainsEUR
+        },
+        
+        disclaimer: 'Diese Berechnung erfolgt nach bestem Wissen entsprechend deutschem Steuerrecht. Bitte konsultieren Sie einen Steuerberater für die finale Steuererklärung.'
+      };
+
+      // Erstelle Download-Link
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(pdfData, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", `PulseManager_Steuerreport_${taxReport.taxYear}_${taxReport.walletAddress.slice(0,8)}.json`);
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+
+      console.log('✅ PDF-Daten als JSON heruntergeladen');
+      return pdfData;
+
+    } catch (error) {
+      console.error('❌ PDF preparation failed:', error);
+      throw error;
+    }
+  }
 }
 
 export default GermanTaxService; 

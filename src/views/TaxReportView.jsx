@@ -20,6 +20,9 @@ const TaxReportNew = () => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
+  // 🔥 GERMAN TAX SERVICE INSTANCE
+  const germanTaxService = new GermanTaxService();
+
   const generateNewTaxReport = async () => {
     if (!user?.id) return;
     
@@ -52,7 +55,7 @@ const TaxReportNew = () => {
         
         try {
           // 🇩🇪 GERMAN TAX SERVICE: Neues deutsches Steuerrecht
-          const report = await GermanTaxService.generateGermanTaxReport(wallet.address);
+          const report = await germanTaxService.generateGermanTaxReport(wallet.address);
           
           reports.push({
             wallet: wallet.address,
@@ -107,7 +110,7 @@ const TaxReportNew = () => {
       
       for (const reportData of data.reports) {
         if (reportData.report && reportData.success) {
-          await GermanTaxService.generatePDFManually(reportData.report);
+          await germanTaxService.generatePDFManually(reportData.report);
           console.log(`✅ PDF für Wallet ${reportData.wallet} generiert`);
         }
       }
@@ -148,7 +151,7 @@ const TaxReportNew = () => {
       console.log(`🎯 WGEP TEST für Wallet: ${testWallet.address}`);
       
       // 🇩🇪 VERWENDE DEN NEUEN GERMAN TAX SERVICE
-      const wgepReport = await GermanTaxService.generateWGEPTestReport(testWallet.address);
+      const wgepReport = await germanTaxService.generateGermanTaxReport(testWallet.address);
       
               // Zeige FINAL SERVICE Ergebnisse (gleiche UI-Meldung)
         const totalTransactions = wgepReport.totalTransactions || 0;
