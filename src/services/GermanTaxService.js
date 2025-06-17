@@ -1,14 +1,13 @@
 /**
- * 🇩🇪 GERMAN TAX SERVICE
+ * 🇩�� GERMAN TAX SERVICE - BROWSER-SAFE VERSION
  * 
  * Kern-Service für deutsche Krypto-Steuerberechnung
  * - FIFO-Methode nach deutschem Steuerrecht
  * - §22 & §23 EStG konforme Berechnung
- * - Moralis Web3 API Integration
+ * - Browser-kompatible API-Calls (kein direkter Moralis-Import)
  * - Optimiert für Performance
  */
 
-import Moralis from 'moralis';
 import PriceService from './PriceService.js';
 import ExportService from './ExportService.js';
 
@@ -54,12 +53,9 @@ export default class GermanTaxService {
      */
     async calculateTaxes(walletAddress, config) {
         try {
-            // Moralis initialisieren
-            await this.initializeMoralis();
-            
             console.log(`📊 Lade Transaktionen für ${walletAddress}...`);
             
-            // 1️⃣ Alle Transaktionen laden
+            // 1️⃣ Alle Transaktionen laden (Browser-safe API calls)
             const rawTransactions = await this.fetchAllTransactions(walletAddress, config);
             
             // 2️⃣ Transaktionen normalisieren und sortieren
@@ -86,28 +82,7 @@ export default class GermanTaxService {
     }
 
     /**
-     * 🔌 MORALIS INITIALISIERUNG
-     */
-    async initializeMoralis() {
-        if (this.initialized) return;
-        
-        try {
-            await Moralis.start({
-                apiKey: this.moralisApiKey
-            });
-            this.initialized = true;
-            console.log('✅ Moralis initialisiert');
-        } catch (error) {
-            throw {
-                code: 'MORALIS_INIT_ERROR',
-                message: 'Moralis konnte nicht initialisiert werden',
-                original: error
-            };
-        }
-    }
-
-    /**
-     * 📥 ALLE TRANSAKTIONEN LADEN
+     * 📥 ALLE TRANSAKTIONEN LADEN (Browser-Safe API Calls)
      */
     async fetchAllTransactions(walletAddress, config) {
         const allTransactions = [];
@@ -116,25 +91,13 @@ export default class GermanTaxService {
             try {
                 console.log(`⛓️ Lade ${this.SUPPORTED_CHAINS[chainId]} Transaktionen...`);
                 
-                // ERC20 Transfers
-                const erc20Transfers = await this.fetchERC20Transfers(walletAddress, chainId, config.taxYear);
+                // ERC20 Transfers über API
+                const erc20Transfers = await this.fetchERC20TransfersAPI(walletAddress, chainId, config.taxYear);
                 
-                // Native Token Transfers
-                const nativeTransfers = await this.fetchNativeTransfers(walletAddress, chainId, config.taxYear);
+                // Native Token Transfers über API  
+                const nativeTransfers = await this.fetchNativeTransfersAPI(walletAddress, chainId, config.taxYear);
                 
-                // DeFi Transactions (wenn aktiviert)
-                let defiTxs = [];
-                if (config.includeDeFi) {
-                    defiTxs = await this.fetchDeFiTransactions(walletAddress, chainId, config.taxYear);
-                }
-                
-                // NFT Transfers (wenn aktiviert)
-                let nftTxs = [];
-                if (config.includeNFTs) {
-                    nftTxs = await this.fetchNFTTransfers(walletAddress, chainId, config.taxYear);
-                }
-                
-                allTransactions.push(...erc20Transfers, ...nativeTransfers, ...defiTxs, ...nftTxs);
+                allTransactions.push(...erc20Transfers, ...nativeTransfers);
                 
             } catch (error) {
                 console.warn(`⚠️ Fehler beim Laden von ${this.SUPPORTED_CHAINS[chainId]}:`, error.message);
@@ -147,130 +110,88 @@ export default class GermanTaxService {
     }
 
     /**
-     * 🪙 ERC20 TRANSFERS LADEN
+     * 🪙 ERC20 TRANSFERS VIA API (Browser-Safe)
      */
-    async fetchERC20Transfers(address, chain, taxYear) {
+    async fetchERC20TransfersAPI(address, chain, taxYear) {
         try {
-            const fromDate = new Date(taxYear, 0, 1);
-            const toDate = new Date(taxYear, 11, 31);
-            
-            const response = await Moralis.EvmApi.token.getWalletTokenTransfers({
-                address,
-                chain,
-                fromDate: fromDate.toISOString(),
-                toDate: toDate.toISOString(),
-                limit: 100
+            const response = await fetch('/api/moralis-token-transfers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    address,
+                    chain,
+                    limit: 100
+                })
             });
             
-            return response.result.map(tx => ({
-                hash: tx.transactionHash,
-                blockTimestamp: tx.blockTimestamp,
-                from: tx.fromAddress,
-                to: tx.toAddress,
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success || !data.result) {
+                console.warn('⚠️ ERC20 API Response leer:', data);
+                return [];
+            }
+            
+            return data.result.map(tx => ({
+                hash: tx.transaction_hash || tx.transactionHash,
+                blockTimestamp: tx.block_timestamp || tx.blockTimestamp,
+                from: tx.from_address || tx.fromAddress,
+                to: tx.to_address || tx.toAddress,
                 value: tx.value,
                 tokenAddress: tx.address,
-                tokenSymbol: tx.tokenSymbol,
-                tokenName: tx.tokenName,
-                tokenDecimals: tx.tokenDecimals,
-                gasPrice: tx.gasPrice,
-                gasUsed: tx.gasUsed,
+                tokenSymbol: tx.symbol || tx.tokenSymbol,
+                tokenName: tx.name || tx.tokenName,
+                tokenDecimals: tx.decimals || tx.tokenDecimals,
                 chain,
                 type: 'erc20_transfer'
             }));
         } catch (error) {
-            console.error('ERC20 Transfer Error:', error);
+            console.error('ERC20 API Error:', error);
             return [];
         }
     }
 
     /**
-     * ⚡ NATIVE TRANSFERS LADEN
+     * ⚡ NATIVE TRANSFERS VIA API (Browser-Safe)
      */
-    async fetchNativeTransfers(address, chain, taxYear) {
+    async fetchNativeTransfersAPI(address, chain, taxYear) {
         try {
-            const fromDate = new Date(taxYear, 0, 1);
-            const toDate = new Date(taxYear, 11, 31);
+            const response = await fetch(`/api/moralis-proxy?endpoint=transactions&address=${address}&chain=${chain}&limit=100`);
             
-            const response = await Moralis.EvmApi.transaction.getWalletTransactions({
-                address,
-                chain,
-                fromDate: fromDate.toISOString(),
-                toDate: toDate.toISOString(),
-                limit: 100
-            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
             
-            return response.result
-                .filter(tx => tx.value !== '0')
+            const data = await response.json();
+            
+            if (!data.success || !data.result) {
+                console.warn('⚠️ Native Transfers API Response leer:', data);
+                return [];
+            }
+            
+            return data.result
+                .filter(tx => tx.value !== '0' && tx.value !== 0)
                 .map(tx => ({
                     hash: tx.hash,
-                    blockTimestamp: tx.blockTimestamp,
-                    from: tx.fromAddress,
-                    to: tx.toAddress,
+                    blockTimestamp: tx.block_timestamp || tx.blockTimestamp,
+                    from: tx.from_address || tx.fromAddress,
+                    to: tx.to_address || tx.toAddress,
                     value: tx.value,
                     tokenSymbol: this.getNativeTokenSymbol(chain),
                     tokenName: this.getNativeTokenName(chain),
                     tokenDecimals: 18,
-                    gasPrice: tx.gasPrice,
-                    gasUsed: tx.gasUsed,
+                    gasPrice: tx.gas_price || tx.gasPrice,
+                    gasUsed: tx.gas_used || tx.gasUsed,
                     chain,
                     type: 'native_transfer'
                 }));
         } catch (error) {
-            console.error('Native Transfer Error:', error);
-            return [];
-        }
-    }
-
-    /**
-     * 🏦 DEFI TRANSAKTIONEN LADEN
-     */
-    async fetchDeFiTransactions(address, chain, taxYear) {
-        // Vereinfachte DeFi-Erkennung - kann erweitert werden
-        try {
-            // Uniswap, SushiSwap, etc. Interaktionen
-            const defiContracts = this.getDeFiContracts(chain);
-            const defiTxs = [];
-            
-            // Hier würde man spezifische DeFi-Protokoll Calls machen
-            // Für jetzt: Placeholder
-            
-            return defiTxs;
-        } catch (error) {
-            console.error('DeFi Transactions Error:', error);
-            return [];
-        }
-    }
-
-    /**
-     * 🖼️ NFT TRANSFERS LADEN
-     */
-    async fetchNFTTransfers(address, chain, taxYear) {
-        try {
-            const fromDate = new Date(taxYear, 0, 1);
-            const toDate = new Date(taxYear, 11, 31);
-            
-            const response = await Moralis.EvmApi.nft.getWalletNFTTransfers({
-                address,
-                chain,
-                fromDate: fromDate.toISOString(),
-                toDate: toDate.toISOString(),
-                limit: 100
-            });
-            
-            return response.result.map(tx => ({
-                hash: tx.transactionHash,
-                blockTimestamp: tx.blockTimestamp,
-                from: tx.fromAddress,
-                to: tx.toAddress,
-                tokenId: tx.tokenId,
-                tokenAddress: tx.address,
-                tokenSymbol: tx.tokenSymbol || 'NFT',
-                tokenName: tx.tokenName,
-                chain,
-                type: 'nft_transfer'
-            }));
-        } catch (error) {
-            console.error('NFT Transfer Error:', error);
+            console.error('Native Transfers API Error:', error);
             return [];
         }
     }
