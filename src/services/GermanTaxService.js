@@ -4,8 +4,8 @@
 
 // Nutzt deine bestehenden Enterprise Services
 import PriceService from './PriceService';
-import PulseScanService from './PulseScanService';
-import PulseWatchService from './pulseWatchService';
+import { PulseScanService } from './PulseScanService';
+import { PulseWatchService } from './pulseWatchService';
 
 // =============================================================================
 // 🔧 ENHANCED CONFIGURATION für Enterprise APIs
@@ -72,8 +72,9 @@ class EnterpriseAPIService {
   constructor() {
     // Nutze DEINE bestehenden Services
     this.priceService = new PriceService();
-    this.pulseScanService = new PulseScanService();
-    this.pulseWatchService = new PulseWatchService();
+    // PulseScanService und PulseWatchService sind statische Klassen
+    this.pulseScanService = PulseScanService;
+    this.pulseWatchService = PulseWatchService;
     
     this.moralisApiKey = window.moralisApiKey || process.env.VITE_MORALIS_API_KEY;
     this.moralisBaseUrl = 'https://deep-index.moralis.io/api/v2.2';
@@ -204,12 +205,7 @@ class EnterpriseAPIService {
       
       // 1. PulseScan für normale Transaktionen (DEINE API)
       console.log(`📡 Loading via your PulseScanService...`);
-      const pulseScanTx = await this.pulseScanService.getWalletTransactions(walletAddress, {
-        startTimestamp: yearStart,
-        endTimestamp: yearEnd,
-        includeTokenTransfers: true,
-        includeInternalTx: true
-      });
+      const pulseScanTx = await this.pulseScanService.getTokenTransactions(walletAddress, null, 1, 1000);
       
       if (pulseScanTx && pulseScanTx.length > 0) {
         console.log(`✅ PulseScan: ${pulseScanTx.length} transactions`);
@@ -223,11 +219,7 @@ class EnterpriseAPIService {
 
       // 2. PulseWatch für ROI-Transaktionen (DEINE ROI-Spezialist API)
       console.log(`💰 Loading ROI via your PulseWatchService...`);
-      const pulseWatchROI = await this.pulseWatchService.getROITransactions(walletAddress, {
-        startTimestamp: yearStart,
-        endTimestamp: yearEnd,
-        includePrinterTokens: true
-      });
+      const pulseWatchROI = await this.pulseWatchService.getROITransactions(walletAddress, 100);
       
       if (pulseWatchROI && pulseWatchROI.length > 0) {
         console.log(`💰 PulseWatch ROI: ${pulseWatchROI.length} transactions`);
