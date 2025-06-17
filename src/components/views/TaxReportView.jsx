@@ -1,5 +1,5 @@
 // 🚨 TAX REPORT VIEW - TRIAL-SAFE MIT BUG-FIXES
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -8,12 +8,16 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { AuthContext } from '../../contexts/AuthContext';
+import DirectMoralisRealTaxService from '../../services/DirectMoralisRealTaxService';
 
 const TaxReportView = () => {
+  const { user, isAuthenticated } = useContext(AuthContext);
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [taxData, setTaxData] = useState(null);
   const [error, setError] = useState(null);
+  const [useDirectMoralis, setUseDirectMoralis] = useState(false);
 
   // 🚨 TRIAL-SAFE TEST (Bug-Fix für TypeError)
   const handleTrialSafeTest = async () => {
@@ -308,6 +312,53 @@ const TaxReportView = () => {
     }
   };
 
+  // 🚀 NEUE DIRECT MORALIS INTEGRATION
+  const handleDirectMoralisReport = async () => {
+    if (!walletAddress) {
+      setError('Bitte Wallet-Adresse eingeben');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('🎯 Starte Direct Moralis Real Tax Report...');
+      
+      // Moralis API Key von ENV oder hardcoded für Demo
+      const moralisApiKey = import.meta.env.VITE_MORALIS_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjY1ZjRmODU0LWNjZjMtNDRiMC1hZWJmLWRiY2ZhYWU3NzVkOCIsIm9yZ0lkIjoiMzk0NDE5IiwidXNlcklkIjoiNDA1MzM3IiwidHlwZUlkIjoiNzQwZjI1NzMtMzFkNi00YmU1LWJmMDMtYTQ0YjFiMGFhMDNmIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MTk0MzUxNTAsImV4cCI6NDg3NTE5NTE1MH0.VLOJZMdF_vODFJD_fU0mP1_T9r9y0VqP4-4HBwb7qUo';
+      
+      const directTaxService = new DirectMoralisRealTaxService(moralisApiKey);
+      
+      const realTaxReport = await directTaxService.calculateGermanTaxDirectly(walletAddress);
+      
+      console.log('✅ Direct Moralis Report erhalten:', realTaxReport);
+      
+      // Format für bestehende UI
+      const formattedData = {
+        reports: realTaxReport.reports || [],
+        summary: realTaxReport.summary || {},
+        metadata: {
+          source: 'Direct Moralis Client-Side',
+          compliance: realTaxReport.compliance,
+          transactionsProcessed: realTaxReport.transactionsProcessed,
+          calculationDate: realTaxReport.calculationDate,
+          priceSource: realTaxReport.priceSource
+        },
+        roiEvents: realTaxReport.roiEvents,
+        speculationEvents: realTaxReport.speculationEvents
+      };
+      
+      setTaxData(formattedData);
+      
+    } catch (error) {
+      console.error('❌ Direct Moralis Error:', error);
+      setError(`Direct Moralis Error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Card className="max-w-4xl mx-auto">
@@ -532,6 +583,20 @@ const TaxReportView = () => {
                 </ul>
               </div>
             </div>
+          </div>
+
+          {/* DIRECT MORALIS BUTTON */}
+          <div className="mt-6">
+            <button
+              onClick={handleDirectMoralisReport}
+              disabled={isLoading}
+              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all duration-200 text-lg"
+            >
+              {isLoading ? '⏳ Lädt...' : '🎯 DIRECT MORALIS REAL TAX REPORT'}
+            </button>
+            <p className="text-sm text-gray-600 mt-2 text-center">
+              ✅ Echte Transaktionen ✅ Trial-kompatibel ✅ Keine 500 Errors
+            </p>
           </div>
         </CardContent>
       </Card>
