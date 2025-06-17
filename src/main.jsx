@@ -1,8 +1,7 @@
 // ☢️ DEEP BUNDLE FIX - Nuclear Option für minifizierte Module (MUSS ZUERST GELADEN WERDEN!)
 // import './lib/DeepBundleFix.js'; // 🧹 REMOVED: Clean mode activated
 
-// 🔙 ORIGINAL SIMPLE SUPABASE - Zurück zu API-Calls (kein SDK!)
-import './lib/SimpleSupabaseClient.js'; // 🎯 ORIGINAL: Direkte API-Calls ohne Headers-Probleme
+// ✅ SUPABASE CLIENT bereits in supabaseClient.js - kein extra Import!
 
 // 🚨 ALLE SDK-FIXES DEAKTIVIERT - Original funktioniert!
 // import './lib/SupabaseHeadersFix.js'; // 🔧 MINIMAL: Nur für Supabase Headers Error
