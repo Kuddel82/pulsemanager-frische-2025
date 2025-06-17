@@ -77,7 +77,7 @@ export const useWalletConnect = () => {
       } else {
         // Insert new wallet
         const { error } = await supabase
-          .from('wallets')
+          .from('Brieftaschen')
           .insert({
             user_id: user.id,
             address: address.toLowerCase(),
