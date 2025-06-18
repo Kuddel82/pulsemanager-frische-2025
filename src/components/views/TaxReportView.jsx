@@ -3,7 +3,7 @@ import { FileText, AlertTriangle, Info, Download, Wallet, ChevronDown } from 'lu
 import { useAppContext } from '@/contexts/AppContext';
 
 const SimpleTaxTracker = () => {
-  const { wcAccounts, wcIsConnected, wcConnectWallet, wcIsConnecting, t } = useAppContext();
+  const { wcAccounts, wcIsConnected, wcConnectWallet, wcIsConnecting, t, connectedWalletAddress } = useAppContext();
   
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -12,9 +12,19 @@ const SimpleTaxTracker = () => {
   const [pdfData, setPdfData] = useState(null);
   const [showWalletDropdown, setShowWalletDropdown] = useState(false);
 
-  // 🎯 WALLET INTEGRATION: Verwende verbundene Wallets
-  const connectedWallets = wcAccounts || [];
-  const hasConnectedWallets = wcIsConnected && connectedWallets.length > 0;
+  // 🎯 WALLET INTEGRATION: Verwende die gleiche Variable wie Dashboard
+  const connectedWallets = connectedWalletAddress ? [connectedWalletAddress] : (wcAccounts || []);
+  const hasConnectedWallets = Boolean(connectedWalletAddress) || (wcIsConnected && connectedWallets.length > 0);
+
+  // 🔍 DEBUG: Wallet-Status loggen
+  console.log('🔍 WALLET DEBUG:', {
+    wcIsConnected,
+    wcAccounts,
+    connectedWalletAddress, // HAUPTVARIABLE vom Dashboard
+    connectedWallets,
+    hasConnectedWallets,
+    walletAddress
+  });
 
   // 🚀 AUTOMATISCHE WALLET-LADUNG: Setze erste verbundene Wallet automatisch
   useEffect(() => {
