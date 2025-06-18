@@ -17,66 +17,84 @@ const MORALIS_CONFIG = {
     maxRetries: 3
 };
 
-// 🎯 ROI TOKEN DEFINITIONS
-const ROI_TOKENS = {
-    'WGEP': {
-        address: '0x5b1d655e9d3c4e5fb5d2b3c4e5f6a7b8c9d0e1f2',
-        name: 'WGEP Token',
-        priceEUR: 0.0025,
-        category: 'ROI_REWARD'
-    },
-    'HEX': {
-        address: '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
-        name: 'HEX',
-        priceEUR: 0.0042,
-        category: 'ROI_REWARD'
-    },
-    'PLSX': {
-        address: '0x95b303987a60c71504d99aa1b13b4da07b0790ab',
-        name: 'PulseX',
-        priceEUR: 0.000015,
-        category: 'ROI_REWARD'
-    },
-    'PLS': {
-        address: '0xa1077a294dde1b09bb078844df40758a5d0f9a27',
-        name: 'Pulse',
-        priceEUR: 0.00008,
-        category: 'ROI_REWARD'
-    }
-};
+// 🎯 ROI TOKEN CATEGORIES (ohne Preise - werden dynamisch geladen)
+const ROI_TOKEN_SYMBOLS = ['WGEP', 'HEX', 'PLSX', 'PLS', 'MASKMAN', 'BORK'];
 
-// 💰 ENHANCED PRICE LOOKUP (Phase 1: Sichere Verbesserung)
+// 💰 ECHTZEIT PRICE LOOKUP (echte APIs statt hardcoded)
 async function getTokenPriceEUR(symbol, address, chainId = '0x171') {
     try {
-        // 1. Stablecoin-Preise (immer 1.0 EUR ~ 1.08 USD)
+        console.log(`🔍 Lade ECHTZEIT-Preis für: ${symbol}`);
+        
+        // 1. Versuche Moralis Price API
+        if (MORALIS_CONFIG.apiKey) {
+            try {
+                const moralisPrice = await fetchMoralisPrice(address, chainId);
+                if (moralisPrice > 0) {
+                    console.log(`✅ Moralis Preis für ${symbol}: €${moralisPrice}`);
+                    return moralisPrice;
+                }
+            } catch (error) {
+                console.warn(`⚠️ Moralis Preis-Fehler für ${symbol}:`, error.message);
+            }
+        }
+        
+        // 2. Fallback: CoinGecko API für bekannte Token
+        try {
+            const coingeckoPrice = await fetchCoinGeckoPrice(symbol);
+            if (coingeckoPrice > 0) {
+                console.log(`✅ CoinGecko Preis für ${symbol}: €${coingeckoPrice}`);
+                return coingeckoPrice;
+            }
+        } catch (error) {
+            console.warn(`⚠️ CoinGecko Preis-Fehler für ${symbol}:`, error.message);
+        }
+        
+        // 3. Nur für Stablecoins: fixer Wert
         if (['USDC', 'USDT', 'DAI', 'BUSD'].includes(symbol?.toUpperCase())) {
             return 0.93; // USD zu EUR approximation
         }
         
-        // 2. Bekannte Token-Preise (aus Research)
-        const knownPrices = {
-            'PLS': 0.00005,
-            'PLSX': 0.0000271, 
-            'HEX': 0.00616,
-            'WGEP': 0.85,
-            'ETH': 3400.0,
-            'BTC': 96000.0,
-            'WBTC': 96000.0,
-            'WETH': 3400.0
-        };
-        
-        if (knownPrices[symbol?.toUpperCase()]) {
-            return knownPrices[symbol.toUpperCase()] * 0.93; // USD zu EUR
-        }
-        
-        // 3. Fallback für unbekannte Token
-        console.warn(`⚠️ Unbekannter Token-Preis: ${symbol}, verwende Minimal-Preis`);
-        return 0.001; // Minimal-Preis für unbekannte Token
+        // 4. Letzter Fallback für unbekannte Token
+        console.warn(`❌ KEIN ECHTZEIT-PREIS gefunden für: ${symbol}`);
+        return 0; // Kein Wert wenn kein echter Preis
         
     } catch (error) {
         console.error('❌ Preis-Lookup Fehler:', error.message);
-        return 0.001;
+        return 0;
     }
+}
+
+// 🔗 Moralis Price API Call
+async function fetchMoralisPrice(address, chainId) {
+    const url = `${MORALIS_CONFIG.baseURL}/erc20/${address}/price?chain=${chainId}`;
+    const response = await fetch(url, {
+        headers: { 'X-API-Key': MORALIS_CONFIG.apiKey }
+    });
+    const data = await response.json();
+    
+    if (data.usdPrice) {
+        return parseFloat(data.usdPrice) * 0.93; // USD zu EUR
+    }
+    return 0;
+}
+
+// 🔗 CoinGecko Price API Call  
+async function fetchCoinGeckoPrice(symbol) {
+    const coinGeckoIds = {
+        'ETH': 'ethereum',
+        'BTC': 'bitcoin', 
+        'HEX': 'hex',
+        'PLS': 'pulsechain'
+    };
+    
+    const coinId = coinGeckoIds[symbol?.toUpperCase()];
+    if (!coinId) return 0;
+    
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=eur`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    return data[coinId]?.eur || 0;
 }
 
 // 🚀 MAIN API HANDLER
@@ -97,7 +115,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { address, realDataOnly, year = 2024, chains = ['0x1'] } = req.body;
+        const { address, realDataOnly, year = 2025, chains = ['0x171'] } = req.body;
 
         if (!address) {
             return res.status(400).json({ 
@@ -114,9 +132,9 @@ export default async function handler(req, res) {
             });
         }
 
-        console.log(`🔍 Lade echte Transaktionen für: ${address}`);
+        console.log(`🔍 Lade echte Transaktionen für: ${address} (Jahr: ${year})`);
 
-        // 1. LADE ECHTE TRANSAKTIONEN VON MORALIS
+        // 1. LADE ECHTE TRANSAKTIONEN VON MORALIS + BLOCKSCOUT BACKUP
         const transactions = await loadRealTransactions(address, chains, year);
         console.log(`📊 ${transactions.length} Transaktionen geladen`);
 
@@ -265,11 +283,64 @@ async function loadRealTransactions(address, chains, year) {
             
         } catch (error) {
             console.error(`❌ Fehler Chain ${chainId}:`, error.message);
+            
+            // 🔄 BLOCKSCOUT BACKUP für PulseChain
+            if (chainId === '0x171') {
+                try {
+                    console.log(`🔄 BACKUP: Versuche PulseChain BlockScout API...`);
+                    const blockscoutTxs = await loadFromBlockScout(address, year);
+                    allTransactions.push(...blockscoutTxs);
+                    console.log(`✅ BACKUP: ${blockscoutTxs.length} Transaktionen von BlockScout geladen`);
+                } catch (backupError) {
+                    console.error(`❌ BACKUP auch fehlgeschlagen:`, backupError.message);
+                }
+            }
         }
     }
     
     console.log(`🎯 GESAMT: ${allTransactions.length} Transaktionen von allen Chains geladen`);
     return allTransactions;
+}
+
+// 🔄 BLOCKSCOUT BACKUP API (PulseChain)
+async function loadFromBlockScout(address, year) {
+    try {
+        console.log(`🔍 BlockScout: Lade Token-Transfers für ${address}...`);
+        
+        const blockscoutUrl = `https://api.scan.pulsechain.com/api?module=account&action=tokentx&address=${address}&startblock=0&endblock=latest&sort=desc&offset=500`;
+        
+        const response = await fetch(blockscoutUrl);
+        const data = await response.json();
+        
+        if (data.status === '1' && Array.isArray(data.result)) {
+            // Filter nach Jahr und konvertiere zu Moralis-Format
+            const yearTransactions = data.result
+                .filter(tx => {
+                    const txYear = new Date(parseInt(tx.timeStamp) * 1000).getFullYear();
+                    return txYear === year;
+                })
+                .map(tx => ({
+                    // Konvertiere BlockScout Format zu Moralis Format
+                    token_address: tx.contractAddress,
+                    token_symbol: tx.tokenSymbol,
+                    token_decimals: parseInt(tx.tokenDecimal),
+                    value: tx.value,
+                    block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                    transaction_hash: tx.hash,
+                    from_address: tx.from,
+                    to_address: tx.to,
+                    source: 'blockscout'
+                }));
+            
+            console.log(`✅ BlockScout: ${yearTransactions.length} ${year}-Transaktionen konvertiert`);
+            return yearTransactions;
+        }
+        
+        return [];
+    } catch (error) {
+        console.error(`❌ BlockScout Error:`, error.message);
+        return [];
+    }
 }
 
 // 🎯 KLASSIFIZIERE TRANSAKTIONEN
