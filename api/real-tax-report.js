@@ -227,45 +227,73 @@ function generateDemoTaxReport(address) {
 async function loadRealTransactions(address, chains, year) {
     const allTransactions = [];
     
-    for (const chainId of chains) {
+    // 🚀 ERWEITERTE CHAIN-LISTE für mehr Transaktionen
+    const extendedChains = [
+        '0x1',    // Ethereum Mainnet
+        '0x89',   // Polygon
+        '0xa4b1', // Arbitrum
+        '0x38',   // BSC
+        '0x171',  // PulseChain
+        ...chains
+    ];
+    
+    for (const chainId of extendedChains) {
         try {
-            console.log(`🔗 Lade Chain ${chainId} Transaktionen...`);
+            console.log(`🔗 Lade Chain ${chainId} Transaktionen mit Pagination...`);
             
-            // Moralis API Call für ERC-20 Transfers
-            const response = await fetch(
-                `${MORALIS_CONFIG.baseURL}/${address}/erc20/transfers?chain=${chainId}&limit=100`,
-                {
+            let cursor = null;
+            let pageCount = 0;
+            const maxPages = 5; // Maximal 5 Seiten = 500 Transaktionen pro Chain
+            
+            do {
+                // Moralis API Call mit Pagination
+                let url = `${MORALIS_CONFIG.baseURL}/${address}/erc20/transfers?chain=${chainId}&limit=100`;
+                if (cursor) {
+                    url += `&cursor=${cursor}`;
+                }
+                
+                const response = await fetch(url, {
                     headers: {
                         'X-API-Key': MORALIS_CONFIG.apiKey,
                         'Accept': 'application/json'
                     }
+                });
+
+                if (!response.ok) {
+                    console.warn(`⚠️ Chain ${chainId} API Error: ${response.status}`);
+                    break;
                 }
-            );
 
-            if (!response.ok) {
-                console.warn(`⚠️ Chain ${chainId} API Error: ${response.status}`);
-                continue;
-            }
+                const data = await response.json();
+                const transfers = data.result || [];
+                
+                // Filter nach Jahr
+                const yearTransactions = transfers.filter(tx => {
+                    const txYear = new Date(tx.block_timestamp).getFullYear();
+                    return txYear === year;
+                });
 
-            const data = await response.json();
-            const transfers = data.result || [];
+                allTransactions.push(...yearTransactions);
+                
+                // Pagination
+                cursor = data.cursor;
+                pageCount++;
+                
+                console.log(`📄 Chain ${chainId} - Seite ${pageCount}: ${transfers.length} TXs geladen, ${yearTransactions.length} für ${year}`);
+                
+                // Rate Limiting
+                await new Promise(resolve => setTimeout(resolve, MORALIS_CONFIG.rateLimitMs));
+                
+            } while (cursor && pageCount < maxPages);
             
-            // Filter nach Jahr
-            const yearTransactions = transfers.filter(tx => {
-                const txYear = new Date(tx.block_timestamp).getFullYear();
-                return txYear === year;
-            });
-
-            allTransactions.push(...yearTransactions);
-            
-            // Rate Limiting
-            await new Promise(resolve => setTimeout(resolve, MORALIS_CONFIG.rateLimitMs));
+            console.log(`✅ Chain ${chainId} fertig: ${pageCount} Seiten geladen`);
             
         } catch (error) {
             console.error(`❌ Fehler Chain ${chainId}:`, error.message);
         }
     }
     
+    console.log(`🎯 GESAMT: ${allTransactions.length} Transaktionen von allen Chains geladen`);
     return allTransactions;
 }
 

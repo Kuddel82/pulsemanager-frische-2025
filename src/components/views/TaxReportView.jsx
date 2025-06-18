@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { FileText, AlertTriangle, Info } from 'lucide-react';
+import { FileText, AlertTriangle, Info, Download } from 'lucide-react';
 
 const SimpleTaxTracker = () => {
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [taxData, setTaxData] = useState(null);
   const [error, setError] = useState(null);
+  const [pdfData, setPdfData] = useState(null); // Für manuellen PDF Download
 
   const handleGenerateReport = async () => {
     if (!walletAddress) {
@@ -16,6 +17,7 @@ const SimpleTaxTracker = () => {
     setIsLoading(true);
     setTaxData(null);
     setError(null);
+    setPdfData(null);
 
     try {
       console.log('🔥 Starte echte Moralis-Datenabfrage...');
@@ -101,17 +103,9 @@ const SimpleTaxTracker = () => {
           setTaxData(data.taxReport);
         }
         
-        // Automatischer PDF Download
+        // PDF-Daten für manuellen Download speichern
         if (data.taxReport.pdfBuffer) {
-          const blob = new Blob([new Uint8Array(data.taxReport.pdfBuffer.data)], { type: 'application/pdf' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `Steuerreport_${walletAddress.slice(0,8)}_${new Date().toISOString().split('T')[0]}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
+          setPdfData(data.taxReport.pdfBuffer);
         }
         
       } else {
@@ -123,6 +117,30 @@ const SimpleTaxTracker = () => {
       setError(`Fehler: ${error.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Manueller PDF Download
+  const handleDownloadPDF = () => {
+    if (!pdfData) {
+      alert('Keine PDF-Daten verfügbar');
+      return;
+    }
+
+    try {
+      const blob = new Blob([new Uint8Array(pdfData.data)], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Steuerreport_${walletAddress.slice(0,8)}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      console.log('📄 PDF manuell heruntergeladen');
+    } catch (error) {
+      console.error('❌ PDF Download Fehler:', error);
+      alert('Fehler beim PDF Download');
     }
   };
 
@@ -281,7 +299,7 @@ const SimpleTaxTracker = () => {
 
             {/* Events Table - PulseChain Style */}
             {taxData.taxEvents && taxData.taxEvents.length > 0 && (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto mb-6">
                 <h3 className="text-xl font-semibold pulse-text mb-4">
                   📋 Steuerpflichtige Ereignisse (Top 10)
                 </h3>
@@ -320,12 +338,20 @@ const SimpleTaxTracker = () => {
               </div>
             )}
 
-            {/* Download Info - PulseChain Style */}
+            {/* PDF Download Button - Manuell */}
             <div className="mt-6 p-4 rounded-lg text-center border-l-4" style={{backgroundColor: 'var(--bg-secondary)', borderLeftColor: 'var(--accent-green)'}}>
-              <div className="pulse-text">
-                ✅ <strong>PDF wurde automatisch heruntergeladen!</strong><br/>
-                Schau in deinen Downloads-Ordner.
+              <div className="pulse-text mb-4">
+                ✅ <strong>Steuerreport erfolgreich erstellt!</strong><br/>
+                Jetzt kannst du den PDF-Report herunterladen.
               </div>
+              <button
+                onClick={handleDownloadPDF}
+                disabled={!pdfData}
+                className={`pulse-btn ${!pdfData ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
+              >
+                <Download className="h-5 w-5 mr-2" />
+                PDF-Report herunterladen
+              </button>
             </div>
           </div>
         )}
