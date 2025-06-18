@@ -187,26 +187,41 @@ const SimpleTaxTracker = () => {
       console.log(`✅ Ethereum: ${data.result?.length || 0} transactions loaded`);
       
       // Formatiere Ethereum Transaktionen
-      const formattedTransactions = (data.result || []).map(tx => ({
-        hash: tx.transaction_hash || '',
-        blockNumber: tx.block_number || 0,
-        timeStamp: tx.block_timestamp || 0,
-        timestamp: new Date(tx.block_timestamp * 1000).toISOString(),
-        from: tx.from_address || '',
-        to: tx.to_address || '',
-        value: tx.value || '0',
-        tokenName: tx.token_name || 'Unknown',
-        tokenSymbol: tx.token_symbol || 'UNKNOWN',
-        tokenDecimal: tx.token_decimals || 18,
-        contractAddress: tx.token_address || '',
-        gasUsed: tx.gas_used || 0,
-        gasPrice: tx.gas_price || '0',
-        direction: tx.to_address?.toLowerCase() === walletAddress.toLowerCase() ? 'IN' : 'OUT',
-        type: 'ERC20_TRANSFER',
-        source: 'ethereum_moralis',
-        walletAddress: walletAddress,
-        chain: '0x1'
-      }));
+      const formattedTransactions = (data.result || []).map(tx => {
+        // 🔥 SICHERE TIMESTAMP-VALIDIERUNG
+        let safeTimestamp;
+        try {
+          if (tx.block_timestamp && !isNaN(tx.block_timestamp)) {
+            safeTimestamp = new Date(tx.block_timestamp * 1000).toISOString();
+          } else {
+            safeTimestamp = new Date().toISOString(); // Fallback
+          }
+        } catch (error) {
+          console.warn(`⚠️ Invalid timestamp for tx ${tx.transaction_hash}: ${tx.block_timestamp}`);
+          safeTimestamp = new Date().toISOString(); // Fallback
+        }
+
+        return {
+          hash: tx.transaction_hash || '',
+          blockNumber: tx.block_number || 0,
+          timeStamp: tx.block_timestamp || 0,
+          timestamp: safeTimestamp,
+          from: tx.from_address || '',
+          to: tx.to_address || '',
+          value: tx.value || '0',
+          tokenName: tx.token_name || 'Unknown',
+          tokenSymbol: tx.token_symbol || 'UNKNOWN',
+          tokenDecimal: tx.token_decimals || 18,
+          contractAddress: tx.token_address || '',
+          gasUsed: tx.gas_used || 0,
+          gasPrice: tx.gas_price || '0',
+          direction: tx.to_address?.toLowerCase() === walletAddress.toLowerCase() ? 'IN' : 'OUT',
+          type: 'ERC20_TRANSFER',
+          source: 'ethereum_moralis',
+          walletAddress: walletAddress,
+          chain: '0x1'
+        };
+      });
 
       return { transactions: formattedTransactions };
       
