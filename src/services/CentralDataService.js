@@ -486,7 +486,7 @@ export class CentralDataService {
               if (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP' || tokenSymbol.includes('WG') || 
                   tokenAddress === '0xfca88920ca5639ad5e954ea776e73dec54fdc065' || 
                   tokenSymbol?.includes('🖨️')) {
-                console.log(`🔍 DEBUG TOKEN: ${tokenSymbol} - Balance: ${balanceReadable}, Price: $${finalPrice}, Value: $${totalUsd}, Address: ${tokenAddress}, Source: ${priceSource}`);
+                // Token debug log removed for production
               }
               
               // 🚨 CRITICAL ETH PRICE FIX: Use the real-time prices that were already loaded

@@ -178,7 +178,7 @@ export class ROIDetectionService {
       
       // 🔧 DEBUG: Explicit API endpoint logging
       const apiEndpoint = `/api/moralis-transactions`;
-      console.log(`🔧 ROI DEBUG: Using API endpoint ${apiEndpoint}`);
+              // Debug log removed for production
       
       const response = await fetch(apiEndpoint, {
         method: 'POST',

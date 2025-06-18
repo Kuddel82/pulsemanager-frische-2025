@@ -1,5 +1,5 @@
-// 🚀 TAX REPORT NEW - VOLLSTÄNDIG NEUES STEUERKONFORMES SYSTEM
-// Datum: 2025-01-15 - NOTFALL-LÖSUNG für Button-Sichtbarkeit
+// 🇩🇪 TAX REPORT VIEW - PRODUCTION READY
+// Clean version - Alle Debug-Imports entfernt
 
 import React, { useState } from 'react';
 import { 
@@ -14,13 +14,13 @@ import GermanTaxService from '@/services/GermanTaxService';
 import { useAuth } from '@/contexts/AuthContext';
 import CentralDataService from '@/services/CentralDataService';
 
-const TaxReportNew = () => {
+const TaxReportView = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
-  // 🔥 GERMAN TAX SERVICE INSTANCE
+  // 🔥 GERMAN TAX SERVICE INSTANCE (für PDF und Tests)
   const germanTaxService = new GermanTaxService();
 
   const generateNewTaxReport = async () => {
@@ -30,7 +30,7 @@ const TaxReportNew = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔥 NEUES TAX SYSTEM: Starte vollständige Neuberechnung...');
+      console.log('🇩🇪 TAX SYSTEM: Starte deutsche Steuerberechnung...');
       
       // 1. Lade User-Wallets
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
@@ -95,16 +95,16 @@ const TaxReportNew = () => {
         failedReports: reports.filter(r => !r.success).length,
         reports,
         generatedAt: new Date().toISOString(),
-        version: '2.0.0-rebuild'
+        version: '3.0.0-production'
       };
       
       setData(combinedReport);
       
-      console.log('✅ NEUES TAX SYSTEM: Alle Reports erfolgreich generiert!');
+      console.log('✅ TAX SYSTEM: Alle Reports erfolgreich generiert!');
       console.log(`📊 Erfolgreich: ${combinedReport.successfulReports}/${combinedReport.totalWallets} Wallets`);
       
     } catch (error) {
-      console.error('❌ NEUES TAX SYSTEM FEHLER:', error);
+      console.error('❌ TAX SYSTEM FEHLER:', error);
       setError(`Fehler beim Generieren des Tax Reports: ${error.message}`);
     } finally {
       setLoading(false);
@@ -753,4 +753,4 @@ const TaxReportNew = () => {
   );
 };
 
-export default TaxReportNew; 
+export default TaxReportView; 

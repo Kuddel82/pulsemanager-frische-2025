@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   const { endpoint, address, chain = 'eth', limit = 100, cursor } = req.query;
   const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 
-  console.log(`🔍 PROXY DEBUG: endpoint=${endpoint}, address=${address?.slice(0,8)}..., chain=${chain}, limit=${limit}`);
+  // Proxy debug log removed for production
 
   // 🚨 CRITICAL: API Key Check mit detaillierter Diagnose
   if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {

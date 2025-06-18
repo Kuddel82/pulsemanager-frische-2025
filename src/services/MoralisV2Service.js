@@ -138,7 +138,7 @@ export class MoralisV2Service {
       }
       
       // 🔍 ENHANCED DEBUG: Detaillierte API-Antwort
-      console.log(`🔍 V2 PAGINATION DEBUG: result=${data.result?.length || 0}, cursor=${data.cursor || 'null'}, success=${data.success}`);
+      // Pagination debug removed for production
       console.log(`🔍 V2 SAMPLE TRANSACTION:`, data.result?.[0] ? {
         hash: data.result[0].transaction_hash?.slice(0, 10) + '...',
         from: data.result[0].from_address?.slice(0, 8) + '...',

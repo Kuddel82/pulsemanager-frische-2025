@@ -81,7 +81,7 @@ export class MultiChainWalletService {
    * 🔍 Debug: Zeige alle verfügbaren Wallets
    */
   static debugWallets(wallets) {
-    console.log('🔍 WALLET DEBUG:');
+            // Debug log removed for production
     console.log('Original wallets:', wallets.map(w => ({
       address: w.address?.slice(0, 8) + '...',
       chain: w.chain,
