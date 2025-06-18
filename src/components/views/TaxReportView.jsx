@@ -402,11 +402,11 @@ const TaxReportView = () => {
             <button
               onClick={handleRealTaxReport}
               disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-green-800 to-emerald-600 text-white rounded-lg font-bold hover:from-green-900 hover:to-emerald-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-green-400 shadow-lg"
+              className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-violet-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-purple-400 shadow-lg shadow-purple-500/25"
             >
               {isLoading ? '⏳ Lädt echte Daten...' : '🇩🇪 REAL TAX REPORT: Echte Transaktionen'}
             </button>
-            <p className="text-sm text-green-700 mt-2 text-center font-semibold">
+            <p className="text-sm text-purple-700 mt-2 text-center font-semibold">
               ✅ Lädt echte Moralis-Transaktionen + Deutsches Steuerrecht (§22 & §23 EStG)
             </p>
           </div>
@@ -416,11 +416,11 @@ const TaxReportView = () => {
             <button
               onClick={handleEmergencyTest}
               disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-red-800 to-red-600 text-white rounded-lg font-bold hover:from-red-900 hover:to-red-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-red-400"
+              className="w-full px-6 py-4 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-violet-400 shadow-lg shadow-violet-500/25"
             >
               {isLoading ? '⏳ Lädt...' : '🚨 EMERGENCY: Demo-Daten (Falls APIs offline)'}
             </button>
-            <p className="text-sm text-red-600 mt-2 text-center font-semibold">
+            <p className="text-sm text-violet-600 mt-2 text-center font-semibold">
               🆘 Notfall-Modus: Funktioniert wenn alle anderen APIs versagen
             </p>
           </div>
@@ -430,11 +430,11 @@ const TaxReportView = () => {
             <button
               onClick={handleTrialSafeTest}
               disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg font-bold hover:from-red-700 hover:to-orange-700 disabled:opacity-50 transition-all duration-200 text-lg"
+              className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-violet-500 text-white rounded-lg font-bold hover:from-purple-600 hover:to-violet-600 disabled:opacity-50 transition-all duration-200 text-lg shadow-lg shadow-purple-500/25"
             >
               {isLoading ? '⏳ Lädt...' : '🚨 TRIAL-SAFE: TypeError Bug-Fix'}
             </button>
-            <p className="text-sm text-gray-600 mt-2 text-center">
+            <p className="text-sm text-purple-600 mt-2 text-center font-semibold">
               ⚡ Fixt den "reduce().toFixed()" TypeError + nutzt nur verfügbare APIs
             </p>
           </div>
@@ -444,7 +444,7 @@ const TaxReportView = () => {
             <button
               onClick={handlePhase2Test}
               disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 transition-all duration-200"
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-violet-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-violet-600 disabled:opacity-50 transition-all duration-200 shadow-lg shadow-purple-500/20"
             >
               {isLoading ? '⏳ Lädt...' : '🚀 PHASE 2: CoinGecko Historical'}
             </button>
@@ -452,7 +452,7 @@ const TaxReportView = () => {
             <button
               onClick={handlePhase3Test}
               disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-teal-700 disabled:opacity-50 transition-all duration-200"
+              className="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-lg font-semibold hover:from-violet-600 hover:to-purple-600 disabled:opacity-50 transition-all duration-200 shadow-lg shadow-violet-500/20"
             >
               {isLoading ? '⏳ Lädt...' : '🔥 PHASE 3: Moralis Pro'}
             </button>
@@ -603,11 +603,11 @@ const TaxReportView = () => {
             <button
               onClick={handleDirectMoralisReport}
               disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all duration-200 text-lg"
+              className="w-full px-6 py-4 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200 text-lg shadow-lg shadow-violet-500/25"
             >
               {isLoading ? '⏳ Lädt...' : '🎯 DIRECT MORALIS REAL TAX REPORT'}
             </button>
-            <p className="text-sm text-gray-600 mt-2 text-center">
+            <p className="text-sm text-violet-600 mt-2 text-center font-semibold">
               ✅ Echte Transaktionen ✅ Trial-kompatibel ✅ Keine 500 Errors
             </p>
           </div>
@@ -634,11 +634,11 @@ const TaxReportView = () => {
                 fixETHPrinterTaxDisplay();
               }}
               disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700 disabled:opacity-50 transition-all duration-200 text-lg"
+              className="w-full px-6 py-4 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white rounded-lg font-bold hover:from-fuchsia-700 hover:to-pink-700 disabled:opacity-50 transition-all duration-200 text-lg shadow-lg shadow-fuchsia-500/25"
             >
               🖨️ ETH PRINTER DEMO (ECHTE TRANSAKTIONEN)
             </button>
-            <p className="text-sm text-gray-600 mt-2 text-center">
+            <p className="text-sm text-fuchsia-600 mt-2 text-center font-semibold">
               🔥 Basierend auf echten ETH Printer Transaktionen 🔥 BORK Token 🔥 🖨️ Token Swaps
             </p>
           </div>
