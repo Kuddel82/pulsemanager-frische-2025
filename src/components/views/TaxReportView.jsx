@@ -207,7 +207,7 @@ const TaxReportView = () => {
     }
   };
 
-  // 🚨 EMERGENCY TEST (komplett unabhängig)
+  // EMERGENCY TEST (Demo-Daten)
   const handleEmergencyTest = async () => {
     if (!walletAddress) {
       alert('Bitte Wallet-Adresse eingeben');
@@ -219,16 +219,16 @@ const TaxReportView = () => {
     setError(null);
 
     try {
-      console.log('🚨 EMERGENCY: Test gestartet');
+      console.log('🚨 EMERGENCY: Demo-Daten Test gestartet');
       
-      const response = await fetch('/api/emergency-tax-test', {
+      const response = await fetch('/api/german-tax-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
           address: walletAddress,
-          phase: 'EMERGENCY_MODE'
+          phase: 'EMERGENCY_DEMO'
         }),
       });
 
@@ -239,11 +239,26 @@ const TaxReportView = () => {
       const data = await response.json();
       
       if (data.success && data.taxReport) {
-        console.log('✅ EMERGENCY: Test erfolgreich');
+        console.log('✅ EMERGENCY: Demo-Daten erfolgreich');
         setTaxData(data.taxReport);
         
+        // Automatischer PDF Download
+        if (data.taxReport.pdfBuffer) {
+          const blob = new Blob([new Uint8Array(data.taxReport.pdfBuffer.data)], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Steuerreport_${walletAddress.slice(0,8)}_Emergency_${new Date().toISOString().split('T')[0]}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('📄 PDF automatisch heruntergeladen');
+        }
+        
       } else {
-        throw new Error(data.error || 'Emergency API Fehler');
+        throw new Error(data.error || 'Unbekannter Fehler');
       }
 
     } catch (error) {
@@ -254,7 +269,7 @@ const TaxReportView = () => {
     }
   };
 
-  // 🇩🇪 REAL TAX REPORT (echte Transaktionen)
+  // REAL TAX REPORT
   const handleRealTaxReport = async () => {
     if (!walletAddress) {
       alert('Bitte Wallet-Adresse eingeben');
@@ -266,7 +281,7 @@ const TaxReportView = () => {
     setError(null);
 
     try {
-      console.log('🇩🇪 REAL TAX: Echte Transaktionen laden...');
+      console.log('🇩🇪 REAL TAX REPORT: Echte Transaktionen gestartet');
       
       const response = await fetch('/api/real-tax-report', {
         method: 'POST',
@@ -274,9 +289,7 @@ const TaxReportView = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          address: walletAddress,
-          year: 2024,
-          chains: ['0x1', '0x171'] // Ethereum + PulseChain
+          address: walletAddress
         }),
       });
 
@@ -286,364 +299,553 @@ const TaxReportView = () => {
 
       const data = await response.json();
       
-      if (data.success) {
-        console.log('✅ REAL TAX: Echte Daten erfolgreich geladen');
+      if (data.success && data.taxReport) {
+        console.log('✅ REAL TAX REPORT: Erfolgreich');
+        setTaxData(data.taxReport);
         
-        // Transformiere für UI-Kompatibilität
-        const transformedData = {
-          phase: 'REAL_TRANSACTIONS',
-          totalTransactions: data.statistics.totalTransactions,
-          totalROIIncome: data.germanTaxSummary.paragraph22.roiIncome,
-          totalSpeculativeGains: data.germanTaxSummary.paragraph23.speculativeGains,
-          priceSource: 'Echte Moralis API-Daten',
-          trialInfo: `${data.statistics.totalTransactions} echte Transaktionen verarbeitet`,
-          realTaxData: data // Vollständige echte Daten
-        };
-        
-        setTaxData(transformedData);
+        // Automatischer PDF Download
+        if (data.taxReport.pdfBuffer) {
+          const blob = new Blob([new Uint8Array(data.taxReport.pdfBuffer.data)], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Steuerreport_${walletAddress.slice(0,8)}_Real_${new Date().toISOString().split('T')[0]}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('📄 PDF automatisch heruntergeladen');
+        }
         
       } else {
-        throw new Error(data.error || 'Real Tax API Fehler');
+        throw new Error(data.error || 'Unbekannter Fehler');
       }
 
     } catch (error) {
-      console.error('❌ REAL TAX Fehler:', error);
-      setError(`Real Tax Fehler: ${error.message}`);
+      console.error('❌ REAL TAX REPORT Fehler:', error);
+      setError(`REAL TAX REPORT Fehler: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 🚀 NEUE DIRECT MORALIS INTEGRATION MIT UI-DISPLAY-FIX
+  // DIRECT MORALIS REPORT
   const handleDirectMoralisReport = async () => {
     if (!walletAddress) {
-      setError('Bitte Wallet-Adresse eingeben');
+      alert('Bitte Wallet-Adresse eingeben');
       return;
     }
 
     setIsLoading(true);
+    setTaxData(null);
     setError(null);
 
     try {
-      console.log('🎯 Starte Direct Moralis Real Tax Report...');
+      console.log('🎯 DIRECT MORALIS: Starte direkten Moralis-Aufruf');
       
-      // Moralis API Key von ENV oder hardcoded für Demo
-      const moralisApiKey = import.meta.env.VITE_MORALIS_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjY1ZjRmODU0LWNjZjMtNDRiMC1hZWJmLWRiY2ZhYWU3NzVkOCIsIm9yZ0lkIjoiMzk0NDE5IiwidXNlcklkIjoiNDA1MzM3IiwidHlwZUlkIjoiNzQwZjI1NzMtMzFkNi00YmU1LWJmMDMtYTQ0YjFiMGFhMDNmIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MTk0MzUxNTAsImV4cCI6NDg3NTE5NTE1MH0.VLOJZMdF_vODFJD_fU0mP1_T9r9y0VqP4-4HBwb7qUo';
+      const directService = new DirectMoralisRealTaxService();
+      const result = await directService.generateTaxReport(walletAddress);
       
-      const directTaxService = new DirectMoralisRealTaxService(moralisApiKey);
-      
-      const realTaxReport = await directTaxService.calculateGermanTaxDirectly(walletAddress);
-      
-      console.log('✅ Direct Moralis Report erhalten:', realTaxReport);
-      
-      // 🔧 UI-DISPLAY-FIX: Debug und korrigiere die Datenstruktur
-      debugTaxReportStructure(realTaxReport);
-      const fixedDisplayData = fixTaxReportDisplay(realTaxReport);
-      
-      console.log('🔧 Fixed Display Data:', fixedDisplayData);
-      console.log(`✅ Transaktionen: ${fixedDisplayData.transactionsProcessed}`);
-      console.log(`✅ Events: ${fixedDisplayData.summary.events}`);
-      console.log(`✅ Steuer: ${formatCurrency(fixedDisplayData.summary.totalTax)}`);
-      console.log(`✅ Gewinne: ${formatCurrency(fixedDisplayData.summary.totalGains)}`);
-      
-      // Format für bestehende UI mit FIXEN
-      const formattedData = {
-        reports: fixedDisplayData.reports,
-        summary: fixedDisplayData.summary,
-        transactionsProcessed: fixedDisplayData.transactionsProcessed,
-        metadata: {
-          source: 'Direct Moralis Client-Side (UI-Fixed)',
-          compliance: realTaxReport.compliance || 'Deutsche Steuerkonformität §22 & §23 EStG',
-          calculationDate: realTaxReport.calculationDate || new Date().toISOString(),
-          priceSource: realTaxReport.priceSource || 'Direct Client-Side (Moralis + CoinGecko)',
-          displayStats: fixedDisplayData.displayStats
-        },
-        roiEvents: realTaxReport.roiEvents || 0,
-        speculationEvents: realTaxReport.speculationEvents || 0
-      };
-      
-      setTaxData(formattedData);
-      
+      if (result.success) {
+        console.log('✅ DIRECT MORALIS: Erfolgreich');
+        const fixedData = fixTaxReportDisplay(result.data);
+        setTaxData(fixedData);
+      } else {
+        throw new Error(result.error || 'Direct Moralis Fehler');
+      }
+
     } catch (error) {
-      console.error('❌ Direct Moralis Error:', error);
-      setError(`Direct Moralis Error: ${error.message}`);
+      console.error('❌ DIRECT MORALIS Fehler:', error);
+      setError(`DIRECT MORALIS Fehler: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-6 w-6" />
-            🇩🇪 STEUERREPORT - Echte Transaktionen + Deutsches Steuerrecht
-          </CardTitle>
-        </CardHeader>
+    <div style={{
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      background: '#0A0A0A',
+      backgroundImage: `
+        radial-gradient(circle at 25% 25%, #9333EA 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, #7C3AED 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, #6D28D9 0%, transparent 50%)
+      `,
+      minHeight: '100vh',
+      padding: '20px',
+      position: 'relative'
+    }}>
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        background: `linear-gradient(45deg, 
+          rgba(147, 51, 234, 0.1) 0%, 
+          rgba(124, 58, 237, 0.1) 25%, 
+          rgba(109, 40, 217, 0.1) 50%, 
+          rgba(91, 33, 182, 0.1) 100%)`,
+        pointerEvents: 'none',
+        zIndex: -1
+      }} />
+      
+      <div style={{
+        maxWidth: '800px',
+        margin: '0 auto',
+        background: 'rgba(255, 255, 255, 0.98)',
+        backdropFilter: 'blur(15px)',
+        borderRadius: '25px',
+        padding: '40px',
+        boxShadow: '0 25px 50px rgba(147, 51, 234, 0.3), 0 10px 30px rgba(124, 58, 237, 0.2)',
+        border: '2px solid rgba(147, 51, 234, 0.2)'
+      }}>
         
-        <CardContent className="space-y-6">
-          {/* WALLET INPUT */}
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Wallet-Adresse
-            </label>
-            <input
-              type="text"
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              placeholder="0x..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        {/* HEADER */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <h1 style={{
+            fontSize: '2.5em',
+            background: 'linear-gradient(45deg, #8B5CF6, #7C3AED, #6D28D9)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            marginBottom: '10px',
+            fontWeight: 700
+          }}>
+            🇩🇪 Deutscher Steuerreport
+          </h1>
+          <p style={{ color: '#6B7280', fontSize: '1.1em' }}>
+            Echte Blockchain-Transaktionen für deutsche Steuererklärung
+          </p>
+        </div>
 
-          {/* REAL TAX REPORT BUTTON (HÖCHSTE PRIORITÄT) */}
-          <div className="mb-6">
-            <button
-              onClick={handleRealTaxReport}
-              disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-violet-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-purple-400 shadow-lg shadow-purple-500/25"
-            >
-              {isLoading ? '⏳ Lädt echte Daten...' : '🇩🇪 REAL TAX REPORT: Echte Transaktionen'}
-            </button>
-            <p className="text-sm text-purple-700 mt-2 text-center font-semibold">
-              ✅ Lädt echte Moralis-Transaktionen + Deutsches Steuerrecht (§22 & §23 EStG)
-            </p>
-          </div>
+        {/* WALLET INPUT */}
+        <input 
+          type="text" 
+          value={walletAddress}
+          onChange={(e) => setWalletAddress(e.target.value)}
+          placeholder="Wallet-Adresse eingeben (z.B. 0x308e77281612bdc267d5feaf4599f2759cb3ed85)"
+          style={{
+            width: '100%',
+            padding: '15px',
+            border: '2px solid rgba(139, 92, 246, 0.2)',
+            borderRadius: '10px',
+            fontSize: '16px',
+            marginBottom: '20px',
+            transition: 'all 0.3s ease',
+            background: 'rgba(255, 255, 255, 0.8)'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = '#8B5CF6';
+            e.target.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)';
+            e.target.style.background = 'white';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = 'rgba(139, 92, 246, 0.2)';
+            e.target.style.boxShadow = 'none';
+            e.target.style.background = 'rgba(255, 255, 255, 0.8)';
+          }}
+        />
 
-          {/* EMERGENCY BUTTON (FALLBACK) */}
-          <div className="mb-6">
-            <button
-              onClick={handleEmergencyTest}
-              disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200 text-lg border-2 border-violet-400 shadow-lg shadow-violet-500/25"
-            >
-              {isLoading ? '⏳ Lädt...' : '🚨 EMERGENCY: Demo-Daten (Falls APIs offline)'}
-            </button>
-            <p className="text-sm text-violet-600 mt-2 text-center font-semibold">
-              🆘 Notfall-Modus: Funktioniert wenn alle anderen APIs versagen
-            </p>
-          </div>
+        {/* MAIN BUTTONS */}
+        <div style={{ marginBottom: '30px' }}>
+          <button
+            onClick={handleRealTaxReport}
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
+              color: 'white',
+              border: 'none',
+              padding: '20px',
+              borderRadius: '15px',
+              fontSize: '18px',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              marginBottom: '15px',
+              boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)',
+              opacity: isLoading ? 0.6 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading) {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 8px 25px rgba(139, 92, 246, 0.4)';
+                e.target.style.background = 'linear-gradient(135deg, #7C3AED, #6D28D9)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isLoading) {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.3)';
+                e.target.style.background = 'linear-gradient(135deg, #8B5CF6, #7C3AED)';
+              }
+            }}
+          >
+            {isLoading ? '⏳ Lädt echte Daten...' : '🇩🇪 REAL TAX REPORT: Echte Transaktionen'}
+          </button>
+          <p style={{ fontSize: '0.9em', color: '#7C3AED', textAlign: 'center', fontWeight: 600 }}>
+            ✅ Lädt echte Moralis-Transaktionen + Deutsches Steuerrecht (§22 & §23 EStG)
+          </p>
+        </div>
 
-          {/* BUG-FIX BUTTON (PRIORITÄT) */}
-          <div className="mb-6">
-            <button
-              onClick={handleTrialSafeTest}
-              disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-violet-500 text-white rounded-lg font-bold hover:from-purple-600 hover:to-violet-600 disabled:opacity-50 transition-all duration-200 text-lg shadow-lg shadow-purple-500/25"
-            >
-              {isLoading ? '⏳ Lädt...' : '🚨 TRIAL-SAFE: TypeError Bug-Fix'}
-            </button>
-            <p className="text-sm text-purple-600 mt-2 text-center font-semibold">
-              ⚡ Fixt den "reduce().toFixed()" TypeError + nutzt nur verfügbare APIs
-            </p>
-          </div>
+        <div style={{ marginBottom: '30px' }}>
+          <button
+            onClick={handleDirectMoralisReport}
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #9333EA, #8B5CF6)',
+              color: 'white',
+              border: 'none',
+              padding: '20px',
+              borderRadius: '15px',
+              fontSize: '18px',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              marginBottom: '15px',
+              boxShadow: '0 4px 15px rgba(147, 51, 234, 0.3)',
+              opacity: isLoading ? 0.6 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading) {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 8px 25px rgba(147, 51, 234, 0.4)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isLoading) {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 15px rgba(147, 51, 234, 0.3)';
+              }
+            }}
+          >
+            {isLoading ? '⏳ Lädt...' : '🎯 DIRECT MORALIS REAL TAX REPORT'}
+          </button>
+          <p style={{ fontSize: '0.9em', color: '#9333EA', textAlign: 'center', fontWeight: 600 }}>
+            ✅ Echte Transaktionen ✅ Trial-kompatibel ✅ Keine 500 Errors
+          </p>
+        </div>
 
-          {/* PHASE 2 & 3 BUTTONS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <button
-              onClick={handlePhase2Test}
-              disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-violet-500 text-white rounded-lg font-semibold hover:from-purple-600 hover:to-violet-600 disabled:opacity-50 transition-all duration-200 shadow-lg shadow-purple-500/20"
-            >
-              {isLoading ? '⏳ Lädt...' : '🚀 PHASE 2: CoinGecko Historical'}
-            </button>
-            
-            <button
-              onClick={handlePhase3Test}
-              disabled={isLoading}
-              className="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-lg font-semibold hover:from-violet-600 hover:to-purple-600 disabled:opacity-50 transition-all duration-200 shadow-lg shadow-violet-500/20"
-            >
-              {isLoading ? '⏳ Lädt...' : '🔥 PHASE 3: Moralis Pro'}
-            </button>
+        {/* LOADING SPINNER */}
+        {isLoading && (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              margin: '0 auto 15px',
+              border: '4px solid rgba(139, 92, 246, 0.1)',
+              borderTop: '4px solid #8B5CF6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }} />
+            <p>Lade Transaktionen und berechne deutsche Steuern...</p>
           </div>
+        )}
 
-          {/* ERROR DISPLAY */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                <span className="text-red-800">{error}</span>
+        {/* ERROR DISPLAY */}
+        {error && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            color: '#DC2626',
+            padding: '15px',
+            borderRadius: '10px',
+            marginTop: '15px'
+          }}>
+            ❌ {error}
+          </div>
+        )}
+
+        {/* RESULTS DISPLAY */}
+        {taxData && (
+          <div style={{ marginTop: '30px' }}>
+            {/* STATS GRID */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '20px',
+              marginBottom: '30px'
+            }}>
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(124, 58, 237, 0.05))',
+                padding: '25px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                border: '1px solid rgba(139, 92, 246, 0.1)',
+                backdropFilter: 'blur(5px)'
+              }}>
+                <div style={{ fontSize: '2em', fontWeight: 700, color: '#7C3AED', marginBottom: '5px' }}>
+                  {taxData.totalTransactions || taxData.transactions || 0}
+                </div>
+                <div style={{ color: '#6B7280', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Transaktionen
+                </div>
+              </div>
+              
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(124, 58, 237, 0.05))',
+                padding: '25px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                border: '1px solid rgba(139, 92, 246, 0.1)',
+                backdropFilter: 'blur(5px)'
+              }}>
+                <div style={{ fontSize: '2em', fontWeight: 700, color: '#7C3AED', marginBottom: '5px' }}>
+                  {taxData.events || taxData.taxableEvents || 0}
+                </div>
+                <div style={{ color: '#6B7280', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Steuerpflichtige Events
+                </div>
+              </div>
+              
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(124, 58, 237, 0.05))',
+                padding: '25px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                border: '1px solid rgba(139, 92, 246, 0.1)',
+                backdropFilter: 'blur(5px)'
+              }}>
+                <div style={{ fontSize: '2em', fontWeight: 700, color: '#7C3AED', marginBottom: '5px' }}>
+                  {formatCurrency(taxData.totalTax || taxData.tax || 0)}
+                </div>
+                <div style={{ color: '#6B7280', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Gesamte Steuerlast
+                </div>
+              </div>
+              
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(124, 58, 237, 0.05))',
+                padding: '25px',
+                borderRadius: '15px',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                border: '1px solid rgba(139, 92, 246, 0.1)',
+                backdropFilter: 'blur(5px)'
+              }}>
+                <div style={{ fontSize: '2em', fontWeight: 700, color: '#7C3AED', marginBottom: '5px' }}>
+                  {formatCurrency(taxData.totalGains || taxData.gains || 0)}
+                </div>
+                <div style={{ color: '#6B7280', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Gesamte Gewinne
+                </div>
               </div>
             </div>
-          )}
 
-          {/* RESULTS DISPLAY */}
-          {taxData && (
-            <div className="bg-green-50 border border-green-200 rounded-md p-6">
-              <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
-                <CheckCircle className="h-5 w-5" />
-                ✅ Steuerreport erfolgreich generiert
+            {/* EVENTS SECTION */}
+            <div style={{
+              background: 'rgba(139, 92, 246, 0.05)',
+              borderRadius: '15px',
+              padding: '25px',
+              marginTop: '20px',
+              border: '1px solid rgba(139, 92, 246, 0.1)'
+            }}>
+              <h3 style={{
+                fontSize: '1.3em',
+                color: '#7C3AED',
+                marginBottom: '20px',
+                textAlign: 'center',
+                fontWeight: 600
+              }}>
+                📋 Steuerpflichtige Ereignisse
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                <div>
-                  <strong>Phase:</strong> {taxData.phase || 'Standard'}
-                </div>
-                <div>
-                  <strong>Transaktionen:</strong> {taxData.totalTransactions || 0}
-                </div>
-                <div>
-                  <strong>ROI Einkommen:</strong> {formatCurrency(taxData.totalROIIncome || 0)}
-                </div>
-                <div>
-                  <strong>Spekulative Gewinne:</strong> {formatCurrency(taxData.totalSpeculativeGains || 0)}
-                </div>
-              </div>
-
-              {/* TRIAL INFO */}
-              {taxData.trialInfo && (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    ⏰ <strong>Trial Status:</strong> {taxData.trialInfo}
-                  </p>
+              {taxData.taxEvents && taxData.taxEvents.length > 0 && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 15px rgba(139, 92, 246, 0.1)'
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' }}>
+                        <th style={{ color: 'white', padding: '12px', textAlign: 'left', fontWeight: 600 }}>Datum</th>
+                        <th style={{ color: 'white', padding: '12px', textAlign: 'left', fontWeight: 600 }}>Token</th>
+                        <th style={{ color: 'white', padding: '12px', textAlign: 'left', fontWeight: 600 }}>Typ</th>
+                        <th style={{ color: 'white', padding: '12px', textAlign: 'left', fontWeight: 600 }}>Wert (EUR)</th>
+                        <th style={{ color: 'white', padding: '12px', textAlign: 'left', fontWeight: 600 }}>Steuer (EUR)</th>
+                        <th style={{ color: 'white', padding: '12px', textAlign: 'left', fontWeight: 600 }}>Rechtslage</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {taxData.taxEvents.slice(0, 10).map((event, index) => (
+                        <tr key={index} style={{ borderBottom: '1px solid rgba(139, 92, 246, 0.1)' }}>
+                          <td style={{ padding: '12px', color: '#374151' }}>
+                            {event.date || new Date().toLocaleDateString('de-DE')}
+                          </td>
+                          <td style={{ padding: '12px', color: '#8B5CF6', fontWeight: 600 }}>
+                            {event.token || 'N/A'}
+                          </td>
+                          <td style={{ padding: '12px', color: '#374151' }}>
+                            {event.type || 'N/A'}
+                          </td>
+                          <td style={{ padding: '12px', color: '#374151' }}>
+                            {formatCurrency(event.valueEUR || event.value || 0)}
+                          </td>
+                          <td style={{ padding: '12px', color: '#374151', fontWeight: 700 }}>
+                            {formatCurrency(event.tax || 0)}
+                          </td>
+                          <td style={{ padding: '12px', color: '#374151' }}>
+                            {event.paragraph || '§22 EStG'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-
-              {/* PHASE 3 SPECIFIC DATA */}
-              {taxData.moralisProData && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-md">
-                  <h4 className="font-semibold text-blue-800 mb-2">🔥 Moralis Pro Daten:</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <strong>Wallet Tokens:</strong> {taxData.moralisProData.stats?.walletTokensCount || 0}
-                    </div>
-                    <div>
-                      <strong>Preise geladen:</strong> {taxData.moralisProData.stats?.pricesLoadedCount || 0}
-                    </div>
-                    <div>
-                      <strong>Portfolio Wert:</strong> {formatCurrency(taxData.moralisProData.stats?.totalWalletValueEUR || 0)}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4">
-                <p className="text-sm text-green-600">
+              
+              <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.9em', color: '#7C3AED', fontWeight: 600 }}>
                   📄 PDF wurde automatisch in Ihren Downloads-Ordner heruntergeladen.
                 </p>
               </div>
             </div>
-          )}
-
-          {/* BUG-FIX OVERVIEW */}
-          <div className="bg-red-50 border border-red-200 rounded-md p-6">
-            <h3 className="text-lg font-semibold mb-4 text-red-800">🚨 Bug-Fixes Applied</h3>
-            
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                <div className="text-sm">
-                  <strong>TypeError Fix:</strong> safeTaxCalculation() verhindert "reduce().toFixed()" Fehler
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                <div className="text-sm">
-                  <strong>Trial-Compatible:</strong> Nutzt nur verfügbare APIs (keine Enterprise-Endpunkte)
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                <div className="text-sm">
-                  <strong>ROI-Token Preise:</strong> WGEP, HEX, PLSX, PLS hardcoded (funktionieren immer)
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                <div className="text-sm">
-                  <strong>Fallback-Hierarchie:</strong> Moralis → CoinGecko → Backup-Preise
-                </div>
-              </div>
-            </div>
           </div>
+        )}
 
-          {/* FEATURE OVERVIEW */}
-          <div className="bg-gray-50 border border-gray-200 rounded-md p-6">
-            <h3 className="text-lg font-semibold mb-4">🚀 System Features</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <h4 className="font-semibold text-red-600 mb-2">TRIAL-SAFE (Bug-Fix)</h4>
-                <ul className="text-sm space-y-1">
-                  <li>🚨 TypeError Fix</li>
-                  <li>🎯 ROI Token Support</li>
-                  <li>🔄 Backup Preise</li>
-                  <li>⚡ Demo-Modus</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-purple-600 mb-2">PHASE 2: CoinGecko</h4>
-                <ul className="text-sm space-y-1">
-                  <li>✅ Historische EUR-Preise</li>
-                  <li>✅ CoinGecko API</li>
-                  <li>✅ ROI Token Support</li>
-                  <li>✅ Deutsches Steuerrecht</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold text-green-600 mb-2">PHASE 3: Moralis Pro</h4>
-                <ul className="text-sm space-y-1">
-                  <li>🔥 Moralis Pro API</li>
-                  <li>🔥 Bulk Token Pricing</li>
-                  <li>🔥 Portfolio Analysis</li>
-                  <li>🔥 Rate Limited</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+        {/* ADDITIONAL BUTTONS */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '30px' }}>
+          <button
+            onClick={handlePhase2Test}
+            disabled={isLoading}
+            style={{
+              background: 'linear-gradient(135deg, #A855F7, #9333EA)',
+              color: 'white',
+              border: 'none',
+              padding: '15px',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.6 : 1
+            }}
+          >
+            {isLoading ? '⏳ Lädt...' : '🚀 PHASE 2: CoinGecko'}
+          </button>
+          
+          <button
+            onClick={handlePhase3Test}
+            disabled={isLoading}
+            style={{
+              background: 'linear-gradient(135deg, #9333EA, #7C3AED)',
+              color: 'white',
+              border: 'none',
+              padding: '15px',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.6 : 1
+            }}
+          >
+            {isLoading ? '⏳ Lädt...' : '🔥 PHASE 3: Moralis Pro'}
+          </button>
+        </div>
 
-          {/* DIRECT MORALIS BUTTON */}
-          <div className="mt-6">
-            <button
-              onClick={handleDirectMoralisReport}
-              disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg font-bold hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 transition-all duration-200 text-lg shadow-lg shadow-violet-500/25"
-            >
-              {isLoading ? '⏳ Lädt...' : '🎯 DIRECT MORALIS REAL TAX REPORT'}
-            </button>
-            <p className="text-sm text-violet-600 mt-2 text-center font-semibold">
-              ✅ Echte Transaktionen ✅ Trial-kompatibel ✅ Keine 500 Errors
-            </p>
-          </div>
+        <div style={{ marginTop: '15px' }}>
+          <button
+            onClick={handleTrialSafeTest}
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #C084FC, #A855F7)',
+              color: 'white',
+              border: 'none',
+              padding: '15px',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.6 : 1
+            }}
+          >
+            {isLoading ? '⏳ Lädt...' : '🚨 TRIAL-SAFE: TypeError Bug-Fix'}
+          </button>
+        </div>
 
-          {/* ETH PRINTER DEMO BUTTON */}
-          <div className="mt-6">
-            <button
-              onClick={() => {
-                const ethPrinterData = createETHPrinterDemoData();
-                const fixedData = fixTaxReportDisplay(ethPrinterData);
-                setTaxData({
-                  reports: fixedData.reports,
-                  summary: fixedData.summary,
-                  transactionsProcessed: fixedData.transactionsProcessed,
-                  metadata: {
-                    source: 'ETH Printer Demo Data',
-                    compliance: 'Deutsche Steuerkonformität §22 & §23 EStG',
-                    calculationDate: new Date().toISOString(),
-                    priceSource: 'ETH Printer Demo + Live Preise',
-                    note: 'Basierend auf echten ETH Printer Transaktionen'
-                  }
-                });
-                // Auch Browser-Display-Fix anwenden
-                fixETHPrinterTaxDisplay();
-              }}
-              disabled={isLoading}
-              className="w-full px-6 py-4 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white rounded-lg font-bold hover:from-fuchsia-700 hover:to-pink-700 disabled:opacity-50 transition-all duration-200 text-lg shadow-lg shadow-fuchsia-500/25"
-            >
-              🖨️ ETH PRINTER DEMO (ECHTE TRANSAKTIONEN)
-            </button>
-            <p className="text-sm text-fuchsia-600 mt-2 text-center font-semibold">
-              🔥 Basierend auf echten ETH Printer Transaktionen 🔥 BORK Token 🔥 🖨️ Token Swaps
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        <div style={{ marginTop: '15px' }}>
+          <button
+            onClick={() => {
+              const ethPrinterData = createETHPrinterDemoData();
+              const fixedData = fixTaxReportDisplay(ethPrinterData);
+              setTaxData({
+                reports: fixedData.reports,
+                summary: fixedData.summary,
+                transactionsProcessed: fixedData.transactionsProcessed,
+                totalTransactions: fixedData.transactionsProcessed,
+                events: fixedData.reports?.length || 0,
+                totalTax: fixedData.summary?.totalTax || 0,
+                totalGains: fixedData.summary?.totalGains || 0,
+                taxEvents: fixedData.reports || [],
+                metadata: {
+                  source: 'ETH Printer Demo Data',
+                  compliance: 'Deutsche Steuerkonformität §22 & §23 EStG',
+                  calculationDate: new Date().toISOString(),
+                  priceSource: 'ETH Printer Demo + Live Preise',
+                  note: 'Basierend auf echten ETH Printer Transaktionen'
+                }
+              });
+              fixETHPrinterTaxDisplay();
+            }}
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #EC4899, #DB2777)',
+              color: 'white',
+              border: 'none',
+              padding: '15px',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.6 : 1
+            }}
+          >
+            🖨️ ETH PRINTER DEMO (ECHTE TRANSAKTIONEN)
+          </button>
+        </div>
+
+        <div style={{ marginTop: '15px' }}>
+          <button
+            onClick={handleEmergencyTest}
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)',
+              color: 'white',
+              border: 'none',
+              padding: '15px',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.6 : 1
+            }}
+          >
+            {isLoading ? '⏳ Lädt...' : '🚨 EMERGENCY: Demo-Daten'}
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
