@@ -29,6 +29,7 @@ import {
 import { formatCurrency, formatNumber, formatTime } from '@/lib/utils';
 import CentralDataService from '@/services/CentralDataService';
 import { useAuth } from '@/contexts/AuthContext';
+import WGEPTestComponent from '@/components/debug/WGEPTestComponent';
 
 const DebugView = () => {
   const { user } = useAuth();
@@ -628,6 +629,9 @@ const DebugView = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* 🔥 WGEP COMPLETE TRANSACTIONS TEST */}
+        <WGEPTestComponent />
 
       </div>
     </div>
