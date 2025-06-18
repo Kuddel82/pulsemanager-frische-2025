@@ -11,6 +11,7 @@ import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import DirectMoralisRealTaxService from '../../services/DirectMoralisRealTaxService';
 import { fixTaxReportDisplay, debugTaxReportStructure, formatCurrency, formatTransactionCount } from '../../services/TaxReportDisplayFixer';
+import { fixETHPrinterTaxDisplay, createETHPrinterDemoData } from '../../services/ETHPrinterTaxDisplayFix';
 
 const TaxReportView = () => {
   const { user, isAuthenticated } = useAuth();
@@ -608,6 +609,37 @@ const TaxReportView = () => {
             </button>
             <p className="text-sm text-gray-600 mt-2 text-center">
               ✅ Echte Transaktionen ✅ Trial-kompatibel ✅ Keine 500 Errors
+            </p>
+          </div>
+
+          {/* ETH PRINTER DEMO BUTTON */}
+          <div className="mt-6">
+            <button
+              onClick={() => {
+                const ethPrinterData = createETHPrinterDemoData();
+                const fixedData = fixTaxReportDisplay(ethPrinterData);
+                setTaxData({
+                  reports: fixedData.reports,
+                  summary: fixedData.summary,
+                  transactionsProcessed: fixedData.transactionsProcessed,
+                  metadata: {
+                    source: 'ETH Printer Demo Data',
+                    compliance: 'Deutsche Steuerkonformität §22 & §23 EStG',
+                    calculationDate: new Date().toISOString(),
+                    priceSource: 'ETH Printer Demo + Live Preise',
+                    note: 'Basierend auf echten ETH Printer Transaktionen'
+                  }
+                });
+                // Auch Browser-Display-Fix anwenden
+                fixETHPrinterTaxDisplay();
+              }}
+              disabled={isLoading}
+              className="w-full px-6 py-4 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700 disabled:opacity-50 transition-all duration-200 text-lg"
+            >
+              🖨️ ETH PRINTER DEMO (ECHTE TRANSAKTIONEN)
+            </button>
+            <p className="text-sm text-gray-600 mt-2 text-center">
+              🔥 Basierend auf echten ETH Printer Transaktionen 🔥 BORK Token 🔥 🖨️ Token Swaps
             </p>
           </div>
         </CardContent>
