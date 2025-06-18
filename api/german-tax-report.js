@@ -62,11 +62,12 @@ async function rateLimitedCall(fn) {
   return await fn();
 }
 
-// 🔥 SCHRITT 1: ERC20 TRANSFERS MIT v2.2
+// 🔥 SCHRITT 1: ERC20 TRANSFERS MIT v2.2 (KORREKTE URL)
 async function fetchERC20TransfersV2(wallet, chainId, cursor = null) {
   try {
     console.log(`📊 TAX v2.2: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
     
+    // 🔥 FIX: KORREKTE Moralis v2.2 URL-Struktur
     let url = `${MORALIS_BASE}/${wallet}/erc20/transfers?chain=${chainId}&limit=500`;
     if (cursor) {
       url += `&cursor=${cursor}`;
@@ -92,26 +93,30 @@ async function fetchERC20TransfersV2(wallet, chainId, cursor = null) {
   }
 }
 
-// 🔥 SCHRITT 1: TOKEN BALANCES MIT v2.2
-async function fetchTokenBalancesV2(wallet, chainId) {
+// 🔥 NEUE FUNKTION: WALLET HISTORY (KORREKTE URL)
+async function fetchWalletHistoryV2(wallet, chainId) {
   try {
-    console.log(`💰 TAX v2.2: Fetching token balances for ${wallet} on chain ${chainId}`);
+    console.log(`📊 TAX v2.2: Fetching wallet history for ${wallet} on chain ${chainId}`);
     
-    const url = `${MORALIS_BASE}/erc20/${wallet}/balance?chain=${chainId}`;
+    // 🔥 KORREKTE URL: /wallets/:address/history
+    const url = `${MORALIS_BASE}/wallets/${wallet}/history?chain=${chainId}&limit=500`;
+    
+    console.log(`🔍 DEBUG: Wallet History URL: ${url}`);
     
     const res = await fetch(url, {
       headers: { 'X-API-Key': MORALIS_API_KEY }
     });
     
     if (!res.ok) {
-      throw new Error(`Token Balances v2.2 API error: ${res.status}`);
+      throw new Error(`Wallet History v2.2 API error: ${res.status}`);
     }
     
     const data = await res.json();
-    console.log(`✅ TAX v2.2: Found ${data?.length || 0} token balances`);
-    return data || [];
+    console.log(`✅ TAX v2.2: Found ${data?.result?.length || 0} wallet history items`);
+    return data;
     
   } catch (error) {
+    console.error('❌ TAX v2.2: fetchWalletHistory error:', error.message);
     console.error('❌ TAX v2.2: fetchTokenBalances error:', error.message);
     return [];
   }
@@ -220,7 +225,7 @@ async function loadRealTransactionsForTax(walletAddress) {
     console.log(`🔗 TAX v2.2: Loading ${chain.name} (${chain.id})...`);
     
     try {
-      // 🔥 SCHRITT 5: MORALIS v2.2 MIT PAGINATION
+      // 🔥 SCHRITT 5: MORALIS v2.2 MIT KORREKTEN ENDPUNKTEN
       let allTransfers = [];
       let cursor = null;
       let pageCount = 0;
@@ -228,6 +233,7 @@ async function loadRealTransactionsForTax(walletAddress) {
       
       console.log(`🔍 DEBUG: Starting Moralis v2.2 fetch for ${walletAddress} on ${chain.name}`);
       
+      // 🔥 VERSUCHE ERC20 TRANSFERS ZUERST
       do {
         const transferData = await rateLimitedCall(() => 
           fetchERC20TransfersV2(walletAddress, chain.id, cursor)
@@ -251,18 +257,32 @@ async function loadRealTransactionsForTax(walletAddress) {
         }
       } while (cursor && pageCount < maxPages);
       
+      // 🔥 FALLBACK: WALLET HISTORY WENN ERC20 LEER
+      if (allTransfers.length === 0) {
+        console.log(`🔄 TAX v2.2: ERC20 empty, trying Wallet History...`);
+        
+        const historyData = await rateLimitedCall(() => 
+          fetchWalletHistoryV2(walletAddress, chain.id)
+        );
+        
+        if (historyData.result && historyData.result.length > 0) {
+          allTransfers = historyData.result;
+          console.log(`✅ TAX v2.2: Wallet History - ${allTransfers.length} items`);
+        }
+      }
+      
       console.log(`🔍 DEBUG: Total transfers loaded: ${allTransfers.length}`);
       
       // Show sample transaction for debugging
       if (allTransfers.length > 0) {
         const sampleTx = allTransfers[0];
         console.log(`🔍 DEBUG: Sample transaction:`, {
-          hash: sampleTx.transaction_hash,
-          timestamp: sampleTx.block_timestamp,
-          year: new Date(sampleTx.block_timestamp).getFullYear(),
-          token: sampleTx.token_symbol,
-          from: sampleTx.from_address,
-          to: sampleTx.to_address
+          hash: sampleTx.transaction_hash || sampleTx.hash,
+          timestamp: sampleTx.block_timestamp || sampleTx.timestamp,
+          year: new Date(sampleTx.block_timestamp || sampleTx.timestamp).getFullYear(),
+          token: sampleTx.token_symbol || sampleTx.token,
+          from: sampleTx.from_address || sampleTx.from,
+          to: sampleTx.to_address || sampleTx.to
         });
       }
       
