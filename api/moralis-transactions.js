@@ -139,7 +139,7 @@ export default async function handler(req, res) {
     // Load ERC20 transfers from Moralis
     console.log(`🚀 FETCHING TRANSFERS: ${address} on ${chainId}`);
     
-    const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
+    const result = await moralisFetch(`${address}/erc20`, moralisParams);
     
     if (!result) {
       console.warn(`⚠️ NO TRANSFER DATA: Returning empty result for ${address}`);
