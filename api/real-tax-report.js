@@ -255,12 +255,21 @@ async function loadRealTransactions(address, chains, startYear) {
                 }
 
                 const data = await response.json();
+                console.log(`🔍 DEBUGGING: Chain ${chainId} API Response:`, {
+                    status: response.status,
+                    hasResult: !!data.result,
+                    resultLength: data.result?.length || 0,
+                    hasCursor: !!data.cursor,
+                    fullData: JSON.stringify(data).substring(0, 500) + '...'
+                });
+                
                 const transfers = data.result || [];
                 
-                // TEMPORÄR: ALLE Transaktionen (ohne Jahr-Filter)
+                // Filter 2025-2035 (neue Wallet!)
                 const validTransactions = transfers.filter(tx => {
-                    // Nur grundlegende Validierung
-                    return tx && tx.block_timestamp;
+                    const txYear = new Date(tx.block_timestamp).getFullYear();
+                    console.log(`📅 TX Jahr: ${txYear} (${tx.block_timestamp}) - Valid: ${txYear >= 2025 && txYear <= 2035}`);
+                    return txYear >= 2025 && txYear <= 2035;
                 });
 
                 allTransactions.push(...validTransactions);
@@ -310,11 +319,11 @@ async function loadFromBlockScout(address, startYear) {
         const data = await response.json();
         
         if (data.status === '1' && Array.isArray(data.result)) {
-            // TEMPORÄR: ALLE BlockScout Transaktionen (ohne Jahr-Filter)
+            // Filter 2025-2035 (neue Wallet!)
             const validTransactions = data.result
                 .filter(tx => {
-                    // Nur grundlegende Validierung
-                    return tx && tx.timeStamp;
+                    const txYear = new Date(parseInt(tx.timeStamp) * 1000).getFullYear();
+                    return txYear >= 2025 && txYear <= 2035;
                 })
                 .map(tx => ({
                     // Konvertiere BlockScout Format zu Moralis Format
