@@ -107,66 +107,71 @@ export default async function handler(req, res) {
       });
     }
 
-    // Convert chain names to Moralis chain IDs
-    const chainMap = {
-      ethereum: '0x1',
-      eth: '0x1', 
-      '1': '0x1',
-      '0x1': '0x1',
-      pulsechain: '0x171',
-      pls: '0x171',
-      '369': '0x171',
-      '0x171': '0x171',
-      bsc: '0x38',
-      polygon: '0x89',
-      arbitrum: '0xa4b1'
-    };
+    // 🔥 MULTI-CHAIN: Lade BEIDE Chains (Ethereum + PulseChain)
+    const chains = [
+      { id: '0x1', name: 'Ethereum' },
+      { id: '0x171', name: 'PulseChain' }
+    ];
     
-    const chainId = chainMap[chain.toLowerCase()] || chain;
-    console.log(`🇩🇪 TAX CHAIN MAPPING: ${chain} -> ${chainId}`);
-
-    // Build Moralis API parameters - ERHÖHTES LIMIT FÜR ALLE TRANSAKTIONEN
-    const moralisParams = { 
-      chain: chainId,
-      limit: Math.min(parseInt(limit) || 2000, 2000) // Erhöht auf 2000 pro Request
-    };
-
-    // Add optional parameters
-    if (cursor) moralisParams.cursor = cursor;
-    if (from_date) moralisParams.from_date = from_date;
-    if (to_date) moralisParams.to_date = to_date;
-    
-    console.log(`🔧 TAX PAGE SIZE: Configured for ${moralisParams.limit} items per request`);
-
-    // 🔥 PAGINATION: Lade ALLE Transaktionen
     let allTransactions = [];
-    let currentCursor = cursor;
-    let pageCount = 0;
-    const maxPages = 150; // Max 150 pages = 300.000 transactions
     
-    do {
-      if (currentCursor) moralisParams.cursor = currentCursor;
+    for (const chainConfig of chains) {
+      console.log(`🔗 TAX: Loading ${chainConfig.name} (${chainConfig.id})...`);
       
-      console.log(`🚀 TAX FETCHING PAGE ${pageCount + 1}: ${address} on ${chainId}`);
+      // Build Moralis API parameters für diese Chain
+      const moralisParams = { 
+        chain: chainConfig.id,
+        limit: Math.min(parseInt(limit) || 2000, 2000) // Erhöht auf 2000 pro Request
+      };
+
+      // Add optional parameters
+      if (cursor) moralisParams.cursor = cursor;
+      if (from_date) moralisParams.from_date = from_date;
+      if (to_date) moralisParams.to_date = to_date;
       
-      const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
+      console.log(`🔧 TAX PAGE SIZE: Configured for ${moralisParams.limit} items per request on ${chainConfig.name}`);
+
+      // 🔥 PAGINATION: Lade ALLE Transaktionen für diese Chain
+      let chainTransactions = [];
+      let currentCursor = cursor;
+      let pageCount = 0;
+      const maxPages = 150; // Max 150 pages = 300.000 transactions
       
-      if (result && result.result && result.result.length > 0) {
-        allTransactions.push(...result.result);
-        currentCursor = result.cursor;
-        pageCount++;
-        console.log(`✅ TAX PAGE ${pageCount}: ${result.result.length} transactions, Total: ${allTransactions.length}`);
-      } else {
-        console.log(`📄 TAX: No more data at page ${pageCount + 1}`);
-        break;
-      }
+      do {
+        if (currentCursor) moralisParams.cursor = currentCursor;
+        
+        console.log(`🚀 TAX FETCHING PAGE ${pageCount + 1}: ${address} on ${chainConfig.name}`);
+        
+        const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
+        
+        if (result && result.result && result.result.length > 0) {
+          chainTransactions.push(...result.result);
+          currentCursor = result.cursor;
+          pageCount++;
+          console.log(`✅ TAX PAGE ${pageCount}: ${result.result.length} transactions, Total: ${chainTransactions.length} on ${chainConfig.name}`);
+        } else {
+          console.log(`📄 TAX: No more data at page ${pageCount + 1} on ${chainConfig.name}`);
+          break;
+        }
+        
+        // Rate limiting zwischen Requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } while (currentCursor && pageCount < maxPages);
       
-      // Rate limiting zwischen Requests
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log(`🔥 TAX PAGINATION COMPLETE: ${chainTransactions.length} transactions across ${pageCount} pages on ${chainConfig.name}`);
       
-    } while (currentCursor && pageCount < maxPages);
+      // Füge Chain-Information zu den Transaktionen hinzu
+      const chainTransactionsWithInfo = chainTransactions.map(tx => ({
+        ...tx,
+        chain: chainConfig.name,
+        chainId: chainConfig.id
+      }));
+      
+      allTransactions.push(...chainTransactionsWithInfo);
+    }
     
-    console.log(`🔥 TAX PAGINATION COMPLETE: ${allTransactions.length} transactions across ${pageCount} pages`);
+    console.log(`🔥 TAX MULTI-CHAIN COMPLETE: ${allTransactions.length} total transactions (Ethereum + PulseChain)`);
     
     if (allTransactions.length === 0) {
       console.warn(`⚠️ TAX NO TRANSFER DATA: Returning empty result for ${address}`);
@@ -184,9 +189,9 @@ export default async function handler(req, res) {
           },
           metadata: {
             source: 'moralis_v2_pro_transactions_empty',
-            message: 'No transfer data available or API error',
+            message: 'No transfer data available on any chain',
             walletAddress: address,
-            chain: chainId
+            chainsChecked: chains.map(c => c.name)
           }
         }
       });
@@ -267,7 +272,7 @@ export default async function handler(req, res) {
         summary: summary,
         metadata: {
           source: 'moralis_v2_pro_transactions_success',
-          chain: chainId,
+          chain: chains[0].name,
           address: address,
           timestamp: new Date().toISOString(),
           count: transferCount,
