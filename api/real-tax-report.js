@@ -364,7 +364,7 @@ function classifyTransactions(transactions) {
                 classified.roi.push({
                     ...tx,
                     category: 'ROI_REWARD',
-                    tokenInfo: ROI_TOKENS[tokenSymbol] || { priceEUR: 0.001 }
+                    tokenInfo: { priceEUR: 0 } // Preis wird über echte APIs geladen
                 });
                 continue;
             }
