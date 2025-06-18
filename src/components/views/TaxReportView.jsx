@@ -35,6 +35,19 @@ const SimpleTaxTracker = () => {
     }
   }, [hasConnectedWallets, connectedWallets, walletAddress]);
 
+  // 🚨 EMERGENCY DEBUG: Alert um sicherzustellen dass Code läuft
+  useEffect(() => {
+    console.log('🔥 STEUERREPORT GELADEN - DEBUG INFO:');
+    console.log('connectedWalletAddress:', connectedWalletAddress);
+    console.log('wcAccounts:', wcAccounts);
+    console.log('wcIsConnected:', wcIsConnected);
+    
+    // Zeige Info in UI falls Debug nötig
+    if (typeof window !== 'undefined' && window.location.search.includes('debug')) {
+      alert(`DEBUG:\nconnectedWalletAddress: ${connectedWalletAddress}\nwcAccounts: ${JSON.stringify(wcAccounts)}\nwcIsConnected: ${wcIsConnected}`);
+    }
+  }, [connectedWalletAddress, wcAccounts, wcIsConnected]);
+
   const handleWalletSelect = (address) => {
     setWalletAddress(address);
     setShowWalletDropdown(false);
