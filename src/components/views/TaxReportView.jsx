@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { FileText, AlertTriangle, Info, Download, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import TaxReportDownload from '../tax/TaxReportDownload';
 
 const SimpleTaxTracker = () => {
   const { user } = useAuth();
@@ -649,7 +648,7 @@ const SimpleTaxTracker = () => {
             <div className="mt-6 p-4 rounded-lg text-center border-l-4" style={{backgroundColor: 'var(--bg-secondary)', borderLeftColor: 'var(--accent-green)'}}>
               <div className="pulse-text mb-4">
                 ✅ <strong>Steuerreport erfolgreich erstellt!</strong><br/>
-                📁 Klicke um den PDF-Report in deinen <strong>Downloads-Ordner</strong> zu speichern.
+                📁 Klicke um den HTML-Report in deinen <strong>Downloads-Ordner</strong> zu speichern.
               </div>
               <button
                 onClick={handleDownloadPDF}
@@ -662,11 +661,6 @@ const SimpleTaxTracker = () => {
               <div className="mt-2 text-xs pulse-text-secondary">
                 💡 Dateiname: PulseManager_Steuerreport_{formatAddress(walletAddress)}_{new Date().toISOString().split('T')[0]}.html
               </div>
-            </div>
-
-            {/* Tax Report Download Component */}
-            <div className="mt-6">
-              <TaxReportDownload walletAddress={walletAddress} />
             </div>
           </div>
         )}
