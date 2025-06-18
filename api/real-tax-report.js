@@ -133,9 +133,10 @@ export default async function handler(req, res) {
         }
 
         console.log(`🔍 Lade ALLE Transaktionen für: ${address} (2025-2035)`);
+        console.log(`🎯 Chains: Ethereum (WGEP/USDC/ETH) + PulseChain (PLS/HEX)`);
 
-        // 1. LADE ALLE TRANSAKTIONEN VON MORALIS + BLOCKSCOUT BACKUP
-        const transactions = await loadRealTransactions(address, chains, 2025);
+        // 1. LADE ALLE TRANSAKTIONEN VON BEIDEN CHAINS
+        const transactions = await loadRealTransactions(address, ['0x1', '0x171'], 2025);
         console.log(`📊 ${transactions.length} Transaktionen geladen`);
 
         // 2. KLASSIFIZIERE TRANSAKTIONEN (ROI vs Trading)
@@ -220,11 +221,10 @@ export default async function handler(req, res) {
 async function loadRealTransactions(address, chains, startYear) {
     const allTransactions = [];
     
-    // 🎯 FOKUS: Ethereum FIRST für WGEP/ETH/USDC, dann PulseChain
+    // 🎯 BEIDE CHAINS PARALLEL: Ethereum (WGEP/USDC/ETH) + PulseChain (PLS/HEX)
     const priorityChains = [
-        '0x1',    // Ethereum (WGEP/ETH/USDC primary!)
-        '0x171',  // PulseChain (backup)
-        ...chains
+        '0x1',    // Ethereum: WGEP, USDC, ETH
+        '0x171',  // PulseChain: PLS, HEX, andere PulseChain Token
     ];
     
     for (const chainId of priorityChains) {
