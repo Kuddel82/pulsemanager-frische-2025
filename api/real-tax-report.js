@@ -12,7 +12,7 @@
 // 🔧 MORALIS API CONFIGURATION
 const MORALIS_CONFIG = {
     baseURL: 'https://deep-index.moralis.io/api/v2.2',
-    apiKey: process.env.MORALIS_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjdkNzgyNzNlLWVhYzYtNGJkOS1iNzk4LWY5YzMzNDc3YjhlOCIsIm9yZ0lkIjoiNDA2MzE0IiwidXNlcklkIjoiNDE3NzE0IiwidHlwZUlkIjoiNmZiZGEzN2ItOTAyNy00YzQ1LWFmNDEtMGIxNDMwMWVjNGI4IiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MzI2NDY5NDUsImV4cCI6NDg4ODQwNjk0NX0.vCJLNM5zOCcLGJPgKtPNSG4Vb7JdQKrwE7qFYfBtcJc',
+    apiKey: process.env.MORALIS_API_KEY, // 🔐 SICHER: Nur aus Environment Variables
     rateLimitMs: 200, // 5 calls/sec
     maxRetries: 3
 };

@@ -1,7 +1,8 @@
 // 🚀 DIRECT TANGEM TEST: Direkte Moralis API ohne Vercel-Routing
 // Test der echten Moralis Enterprise API
 
-const MORALIS_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjlmNjE2YTg2LTRlOTAtNGQ5OS1hNGQ1LTFkMmFhNDFmNGNjMCIsIm9yZ0lkIjoiNDE5MzEyIiwidXNlcklkIjoiNDMwODY2IiwidHlwZUlkIjoiZmVkNzI1ZDItYTcxNy00ZWExLTljMTItOTJhODQ5NDcwZmJlIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MzY5NTA3MDMsImV4cCI6NDg5MjcxMDcwM30.HdNQCrNmfVQHDHlk-0LRR-Bkqp3IlNNyRTVEWLOHmgc';
+// 🔐 SICHERHEIT: API Key aus Environment Variables laden
+const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const address = '0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a';
 
 console.log('🔵 DIRECT MORALIS TEST: Tangem Wallet');
