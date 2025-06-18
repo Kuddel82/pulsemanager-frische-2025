@@ -139,39 +139,133 @@ const SimpleTaxTracker = () => {
   };
 
   // Manueller PDF Download
-  const handleDownloadPDF = () => {
-    if (!pdfData) {
-      alert('Keine PDF-Daten verfügbar');
+  const handleDownloadPDF = async () => {
+    if (!taxData) {
+      alert('Keine Steuerdaten verfügbar');
       return;
     }
 
     try {
-      const blob = new Blob([new Uint8Array(pdfData.data)], { type: 'application/pdf' });
+      console.log('📄 Generiere PDF für Steuerreport...');
+      
+      // 🔥 EINFACHE HTML ZU PDF LÖSUNG
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const walletShort = walletAddress.slice(0, 8);
+      
+      // HTML Content erstellen
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>PulseManager Steuerreport</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .section { margin-bottom: 20px; }
+            .stats { display: flex; justify-content: space-between; margin-bottom: 20px; }
+            .stat { text-align: center; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .legal { margin-top: 30px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🇩🇪 PulseManager Steuerreport</h1>
+            <p>Wallet: ${walletAddress}</p>
+            <p>Generiert am: ${today.toLocaleDateString('de-DE')}</p>
+          </div>
+          
+          <div class="section">
+            <h2>📊 Steuer-Übersicht</h2>
+            <div class="stats">
+              <div class="stat">
+                <h3>${taxData.summary?.totalTransactions || taxData.transactions?.length || 0}</h3>
+                <p>Transaktionen</p>
+              </div>
+              <div class="stat">
+                <h3>${taxData.summary?.roiCount || 0}</h3>
+                <p>Steuer-Events</p>
+              </div>
+              <div class="stat">
+                <h3>${formatCurrency(taxData.summary?.totalROIValueEUR || 0)}</h3>
+                <p>Gesamte Gewinne</p>
+              </div>
+              <div class="stat">
+                <h3>${formatCurrency(taxData.summary?.totalTaxEUR || 0)}</h3>
+                <p>Grobe Steuerlast</p>
+              </div>
+            </div>
+          </div>
+          
+          ${taxData.transactions && taxData.transactions.length > 0 ? `
+          <div class="section">
+            <h2>📋 Transaktionen (Top 20 von ${taxData.transactions.length})</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Datum</th>
+                  <th>Token</th>
+                  <th>Typ</th>
+                  <th>Richtung</th>
+                  <th>Wert</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${taxData.transactions.slice(0, 20).map((tx, index) => {
+                  const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
+                  const token = tx.tokenSymbol || tx.tokenName || 'N/A';
+                  const direction = tx.direction === 'IN' ? '📥 IN' : '📤 OUT';
+                  const value = tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0';
+                  return `
+                    <tr>
+                      <td>${date}</td>
+                      <td>${token}</td>
+                      <td>${tx.type || 'N/A'}</td>
+                      <td>${direction}</td>
+                      <td>${value}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+          
+          <div class="legal">
+            <h3>⚖️ Rechtlicher Hinweis</h3>
+            <p>Dieser Steuerreport dient nur zu Informationszwecken und stellt keine Steuerberatung dar.</p>
+            <p>Für Ihre finale Steuererklärung müssen Sie einen qualifizierten Steuerberater konsultieren.</p>
+            <p>Wir übernehmen keine Verantwortung für steuerliche Entscheidungen.</p>
+            <p><strong>Generiert von PulseManager</strong></p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // 📁 AUTOMATISCH IN DOWNLOADS-ORDNER SPEICHERN
+      const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
+      a.download = `PulseManager_Steuerreport_${walletShort}_${dateStr}.html`;
       
-      // 📁 BESSERER DATEINAME für Downloads-Ordner
-      const today = new Date();
-      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
-      const walletShort = walletAddress.slice(0,8);
-      a.download = `PulseManager_Steuerreport_${walletShort}_${dateStr}.pdf`;
-      
-      // 🎯 AUTOMATISCH IN DOWNLOADS-ORDNER
+      // 🎯 AUTOMATISCH KLICKEN UND SPEICHERN
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       
-      console.log('📄 PDF erfolgreich in Downloads-Ordner gespeichert:', a.download);
-      
-      // ✅ SUCCESS FEEDBACK
-      alert(`✅ PDF erfolgreich heruntergeladen!\n📁 Datei: ${a.download}\n📂 Ort: Downloads-Ordner`);
+      console.log('📄 HTML-Report erfolgreich generiert:', a.download);
+      alert(`✅ Steuerreport erfolgreich heruntergeladen!\n📁 Datei: ${a.download}\n📂 Ort: Downloads-Ordner\n💡 Öffnen Sie die HTML-Datei und drucken Sie sie als PDF!`);
       
     } catch (error) {
-      console.error('❌ PDF Download Fehler:', error);
-      alert('❌ Fehler beim PDF Download: ' + error.message);
+      console.error('❌ Report-Generierung Fehler:', error);
+      alert(`❌ Fehler bei Report-Generierung: ${error.message}`);
     }
   };
 
@@ -464,14 +558,14 @@ const SimpleTaxTracker = () => {
               </div>
               <button
                 onClick={handleDownloadPDF}
-                disabled={!pdfData}
-                className={`pulse-btn ${!pdfData ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
+                disabled={!taxData}
+                className={`pulse-btn ${!taxData ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
               >
                 <Download className="h-5 w-5 mr-2" />
                 📂 In Downloads-Ordner speichern
               </button>
               <div className="mt-2 text-xs pulse-text-secondary">
-                💡 Dateiname: PulseManager_Steuerreport_{formatAddress(walletAddress)}_{new Date().toISOString().split('T')[0]}.pdf
+                💡 Dateiname: PulseManager_Steuerreport_{formatAddress(walletAddress)}_{new Date().toISOString().split('T')[0]}.html
               </div>
             </div>
           </div>
