@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import DirectMoralisRealTaxService from '../../services/DirectMoralisRealTaxService';
+import { fixTaxReportDisplay, debugTaxReportStructure, formatCurrency, formatTransactionCount } from '../../services/TaxReportDisplayFixer';
 
 const TaxReportView = () => {
   const { user, isAuthenticated } = useAuth();
@@ -312,7 +313,7 @@ const TaxReportView = () => {
     }
   };
 
-  // 🚀 NEUE DIRECT MORALIS INTEGRATION
+  // 🚀 NEUE DIRECT MORALIS INTEGRATION MIT UI-DISPLAY-FIX
   const handleDirectMoralisReport = async () => {
     if (!walletAddress) {
       setError('Bitte Wallet-Adresse eingeben');
@@ -334,19 +335,30 @@ const TaxReportView = () => {
       
       console.log('✅ Direct Moralis Report erhalten:', realTaxReport);
       
-      // Format für bestehende UI
+      // 🔧 UI-DISPLAY-FIX: Debug und korrigiere die Datenstruktur
+      debugTaxReportStructure(realTaxReport);
+      const fixedDisplayData = fixTaxReportDisplay(realTaxReport);
+      
+      console.log('🔧 Fixed Display Data:', fixedDisplayData);
+      console.log(`✅ Transaktionen: ${fixedDisplayData.transactionsProcessed}`);
+      console.log(`✅ Events: ${fixedDisplayData.summary.events}`);
+      console.log(`✅ Steuer: ${formatCurrency(fixedDisplayData.summary.totalTax)}`);
+      console.log(`✅ Gewinne: ${formatCurrency(fixedDisplayData.summary.totalGains)}`);
+      
+      // Format für bestehende UI mit FIXEN
       const formattedData = {
-        reports: realTaxReport.reports || [],
-        summary: realTaxReport.summary || {},
+        reports: fixedDisplayData.reports,
+        summary: fixedDisplayData.summary,
+        transactionsProcessed: fixedDisplayData.transactionsProcessed,
         metadata: {
-          source: 'Direct Moralis Client-Side',
-          compliance: realTaxReport.compliance,
-          transactionsProcessed: realTaxReport.transactionsProcessed,
-          calculationDate: realTaxReport.calculationDate,
-          priceSource: realTaxReport.priceSource
+          source: 'Direct Moralis Client-Side (UI-Fixed)',
+          compliance: realTaxReport.compliance || 'Deutsche Steuerkonformität §22 & §23 EStG',
+          calculationDate: realTaxReport.calculationDate || new Date().toISOString(),
+          priceSource: realTaxReport.priceSource || 'Direct Client-Side (Moralis + CoinGecko)',
+          displayStats: fixedDisplayData.displayStats
         },
-        roiEvents: realTaxReport.roiEvents,
-        speculationEvents: realTaxReport.speculationEvents
+        roiEvents: realTaxReport.roiEvents || 0,
+        speculationEvents: realTaxReport.speculationEvents || 0
       };
       
       setTaxData(formattedData);
@@ -471,10 +483,10 @@ const TaxReportView = () => {
                   <strong>Transaktionen:</strong> {taxData.totalTransactions || 0}
                 </div>
                 <div>
-                  <strong>ROI Einkommen:</strong> €{taxData.totalROIIncome?.toFixed(2) || '0.00'}
+                  <strong>ROI Einkommen:</strong> {formatCurrency(taxData.totalROIIncome || 0)}
                 </div>
                 <div>
-                  <strong>Spekulative Gewinne:</strong> €{taxData.totalSpeculativeGains?.toFixed(2) || '0.00'}
+                  <strong>Spekulative Gewinne:</strong> {formatCurrency(taxData.totalSpeculativeGains || 0)}
                 </div>
               </div>
 
@@ -499,7 +511,7 @@ const TaxReportView = () => {
                       <strong>Preise geladen:</strong> {taxData.moralisProData.stats?.pricesLoadedCount || 0}
                     </div>
                     <div>
-                      <strong>Portfolio Wert:</strong> €{taxData.moralisProData.stats?.totalWalletValueEUR?.toFixed(2) || '0.00'}
+                      <strong>Portfolio Wert:</strong> {formatCurrency(taxData.moralisProData.stats?.totalWalletValueEUR || 0)}
                     </div>
                   </div>
                 </div>
