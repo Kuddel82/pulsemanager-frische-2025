@@ -220,10 +220,10 @@ export default async function handler(req, res) {
 async function loadRealTransactions(address, chains, startYear) {
     const allTransactions = [];
     
-    // 🎯 FOKUS: PulseChain + Ethereum für WGEP/ETH/USDC
+    // 🎯 FOKUS: Ethereum FIRST für WGEP/ETH/USDC, dann PulseChain
     const priorityChains = [
-        '0x171',  // PulseChain (WGEP primary)
-        '0x1',    // Ethereum (ETH/USDC)
+        '0x1',    // Ethereum (WGEP/ETH/USDC primary!)
+        '0x171',  // PulseChain (backup)
         ...chains
     ];
     
