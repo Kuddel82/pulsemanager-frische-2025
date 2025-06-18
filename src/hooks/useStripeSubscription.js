@@ -35,6 +35,25 @@ export const useStripeSubscription = (user, supabaseClient, isSupabaseClientRead
       setLoadingSubscription(true);
       console.log(`🔍 SUBSCRIPTION CHECK: Loading status for user ${user.email}`);
 
+      // 🚨🚨🚨 EMERGENCY PREMIUM OVERRIDE - ABSOLUTE HIGHEST PRIORITY
+      if (user.email === 'dkuddel@web.de' || user.email === 'phi_bel@yahoo.de') {
+        console.log('🚨🚨🚨 EMERGENCY PREMIUM OVERRIDE ACTIVE for', user.email);
+        setSubscriptionStatus('active');
+        setDaysRemaining(999);
+        setErrorSubscription(null);
+        setLoadingSubscription(false);
+        
+        console.log('🚨🚨🚨 EMERGENCY PREMIUM OVERRIDE COMPLETE:', {
+          email: user.email,
+          finalStatus: 'active',
+          finalDaysRemaining: 999,
+          isPremium: true,
+          hasTrialAccess: true
+        });
+        
+        return; // STOP HIER - KEINE WEITERE PRÜFUNG NÖTIG
+      }
+
       // 1. Prüfe user_profiles Tabelle
       const { data: profileData, error: profileError } = await supabaseClient
         .from('user_profiles')
