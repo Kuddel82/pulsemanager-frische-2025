@@ -1,18 +1,55 @@
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - FIXED MIT PORTFOLIO CODE
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - MORALIS v2.2 PULSECHAIN INTEGRATION
  * 
- * KRITISCHER FIX: Verwende die EXAKTE API-Logik aus portfolio-cache.js
- * da diese nachweislich funktioniert und echte Transaktionen lädt
+ * SCHRITT 1: Moralis API v2.2 mit PulseChain Support
+ * - Chain ID 369 (0x171) für PulseChain
+ * - ERC20 Token Transfers mit Pagination
+ * - Token Balances und Metadata
+ * - Rate Limiting: 25 requests/second
  */
 
-// 🔧 EXAKTE KOPIE DER FUNKTIONIERENDEN PORTFOLIO API-LOGIK
+// 🔧 MORALIS v2.2 KONFIGURATION
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
+const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2.2';
 
-// 🚦 RATE LIMITING: Exakt wie im Portfolio System
+// 🚦 RATE LIMITING: 25 requests/second (Standard Plan)
 let lastCallTime = 0;
-const MIN_CALL_INTERVAL = 200;
+const MIN_CALL_INTERVAL = 40; // 1000ms / 25 requests = 40ms minimum
 
+// 🔗 PULSECHAIN KONFIGURATION
+const PULSECHAIN_CONFIG = {
+  chainId: '0x171', // Chain ID 369 in hex
+  name: 'PulseChain',
+  nativeToken: 'PLS',
+  decimals: 18,
+  rpcUrl: 'https://rpc.pulsechain.com',
+  blockExplorer: 'https://scan.pulsechainfoundation.org/',
+  // 🔥 SCHRITT 2: NATIVE TOKEN SPECIFICATIONS
+  nativeTokenSpecs: {
+    PLS: {
+      contract: 'native', // Native blockchain token (no contract address)
+      decimals: 18,
+      symbol: 'PLS',
+      currentPrice: 0.00003003, // ~$0.00003003 USD
+      totalSupply: 10000000000 // ~10 billion PLS
+    },
+    WPLS: {
+      usage: 'DEX trading where native PLS isn\'t supported',
+      decimals: 18,
+      trading: 'Active on PulseX, PulseX V2, other PulseChain DEXs'
+    }
+  },
+  // 🔥 SCHRITT 2: WGEP TOKEN RESEARCH
+  wgepToken: {
+    name: 'WGEP',
+    description: 'PulseChain token with ROI mechanics',
+    note: 'Verify exact contract address and tokenomics from PulseChain block explorer',
+    roiMechanism: 'ETH printing through staking rewards, reflection mechanisms, or yield farming',
+    taxCategory: '§22 EStG - Sonstige Einkünfte'
+  }
+};
+
+// 🔥 ERWEITERTE API-CALLS MIT v2.2
 async function rateLimitedCall(fn) {
   const now = Date.now();
   const timeSinceLastCall = now - lastCallTime;
@@ -25,26 +62,81 @@ async function rateLimitedCall(fn) {
   return await fn();
 }
 
-// 🔥 FUNKTIONIERENDEN API-CALL KOPIERT VON PORTFOLIO SYSTEM
-async function fetchERC20Transfers(wallet, chainId) {
+// 🔥 SCHRITT 1: ERC20 TRANSFERS MIT v2.2
+async function fetchERC20TransfersV2(wallet, chainId, cursor = null) {
   try {
-    console.log(`📊 TAX: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
+    console.log(`📊 TAX v2.2: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
     
-    const res = await fetch(`${MORALIS_BASE}/${wallet}/erc20/transfers?chain=${chainId}&limit=500`, {
+    let url = `${MORALIS_BASE}/erc20/${wallet}/transfers?chain=${chainId}&limit=500`;
+    if (cursor) {
+      url += `&cursor=${cursor}`;
+    }
+    
+    const res = await fetch(url, {
       headers: { 'X-API-Key': MORALIS_API_KEY }
     });
     
     if (!res.ok) {
-      throw new Error(`ERC20 Transfers API error: ${res.status}`);
+      throw new Error(`ERC20 Transfers v2.2 API error: ${res.status}`);
     }
     
     const data = await res.json();
-    console.log(`✅ TAX: Found ${data?.result?.length || 0} ERC20 transfers`);
-    return data.result || [];
+    console.log(`✅ TAX v2.2: Found ${data?.result?.length || 0} ERC20 transfers`);
+    return data;
     
   } catch (error) {
-    console.error('❌ TAX: fetchERC20Transfers error:', error.message);
+    console.error('❌ TAX v2.2: fetchERC20Transfers error:', error.message);
+    return { result: [], cursor: null };
+  }
+}
+
+// 🔥 SCHRITT 1: TOKEN BALANCES MIT v2.2
+async function fetchTokenBalancesV2(wallet, chainId) {
+  try {
+    console.log(`💰 TAX v2.2: Fetching token balances for ${wallet} on chain ${chainId}`);
+    
+    const url = `${MORALIS_BASE}/erc20/${wallet}/balance?chain=${chainId}`;
+    
+    const res = await fetch(url, {
+      headers: { 'X-API-Key': MORALIS_API_KEY }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Token Balances v2.2 API error: ${res.status}`);
+    }
+    
+    const data = await res.json();
+    console.log(`✅ TAX v2.2: Found ${data?.length || 0} token balances`);
+    return data || [];
+    
+  } catch (error) {
+    console.error('❌ TAX v2.2: fetchTokenBalances error:', error.message);
     return [];
+  }
+}
+
+// 🔥 SCHRITT 1: TOKEN METADATA MIT v2.2
+async function fetchTokenMetadataV2(tokenAddress, chainId) {
+  try {
+    console.log(`📋 TAX v2.2: Fetching metadata for token ${tokenAddress} on chain ${chainId}`);
+    
+    const url = `${MORALIS_BASE}/erc20/metadata?chain=${chainId}&addresses=${tokenAddress}`;
+    
+    const res = await fetch(url, {
+      headers: { 'X-API-Key': MORALIS_API_KEY }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Token Metadata v2.2 API error: ${res.status}`);
+    }
+    
+    const data = await res.json();
+    console.log(`✅ TAX v2.2: Found metadata for ${data?.length || 0} tokens`);
+    return data?.[0] || null;
+    
+  } catch (error) {
+    console.error('❌ TAX v2.2: fetchTokenMetadata error:', error.message);
+    return null;
   }
 }
 
@@ -110,39 +202,128 @@ function classifyTransactionForGermanTax(tx, walletAddress) {
   };
 }
 
-// 🔥 MAIN FUNCTION: Verwende Portfolio API-Logik
+// 🔥 SCHRITT 5: MAIN FUNCTION MIT v2.2 INTEGRATION
 async function loadRealTransactionsForTax(walletAddress) {
-  console.log(`🇩🇪 TAX: Loading real transactions for ${walletAddress}`);
+  console.log(`🇩🇪 TAX v2.2: Loading real transactions for ${walletAddress}`);
   
   // Beide Chains laden (wie Portfolio System)
   const chains = [
     { id: '0x1', name: 'Ethereum' },    // WGEP, USDC, ETH
-    { id: '0x171', name: 'PulseChain' } // PLS, HEX, andere
+    { id: PULSECHAIN_CONFIG.chainId, name: PULSECHAIN_CONFIG.name } // PLS, HEX, andere
   ];
   
   const allTransactions = [];
   
   for (const chain of chains) {
-    console.log(`🔗 TAX: Loading ${chain.name} (${chain.id})...`);
+    console.log(`🔗 TAX v2.2: Loading ${chain.name} (${chain.id})...`);
     
-    const transfers = await rateLimitedCall(() => fetchERC20Transfers(walletAddress, chain.id));
-    
-    // Filter 2024-2025 (aktuelle Steuerperiode) - FIXED!
-    const recentTransfers = transfers.filter(tx => {
-      const txYear = new Date(tx.block_timestamp).getFullYear();
-      return txYear >= 2024 && txYear <= 2025;
-    });
-    
-    // Deutsche Steuer-Klassifizierung
-    const classifiedTransfers = recentTransfers.map(tx => 
-      classifyTransactionForGermanTax(tx, walletAddress)
-    );
-    
-    allTransactions.push(...classifiedTransfers);
-    console.log(`✅ TAX: ${chain.name}: ${recentTransfers.length} transactions (2025-2035)`);
+    try {
+      // 🔥 SCHRITT 5: MORALIS v2.2 MIT PAGINATION
+      let allTransfers = [];
+      let cursor = null;
+      let pageCount = 0;
+      const maxPages = 10; // Max 10 pages = 5000 transactions
+      
+      do {
+        const transferData = await rateLimitedCall(() => 
+          fetchERC20TransfersV2(walletAddress, chain.id, cursor)
+        );
+        
+        if (transferData.result && transferData.result.length > 0) {
+          allTransfers.push(...transferData.result);
+          cursor = transferData.cursor;
+          pageCount++;
+          console.log(`📄 TAX v2.2: Page ${pageCount} - ${transferData.result.length} transfers`);
+        } else {
+          break;
+        }
+      } while (cursor && pageCount < maxPages);
+      
+      // 🔥 SCHRITT 5: BLOCKSCOUT FALLBACK FÜR PULSECHAIN
+      if (chain.id === PULSECHAIN_CONFIG.chainId && allTransfers.length === 0) {
+        console.log(`🔄 TAX v2.2: Moralis empty, trying BlockScout fallback...`);
+        
+        const [tokenTransfers, internalTxs, normalTxs] = await Promise.all([
+          getBlockscoutTokenTransfers(walletAddress),
+          getBlockscoutInternalTransactions(walletAddress),
+          getBlockscoutNormalTransactions(walletAddress)
+        ]);
+        
+        // Convert BlockScout format to Moralis format
+        const blockScoutTransfers = [
+          ...tokenTransfers.map(tx => ({
+            transaction_hash: tx.hash,
+            to_address: tx.to,
+            from_address: tx.from,
+            value: tx.value,
+            token_address: tx.contractAddress,
+            token_symbol: tx.tokenSymbol,
+            token_name: tx.tokenName,
+            token_decimals: tx.tokenDecimal,
+            block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+            block_number: tx.blockNumber,
+            chain: 'pulsechain',
+            source: 'blockscout_fallback'
+          })),
+          ...normalTxs.map(tx => ({
+            transaction_hash: tx.hash,
+            to_address: tx.to,
+            from_address: tx.from,
+            value: tx.value,
+            token_address: 'native',
+            token_symbol: 'PLS',
+            token_name: 'PulseChain',
+            token_decimals: '18',
+            block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+            block_number: tx.blockNumber,
+            chain: 'pulsechain',
+            source: 'blockscout_fallback'
+          }))
+        ];
+        
+        allTransfers = blockScoutTransfers;
+        console.log(`✅ TAX v2.2: BlockScout fallback - ${allTransfers.length} transfers`);
+      }
+      
+      // Filter 2025-2035 (aktuelle Steuerperiode)
+      const recentTransfers = allTransfers.filter(tx => {
+        const txYear = new Date(tx.block_timestamp).getFullYear();
+        return txYear >= 2025 && txYear <= 2035;
+      });
+      
+      // 🔥 SCHRITT 5: ENHANCED PRICE CALCULATION
+      const enhancedTransfers = await Promise.all(
+        recentTransfers.map(async (tx) => {
+          // Calculate real prices
+          const priceData = await calculateTokenPrice(
+            tx.token_symbol, 
+            tx.token_address, 
+            tx.block_timestamp
+          );
+          
+          return {
+            ...tx,
+            usd_price: priceData.usd,
+            eur_price: priceData.eur,
+            price_source: priceData.source
+          };
+        })
+      );
+      
+      // Deutsche Steuer-Klassifizierung
+      const classifiedTransfers = enhancedTransfers.map(tx => 
+        classifyTransactionForGermanTax(tx, walletAddress)
+      );
+      
+      allTransactions.push(...classifiedTransfers);
+      console.log(`✅ TAX v2.2: ${chain.name}: ${recentTransfers.length} transactions (2025-2035)`);
+      
+    } catch (error) {
+      console.error(`❌ TAX v2.2: Error loading ${chain.name}:`, error.message);
+    }
   }
   
-  console.log(`📊 TAX: TOTAL ${allTransactions.length} transactions loaded`);
+  console.log(`📊 TAX v2.2: TOTAL ${allTransactions.length} transactions loaded`);
   return allTransactions;
 }
 
@@ -180,6 +361,184 @@ function calculateGermanTax(transactions) {
       year: '2025-2035'
     }
   };
+}
+
+// 🔥 SCHRITT 3: BLOCKSCOUT API ALS BACKUP SOLUTION
+const BLOCKSCOUT_CONFIG = {
+  baseURL: 'https://scan.pulsechainfoundation.org/api',
+  rateLimitDelay: 100, // 10 req/sec = 100ms between requests
+  apiKey: process.env.BLOCKSCOUT_API_KEY || ''
+};
+
+// 🔥 SCHRITT 3: BLOCKSCOUT RATE LIMITER
+class BlockScoutRateLimiter {
+  constructor() {
+    this.lastCallTime = 0;
+    this.delay = BLOCKSCOUT_CONFIG.rateLimitDelay;
+  }
+
+  async waitForToken() {
+    const now = Date.now();
+    const timeSinceLastCall = now - this.lastCallTime;
+    
+    if (timeSinceLastCall < this.delay) {
+      await new Promise(resolve => setTimeout(resolve, this.delay - timeSinceLastCall));
+    }
+    
+    this.lastCallTime = Date.now();
+  }
+}
+
+const blockScoutRateLimiter = new BlockScoutRateLimiter();
+
+// 🔥 SCHRITT 3: BLOCKSCOUT TRANSACTION FETCHING
+async function getBlockscoutTransactions(address, action = 'txlist') {
+  try {
+    await blockScoutRateLimiter.waitForToken();
+    
+    const params = new URLSearchParams({
+      module: 'account',
+      action: action,
+      address: address,
+      sort: 'desc',
+      apikey: BLOCKSCOUT_CONFIG.apiKey
+    });
+    
+    const response = await fetch(`${BLOCKSCOUT_CONFIG.baseURL}?${params}`);
+    const data = await response.json();
+    
+    if (data.status === '1' && data.result) {
+      console.log(`✅ BlockScout: Found ${data.result.length} ${action} transactions`);
+      return data.result;
+    } else {
+      console.warn(`⚠️ BlockScout: No ${action} transactions found`);
+      return [];
+    }
+    
+  } catch (error) {
+    console.error(`❌ BlockScout ${action} error:`, error.message);
+    return [];
+  }
+}
+
+// 🔥 SCHRITT 3: BLOCKSCOUT FALLBACK FUNCTIONS
+async function getBlockscoutTokenTransfers(address) {
+  return await getBlockscoutTransactions(address, 'tokentx');
+}
+
+async function getBlockscoutInternalTransactions(address) {
+  return await getBlockscoutTransactions(address, 'txlistinternal');
+}
+
+async function getBlockscoutNormalTransactions(address) {
+  return await getBlockscoutTransactions(address, 'txlist');
+}
+
+// 🔥 SCHRITT 4: TOKEN PRICING UND EUR CONVERSION STRATEGY
+const PRICING_CONFIG = {
+  // Tier 1 - Professional APIs
+  coinGecko: {
+    baseURL: 'https://api.coingecko.com/api/v3',
+    rateLimit: 50, // requests per minute
+    proTier: false // Set to true if using Pro API
+  },
+  coinMarketCap: {
+    baseURL: 'https://pro-api.coinmarketcap.com/v1',
+    apiKey: process.env.COINMARKETCAP_API_KEY || ''
+  },
+  // Tier 2 - DEX aggregators für PulseChain
+  geckoTerminal: {
+    baseURL: 'https://api.geckoterminal.com/api/v2',
+    pulseChainId: 'pulsechain'
+  }
+};
+
+// 🔥 SCHRITT 4: COINGECKO PRICE FETCHING
+async function fetchCoinGeckoPrice(tokenId, date = null) {
+  try {
+    let url = `${PRICING_CONFIG.coinGecko.baseURL}/simple/price?ids=${tokenId}&vs_currencies=usd,eur`;
+    
+    if (date) {
+      // Historical price endpoint
+      url = `${PRICING_CONFIG.coinGecko.baseURL}/coins/${tokenId}/history?date=${date}`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data && data[tokenId]) {
+      return {
+        usd: data[tokenId].usd || 0,
+        eur: data[tokenId].eur || 0
+      };
+    }
+    
+    return { usd: 0, eur: 0 };
+    
+  } catch (error) {
+    console.error(`❌ CoinGecko price error for ${tokenId}:`, error.message);
+    return { usd: 0, eur: 0 };
+  }
+}
+
+// 🔥 SCHRITT 4: PULSECHAIN TOKEN PRICE MAPPING
+const PULSECHAIN_TOKEN_PRICES = {
+  // Native tokens
+  'PLS': { coinGeckoId: 'pulsechain', fallbackPrice: 0.00003003 },
+  'PLSX': { coinGeckoId: 'pulsex', fallbackPrice: 0.00003 },
+  'HEX': { coinGeckoId: 'hex', fallbackPrice: 0.006 },
+  'INC': { coinGeckoId: 'incinerate', fallbackPrice: 0.005 },
+  'DOMINANCE': { coinGeckoId: 'dominance', fallbackPrice: 0.32 },
+  // Stablecoins
+  'USDC': { coinGeckoId: 'usd-coin', fallbackPrice: 1.0 },
+  'USDT': { coinGeckoId: 'tether', fallbackPrice: 1.0 },
+  'DAI': { coinGeckoId: 'dai', fallbackPrice: 1.0 },
+  // Other tokens
+  'WBTC': { coinGeckoId: 'wrapped-bitcoin', fallbackPrice: 95000 },
+  'ETH': { coinGeckoId: 'ethereum', fallbackPrice: 2400 },
+  'FINVESTA': { coinGeckoId: 'finvesta', fallbackPrice: 24.23 },
+  'FLEXMAS': { coinGeckoId: 'flexmas', fallbackPrice: 0.293 },
+  'SOIL': { coinGeckoId: 'soil', fallbackPrice: 0.106 },
+  'BEAST': { coinGeckoId: 'beast', fallbackPrice: 0.606 },
+  'FINFIRE': { coinGeckoId: 'finfire', fallbackPrice: 3.426 },
+  'MISSOR': { coinGeckoId: 'missor', fallbackPrice: 0.00936 },
+  'SECRET': { coinGeckoId: 'secret', fallbackPrice: 0.0000145 }
+};
+
+// 🔥 SCHRITT 4: ENHANCED PRICE CALCULATION
+async function calculateTokenPrice(tokenSymbol, tokenAddress, timestamp = null) {
+  try {
+    const tokenInfo = PULSECHAIN_TOKEN_PRICES[tokenSymbol?.toUpperCase()];
+    
+    if (tokenInfo && tokenInfo.coinGeckoId) {
+      // Try CoinGecko first
+      const price = await fetchCoinGeckoPrice(tokenInfo.coinGeckoId, timestamp);
+      
+      if (price.usd > 0) {
+        return {
+          usd: price.usd,
+          eur: price.eur || (price.usd * 0.93), // USD to EUR conversion
+          source: 'coingecko'
+        };
+      }
+    }
+    
+    // Fallback to stored price
+    const fallbackPrice = tokenInfo?.fallbackPrice || 0.0001;
+    return {
+      usd: fallbackPrice,
+      eur: fallbackPrice * 0.93,
+      source: 'fallback'
+    };
+    
+  } catch (error) {
+    console.error(`❌ Price calculation error for ${tokenSymbol}:`, error.message);
+    return {
+      usd: 0,
+      eur: 0,
+      source: 'error'
+    };
+  }
 }
 
 export default async function handler(req, res) {
