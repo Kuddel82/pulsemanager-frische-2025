@@ -84,21 +84,26 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
       let endpoint = '';
       switch (singleExport.format) {
         case 'pdf':
-          endpoint = '/api/export-pdf';
+          endpoint = '/api/export-tax-report';
           break;
         case 'csv':
-          endpoint = '/api/export-csv';
+          endpoint = '/api/export-tax-report';
           break;
         case 'elster':
-          endpoint = '/api/export-elster';
+          endpoint = '/api/export-tax-report';
           break;
         default:
-          endpoint = '/api/export-pdf';
+          endpoint = '/api/export-tax-report';
       }
 
-      const response = await fetch(`${endpoint}?wallet=${singleExport.walletAddress}&year=${singleExport.taxYear}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: singleExport.walletAddress,
+          format: singleExport.format,
+          year: singleExport.taxYear
+        })
       });
 
       clearInterval(progressInterval);
@@ -154,8 +159,15 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
       // Sequentiell alle Wallets exportieren
       const results = [];
       for (const wallet of bulkExport.wallets) {
-        const endpoint = bulkExport.format === 'pdf' ? '/api/export-pdf' : '/api/export-csv';
-        const response = await fetch(`${endpoint}?wallet=${wallet}&year=${bulkExport.taxYear}`);
+        const response = await fetch('/api/export-tax-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: wallet,
+            format: bulkExport.format,
+            year: bulkExport.taxYear
+          })
+        });
         
         if (response.ok) {
           const result = await response.json();
@@ -208,11 +220,12 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
         setProgress(prev => Math.min(prev + 8, 90));
       }, 400);
 
-      const response = await fetch('/api/export-elster', {
+      const response = await fetch('/api/export-tax-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          wallet: elsterExport.walletAddress,
+          walletAddress: elsterExport.walletAddress,
+          format: 'elster',
           year: elsterExport.taxYear,
           taxpayer: elsterExport.taxpayer
         })
