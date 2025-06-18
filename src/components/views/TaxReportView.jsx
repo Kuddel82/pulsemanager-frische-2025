@@ -70,84 +70,28 @@ const SimpleTaxTracker = () => {
     setPdfData(null);
 
     try {
-      console.log('🔥 Starte Multi-Chain Datenabfrage...');
+      console.log('🇩🇪 Starte deutsche Steuerreport-Generierung...');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       
-      // 🔥 MULTI-CHAIN APPROACH: PulseChain + Ethereum
-      console.log(`🔍 DEBUG: Testing Multi-Chain approach for ${walletAddress}...`);
-      
-      const { ScanTransactionService } = await import('@/services/scanTransactionService.js');
-      
-      // 1. PULSECHAIN SCAN (für PLS, HEX, etc.)
-      console.log(`🔍 DEBUG: Loading PulseChain data...`);
-      const pulsechainResult = await ScanTransactionService.getUltimateTaxHistory(walletAddress);
-      
-      // 2. ETHEREUM MORALIS (für ETH, USDC, WGEP, etc.)
-      console.log(`🔍 DEBUG: Loading Ethereum data...`);
-      const ethereumResult = await loadEthereumTransactions(walletAddress);
-      
-      // 3. COMBINE RESULTS
-      const allTransactions = [
-        ...(pulsechainResult.allTransactions || []),
-        ...(ethereumResult.transactions || [])
-      ];
-      
-      console.log(`🔍 DEBUG: Combined results:`, {
-        pulsechain: pulsechainResult.totalCount || 0,
-        ethereum: ethereumResult.transactions?.length || 0,
-        total: allTransactions.length
+      // 🇩🇪 DEUTSCHE STEUERREPORT API VERWENDEN
+      const response = await fetch('/api/german-tax-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address: walletAddress
+        })
       });
+
+      const data = await response.json();
       
-      if (allTransactions.length > 0) {
-        // 🔥 SICHERE DATENVALIDIERUNG: Verhindere React-Rendering-Fehler
-        const safeTransactions = allTransactions.map(tx => ({
-          hash: tx.hash || '',
-          blockNumber: tx.blockNumber || 0,
-          timeStamp: tx.timeStamp || 0,
-          timestamp: tx.timestamp || new Date().toISOString(),
-          from: tx.from || '',
-          to: tx.to || '',
-          value: tx.value || '0',
-          tokenName: tx.tokenName || 'Unknown',
-          tokenSymbol: tx.tokenSymbol || 'UNKNOWN',
-          tokenDecimal: tx.tokenDecimal || 18,
-          contractAddress: tx.contractAddress || '',
-          gasUsed: tx.gasUsed || 0,
-          gasPrice: tx.gasPrice || '0',
-          direction: tx.direction || 'UNKNOWN',
-          type: tx.type || 'UNKNOWN',
-          source: tx.source || 'multi_chain',
-          walletAddress: tx.walletAddress || walletAddress,
-          chain: tx.chain || 'unknown'
-        }));
-        
-        // Erstelle einen einfachen Tax Report
-        const taxReport = {
-          transactions: safeTransactions,
-          summary: {
-            totalTransactions: safeTransactions.length,
-            pulsechainTransactions: pulsechainResult.totalCount || 0,
-            ethereumTransactions: ethereumResult.transactions?.length || 0,
-            roiCount: safeTransactions.filter(tx => tx.direction === 'IN' && tx.value !== '0').length,
-            saleCount: 0,
-            totalROIValueEUR: 0,
-            totalSaleValueEUR: 0,
-            totalTaxEUR: 0
-          },
-          metadata: {
-            source: 'multi_chain_scan',
-            walletAddress: walletAddress,
-            chains: ['0x171', '0x1'],
-            year: 'all'
-          }
-        };
-        
-        console.log('✅ Multi-Chain Daten erfolgreich geladen:', taxReport);
-        setTaxData(taxReport);
-        
-      } else {
-        throw new Error('Keine Transaktionen auf PulseChain oder Ethereum gefunden');
+      if (!data.success) {
+        throw new Error(data.error || 'Fehler beim Laden der Steuerdaten');
       }
+
+      console.log('✅ Deutsche Steuerreport erfolgreich geladen:', data.taxReport);
+      setTaxData(data.taxReport);
 
     } catch (error) {
       console.error('❌ Fehler:', error);
@@ -634,14 +578,14 @@ const SimpleTaxTracker = () => {
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {taxData.summary?.roiCount || 0}
+                  {(taxData.summary?.roiCount || 0) + (taxData.summary?.saleCount || 0)}
                 </div>
                 <div className="pulse-stat-label">Steuer-Events</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {formatCurrency(taxData.summary?.totalROIValueEUR || 0)}
+                  {formatCurrency(taxData.summary?.totalGainsEUR || 0)}
                 </div>
                 <div className="pulse-stat-label">Gesamte Gewinne</div>
               </div>
@@ -658,7 +602,7 @@ const SimpleTaxTracker = () => {
             {taxData.transactions && taxData.transactions.length > 0 && (
               <div className="overflow-x-auto mb-6">
                 <h3 className="text-xl font-semibold pulse-text mb-4">
-                  📋 Transaktionen (Top 10 von {taxData.transactions.length})
+                  📋 Transaktionen ({taxData.transactions.length} von {taxData.transactions.length})
                 </h3>
                 <table className="w-full rounded-lg overflow-hidden" style={{backgroundColor: 'var(--bg-secondary)'}}>
                   <thead style={{background: 'var(--pulse-gradient-primary)'}}>
@@ -671,16 +615,16 @@ const SimpleTaxTracker = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {taxData.transactions.slice(0, 10).map((tx, index) => (
+                    {taxData.transactions.map((tx, index) => (
                       <tr key={index} style={{backgroundColor: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)'}}>
                         <td className="px-4 py-3 text-sm pulse-text-secondary">
-                          {tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A'}
+                          {tx.block_timestamp ? new Date(tx.block_timestamp).toLocaleDateString('de-DE') : 'N/A'}
                         </td>
                         <td className="px-4 py-3 text-sm font-medium pulse-text">
-                          {tx.tokenSymbol || tx.tokenName || 'N/A'}
+                          {tx.token_symbol || tx.tokenSymbol || 'UNKNOWN'}
                         </td>
                         <td className="px-4 py-3 text-sm pulse-text-secondary">
-                          {tx.type || 'N/A'}
+                          {tx.taxCategory || 'ERC20_TRANSFER'}
                         </td>
                         <td className="px-4 py-3 text-sm pulse-text">
                           <span className={`px-2 py-1 rounded text-xs ${
@@ -690,7 +634,7 @@ const SimpleTaxTracker = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm font-bold pulse-text-gradient">
-                          {tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0'}
+                          {tx.amount ? tx.amount.toFixed(6) : (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)).toFixed(6) : '0')}
                         </td>
                       </tr>
                     ))}
