@@ -12,7 +12,7 @@
 // 🔧 MORALIS API CONFIGURATION
 const MORALIS_CONFIG = {
     baseURL: 'https://deep-index.moralis.io/api/v2',
-    apiKey: process.env.MORALIS_API_KEY, // 🔐 SICHER: Nur aus Environment Variables
+    apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjNiYjEyNDQ0LWVkYmUtNDQyNi1hOThlLWFlNzBjZTAzZGRhNCIsIm9yZ0lkIjoiNDUxOTc4IiwidXNlcklkIjoiNDY1MDQ5IiwidHlwZUlkIjoiY2JhYzQ1ZTctODk4Ni00ZGFlLWE4NTUtMDA3ZmFlNjM4ZDgyIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDk0MzkxNzEsImV4cCI6NDkwNTE5OTE3MX0.nTFPzga8CQX4Yxryvu2zCkCVHsJp5VDoIy_CthTrOvc', // Working API Key
     rateLimitMs: 200, // 5 calls/sec
     maxRetries: 3
 };
@@ -237,16 +237,11 @@ async function loadRealTransactions(address, chains, startYear) {
             
             do {
                 // Moralis API Call mit GRÖSSERER Pagination
-                let url = `${MORALIS_CONFIG.baseURL}/${address}/erc20/transfers?chain=${chainId}&limit=500`;
-                if (cursor) {
-                    url += `&cursor=${cursor}`;
-                }
+                // COPY FROM WORKING PORTFOLIO CODE
+                const url = `${MORALIS_CONFIG.baseURL}/${address}/erc20/transfers?chain=${chainId}&limit=500${cursor ? `&cursor=${cursor}` : ''}`;
                 
                 const response = await fetch(url, {
-                    headers: {
-                        'X-API-Key': MORALIS_CONFIG.apiKey,
-                        'Accept': 'application/json'
-                    }
+                    headers: { 'X-API-Key': MORALIS_CONFIG.apiKey }
                 });
 
                 if (!response.ok) {
