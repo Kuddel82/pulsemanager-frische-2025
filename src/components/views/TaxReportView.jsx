@@ -201,6 +201,46 @@ const SimpleTaxTracker = () => {
           safeTimestamp = new Date().toISOString(); // Fallback
         }
 
+        // 🔥 TOKEN-NAME REPARATUR
+        let tokenName = tx.token_name || 'Unknown';
+        let tokenSymbol = tx.token_symbol || 'UNKNOWN';
+        
+        // Spezielle Token-Mappings
+        if (tx.token_address?.toLowerCase() === '0xfca88920ca5639ad5e954ea776e73dec54fdc065') {
+          tokenName = 'WGEP';
+          tokenSymbol = 'WGEP';
+        } else if (tx.token_address?.toLowerCase() === '0xa0b86a33e6441b8c4c8c8c8c8c8c8c8c8c8c8c8') {
+          tokenName = 'MASKMAN';
+          tokenSymbol = 'MASKMAN';
+        } else if (tx.token_address?.toLowerCase() === '0xa0b86a33e6441b8c4c8c8c8c8c8c8c8c8c8c8c9') {
+          tokenName = 'BORK';
+          tokenSymbol = 'BORK';
+        }
+
+        // 🔥 WERTE-FORMATIERUNG
+        let formattedValue = '0';
+        try {
+          if (tx.value && tx.token_decimals) {
+            const rawValue = parseFloat(tx.value);
+            const decimals = parseInt(tx.token_decimals);
+            const actualValue = rawValue / Math.pow(10, decimals);
+            
+            // Spezielle Formatierung für verschiedene Token
+            if (tokenSymbol === 'USDC') {
+              formattedValue = actualValue.toFixed(2); // 2 Dezimalstellen für USDC
+            } else if (tokenSymbol === 'WGEP') {
+              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für WGEP
+            } else if (tokenSymbol === 'ETH') {
+              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für ETH
+            } else {
+              formattedValue = actualValue.toFixed(6); // Standard 6 Dezimalstellen
+            }
+          }
+        } catch (error) {
+          console.warn(`⚠️ Value formatting error for ${tokenSymbol}: ${tx.value}`);
+          formattedValue = '0';
+        }
+
         return {
           hash: tx.transaction_hash || '',
           blockNumber: tx.block_number || 0,
@@ -209,8 +249,9 @@ const SimpleTaxTracker = () => {
           from: tx.from_address || '',
           to: tx.to_address || '',
           value: tx.value || '0',
-          tokenName: tx.token_name || 'Unknown',
-          tokenSymbol: tx.token_symbol || 'UNKNOWN',
+          formattedValue: formattedValue, // 🔥 NEU: Formatierter Wert
+          tokenName: tokenName,
+          tokenSymbol: tokenSymbol,
           tokenDecimal: tx.token_decimals || 18,
           contractAddress: tx.token_address || '',
           gasUsed: tx.gas_used || 0,
@@ -319,9 +360,9 @@ const SimpleTaxTracker = () => {
                 ${taxData.transactions.map((tx, index) => {
                   const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
                   const chain = tx.chain === '0x1' ? 'ETH' : tx.chain === '0x171' ? 'PLS' : 'UNK';
-                  const token = tx.tokenSymbol || tx.tokenName || 'N/A';
+                  const token = tx.tokenSymbol || 'N/A';
                   const direction = tx.direction === 'IN' ? '📥 IN' : '📤 OUT';
-                  const value = tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0';
+                  const value = tx.formattedValue || (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0');
                   return `
                     <tr>
                       <td>${date}</td>
