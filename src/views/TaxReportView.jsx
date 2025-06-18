@@ -54,26 +54,61 @@ const TaxReportView = () => {
         console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
         
         try {
-          // 🔥 NEUE API: Direkte Portfolio-Logik
-          const response = await fetch('/api/german-tax-report', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address: wallet.address })
-          });
+          // 🔥 RICHTIGE API: Verwende Moralis v2.2 direkt
+          console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
           
-          const result = await response.json();
+          // Verwende die RICHTIGEN Moralis API-Endpunkte
+          const [erc20Response, historyResponse] = await Promise.all([
+            fetch(`/api/moralis-proxy?endpoint=erc20-transfers&address=${wallet.address}&chain=0x171&limit=500`),
+            fetch(`/api/moralis-proxy?endpoint=wallet-history&address=${wallet.address}&chain=0x171&limit=500`)
+          ]);
           
-          if (result.success && result.taxReport) {
+          const [erc20Data, historyData] = await Promise.all([
+            erc20Response.json(),
+            historyResponse.json()
+          ]);
+          
+          console.log(`🔍 DEBUG: ERC20 Response:`, erc20Data);
+          console.log(`🔍 DEBUG: History Response:`, historyData);
+          
+          // Kombiniere alle Transaktionen
+          const allTransactions = [
+            ...(erc20Data.result || []),
+            ...(historyData.result || [])
+          ];
+          
+          console.log(`🔍 DEBUG: Total transactions found: ${allTransactions.length}`);
+          
+          if (allTransactions.length > 0) {
+            // Erstelle einen einfachen Tax Report
+            const taxReport = {
+              transactions: allTransactions,
+              summary: {
+                totalTransactions: allTransactions.length,
+                roiCount: allTransactions.filter(tx => tx.isROI).length,
+                saleCount: allTransactions.filter(tx => tx.taxCategory === 'SALE_INCOME').length,
+                totalROIValueEUR: 0,
+                totalSaleValueEUR: 0,
+                totalTaxEUR: 0
+              },
+              metadata: {
+                source: 'moralis_v2.2_direct',
+                walletAddress: wallet.address,
+                chains: ['0x171'],
+                year: 'all'
+              }
+            };
+            
             reports.push({
               wallet: wallet.address,
-              report: result.taxReport,
+              report: taxReport,
               success: true
             });
-            console.log(`✅ Tax Report für ${wallet.address}: ${result.taxReport.summary.totalTransactions} Transaktionen`);
+            console.log(`✅ Tax Report für ${wallet.address}: ${allTransactions.length} Transaktionen`);
           } else {
             reports.push({
               wallet: wallet.address,
-              error: result.error || 'Unknown API error',
+              error: 'Keine Transaktionen gefunden',
               success: false
             });
           }
