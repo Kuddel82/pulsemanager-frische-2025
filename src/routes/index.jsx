@@ -17,7 +17,7 @@ import MinimalLayout from '@/components/layout/MinimalLayout';
 import Home from '@/components/views/Home';
 import PortfolioView from '@/views/PortfolioView';
 import ROITrackerView from '@/views/ROITrackerView_Simple';
-import TaxReportView from '@/views/TaxReportView';
+import TaxReportView from '@/components/views/TaxReportView';
 import TaxExportView from '@/views/TaxExportView';
 import WgepView from '@/views/WGEPView';
 import AcademyView from '@/components/views/AcademyView';

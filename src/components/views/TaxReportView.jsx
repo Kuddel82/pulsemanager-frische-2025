@@ -71,36 +71,42 @@ const SimpleTaxTracker = () => {
 
     try {
       console.log('🔥 Starte echte Moralis-Datenabfrage...');
+      console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       
-      const response = await fetch('/api/german-tax-report', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          address: walletAddress,
-          realDataOnly: true // Nur echte Daten!
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('📊 API Response:', data); // Debug Log
+      // 🔥 ALTERNATIVE: Verwende ScanTransactionService direkt
+      console.log(`🔍 DEBUG: Testing ScanTransactionService for ${walletAddress}...`);
       
-      if (data.success && data.taxReport) {
-        console.log('✅ Echte Daten erfolgreich geladen:', data.taxReport);
-        setTaxData(data.taxReport);
+      const { ScanTransactionService } = await import('@/services/scanTransactionService.js');
+      const scanResult = await ScanTransactionService.getUltimateTaxHistory(walletAddress);
+      
+      console.log(`🔍 DEBUG: ScanTransactionService result:`, scanResult);
+      console.log(`🔍 DEBUG: Total transactions from scan: ${scanResult.totalCount}`);
+      
+      if (scanResult.totalCount > 0) {
+        // Erstelle einen einfachen Tax Report
+        const taxReport = {
+          transactions: scanResult.allTransactions,
+          summary: {
+            totalTransactions: scanResult.totalCount,
+            roiCount: scanResult.taxableCount,
+            saleCount: 0,
+            totalROIValueEUR: 0,
+            totalSaleValueEUR: 0,
+            totalTaxEUR: 0
+          },
+          metadata: {
+            source: 'pulsechain_scan_direct',
+            walletAddress: walletAddress,
+            chains: ['0x171'],
+            year: 'all'
+          }
+        };
         
-        // PDF-Daten für manuellen Download speichern
-        if (data.taxReport.pdfBuffer) {
-          setPdfData(data.taxReport.pdfBuffer);
-        }
+        console.log('✅ Echte Daten erfolgreich geladen:', taxReport);
+        setTaxData(taxReport);
         
       } else {
-        throw new Error(data.error || 'Fehler beim Laden der Daten');
+        throw new Error('Keine Transaktionen gefunden');
       }
 
     } catch (error) {
