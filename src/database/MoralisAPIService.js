@@ -137,7 +137,7 @@ class MoralisAPIService {
     async getAllWalletTransactions(walletAddress, chain = 'eth', options = {}) {
         console.log(`📡 Lade Transaktionen für Wallet: ${walletAddress} (${chain})`);
         
-        const maxPages = options.maxPages || 50;
+        const maxPages = options.maxPages || 100; // 100 Seiten = 10.000 Transaktionen pro Chain
         const batchSize = options.batchSize || 100;
         
         let allTransactions = [];
@@ -182,19 +182,29 @@ class MoralisAPIService {
                 cursor = tokenTransfers.cursor || nativeTransactions.cursor;
                 pageCount++;
                 
-                // Progress Logging
-                if (pageCount % 5 === 0) {
-                    console.log(`📊 ${allTransactions.length} Transaktionen geladen (${pageCount} Seiten)`);
-                }
+                // Rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
                 
             } while (cursor && pageCount < maxPages);
-
-            console.log(`✅ ${allTransactions.length} Transaktionen für ${walletAddress} geladen`);
-            return allTransactions;
+            
+            console.log(`✅ ${allTransactions.length} Transaktionen geladen (${pageCount} Seiten)`);
+            
+            return {
+                success: true,
+                transactions: allTransactions,
+                totalCount: allTransactions.length,
+                pagesLoaded: pageCount,
+                source: 'moralis_api_300k_ready'
+            };
             
         } catch (error) {
-            console.error(`❌ Fehler beim Laden der Transaktionen für ${walletAddress}:`, error);
-            throw error;
+            console.error('❌ Fehler beim Laden der Transaktionen:', error);
+            return {
+                success: false,
+                error: error.message,
+                transactions: [],
+                totalCount: 0
+            };
         }
     }
 

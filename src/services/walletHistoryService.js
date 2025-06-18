@@ -199,8 +199,8 @@ export class WalletHistoryService {
    */
   static async getAllWalletHistory(walletAddress, options = {}) {
     const {
-      maxPages = 10,
-      maxTransactions = 300000,
+      maxPages = 100, // 100 Seiten = 10.000 Transaktionen pro Chain
+      maxTransactions = 300000, // 300k Transaktionen Maximum
       ...otherOptions
     } = options;
 
@@ -245,7 +245,7 @@ export class WalletHistoryService {
       transactions: allTransactions,
       totalTransactions: allTransactions.length,
       pagesLoaded: currentPage - 1,
-      source: 'moralis_wallet_history_complete'
+      source: 'moralis_wallet_history_complete_300k'
     };
   }
 } 
