@@ -145,15 +145,28 @@ const SimpleTaxTracker = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Steuerreport_${walletAddress.slice(0,8)}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // 📁 BESSERER DATEINAME für Downloads-Ordner
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+      const walletShort = walletAddress.slice(0,8);
+      a.download = `PulseManager_Steuerreport_${walletShort}_${dateStr}.pdf`;
+      
+      // 🎯 AUTOMATISCH IN DOWNLOADS-ORDNER
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      console.log('📄 PDF manuell heruntergeladen');
+      
+      console.log('📄 PDF erfolgreich in Downloads-Ordner gespeichert:', a.download);
+      
+      // ✅ SUCCESS FEEDBACK
+      alert(`✅ PDF erfolgreich heruntergeladen!\n📁 Datei: ${a.download}\n📂 Ort: Downloads-Ordner`);
+      
     } catch (error) {
       console.error('❌ PDF Download Fehler:', error);
-      alert('Fehler beim PDF Download');
+      alert('❌ Fehler beim PDF Download: ' + error.message);
     }
   };
 
@@ -425,7 +438,7 @@ const SimpleTaxTracker = () => {
             <div className="mt-6 p-4 rounded-lg text-center border-l-4" style={{backgroundColor: 'var(--bg-secondary)', borderLeftColor: 'var(--accent-green)'}}>
               <div className="pulse-text mb-4">
                 ✅ <strong>Steuerreport erfolgreich erstellt!</strong><br/>
-                Jetzt kannst du den PDF-Report herunterladen.
+                📁 Klicke um den PDF-Report in deinen <strong>Downloads-Ordner</strong> zu speichern.
               </div>
               <button
                 onClick={handleDownloadPDF}
@@ -433,8 +446,11 @@ const SimpleTaxTracker = () => {
                 className={`pulse-btn ${!pdfData ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'}`}
               >
                 <Download className="h-5 w-5 mr-2" />
-                PDF-Report herunterladen
+                📂 In Downloads-Ordner speichern
               </button>
+              <div className="mt-2 text-xs pulse-text-secondary">
+                💡 Dateiname: PulseManager_Steuerreport_{formatAddress(walletAddress)}_{new Date().toISOString().split('T')[0]}.pdf
+              </div>
             </div>
           </div>
         )}
