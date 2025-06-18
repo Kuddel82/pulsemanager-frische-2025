@@ -65,9 +65,10 @@ function classifyTransactionForGermanTax(tx, walletAddress) {
   ];
   const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
   
-  // Calculate EUR value
+  // Calculate EUR value - 100% ECHTE PREISE von Moralis
   const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals) || 18);
-  const eurValue = amount * 0.93; // USD to EUR approximation
+  const usdValue = parseFloat(tx.usd_price) || 0; // ECHTER Moralis USD-Preis
+  const eurValue = usdValue * 0.93; // USD to EUR conversion
   
   // German tax classification
   if (isIncoming && (fromMinter || isROIToken)) {
@@ -126,10 +127,10 @@ async function loadRealTransactionsForTax(walletAddress) {
     
     const transfers = await rateLimitedCall(() => fetchERC20Transfers(walletAddress, chain.id));
     
-    // Filter 2025-2035 (neue Wallet)
+    // Filter 2024-2025 (aktuelle Steuerperiode) - FIXED!
     const recentTransfers = transfers.filter(tx => {
       const txYear = new Date(tx.block_timestamp).getFullYear();
-      return txYear >= 2025 && txYear <= 2035;
+      return txYear >= 2024 && txYear <= 2025;
     });
     
     // Deutsche Steuer-Klassifizierung
