@@ -162,18 +162,19 @@ const SimpleTaxTracker = () => {
     try {
       console.log(`🔍 DEBUG: Loading Ethereum transactions for ${walletAddress}...`);
       
-      // Verwende Moralis Proxy für Ethereum
-      const response = await fetch('/api/moralis-proxy', {
-        method: 'POST',
+      // Verwende Moralis Proxy für Ethereum - als GET Request mit Query-Parametern
+      const params = new URLSearchParams({
+        endpoint: 'erc20-transfers',
+        address: walletAddress,
+        chain: '0x1', // Ethereum
+        limit: '1000' // Mehr Transaktionen für Tax Report
+      });
+
+      const response = await fetch(`/api/moralis-proxy?${params}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          endpoint: 'erc20-transfers',
-          address: walletAddress,
-          chain: '0x1', // Ethereum
-          limit: 1000 // Mehr Transaktionen für Tax Report
-        })
+          'Accept': 'application/json',
+        }
       });
 
       const data = await response.json();
