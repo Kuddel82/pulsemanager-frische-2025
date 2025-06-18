@@ -93,7 +93,6 @@ const AppRoutes = () => {
         <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/roi-tracker" element={<ROITrackerView />} />
         <Route path="/tax-report" element={<TaxReportView />} />
-        <Route path="/tax-report-safe" element={<TaxReportView />} />
         <Route path="/tax-export" element={<TaxExportView />} />
         <Route path="/wgep" element={<WgepView />} />
         
