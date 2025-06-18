@@ -433,25 +433,25 @@ const TaxReportView = () => {
                           <div className="bg-gray-600 p-3 rounded">
                             <div className="text-gray-400">Total Transaktionen</div>
                             <div className="text-white font-bold text-xl">
-                              {report.report?.transactions?.length || 0}
+                              {report.report && report.report.transactions ? report.report.transactions.length : 0}
                             </div>
                           </div>
                           <div className="bg-orange-600/20 p-3 rounded">
                             <div className="text-gray-400">Steuerpflichtig</div>
                             <div className="text-orange-400 font-bold text-xl">
-                              {report.report?.summary?.taxableTransactions || 0}
+                              {report.report && report.report.summary ? report.report.summary.taxableTransactions : 0}
                             </div>
                           </div>
                           <div className="bg-green-600/20 p-3 rounded">
                             <div className="text-gray-400">ROI Einkommen</div>
                             <div className="text-green-400 font-bold text-xl">
-                              ${(report.report?.summary?.roiIncome || 0).toFixed(2)}
+                              ${(report.report && report.report.summary ? report.report.summary.roiIncome : 0).toFixed(2)}
                             </div>
                           </div>
                           <div className="bg-blue-600/20 p-3 rounded">
                             <div className="text-gray-400">Chains</div>
                             <div className="text-blue-400 font-bold text-xl">
-                              {report.report?.chainStats ? Object.keys(report.report.chainStats).length : 0}
+                              {report.report && report.report.chainStats ? Object.keys(report.report.chainStats).length : 0}
                             </div>
                           </div>
                         </div>
