@@ -2,7 +2,7 @@
 // Mit Rate Limiting, Caching und intelligentem Error Handling
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2.2';
+const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
 const CHAIN_ID = '0x171'; // PulseChain
 
 // 🚦 RATE LIMITING: Max 5 API Calls pro Sekunde

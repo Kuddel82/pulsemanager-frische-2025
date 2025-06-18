@@ -5,7 +5,7 @@
 
 // 🔑 MORALIS API CONFIGURATION
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2.2';
+const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 // 🔑 PULSESCAN API CONFIGURATION
 const PULSESCAN_BASE_URL = 'https://api.scan.pulsechain.com/api';
