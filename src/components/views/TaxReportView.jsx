@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, AlertTriangle, Info, Download, Wallet, ChevronDown } from 'lucide-react';
-import { useAppContext } from '@/contexts/AppContext';
+import { FileText, AlertTriangle, Info, Download, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 
 const SimpleTaxTracker = () => {
-  const { wcAccounts, wcIsConnected, wcConnectWallet, wcIsConnecting, t, connectedWalletAddress } = useAppContext();
   const { user } = useAuth();
   
   const [walletAddress, setWalletAddress] = useState('');
@@ -13,16 +11,13 @@ const SimpleTaxTracker = () => {
   const [taxData, setTaxData] = useState(null);
   const [error, setError] = useState(null);
   const [pdfData, setPdfData] = useState(null);
-  const [showWalletDropdown, setShowWalletDropdown] = useState(false);
   const [dbWallets, setDbWallets] = useState([]);
 
-  // 🎯 NEUE METHODE: Lade Wallets direkt aus Datenbank (wie Portfolio)
+  // 🎯 WALLET INTEGRATION: Lade Wallets direkt aus Datenbank
   const loadWalletsFromDatabase = async () => {
     if (!user?.id) return;
     
     try {
-      console.log('🔍 Lade Wallets aus Datenbank für User:', user.id);
-      
       const { data: wallets, error } = await supabase
         .from('wallets')
         .select('*')
@@ -31,85 +26,36 @@ const SimpleTaxTracker = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Supabase Wallet-Abfrage Fehler:', error);
+        console.error('❌ Wallet-Abfrage Fehler:', error);
         return;
       }
 
-      console.log('✅ Wallets aus Datenbank geladen:', wallets);
       setDbWallets(wallets || []);
       
       // Automatisch erste Wallet setzen
       if (wallets && wallets.length > 0 && !walletAddress) {
         const firstWallet = wallets[0].address;
         setWalletAddress(firstWallet);
-        console.log('✅ Automatisch erste DB-Wallet gesetzt:', firstWallet.slice(0, 8) + '...');
+        console.log('✅ Wallet automatisch geladen:', firstWallet.slice(0, 8) + '...');
       }
       
     } catch (error) {
-      console.error('💥 Fehler beim Laden der DB-Wallets:', error);
+      console.error('💥 Fehler beim Laden der Wallets:', error);
     }
   };
 
-  // Lade Wallets beim Mount
+  // Lade Wallets beim Start
   useEffect(() => {
     if (user?.id) {
       loadWalletsFromDatabase();
     }
   }, [user?.id]);
 
-  // 🎯 SIMPLE FIX: Hole Wallet direkt aus localStorage (wie useWalletConnect speichert)
-  const getConnectedWallet = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('connectedAddress');
-    }
-    return null;
-  };
-
-  // 🎯 WALLET INTEGRATION: Verwende DB-Wallets + localStorage + Context als Fallback  
-  const localStorageWallet = getConnectedWallet();
-  const connectedWallets = dbWallets.length > 0 
-    ? dbWallets.map(w => w.address)
-    : (localStorageWallet ? [localStorageWallet] : (connectedWalletAddress ? [connectedWalletAddress] : (wcAccounts || [])));
-  const hasConnectedWallets = dbWallets.length > 0 || Boolean(localStorageWallet) || Boolean(connectedWalletAddress) || (wcIsConnected && wcAccounts && wcAccounts.length > 0);
-
-  // 🔍 DEBUG: Wallet-Status loggen
-  console.log('🔍 WALLET DEBUG:', {
-    dbWallets: dbWallets.length,
-    localStorageWallet, 
-    wcIsConnected,
-    wcAccounts,
-    connectedWalletAddress,
-    connectedWallets,
-    hasConnectedWallets,
-    walletAddress
-  });
-
-  // 🚀 AUTOMATISCHE WALLET-LADUNG: Setze erste verbundene Wallet automatisch
-  useEffect(() => {
-    if (hasConnectedWallets && !walletAddress && connectedWallets.length > 0) {
-      const firstWallet = connectedWallets[0];
-      setWalletAddress(firstWallet);
-      console.log('✅ Automatisch verbundene Wallet geladen:', firstWallet.slice(0, 8) + '...');
-    }
-  }, [hasConnectedWallets, connectedWallets, walletAddress]);
-
-  // 🚨 EMERGENCY DEBUG: Alert um sicherzustellen dass Code läuft
-  useEffect(() => {
-    console.log('🔥 STEUERREPORT GELADEN - DEBUG INFO:');
-    console.log('localStorageWallet:', localStorageWallet);
-    console.log('connectedWalletAddress:', connectedWalletAddress);
-    console.log('wcAccounts:', wcAccounts);
-    console.log('wcIsConnected:', wcIsConnected);
-    
-    // Zeige Info in UI falls Debug nötig
-    if (typeof window !== 'undefined' && window.location.search.includes('debug')) {
-      alert(`DEBUG:\nlocalStorageWallet: ${localStorageWallet}\nconnectedWalletAddress: ${connectedWalletAddress}\nwcAccounts: ${JSON.stringify(wcAccounts)}\nwcIsConnected: ${wcIsConnected}`);
-    }
-  }, [localStorageWallet, connectedWalletAddress, wcAccounts, wcIsConnected]);
+  const hasConnectedWallets = dbWallets.length > 0;
+  const connectedWallets = dbWallets.map(w => w.address);
 
   const handleWalletSelect = (address) => {
     setWalletAddress(address);
-    setShowWalletDropdown(false);
   };
 
   const handleGenerateReport = async () => {
@@ -308,15 +254,15 @@ const SimpleTaxTracker = () => {
         {/* Main Card - PulseChain Style */}
         <div className="pulse-card mb-6">
           
-          {/* 🎯 VEREINFACHTE WALLET INTEGRATION: Nur bei mehreren Wallets oder manueller Eingabe */}
+          {/* 🎯 WALLET AUSWAHL: Einfach und sauber */}
           <div className="mb-6 space-y-4">
             
-            {/* Automatisch geladene Wallet anzeigen */}
+            {/* Verbundene Wallets anzeigen */}
             {hasConnectedWallets && (
               <div>
                 <label className="block text-sm font-medium pulse-text mb-2 flex items-center">
                   <Wallet className="h-4 w-4 mr-2" style={{color: 'var(--accent-green)'}} />
-                  Deine verbundene Wallet
+                  Deine Wallets ({connectedWallets.length})
                 </label>
                 
                 {/* Einzelne Wallet - Automatisch ausgewählt */}
@@ -331,7 +277,7 @@ const SimpleTaxTracker = () => {
                           {formatAddress(connectedWallets[0])}
                         </div>
                         <div className="text-xs pulse-text-secondary">
-                          ✅ Automatisch aus Dashboard geladen
+                          ✅ Automatisch geladen
                         </div>
                       </div>
                       <div className="text-green-500">✓</div>
@@ -339,18 +285,14 @@ const SimpleTaxTracker = () => {
                   </div>
                 )}
                 
-                {/* Mehrere Wallets - Auswahl möglich */}
+                {/* Mehrere Wallets - Auswahl */}
                 {connectedWallets.length > 1 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                     {connectedWallets.map((address, index) => (
                       <button
                         key={index}
                         onClick={() => handleWalletSelect(address)}
-                        className={`p-3 rounded-lg text-left transition-all border-2 ${
-                          walletAddress === address
-                            ? 'border-green-500 bg-green-500/10'
-                            : 'border-gray-600 hover:border-green-400'
-                        }`}
+                        className="p-3 rounded-lg text-left transition-all border-2"
                         style={{
                           backgroundColor: walletAddress === address ? 'rgba(0, 255, 85, 0.1)' : 'var(--bg-secondary)',
                           borderColor: walletAddress === address ? 'var(--accent-green)' : 'var(--border-color)'
@@ -362,7 +304,7 @@ const SimpleTaxTracker = () => {
                               {formatAddress(address)}
                             </div>
                             <div className="text-xs pulse-text-secondary">
-                              Wallet #{index + 1} • Klicken zum Auswählen
+                              Wallet #{index + 1}
                             </div>
                           </div>
                           {walletAddress === address && (
@@ -376,26 +318,23 @@ const SimpleTaxTracker = () => {
               </div>
             )}
             
-            {/* Keine Wallets verbunden - Hinweis zum Dashboard */}
+            {/* Keine Wallets - Einfacher Hinweis */}
             {!hasConnectedWallets && (
               <div className="p-4 rounded-lg border-2 border-dashed" style={{borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)'}}>
                 <div className="text-center">
                   <Wallet className="h-8 w-8 mx-auto mb-2" style={{color: 'var(--accent-green)'}} />
                   <p className="pulse-text mb-3">
-                    <strong>Keine Wallet verbunden</strong><br/>
-                    Gehe zum <strong>Dashboard</strong> und verbinde deine Wallet
+                    <strong>Keine Wallet gefunden</strong><br/>
+                    Gehe zum Dashboard und verbinde deine Wallet
                   </p>
-                  <div className="text-xs pulse-text-secondary">
-                    💡 Oder gib deine Wallet-Adresse manuell unten ein
-                  </div>
                 </div>
               </div>
             )}
             
-            {/* Manual Input - Immer verfügbar für Überschreibung */}
+            {/* Manuelle Eingabe - Immer verfügbar */}
             <div>
               <label className="block text-sm font-medium pulse-text mb-2">
-                {hasConnectedWallets ? 'Andere Wallet-Adresse verwenden:' : 'Wallet-Adresse eingeben:'}
+                {hasConnectedWallets ? 'Andere Wallet verwenden:' : 'Wallet-Adresse eingeben:'}
               </label>
               <input 
                 type="text" 
@@ -418,11 +357,6 @@ const SimpleTaxTracker = () => {
                   e.target.style.boxShadow = 'none';
                 }}
               />
-              {hasConnectedWallets && (
-                <div className="text-xs pulse-text-secondary mt-1">
-                  💡 Lass das Feld leer um deine verbundene Wallet zu verwenden
-                </div>
-              )}
             </div>
           </div>
 
