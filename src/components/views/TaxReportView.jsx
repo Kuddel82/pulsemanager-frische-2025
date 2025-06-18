@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, AlertTriangle, Info, Download, Wallet, ChevronDown } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 
@@ -15,6 +15,15 @@ const SimpleTaxTracker = () => {
   // 🎯 WALLET INTEGRATION: Verwende verbundene Wallets
   const connectedWallets = wcAccounts || [];
   const hasConnectedWallets = wcIsConnected && connectedWallets.length > 0;
+
+  // 🚀 AUTOMATISCHE WALLET-LADUNG: Setze erste verbundene Wallet automatisch
+  useEffect(() => {
+    if (hasConnectedWallets && !walletAddress) {
+      const firstWallet = connectedWallets[0];
+      setWalletAddress(firstWallet);
+      console.log('✅ Automatisch verbundene Wallet geladen:', firstWallet.slice(0, 8) + '...');
+    }
+  }, [hasConnectedWallets, connectedWallets, walletAddress]);
 
   const handleWalletSelect = (address) => {
     setWalletAddress(address);
@@ -217,74 +226,94 @@ const SimpleTaxTracker = () => {
         {/* Main Card - PulseChain Style */}
         <div className="pulse-card mb-6">
           
-          {/* 🎯 WALLET INTEGRATION: Connected Wallets + Manual Input */}
+          {/* 🎯 VEREINFACHTE WALLET INTEGRATION: Nur bei mehreren Wallets oder manueller Eingabe */}
           <div className="mb-6 space-y-4">
             
-            {/* Connected Wallets Section */}
+            {/* Automatisch geladene Wallet anzeigen */}
             {hasConnectedWallets && (
               <div>
                 <label className="block text-sm font-medium pulse-text mb-2 flex items-center">
                   <Wallet className="h-4 w-4 mr-2" style={{color: 'var(--accent-green)'}} />
-                  Verbundene Wallets ({connectedWallets.length})
+                  Deine verbundene Wallet
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                  {connectedWallets.map((address, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleWalletSelect(address)}
-                      className={`p-3 rounded-lg text-left transition-all border-2 ${
-                        walletAddress === address
-                          ? 'border-green-500 bg-green-500/10'
-                          : 'border-gray-600 hover:border-green-400'
-                      }`}
-                      style={{
-                        backgroundColor: walletAddress === address ? 'rgba(0, 255, 85, 0.1)' : 'var(--bg-secondary)',
-                        borderColor: walletAddress === address ? 'var(--accent-green)' : 'var(--border-color)'
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-mono text-sm pulse-text">
-                            {formatAddress(address)}
-                          </div>
-                          <div className="text-xs pulse-text-secondary">
-                            Wallet #{index + 1} • Klicken zum Auswählen
-                          </div>
+                
+                {/* Einzelne Wallet - Automatisch ausgewählt */}
+                {connectedWallets.length === 1 && (
+                  <div className="p-3 rounded-lg border-2" style={{
+                    backgroundColor: 'rgba(0, 255, 85, 0.1)',
+                    borderColor: 'var(--accent-green)'
+                  }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-mono text-sm pulse-text">
+                          {formatAddress(connectedWallets[0])}
                         </div>
-                        {walletAddress === address && (
-                          <div className="text-green-500">✓</div>
-                        )}
+                        <div className="text-xs pulse-text-secondary">
+                          ✅ Automatisch aus Dashboard geladen
+                        </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
+                      <div className="text-green-500">✓</div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Mehrere Wallets - Auswahl möglich */}
+                {connectedWallets.length > 1 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                    {connectedWallets.map((address, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleWalletSelect(address)}
+                        className={`p-3 rounded-lg text-left transition-all border-2 ${
+                          walletAddress === address
+                            ? 'border-green-500 bg-green-500/10'
+                            : 'border-gray-600 hover:border-green-400'
+                        }`}
+                        style={{
+                          backgroundColor: walletAddress === address ? 'rgba(0, 255, 85, 0.1)' : 'var(--bg-secondary)',
+                          borderColor: walletAddress === address ? 'var(--accent-green)' : 'var(--border-color)'
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-mono text-sm pulse-text">
+                              {formatAddress(address)}
+                            </div>
+                            <div className="text-xs pulse-text-secondary">
+                              Wallet #{index + 1} • Klicken zum Auswählen
+                            </div>
+                          </div>
+                          {walletAddress === address && (
+                            <div className="text-green-500">✓</div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             
-            {/* No Wallets Connected - Connect Button */}
+            {/* Keine Wallets verbunden - Hinweis zum Dashboard */}
             {!hasConnectedWallets && (
               <div className="p-4 rounded-lg border-2 border-dashed" style={{borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)'}}>
                 <div className="text-center">
                   <Wallet className="h-8 w-8 mx-auto mb-2" style={{color: 'var(--accent-green)'}} />
                   <p className="pulse-text mb-3">
                     <strong>Keine Wallet verbunden</strong><br/>
-                    Verbinde deine Wallet für einfache Auswahl
+                    Gehe zum <strong>Dashboard</strong> und verbinde deine Wallet
                   </p>
-                  <button
-                    onClick={() => wcConnectWallet('auto')}
-                    disabled={wcIsConnecting}
-                    className="pulse-btn"
-                  >
-                    {wcIsConnecting ? 'Verbinde...' : 'Wallet verbinden'}
-                  </button>
+                  <div className="text-xs pulse-text-secondary">
+                    💡 Oder gib deine Wallet-Adresse manuell unten ein
+                  </div>
                 </div>
               </div>
             )}
             
-            {/* Manual Input - Always Available */}
+            {/* Manual Input - Immer verfügbar für Überschreibung */}
             <div>
               <label className="block text-sm font-medium pulse-text mb-2">
-                {hasConnectedWallets ? 'Oder manuelle Eingabe:' : 'Wallet-Adresse eingeben:'}
+                {hasConnectedWallets ? 'Andere Wallet-Adresse verwenden:' : 'Wallet-Adresse eingeben:'}
               </label>
               <input 
                 type="text" 
@@ -307,6 +336,11 @@ const SimpleTaxTracker = () => {
                   e.target.style.boxShadow = 'none';
                 }}
               />
+              {hasConnectedWallets && (
+                <div className="text-xs pulse-text-secondary mt-1">
+                  💡 Lass das Feld leer um deine verbundene Wallet zu verwenden
+                </div>
+              )}
             </div>
           </div>
 
