@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import puppeteer from 'puppeteer';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -32,8 +31,6 @@ export default async function handler(req, res) {
       validRange: '2020 - ' + new Date().getFullYear()
     });
   }
-
-  let browser;
 
   try {
     console.log(`📋 Generiere Steuerreport für ${wallet} (${jahr})`);
@@ -85,7 +82,7 @@ export default async function handler(req, res) {
     const steuerpflichtigeROI = roiEinnahmen.filter(r => r.steuerpflichtig);
     const gesamtROI = steuerpflichtigeROI.reduce((sum, r) => sum + (r.usdValue || 0), 0);
 
-    // HTML für PDF generieren
+    // HTML Content generieren
     const htmlContent = generateTaxReportHTML({
       jahr,
       wallet,
@@ -99,54 +96,19 @@ export default async function handler(req, res) {
       generatedAt: new Date().toLocaleString('de-DE')
     });
 
-    // PDF mit Puppeteer generieren
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    // HTML Response (statt PDF)
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="Steuerreport_${jahr}_${wallet.substring(0, 8)}.html"`);
+    res.send(htmlContent);
 
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        bottom: '20mm',
-        left: '15mm',
-        right: '15mm'
-      },
-      displayHeaderFooter: true,
-      headerTemplate: `
-        <div style="font-size: 10px; color: #666; width: 100%; text-align: center;">
-          PulseManager - Steuerreport ${jahr}
-        </div>
-      `,
-      footerTemplate: `
-        <div style="font-size: 10px; color: #666; width: 100%; text-align: center;">
-          Seite <span class="pageNumber"></span> von <span class="totalPages"></span> | Wallet: ${wallet}
-        </div>
-      `
-    });
-
-    // PDF Response
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Steuerreport_${jahr}_${wallet.substring(0, 8)}.pdf"`);
-    res.send(pdfBuffer);
-
-    console.log(`✅ Steuerreport PDF erfolgreich generiert (${Math.round(pdfBuffer.length / 1024)} KB)`);
+    console.log(`✅ Steuerreport HTML erfolgreich generiert (${Math.round(htmlContent.length / 1024)} KB)`);
 
   } catch (error) {
     console.error('❌ Fehler bei Steuerreport-Generierung:', error);
     res.status(500).json({
-      error: 'PDF-Generierung fehlgeschlagen',
+      error: 'HTML-Generierung fehlgeschlagen',
       details: error.message
     });
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 }
 

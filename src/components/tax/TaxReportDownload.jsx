@@ -52,12 +52,13 @@ const TaxReportDownload = ({ walletAddress }) => {
         throw new Error(errorData.error || 'Download fehlgeschlagen');
       }
 
-      // PDF-Download
-      const blob = await response.blob();
+      // HTML-Download (statt PDF)
+      const htmlContent = await response.text();
+      const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Steuerreport_${selectedYear}_${walletAddress.substring(0, 8)}.pdf`;
+      a.download = `Steuerreport_${selectedYear}_${walletAddress.substring(0, 8)}.html`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -81,7 +82,7 @@ const TaxReportDownload = ({ walletAddress }) => {
           📄 Steuerreport Download
         </h3>
         <p className="text-gray-600 text-sm">
-          Generieren Sie einen PDF-Steuerreport für Ihre Krypto-Transaktionen
+          Generieren Sie einen HTML-Steuerreport für Ihre Krypto-Transaktionen
         </p>
       </div>
 
@@ -134,7 +135,7 @@ const TaxReportDownload = ({ walletAddress }) => {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Generiere PDF...
+              Generiere HTML...
             </span>
           ) : (
             '📥 Steuerreport herunterladen'
