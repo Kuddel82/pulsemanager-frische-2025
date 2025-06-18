@@ -10,7 +10,7 @@
 
 // 🔧 MORALIS v2.2 KONFIGURATION
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2.2';
+const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
 
 // 🚦 RATE LIMITING: 25 requests/second (Standard Plan)
 let lastCallTime = 0;
