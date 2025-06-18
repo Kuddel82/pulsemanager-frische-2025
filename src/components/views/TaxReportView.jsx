@@ -228,10 +228,16 @@ const SimpleTaxTracker = () => {
             // Spezielle Formatierung für verschiedene Token
             if (tokenSymbol === 'USDC') {
               formattedValue = actualValue.toFixed(2); // 2 Dezimalstellen für USDC
+            } else if (tokenSymbol === 'USDT') {
+              formattedValue = actualValue.toFixed(2); // 2 Dezimalstellen für USDT
             } else if (tokenSymbol === 'WGEP') {
               formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für WGEP
             } else if (tokenSymbol === 'ETH') {
               formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für ETH
+            } else if (tokenSymbol === 'MASKMAN') {
+              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für MASKMAN
+            } else if (tokenSymbol === 'BORK') {
+              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für BORK
             } else {
               formattedValue = actualValue.toFixed(6); // Standard 6 Dezimalstellen
             }
