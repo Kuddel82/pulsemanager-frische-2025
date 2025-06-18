@@ -17,7 +17,7 @@ import MinimalLayout from '@/components/layout/MinimalLayout';
 import Home from '@/components/views/Home';
 import PortfolioView from '@/views/PortfolioView';
 import ROITrackerView from '@/views/ROITrackerView_Simple';
-import TaxReportView from '@/components/views/TaxReportView';
+import TaxReportView from '@/views/TaxReportView';
 import TaxExportView from '@/views/TaxExportView';
 import WgepView from '@/views/WGEPView';
 import AcademyView from '@/components/views/AcademyView';
@@ -93,7 +93,7 @@ const AppRoutes = () => {
         <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/roi-tracker" element={<ROITrackerView />} />
         <Route path="/tax-report" element={<TaxReportView />} />
-<Route path="/tax-report-safe" element={<TaxReportView />} />
+        <Route path="/tax-report-safe" element={<TaxReportView />} />
         <Route path="/tax-export" element={<TaxExportView />} />
         <Route path="/wgep" element={<WgepView />} />
         
