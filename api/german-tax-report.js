@@ -68,7 +68,7 @@ async function fetchERC20TransfersV2(wallet, chainId, cursor = null) {
     console.log(`📊 TAX v2.2: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
     
     // 🔥 FIX: KORREKTE Moralis v2.2 URL-Struktur
-    let url = `${MORALIS_BASE}/${wallet}/erc20/transfers?chain=${chainId}&limit=500`;
+    let url = `${MORALIS_BASE}/${wallet}/erc20?chain=${chainId}&limit=500`;
     if (cursor) {
       url += `&cursor=${cursor}`;
     }
@@ -127,7 +127,7 @@ async function fetchTokenMetadataV2(tokenAddress, chainId) {
   try {
     console.log(`📋 TAX v2.2: Fetching metadata for token ${tokenAddress} on chain ${chainId}`);
     
-    const url = `${MORALIS_BASE}/erc20/metadata?chain=${chainId}&addresses=${tokenAddress}`;
+    const url = `${MORALIS_BASE}/erc20/${tokenAddress}?chain=${chainId}`;
     
     const res = await fetch(url, {
       headers: { 'X-API-Key': MORALIS_API_KEY }
@@ -138,8 +138,8 @@ async function fetchTokenMetadataV2(tokenAddress, chainId) {
     }
     
     const data = await res.json();
-    console.log(`✅ TAX v2.2: Found metadata for ${data?.length || 0} tokens`);
-    return data?.[0] || null;
+    console.log(`✅ TAX v2.2: Found metadata for token`);
+    return data;
     
   } catch (error) {
     console.error('❌ TAX v2.2: fetchTokenMetadata error:', error.message);

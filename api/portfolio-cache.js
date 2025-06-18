@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
+const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2.2';
 const CACHE_TTL_MINUTES = 15; // Supabase Cache: 15 Minuten
 const MEMORY_CACHE_TTL = 5 * 60 * 1000; // Memory Cache: 5 Minuten
 
