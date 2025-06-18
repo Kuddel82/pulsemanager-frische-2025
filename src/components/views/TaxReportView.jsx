@@ -1,16 +1,29 @@
 import React, { useState } from 'react';
-import { FileText, AlertTriangle, Info, Download } from 'lucide-react';
+import { FileText, AlertTriangle, Info, Download, Wallet, ChevronDown } from 'lucide-react';
+import { useAppContext } from '@/contexts/AppContext';
 
 const SimpleTaxTracker = () => {
+  const { wcAccounts, wcIsConnected, wcConnectWallet, wcIsConnecting, t } = useAppContext();
+  
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [taxData, setTaxData] = useState(null);
   const [error, setError] = useState(null);
-  const [pdfData, setPdfData] = useState(null); // Für manuellen PDF Download
+  const [pdfData, setPdfData] = useState(null);
+  const [showWalletDropdown, setShowWalletDropdown] = useState(false);
+
+  // 🎯 WALLET INTEGRATION: Verwende verbundene Wallets
+  const connectedWallets = wcAccounts || [];
+  const hasConnectedWallets = wcIsConnected && connectedWallets.length > 0;
+
+  const handleWalletSelect = (address) => {
+    setWalletAddress(address);
+    setShowWalletDropdown(false);
+  };
 
   const handleGenerateReport = async () => {
     if (!walletAddress) {
-      alert('Bitte Wallet-Adresse eingeben');
+      alert('Bitte Wallet-Adresse eingeben oder verbundene Wallet auswählen');
       return;
     }
 
@@ -152,6 +165,11 @@ const SimpleTaxTracker = () => {
     }).format(amount);
   };
 
+  const formatAddress = (address) => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
   return (
     <div className="min-h-screen pulse-bg p-6">
       <div className="max-w-4xl mx-auto">
@@ -186,32 +204,97 @@ const SimpleTaxTracker = () => {
         {/* Main Card - PulseChain Style */}
         <div className="pulse-card mb-6">
           
-          {/* Wallet Input - FIXED */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium pulse-text mb-2">
-              Wallet-Adresse
-            </label>
-            <input 
-              type="text" 
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              placeholder="0x308e77281612bdc267d5feaf4599f2759cb3ed85"
-              className="w-full px-4 py-3 rounded-lg text-lg transition-all"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                border: '2px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                outline: 'none'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = 'var(--accent-green)';
-                e.target.style.boxShadow = '0 0 0 3px rgba(0, 255, 85, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'var(--border-color)';
-                e.target.style.boxShadow = 'none';
-              }}
-            />
+          {/* 🎯 WALLET INTEGRATION: Connected Wallets + Manual Input */}
+          <div className="mb-6 space-y-4">
+            
+            {/* Connected Wallets Section */}
+            {hasConnectedWallets && (
+              <div>
+                <label className="block text-sm font-medium pulse-text mb-2 flex items-center">
+                  <Wallet className="h-4 w-4 mr-2" style={{color: 'var(--accent-green)'}} />
+                  Verbundene Wallets ({connectedWallets.length})
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                  {connectedWallets.map((address, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleWalletSelect(address)}
+                      className={`p-3 rounded-lg text-left transition-all border-2 ${
+                        walletAddress === address
+                          ? 'border-green-500 bg-green-500/10'
+                          : 'border-gray-600 hover:border-green-400'
+                      }`}
+                      style={{
+                        backgroundColor: walletAddress === address ? 'rgba(0, 255, 85, 0.1)' : 'var(--bg-secondary)',
+                        borderColor: walletAddress === address ? 'var(--accent-green)' : 'var(--border-color)'
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-mono text-sm pulse-text">
+                            {formatAddress(address)}
+                          </div>
+                          <div className="text-xs pulse-text-secondary">
+                            Wallet #{index + 1} • Klicken zum Auswählen
+                          </div>
+                        </div>
+                        {walletAddress === address && (
+                          <div className="text-green-500">✓</div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* No Wallets Connected - Connect Button */}
+            {!hasConnectedWallets && (
+              <div className="p-4 rounded-lg border-2 border-dashed" style={{borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-secondary)'}}>
+                <div className="text-center">
+                  <Wallet className="h-8 w-8 mx-auto mb-2" style={{color: 'var(--accent-green)'}} />
+                  <p className="pulse-text mb-3">
+                    <strong>Keine Wallet verbunden</strong><br/>
+                    Verbinde deine Wallet für einfache Auswahl
+                  </p>
+                  <button
+                    onClick={() => wcConnectWallet('auto')}
+                    disabled={wcIsConnecting}
+                    className="pulse-btn"
+                  >
+                    {wcIsConnecting ? 'Verbinde...' : 'Wallet verbinden'}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Manual Input - Always Available */}
+            <div>
+              <label className="block text-sm font-medium pulse-text mb-2">
+                {hasConnectedWallets ? 'Oder manuelle Eingabe:' : 'Wallet-Adresse eingeben:'}
+              </label>
+              <input 
+                type="text" 
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                placeholder="0x308e77281612bdc267d5feaf4599f2759cb3ed85"
+                className="w-full px-4 py-3 rounded-lg text-lg transition-all"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '2px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  outline: 'none'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'var(--accent-green)';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(0, 255, 85, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--border-color)';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
           </div>
 
           {/* Generate Button - PulseChain Style */}
