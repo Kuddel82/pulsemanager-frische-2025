@@ -115,7 +115,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { address, realDataOnly, year = 2025, chains = ['0x171'] } = req.body;
+        const { address, realDataOnly, year = 2025, chains = ['0x171', '0x1'] } = req.body;
 
         if (!address) {
             return res.status(400).json({ 
@@ -132,10 +132,10 @@ export default async function handler(req, res) {
             });
         }
 
-        console.log(`🔍 Lade echte Transaktionen für: ${address} (Jahr: ${year})`);
+        console.log(`🔍 Lade ALLE Transaktionen für: ${address} (2025-2035)`);
 
-        // 1. LADE ECHTE TRANSAKTIONEN VON MORALIS + BLOCKSCOUT BACKUP
-        const transactions = await loadRealTransactions(address, chains, year);
+        // 1. LADE ALLE TRANSAKTIONEN VON MORALIS + BLOCKSCOUT BACKUP
+        const transactions = await loadRealTransactions(address, chains, 2025);
         console.log(`📊 ${transactions.length} Transaktionen geladen`);
 
         // 2. KLASSIFIZIERE TRANSAKTIONEN (ROI vs Trading)
@@ -216,31 +216,28 @@ export default async function handler(req, res) {
 
 
 
-// 📡 LADE ECHTE TRANSAKTIONEN VON MORALIS
-async function loadRealTransactions(address, chains, year) {
+// 📡 LADE ALLE TRANSAKTIONEN VON MORALIS (2025-2035)
+async function loadRealTransactions(address, chains, startYear) {
     const allTransactions = [];
     
-    // 🚀 ERWEITERTE CHAIN-LISTE für mehr Transaktionen
-    const extendedChains = [
-        '0x1',    // Ethereum Mainnet
-        '0x89',   // Polygon
-        '0xa4b1', // Arbitrum
-        '0x38',   // BSC
-        '0x171',  // PulseChain
+    // 🎯 FOKUS: PulseChain + Ethereum für WGEP/ETH/USDC
+    const priorityChains = [
+        '0x171',  // PulseChain (WGEP primary)
+        '0x1',    // Ethereum (ETH/USDC)
         ...chains
     ];
     
-    for (const chainId of extendedChains) {
+    for (const chainId of priorityChains) {
         try {
-            console.log(`🔗 Lade Chain ${chainId} Transaktionen mit Pagination...`);
+            console.log(`🔗 Lade Chain ${chainId} ALLE Transaktionen (2025-2035)...`);
             
             let cursor = null;
             let pageCount = 0;
-            const maxPages = 5; // Maximal 5 Seiten = 500 Transaktionen pro Chain
+            const maxPages = 20; // Maximal 20 Seiten = 10.000 Transaktionen pro Chain
             
             do {
-                // Moralis API Call mit Pagination
-                let url = `${MORALIS_CONFIG.baseURL}/${address}/erc20/transfers?chain=${chainId}&limit=100`;
+                // Moralis API Call mit GRÖSSERER Pagination
+                let url = `${MORALIS_CONFIG.baseURL}/${address}/erc20/transfers?chain=${chainId}&limit=500`;
                 if (cursor) {
                     url += `&cursor=${cursor}`;
                 }
@@ -260,19 +257,19 @@ async function loadRealTransactions(address, chains, year) {
                 const data = await response.json();
                 const transfers = data.result || [];
                 
-                // Filter nach Jahr
-                const yearTransactions = transfers.filter(tx => {
+                // Filter 2025-2035 (10 Jahre!)
+                const validTransactions = transfers.filter(tx => {
                     const txYear = new Date(tx.block_timestamp).getFullYear();
-                    return txYear === year;
+                    return txYear >= 2025 && txYear <= 2035;
                 });
 
-                allTransactions.push(...yearTransactions);
+                allTransactions.push(...validTransactions);
                 
                 // Pagination
                 cursor = data.cursor;
                 pageCount++;
                 
-                console.log(`📄 Chain ${chainId} - Seite ${pageCount}: ${transfers.length} TXs geladen, ${yearTransactions.length} für ${year}`);
+                console.log(`📄 Chain ${chainId} - Seite ${pageCount}: ${transfers.length} TXs geladen, ${validTransactions.length} für 2025-2035`);
                 
                 // Rate Limiting
                 await new Promise(resolve => setTimeout(resolve, MORALIS_CONFIG.rateLimitMs));
@@ -288,7 +285,7 @@ async function loadRealTransactions(address, chains, year) {
             if (chainId === '0x171') {
                 try {
                     console.log(`🔄 BACKUP: Versuche PulseChain BlockScout API...`);
-                    const blockscoutTxs = await loadFromBlockScout(address, year);
+                    const blockscoutTxs = await loadFromBlockScout(address, 2025);
                     allTransactions.push(...blockscoutTxs);
                     console.log(`✅ BACKUP: ${blockscoutTxs.length} Transaktionen von BlockScout geladen`);
                 } catch (backupError) {
@@ -303,21 +300,21 @@ async function loadRealTransactions(address, chains, year) {
 }
 
 // 🔄 BLOCKSCOUT BACKUP API (PulseChain)
-async function loadFromBlockScout(address, year) {
+async function loadFromBlockScout(address, startYear) {
     try {
-        console.log(`🔍 BlockScout: Lade Token-Transfers für ${address}...`);
+        console.log(`🔍 BlockScout: Lade ALLE Token-Transfers für ${address} (2025-2035)...`);
         
-        const blockscoutUrl = `https://api.scan.pulsechain.com/api?module=account&action=tokentx&address=${address}&startblock=0&endblock=latest&sort=desc&offset=500`;
+        const blockscoutUrl = `https://api.scan.pulsechain.com/api?module=account&action=tokentx&address=${address}&startblock=0&endblock=latest&sort=desc&offset=1000`;
         
         const response = await fetch(blockscoutUrl);
         const data = await response.json();
         
         if (data.status === '1' && Array.isArray(data.result)) {
-            // Filter nach Jahr und konvertiere zu Moralis-Format
-            const yearTransactions = data.result
+            // Filter 2025-2035 und konvertiere zu Moralis-Format
+            const validTransactions = data.result
                 .filter(tx => {
                     const txYear = new Date(parseInt(tx.timeStamp) * 1000).getFullYear();
-                    return txYear === year;
+                    return txYear >= 2025 && txYear <= 2035;
                 })
                 .map(tx => ({
                     // Konvertiere BlockScout Format zu Moralis Format
@@ -332,8 +329,8 @@ async function loadFromBlockScout(address, year) {
                     source: 'blockscout'
                 }));
             
-            console.log(`✅ BlockScout: ${yearTransactions.length} ${year}-Transaktionen konvertiert`);
-            return yearTransactions;
+            console.log(`✅ BlockScout: ${validTransactions.length} 2025-2035-Transaktionen konvertiert`);
+            return validTransactions;
         }
         
         return [];
@@ -446,7 +443,7 @@ async function calculateGermanTax(classified, year) {
 // 🔍 HILFSFUNKTIONEN
 function isROIToken(symbol, address) {
     if (!symbol) return false;
-    return ROI_TOKENS.hasOwnProperty(symbol.toUpperCase());
+    return ROI_TOKEN_SYMBOLS.includes(symbol.toUpperCase());
 }
 
 function isSpamToken(tx) {
