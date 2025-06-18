@@ -35,7 +35,7 @@ const TaxReportView = () => {
       // 1. Lade User-Wallets
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
         includeROI: false,
-        includeTax: false
+        includeTax: true
       });
       
       const wallets = portfolioData?.wallets || [];
@@ -184,7 +184,7 @@ const TaxReportView = () => {
       // Lade User-Wallets
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
         includeROI: false,
-        includeTax: false
+        includeTax: true
       });
       
       const wallets = portfolioData?.wallets || [];
@@ -250,7 +250,7 @@ const TaxReportView = () => {
       // Lade User-Wallets
       const portfolioData = await CentralDataService.loadCompletePortfolio(user.id, { 
         includeROI: false,
-        includeTax: false
+        includeTax: true
       });
       
       const wallets = portfolioData?.wallets || [];
