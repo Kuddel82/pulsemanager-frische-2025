@@ -201,9 +201,8 @@ const SimpleTaxTracker = () => {
             </div>
           </div>
           
-          ${taxData.transactions && taxData.transactions.length > 0 ? `
           <div class="section">
-            <h2>📋 Transaktionen (Top 20 von ${taxData.transactions.length})</h2>
+            <h2>📋 Transaktionen (${taxData.transactions.length} von ${taxData.transactions.length})</h2>
             <table>
               <thead>
                 <tr>
@@ -215,7 +214,7 @@ const SimpleTaxTracker = () => {
                 </tr>
               </thead>
               <tbody>
-                ${taxData.transactions.slice(0, 20).map((tx, index) => {
+                ${taxData.transactions.map((tx, index) => {
                   const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
                   const token = tx.tokenSymbol || tx.tokenName || 'N/A';
                   const direction = tx.direction === 'IN' ? '📥 IN' : '📤 OUT';
@@ -233,7 +232,6 @@ const SimpleTaxTracker = () => {
               </tbody>
             </table>
           </div>
-          ` : ''}
           
           <div class="legal">
             <h3>⚖️ Rechtlicher Hinweis</h3>
