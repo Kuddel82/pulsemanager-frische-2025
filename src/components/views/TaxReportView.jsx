@@ -70,21 +70,37 @@ const SimpleTaxTracker = () => {
     setPdfData(null);
 
     try {
-      console.log('🔥 Starte echte Moralis-Datenabfrage...');
+      console.log('🔥 Starte Multi-Chain Datenabfrage...');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       
-      // 🔥 ALTERNATIVE: Verwende ScanTransactionService direkt
-      console.log(`🔍 DEBUG: Testing ScanTransactionService for ${walletAddress}...`);
+      // 🔥 MULTI-CHAIN APPROACH: PulseChain + Ethereum
+      console.log(`🔍 DEBUG: Testing Multi-Chain approach for ${walletAddress}...`);
       
       const { ScanTransactionService } = await import('@/services/scanTransactionService.js');
-      const scanResult = await ScanTransactionService.getUltimateTaxHistory(walletAddress);
       
-      console.log(`🔍 DEBUG: ScanTransactionService result:`, scanResult);
-      console.log(`🔍 DEBUG: Total transactions from scan: ${scanResult.totalCount}`);
+      // 1. PULSECHAIN SCAN (für PLS, HEX, etc.)
+      console.log(`🔍 DEBUG: Loading PulseChain data...`);
+      const pulsechainResult = await ScanTransactionService.getUltimateTaxHistory(walletAddress);
       
-      if (scanResult.totalCount > 0) {
+      // 2. ETHEREUM MORALIS (für ETH, USDC, WGEP, etc.)
+      console.log(`🔍 DEBUG: Loading Ethereum data...`);
+      const ethereumResult = await loadEthereumTransactions(walletAddress);
+      
+      // 3. COMBINE RESULTS
+      const allTransactions = [
+        ...(pulsechainResult.allTransactions || []),
+        ...(ethereumResult.transactions || [])
+      ];
+      
+      console.log(`🔍 DEBUG: Combined results:`, {
+        pulsechain: pulsechainResult.totalCount || 0,
+        ethereum: ethereumResult.transactions?.length || 0,
+        total: allTransactions.length
+      });
+      
+      if (allTransactions.length > 0) {
         // 🔥 SICHERE DATENVALIDIERUNG: Verhindere React-Rendering-Fehler
-        const safeTransactions = scanResult.allTransactions.map(tx => ({
+        const safeTransactions = allTransactions.map(tx => ({
           hash: tx.hash || '',
           blockNumber: tx.blockNumber || 0,
           timeStamp: tx.timeStamp || 0,
@@ -100,34 +116,37 @@ const SimpleTaxTracker = () => {
           gasPrice: tx.gasPrice || '0',
           direction: tx.direction || 'UNKNOWN',
           type: tx.type || 'UNKNOWN',
-          source: tx.source || 'pulsechain_scan',
-          walletAddress: tx.walletAddress || walletAddress
+          source: tx.source || 'multi_chain',
+          walletAddress: tx.walletAddress || walletAddress,
+          chain: tx.chain || 'unknown'
         }));
         
         // Erstelle einen einfachen Tax Report
         const taxReport = {
           transactions: safeTransactions,
           summary: {
-            totalTransactions: scanResult.totalCount,
-            roiCount: scanResult.taxableCount,
+            totalTransactions: safeTransactions.length,
+            pulsechainTransactions: pulsechainResult.totalCount || 0,
+            ethereumTransactions: ethereumResult.transactions?.length || 0,
+            roiCount: safeTransactions.filter(tx => tx.direction === 'IN' && tx.value !== '0').length,
             saleCount: 0,
             totalROIValueEUR: 0,
             totalSaleValueEUR: 0,
             totalTaxEUR: 0
           },
           metadata: {
-            source: 'pulsechain_scan_direct',
+            source: 'multi_chain_scan',
             walletAddress: walletAddress,
-            chains: ['0x171'],
+            chains: ['0x171', '0x1'],
             year: 'all'
           }
         };
         
-        console.log('✅ Echte Daten erfolgreich geladen:', taxReport);
+        console.log('✅ Multi-Chain Daten erfolgreich geladen:', taxReport);
         setTaxData(taxReport);
         
       } else {
-        throw new Error('Keine Transaktionen gefunden');
+        throw new Error('Keine Transaktionen auf PulseChain oder Ethereum gefunden');
       }
 
     } catch (error) {
@@ -135,6 +154,64 @@ const SimpleTaxTracker = () => {
       setError(`Fehler: ${error.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 🔥 ETHEREUM TRANSACTION LOADER
+  const loadEthereumTransactions = async (walletAddress) => {
+    try {
+      console.log(`🔍 DEBUG: Loading Ethereum transactions for ${walletAddress}...`);
+      
+      // Verwende Moralis Proxy für Ethereum
+      const response = await fetch('/api/moralis-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: 'erc20-transfers',
+          address: walletAddress,
+          chain: '0x1', // Ethereum
+          limit: 1000 // Mehr Transaktionen für Tax Report
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        console.warn(`⚠️ Ethereum API Error: ${data.error}`);
+        return { transactions: [] };
+      }
+
+      console.log(`✅ Ethereum: ${data.result?.length || 0} transactions loaded`);
+      
+      // Formatiere Ethereum Transaktionen
+      const formattedTransactions = (data.result || []).map(tx => ({
+        hash: tx.transaction_hash || '',
+        blockNumber: tx.block_number || 0,
+        timeStamp: tx.block_timestamp || 0,
+        timestamp: new Date(tx.block_timestamp * 1000).toISOString(),
+        from: tx.from_address || '',
+        to: tx.to_address || '',
+        value: tx.value || '0',
+        tokenName: tx.token_name || 'Unknown',
+        tokenSymbol: tx.token_symbol || 'UNKNOWN',
+        tokenDecimal: tx.token_decimals || 18,
+        contractAddress: tx.token_address || '',
+        gasUsed: tx.gas_used || 0,
+        gasPrice: tx.gas_price || '0',
+        direction: tx.to_address?.toLowerCase() === walletAddress.toLowerCase() ? 'IN' : 'OUT',
+        type: 'ERC20_TRANSFER',
+        source: 'ethereum_moralis',
+        walletAddress: walletAddress,
+        chain: '0x1'
+      }));
+
+      return { transactions: formattedTransactions };
+      
+    } catch (error) {
+      console.error('❌ Ethereum loading error:', error);
+      return { transactions: [] };
     }
   };
 
@@ -184,7 +261,15 @@ const SimpleTaxTracker = () => {
             <div class="stats">
               <div class="stat">
                 <h3>${taxData.summary?.totalTransactions || taxData.transactions?.length || 0}</h3>
-                <p>Transaktionen</p>
+                <p>Gesamt Transaktionen</p>
+              </div>
+              <div class="stat">
+                <h3>${taxData.summary?.pulsechainTransactions || 0}</h3>
+                <p>PulseChain</p>
+              </div>
+              <div class="stat">
+                <h3>${taxData.summary?.ethereumTransactions || 0}</h3>
+                <p>Ethereum</p>
               </div>
               <div class="stat">
                 <h3>${taxData.summary?.roiCount || 0}</h3>
@@ -207,6 +292,7 @@ const SimpleTaxTracker = () => {
               <thead>
                 <tr>
                   <th>Datum</th>
+                  <th>Chain</th>
                   <th>Token</th>
                   <th>Typ</th>
                   <th>Richtung</th>
@@ -216,12 +302,14 @@ const SimpleTaxTracker = () => {
               <tbody>
                 ${taxData.transactions.map((tx, index) => {
                   const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
+                  const chain = tx.chain === '0x1' ? 'ETH' : tx.chain === '0x171' ? 'PLS' : 'UNK';
                   const token = tx.tokenSymbol || tx.tokenName || 'N/A';
                   const direction = tx.direction === 'IN' ? '📥 IN' : '📤 OUT';
                   const value = tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0';
                   return `
                     <tr>
                       <td>${date}</td>
+                      <td>${chain}</td>
                       <td>${token}</td>
                       <td>${tx.type || 'N/A'}</td>
                       <td>${direction}</td>
