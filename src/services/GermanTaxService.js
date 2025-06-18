@@ -38,9 +38,9 @@ const SUPPORTED_CHAINS = {
   '0x171': {
     name: 'PulseChain',
     nativeCurrency: 'PLS',
-    moralisChain: 'pulsechain',
+    moralisChain: '0x171',
     explorerUrl: 'https://scan.pulsechain.com',
-    useService: 'pulsescan' // Nutze DEINE PulseScan API
+    useService: 'moralis'
   }
 };
 
@@ -84,7 +84,7 @@ class EnterpriseAPIService {
   }
 
   // ENTERPRISE: Multi-Chain mit ECHTEN APIs
-  async getAllTransactionsEnterprise(walletAddress, chains = ['0x1', '0x171'], year = 2024) {
+  async getAllTransactionsEnterprise(walletAddress, chains = ['0x171'], year = 2025) {
     console.log(`🏭 ENTERPRISE: Loading ${year} transactions for chains: ${chains.join(', ')}`);
     
     const allTransactions = [];
@@ -103,12 +103,14 @@ class EnterpriseAPIService {
         
         let chainTransactions = [];
         
-        if (chainId === '0x171') {
-          // PulseChain: Nutze DEINE PulseScan + PulseWatch APIs
-          chainTransactions = await this.getPulseChainTransactionsEnterprise(walletAddress, yearStart, yearEnd);
-                } else {
-          // Ethereum/andere: Nutze Moralis mit Aggressive Pagination
-          chainTransactions = await this.getMoralisTransactionsEnterprise(walletAddress, chainConfig.moralisChain, yearStart, yearEnd);
+        // 🔥 FIX: Alle Chains verwenden jetzt Moralis v2.2 für konsistente Daten
+        chainTransactions = await this.getMoralisTransactionsEnterprise(walletAddress, chainConfig.moralisChain, yearStart, yearEnd);
+        
+        // 🔄 FALLBACK: Für PulseChain zusätzlich PulseScan/PulseWatch APIs
+        if (chainId === '0x171' && chainTransactions.length === 0) {
+          console.log(`🔄 PulseChain Moralis empty, trying PulseScan fallback...`);
+          const pulseChainFallback = await this.getPulseChainTransactionsEnterprise(walletAddress, yearStart, yearEnd);
+          chainTransactions = pulseChainFallback;
         }
         
         allTransactions.push(...chainTransactions);
@@ -138,10 +140,12 @@ class EnterpriseAPIService {
     
     try {
       do {
-        const url = `${this.moralisBaseUrl}/${walletAddress}/erc20`;
+        const url = `${this.moralisBaseUrl}/wallets/${walletAddress}/history`;
         const params = new URLSearchParams({
           chain: chain,
           limit: '100', // Moralis Maximum
+          order: 'DESC', // Neueste zuerst
+          include_internal_transactions: 'true', // Vollständige Historie
           ...(cursor && { cursor })
         });
 
@@ -176,7 +180,7 @@ class EnterpriseAPIService {
         const normalizedTx = yearFilteredTx.map(tx => ({
           ...tx,
           chain: chain,
-          source: 'moralis_enterprise'
+          source: 'moralis_enterprise_v2.2'
         }));
 
         allTransactions.push(...normalizedTx);
@@ -191,7 +195,7 @@ class EnterpriseAPIService {
       console.log(`✅ Moralis ${chain}: ${allTransactions.length} transactions (${pageCount} pages)`);
       return allTransactions;
                 
-            } catch (error) {
+    } catch (error) {
       console.error(`❌ Moralis Enterprise ${chain} failed:`, error);
       return [];
     }
