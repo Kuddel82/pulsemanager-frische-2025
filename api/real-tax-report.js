@@ -12,7 +12,7 @@
 // 🔧 MORALIS API CONFIGURATION
 const MORALIS_CONFIG = {
     baseURL: 'https://deep-index.moralis.io/api/v2',
-    apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjNiYjEyNDQ0LWVkYmUtNDQyNi1hOThlLWFlNzBjZTAzZGRhNCIsIm9yZ0lkIjoiNDUxOTc4IiwidXNlcklkIjoiNDY1MDQ5IiwidHlwZUlkIjoiY2JhYzQ1ZTctODk4Ni00ZGFlLWE4NTUtMDA3ZmFlNjM4ZDgyIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDk0MzkxNzEsImV4cCI6NDkwNTE5OTE3MX0.nTFPzga8CQX4Yxryvu2zCkCVHsJp5VDoIy_CthTrOvc', // Working API Key
+    apiKey: process.env.MORALIS_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjNiYjEyNDQ0LWVkYmUtNDQyNi1hOThlLWFlNzBjZTAzZGRhNCIsIm9yZ0lkIjoiNDUxOTc4IiwidXNlcklkIjoiNDY1MDQ5IiwidHlwZUlkIjoiY2JhYzQ1ZTctODk4Ni00ZGFlLWE4NTUtMDA3ZmFlNjM4ZDgyIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDk0MzkxNzEsImV4cCI6NDkwNTE5OTE3MX0.nTFPzga8CQX4Yxryvu2zCkCVHsJp5VDoIy_CthTrOvc',
     rateLimitMs: 200, // 5 calls/sec
     maxRetries: 3
 };
@@ -276,15 +276,16 @@ async function loadRealTransactions(address, chains, startYear) {
         } catch (error) {
             console.error(`❌ Fehler Chain ${chainId}:`, error.message);
             
-            // 🔄 BLOCKSCOUT BACKUP für PulseChain
+            // 🔄 BLOCKSCOUT BACKUP für PulseChain (KRITISCH!)
             if (chainId === '0x171') {
                 try {
-                    console.log(`🔄 BACKUP: Versuche PulseChain BlockScout API...`);
+                    console.log(`🔄 BACKUP: PulseChain BlockScout fallback...`);
                     const blockscoutTxs = await loadFromBlockScout(address, 2025);
                     allTransactions.push(...blockscoutTxs);
-                    console.log(`✅ BACKUP: ${blockscoutTxs.length} Transaktionen von BlockScout geladen`);
+                    console.log(`✅ BACKUP: ${blockscoutTxs.length} PulseChain TX geladen`);
                 } catch (backupError) {
                     console.error(`❌ BACKUP auch fehlgeschlagen:`, backupError.message);
+                    // PulseChain muss funktionieren - weiterer Fallback hier
                 }
             }
         }
