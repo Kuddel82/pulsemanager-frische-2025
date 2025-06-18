@@ -72,7 +72,7 @@ const SimpleTaxTracker = () => {
     try {
       console.log('🔥 Starte echte Moralis-Datenabfrage...');
       
-      const response = await fetch('/api/real-tax-report', {
+      const response = await fetch('/api/german-tax-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
