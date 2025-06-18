@@ -67,10 +67,12 @@ async function fetchERC20TransfersV2(wallet, chainId, cursor = null) {
   try {
     console.log(`📊 TAX v2.2: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
     
-    let url = `${MORALIS_BASE}/erc20/${wallet}/transfers?chain=${chainId}&limit=500`;
+    let url = `${MORALIS_BASE}/${wallet}/erc20/transfers?chain=${chainId}&limit=500`;
     if (cursor) {
       url += `&cursor=${cursor}`;
     }
+    
+    console.log(`🔍 DEBUG: API URL: ${url}`);
     
     const res = await fetch(url, {
       headers: { 'X-API-Key': MORALIS_API_KEY }
