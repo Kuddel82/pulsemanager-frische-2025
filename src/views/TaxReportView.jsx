@@ -47,23 +47,36 @@ const TaxReportNew = () => {
       
       console.log(`📊 Generiere Tax Report für ${wallets.length} Wallets...`);
       
-      // 2. Für jedes Wallet einen vollständigen Tax Report generieren (OHNE automatische PDF-Generierung)
+      // 2. VERWENDE NEUE FUNKTIONIERENDE API (Portfolio Logic)
       const reports = [];
       
       for (const wallet of wallets) {
         console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
         
         try {
-          // 🇩🇪 GERMAN TAX SERVICE: Neues deutsches Steuerrecht
-          const report = await germanTaxService.generateGermanTaxReport(wallet.address);
-          
-          reports.push({
-            wallet: wallet.address,
-            report,
-            success: true
+          // 🔥 NEUE API: Direkte Portfolio-Logik
+          const response = await fetch('/api/german-tax-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: wallet.address })
           });
           
-          console.log(`✅ Tax Report für ${wallet.address} erfolgreich generiert`);
+          const result = await response.json();
+          
+          if (result.success && result.taxReport) {
+            reports.push({
+              wallet: wallet.address,
+              report: result.taxReport,
+              success: true
+            });
+            console.log(`✅ Tax Report für ${wallet.address}: ${result.taxReport.summary.totalTransactions} Transaktionen`);
+          } else {
+            reports.push({
+              wallet: wallet.address,
+              error: result.error || 'Unknown API error',
+              success: false
+            });
+          }
           
         } catch (walletError) {
           console.error(`❌ Fehler bei Wallet ${wallet.address}:`, walletError);

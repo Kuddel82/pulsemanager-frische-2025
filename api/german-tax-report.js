@@ -1,203 +1,263 @@
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - FIXED MIT PORTFOLIO CODE
  * 
- * Saubere API für deutsches Steuerrecht
- * - Korrekte Paragraphen (§22 & §23 EStG)
- * - Effiziente Moralis-Integration
- * - FIFO-Berechnung
- * - PDF-Export ready
+ * KRITISCHER FIX: Verwende die EXAKTE API-Logik aus portfolio-cache.js
+ * da diese nachweislich funktioniert und echte Transaktionen lädt
  */
 
-// Import des neuen GermanTaxService
-import GermanTaxService from '../src/services/GermanTaxService.js';
-// import TrialSafeGermanTaxService from '../src/services/TrialSafeGermanTaxService.js';
-import ExportService from '../src/services/ExportService.js';
+// 🔧 EXAKTE KOPIE DER FUNKTIONIERENDEN PORTFOLIO API-LOGIK
+const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
+const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
 
-// 🚨 TRIAL-SAFE BUG-FIX FUNKTION (inline)
-function safeTaxCalculation(reports) {
-    console.log(`🔧 Safe Tax Calculation für:`, reports);
+// 🚦 RATE LIMITING: Exakt wie im Portfolio System
+let lastCallTime = 0;
+const MIN_CALL_INTERVAL = 200;
+
+async function rateLimitedCall(fn) {
+  const now = Date.now();
+  const timeSinceLastCall = now - lastCallTime;
+  
+  if (timeSinceLastCall < MIN_CALL_INTERVAL) {
+    await new Promise(resolve => setTimeout(resolve, MIN_CALL_INTERVAL - timeSinceLastCall));
+  }
+  
+  lastCallTime = Date.now();
+  return await fn();
+}
+
+// 🔥 FUNKTIONIERENDEN API-CALL KOPIERT VON PORTFOLIO SYSTEM
+async function fetchERC20Transfers(wallet, chainId) {
+  try {
+    console.log(`📊 TAX: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
     
-    if (!reports || !Array.isArray(reports) || reports.length === 0) {
-        return { totalTax: 0, totalGains: 0, events: 0 };
+    const res = await fetch(`${MORALIS_BASE}/${wallet}/erc20/transfers?chain=${chainId}&limit=500`, {
+      headers: { 'X-API-Key': MORALIS_API_KEY }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`ERC20 Transfers API error: ${res.status}`);
     }
+    
+    const data = await res.json();
+    console.log(`✅ TAX: Found ${data?.result?.length || 0} ERC20 transfers`);
+    return data.result || [];
+    
+  } catch (error) {
+    console.error('❌ TAX: fetchERC20Transfers error:', error.message);
+    return [];
+  }
+}
 
-    try {
-        const totalTax = reports.reduce((sum, report) => {
-            const tax = report?.tax || report?.totalTax || report?.taxAmount || 0;
-            const numericTax = parseFloat(tax);
-            return sum + (isNaN(numericTax) ? 0 : numericTax);
-        }, 0);
+// 🇩🇪 DEUTSCHE STEUER-KLASSIFIZIERUNG
+function classifyTransactionForGermanTax(tx, walletAddress) {
+  const isIncoming = tx.to_address?.toLowerCase() === walletAddress.toLowerCase();
+  const isOutgoing = tx.from_address?.toLowerCase() === walletAddress.toLowerCase();
+  
+  // ROI Token Detection (§22 EStG)
+  const ROI_TOKENS = ['WGEP', 'HEX', 'PLSX', 'PLS', 'MASKMAN', 'BORK', 'INC', 'LOAN', 'FLEX'];
+  const isROIToken = ROI_TOKENS.includes(tx.token_symbol?.toUpperCase());
+  
+  // Minter Detection (ROI from minting)
+  const KNOWN_MINTERS = [
+    '0x0000000000000000000000000000000000000000',
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3'
+  ];
+  const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
+  
+  // Calculate EUR value
+  const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals) || 18);
+  const eurValue = amount * 0.93; // USD to EUR approximation
+  
+  // German tax classification
+  if (isIncoming && (fromMinter || isROIToken)) {
+    return {
+      ...tx,
+      taxCategory: 'ROI_INCOME',
+      taxParagraph: '§22 EStG - Sonstige Einkünfte',
+      taxable: true,
+      eurValue: eurValue,
+      direction: 'IN'
+    };
+  } else if (isOutgoing) {
+    return {
+      ...tx,
+      taxCategory: 'PURCHASE',
+      taxParagraph: '§23 EStG - Spekulation',
+      taxable: false,
+      eurValue: eurValue,
+      direction: 'OUT'
+    };
+  } else if (isIncoming) {
+    return {
+      ...tx,
+      taxCategory: 'SALE_INCOME',
+      taxParagraph: '§23 EStG - Spekulation',
+      taxable: true,
+      eurValue: eurValue,
+      direction: 'IN'
+    };
+  }
+  
+  return {
+    ...tx,
+    taxCategory: 'TRANSFER',
+    taxParagraph: 'Steuerfreier Transfer',
+    taxable: false,
+    eurValue: eurValue,
+    direction: isIncoming ? 'IN' : 'OUT'
+  };
+}
 
-        const totalGains = reports.reduce((sum, report) => {
-            const gains = report?.gains || report?.totalGains || report?.profit || 0;
-            const numericGains = parseFloat(gains);
-            return sum + (isNaN(numericGains) ? 0 : numericGains);
-        }, 0);
+// 🔥 MAIN FUNCTION: Verwende Portfolio API-Logik
+async function loadRealTransactionsForTax(walletAddress) {
+  console.log(`🇩🇪 TAX: Loading real transactions for ${walletAddress}`);
+  
+  // Beide Chains laden (wie Portfolio System)
+  const chains = [
+    { id: '0x1', name: 'Ethereum' },    // WGEP, USDC, ETH
+    { id: '0x171', name: 'PulseChain' } // PLS, HEX, andere
+  ];
+  
+  const allTransactions = [];
+  
+  for (const chain of chains) {
+    console.log(`🔗 TAX: Loading ${chain.name} (${chain.id})...`);
+    
+    const transfers = await rateLimitedCall(() => fetchERC20Transfers(walletAddress, chain.id));
+    
+    // Filter 2025-2035 (neue Wallet)
+    const recentTransfers = transfers.filter(tx => {
+      const txYear = new Date(tx.block_timestamp).getFullYear();
+      return txYear >= 2025 && txYear <= 2035;
+    });
+    
+    // Deutsche Steuer-Klassifizierung
+    const classifiedTransfers = recentTransfers.map(tx => 
+      classifyTransactionForGermanTax(tx, walletAddress)
+    );
+    
+    allTransactions.push(...classifiedTransfers);
+    console.log(`✅ TAX: ${chain.name}: ${recentTransfers.length} transactions (2025-2035)`);
+  }
+  
+  console.log(`📊 TAX: TOTAL ${allTransactions.length} transactions loaded`);
+  return allTransactions;
+}
 
-        return {
-            totalTax: Number(totalTax.toFixed(2)),
-            totalGains: Number(totalGains.toFixed(2)),
-            events: reports.length
-        };
-
-    } catch (error) {
-        console.error(`🚨 Safe Tax Calculation Error:`, error);
-        return { totalTax: 0, totalGains: 0, events: 0 };
+// 🇩🇪 DEUTSCHE STEUERBERECHNUNG
+function calculateGermanTax(transactions) {
+  const roiTransactions = transactions.filter(tx => tx.taxCategory === 'ROI_INCOME');
+  const saleTransactions = transactions.filter(tx => tx.taxCategory === 'SALE_INCOME');
+  
+  const totalROIValue = roiTransactions.reduce((sum, tx) => sum + (tx.eurValue || 0), 0);
+  const totalSaleValue = saleTransactions.reduce((sum, tx) => sum + (tx.eurValue || 0), 0);
+  
+  // Vereinfachte Steuerberechnung
+  const roiTax = totalROIValue * 0.35; // 35% auf ROI (§22 EStG)
+  const saleTax = totalSaleValue * 0.25; // 25% auf Spekulationsgewinne (§23 EStG)
+  
+  return {
+    transactions: transactions,
+    roiTransactions: roiTransactions,
+    saleTransactions: saleTransactions,
+    summary: {
+      totalTransactions: transactions.length,
+      roiCount: roiTransactions.length,
+      saleCount: saleTransactions.length,
+      totalROIValueEUR: Number(totalROIValue.toFixed(2)),
+      totalSaleValueEUR: Number(totalSaleValue.toFixed(2)),
+      totalTaxEUR: Number((roiTax + saleTax).toFixed(2)),
+      roiTaxEUR: Number(roiTax.toFixed(2)),
+      saleTaxEUR: Number(saleTax.toFixed(2))
+    },
+    metadata: {
+      source: 'moralis_portfolio_api_logic',
+      generatedAt: new Date().toISOString(),
+      walletAddress: transactions[0]?.to_address || transactions[0]?.from_address || 'unknown',
+      chains: ['Ethereum', 'PulseChain'],
+      year: '2025-2035'
     }
+  };
 }
 
 export default async function handler(req, res) {
-    console.log('🚨 API CALLED:', req.method, req.url);
+  console.log('🇩🇪 TAX API: Starting with PORTFOLIO LOGIC');
+  
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { address } = req.body;
+
+    if (!address) {
+      return res.status(400).json({ error: 'Wallet address is required' });
+    }
+
+    // API Key Check
+    if (!MORALIS_API_KEY) {
+      return res.status(500).json({ 
+        error: 'Moralis API Key not configured'
+      });
+    }
+
+    console.log(`🇩🇪 TAX: Processing ${address} with PORTFOLIO API LOGIC`);
+
+    // 1. LADE ECHTE TRANSAKTIONEN (Portfolio API Logic)
+    const transactions = await loadRealTransactionsForTax(address);
     
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+    if (transactions.length === 0) {
+      return res.status(200).json({
+        success: true,
+        taxReport: {
+          transactions: [],
+          summary: {
+            totalTransactions: 0,
+            roiCount: 0,
+            saleCount: 0,
+            totalROIValueEUR: 0,
+            totalSaleValueEUR: 0,
+            totalTaxEUR: 0
+          },
+          metadata: {
+            source: 'moralis_portfolio_api_logic',
+            message: 'No transactions found for 2025-2035',
+            walletAddress: address
+          }
+        }
+      });
     }
 
-    try {
-        console.log('🔍 Request body:', req.body);
-        
-        const { address, phase } = req.body;
+    // 2. DEUTSCHE STEUERBERECHNUNG
+    const taxReport = calculateGermanTax(transactions);
 
-        if (!address) {
-            return res.status(400).json({ error: 'Wallet address is required' });
-        }
+    console.log(`✅ TAX: Report generated - ${taxReport.summary.totalTransactions} transactions`);
 
-        console.log(`🔥 German Tax Report API: ${phase || 'STANDARD'} für ${address}`);
+    return res.status(200).json({
+      success: true,
+      taxReport: taxReport,
+      timestamp: new Date().toISOString()
+    });
 
-        let taxReport;
-
-        // PHASE ROUTING
-        switch (phase) {
-            case 'TRIAL_SAFE_MODE':
-                console.log('🚨 TRIAL-SAFE: Bug-Fix Mode Processing...');
-                
-                try {
-                    // EINFACHER TRIAL-SAFE MODUS (ohne externe Services)
-                    const demoEvents = [
-                        {
-                            date: new Date().toISOString(),
-                            token: 'WGEP',
-                            type: 'ROI_EVENT',
-                            valueEUR: 850,
-                            tax: 212.50,
-                            gains: 510
-                        },
-                        {
-                            date: new Date().toISOString(),
-                            token: 'ETH',
-                            type: 'DEMO_EVENT',
-                            valueEUR: 3500,
-                            tax: 875,
-                            gains: 2100
-                        }
-                    ];
-
-                    console.log('🚨 Demo events created:', demoEvents);
-
-                    const summary = safeTaxCalculation(demoEvents);
-                    console.log('🚨 Summary calculated:', summary);
-
-                    taxReport = {
-                        reports: demoEvents,
-                        summary: summary,
-                        transactionsProcessed: 2,
-                        totalTransactions: 2,
-                        totalROIIncome: summary.totalGains,
-                        totalSpeculativeGains: summary.totalTax,
-                        phase: 'TRIAL_SAFE_MODE',
-                        priceSource: 'Demo Data (Trial Mode)',
-                        trialInfo: '3 Tage verbleibend - Bug-Fix aktiv'
-                    };
-                    
-                    console.log('🚨 Tax report created:', taxReport);
-                    
-                } catch (trialError) {
-                    console.error('🚨 TRIAL-SAFE Error:', trialError);
-                    throw trialError;
-                }
-                break;
-
-            case 'PHASE_2_HISTORICAL':
-                console.log('🚀 PHASE 2: CoinGecko Historical Processing...');
-                
-                const germanTaxService2 = new GermanTaxService();
-                
-                // Lade Transaktionen
-                const transactions2 = await germanTaxService2.apiService.getAllTransactionsEnterprise(
-                    address, 
-                    ['0x1', '0x171'], 
-                    2024
-                );
-                
-                // Phase 2 Berechnung mit historischen Preisen
-                taxReport = await germanTaxService2.calculateTaxWithHistoricalPrices(transactions2);
-                break;
-
-            case 'PHASE_3_MORALIS_PRO':
-                console.log('🔥 PHASE 3: Moralis Pro Processing...');
-                
-                const germanTaxService3 = new GermanTaxService();
-                
-                // Lade Transaktionen
-                const moralisTransactions = await germanTaxService3.apiService.getAllTransactionsEnterprise(
-                    address, 
-                    ['0x1', '0x171'], 
-                    2024
-                );
-                
-                // Phase 3 Berechnung mit Moralis Pro
-                taxReport = await germanTaxService3.calculateTaxWithMoralisPro(moralisTransactions, address);
-                break;
-
-            default:
-                console.log('📊 STANDARD: Normale Steuerberechnung...');
-                const germanTaxService = new GermanTaxService();
-                taxReport = await germanTaxService.generateGermanTaxReport(address);
-                break;
-        }
-
-        console.log('🔍 Tax report ready, preparing response...');
-
-        // PDF Generation (optional - nur wenn verfügbar)
-        let pdfBuffer = null;
-        try {
-            if (phase !== 'TRIAL_SAFE_MODE') {
-                const germanTaxService = new GermanTaxService();
-                pdfBuffer = await germanTaxService.generatePDF(taxReport, address);
-            }
-        } catch (pdfError) {
-            console.warn('⚠️ PDF Generation failed:', pdfError.message);
-            // PDF-Fehler nicht kritisch - weiter ohne PDF
-        }
-
-        const response = {
-            success: true,
-            taxReport: {
-                ...taxReport,
-                pdfBuffer: pdfBuffer
-            },
-            phase: phase || 'STANDARD',
-            timestamp: new Date().toISOString()
-        };
-
-        console.log('✅ Sending successful response');
-        return res.status(200).json(response);
-
-    } catch (error) {
-        console.error(`❌ German Tax Report API Error:`, error);
-        console.error(`❌ Error stack:`, error.stack);
-        
-        const errorResponse = {
-            success: false,
-            error: error.message,
-            phase: req.body?.phase || 'STANDARD',
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-            timestamp: new Date().toISOString()
-        };
-
-        console.log('❌ Sending error response:', errorResponse);
-        return res.status(500).json(errorResponse);
-    }
+  } catch (error) {
+    console.error(`❌ TAX API Error:`, error);
+    
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 }
 
 // 🔍 HILFSFUNKTIONEN
