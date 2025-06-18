@@ -341,9 +341,9 @@ async function loadAllTransactionsAggressive(address, chainId, maxPages = 200) {
   }
 }
 
-// 🔥 SCHRITT 5: MAIN FUNCTION MIT AGGRESSIVER PAGINATION
+// 🔥 SCHRITT 5: MAIN FUNCTION - FUNKTIONIERENDE VERSION
 async function loadRealTransactionsForTax(walletAddress) {
-  console.log(`🇩🇪 TAX: Loading ALL transactions for ${walletAddress} with aggressive pagination`);
+  console.log(`🇩🇪 TAX: Loading transactions for ${walletAddress}`);
   
   // Beide Chains laden (wie Portfolio System)
   const chains = [
@@ -354,18 +354,35 @@ async function loadRealTransactionsForTax(walletAddress) {
   const allTransactions = [];
   
   for (const chain of chains) {
-    console.log(`🔗 TAX: Loading ${chain.name} (${chain.id}) with aggressive pagination...`);
+    console.log(`🔗 TAX: Loading ${chain.name} (${chain.id})...`);
     
     try {
-      // 🔥 AGGRESSIVE PAGINATION: Lade ALLE Transaktionen
-      const aggressiveResult = await loadAllTransactionsAggressive(walletAddress, chain.id, 200);
+      // 🔥 FUNKTIONIERENDE LOGIK: Einfache API-Calls
+      let allTransfers = [];
+      let cursor = null;
+      let pageCount = 0;
+      const maxPages = 50; // Max 50 pages = 100.000 transactions
       
-      if (aggressiveResult.success && aggressiveResult.result.length > 0) {
-        allTransactions.push(...aggressiveResult.result);
-        console.log(`✅ TAX: ${chain.name} - ${aggressiveResult.result.length} transactions loaded`);
-      } else {
-        console.log(`⚠️ TAX: ${chain.name} - No transactions found`);
-      }
+      do {
+        const transferData = await moralisFetch(`${walletAddress}/erc20/transfers`, {
+          chain: chain.id,
+          limit: 2000,
+          cursor: cursor
+        });
+        
+        if (transferData && transferData.result && transferData.result.length > 0) {
+          allTransfers.push(...transferData.result);
+          cursor = transferData.cursor;
+          pageCount++;
+          console.log(`📄 TAX: Page ${pageCount} - ${transferData.result.length} transfers`);
+        } else {
+          console.log(`🔍 DEBUG: No more data on page ${pageCount + 1}`);
+          break;
+        }
+      } while (cursor && pageCount < maxPages);
+      
+      console.log(`✅ TAX: ${chain.name} - ${allTransfers.length} transactions loaded`);
+      allTransactions.push(...allTransfers);
       
     } catch (error) {
       console.error(`❌ TAX: Error loading ${chain.name}:`, error.message);
@@ -375,8 +392,10 @@ async function loadRealTransactionsForTax(walletAddress) {
   console.log(`🇩🇪 TAX: Total transactions loaded: ${allTransactions.length}`);
   
   // Filter 2025 (nur 2025 wie gewünscht)
-  // 🔍 DEBUG: Temporär alle Jahre anzeigen
-  const recentTransfers = allTransactions;
+  const recentTransfers = allTransactions.filter(tx => {
+    const year = new Date(tx.block_timestamp).getFullYear();
+    return year === 2025;
+  });
   
   console.log(`🔍 DEBUG: All transfers before year filter: ${allTransactions.length}`);
   console.log(`🔍 DEBUG: Year distribution:`, allTransactions.reduce((acc, tx) => {
@@ -392,39 +411,18 @@ async function loadRealTransactionsForTax(walletAddress) {
       timestamp: tx.block_timestamp,
       year: new Date(tx.block_timestamp).getFullYear(),
       token: tx.token_symbol,
-      from: tx.from_address?.slice(0, 8) + '...',
-      to: tx.to_address?.slice(0, 8) + '...'
+      from: tx.from_address?.slice(0, 10) + '...',
+      to: tx.to_address?.slice(0, 10) + '...'
     })));
   }
   
-  // 🔥 SCHRITT 5: ENHANCED PRICE CALCULATION
-  const enhancedTransfers = await Promise.all(
-    recentTransfers.map(async (tx) => {
-      // Calculate real prices
-      const priceData = await calculateTokenPrice(
-        tx.token_symbol, 
-        tx.token_address, 
-        tx.block_timestamp
-      );
-      
-      return {
-        ...tx,
-        usd_price: priceData.usd,
-        eur_price: priceData.eur,
-        price_source: priceData.source
-      };
-    })
-  );
-  
-  // Deutsche Steuer-Klassifizierung
-  const classifiedTransfers = enhancedTransfers.map(tx => 
-    classifyTransactionForGermanTax(tx, walletAddress)
-  );
+  // Classify transactions for German tax
+  const classifiedTransfers = recentTransfers.map(tx => classifyTransactionForGermanTax(tx, walletAddress));
   
   allTransactions.push(...classifiedTransfers);
   console.log(`✅ TAX: ${chains[0].name}: ${recentTransfers.length} transactions (2025)`);
   
-  return allTransactions;
+  return classifiedTransfers;
 }
 
 // 🇩🇪 DEUTSCHE STEUERBERECHNUNG
