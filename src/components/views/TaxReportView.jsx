@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, AlertTriangle, Info, Download, Wallet, ChevronDown } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 
 const SimpleTaxTracker = () => {
   const { wcAccounts, wcIsConnected, wcConnectWallet, wcIsConnecting, t, connectedWalletAddress } = useAppContext();
+  const { user } = useAuth();
   
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -11,16 +14,71 @@ const SimpleTaxTracker = () => {
   const [error, setError] = useState(null);
   const [pdfData, setPdfData] = useState(null);
   const [showWalletDropdown, setShowWalletDropdown] = useState(false);
+  const [dbWallets, setDbWallets] = useState([]);
 
-  // 🎯 WALLET INTEGRATION: Verwende die gleiche Variable wie Dashboard
-  const connectedWallets = connectedWalletAddress ? [connectedWalletAddress] : (wcAccounts || []);
-  const hasConnectedWallets = Boolean(connectedWalletAddress) || (wcIsConnected && connectedWallets.length > 0);
+  // 🎯 NEUE METHODE: Lade Wallets direkt aus Datenbank (wie Portfolio)
+  const loadWalletsFromDatabase = async () => {
+    if (!user?.id) return;
+    
+    try {
+      console.log('🔍 Lade Wallets aus Datenbank für User:', user.id);
+      
+      const { data: wallets, error } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Supabase Wallet-Abfrage Fehler:', error);
+        return;
+      }
+
+      console.log('✅ Wallets aus Datenbank geladen:', wallets);
+      setDbWallets(wallets || []);
+      
+      // Automatisch erste Wallet setzen
+      if (wallets && wallets.length > 0 && !walletAddress) {
+        const firstWallet = wallets[0].address;
+        setWalletAddress(firstWallet);
+        console.log('✅ Automatisch erste DB-Wallet gesetzt:', firstWallet.slice(0, 8) + '...');
+      }
+      
+    } catch (error) {
+      console.error('💥 Fehler beim Laden der DB-Wallets:', error);
+    }
+  };
+
+  // Lade Wallets beim Mount
+  useEffect(() => {
+    if (user?.id) {
+      loadWalletsFromDatabase();
+    }
+  }, [user?.id]);
+
+  // 🎯 SIMPLE FIX: Hole Wallet direkt aus localStorage (wie useWalletConnect speichert)
+  const getConnectedWallet = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('connectedAddress');
+    }
+    return null;
+  };
+
+  // 🎯 WALLET INTEGRATION: Verwende DB-Wallets + localStorage + Context als Fallback  
+  const localStorageWallet = getConnectedWallet();
+  const connectedWallets = dbWallets.length > 0 
+    ? dbWallets.map(w => w.address)
+    : (localStorageWallet ? [localStorageWallet] : (connectedWalletAddress ? [connectedWalletAddress] : (wcAccounts || [])));
+  const hasConnectedWallets = dbWallets.length > 0 || Boolean(localStorageWallet) || Boolean(connectedWalletAddress) || (wcIsConnected && wcAccounts && wcAccounts.length > 0);
 
   // 🔍 DEBUG: Wallet-Status loggen
   console.log('🔍 WALLET DEBUG:', {
+    dbWallets: dbWallets.length,
+    localStorageWallet, 
     wcIsConnected,
     wcAccounts,
-    connectedWalletAddress, // HAUPTVARIABLE vom Dashboard
+    connectedWalletAddress,
     connectedWallets,
     hasConnectedWallets,
     walletAddress
@@ -28,7 +86,7 @@ const SimpleTaxTracker = () => {
 
   // 🚀 AUTOMATISCHE WALLET-LADUNG: Setze erste verbundene Wallet automatisch
   useEffect(() => {
-    if (hasConnectedWallets && !walletAddress) {
+    if (hasConnectedWallets && !walletAddress && connectedWallets.length > 0) {
       const firstWallet = connectedWallets[0];
       setWalletAddress(firstWallet);
       console.log('✅ Automatisch verbundene Wallet geladen:', firstWallet.slice(0, 8) + '...');
@@ -38,15 +96,16 @@ const SimpleTaxTracker = () => {
   // 🚨 EMERGENCY DEBUG: Alert um sicherzustellen dass Code läuft
   useEffect(() => {
     console.log('🔥 STEUERREPORT GELADEN - DEBUG INFO:');
+    console.log('localStorageWallet:', localStorageWallet);
     console.log('connectedWalletAddress:', connectedWalletAddress);
     console.log('wcAccounts:', wcAccounts);
     console.log('wcIsConnected:', wcIsConnected);
     
     // Zeige Info in UI falls Debug nötig
     if (typeof window !== 'undefined' && window.location.search.includes('debug')) {
-      alert(`DEBUG:\nconnectedWalletAddress: ${connectedWalletAddress}\nwcAccounts: ${JSON.stringify(wcAccounts)}\nwcIsConnected: ${wcIsConnected}`);
+      alert(`DEBUG:\nlocalStorageWallet: ${localStorageWallet}\nconnectedWalletAddress: ${connectedWalletAddress}\nwcAccounts: ${JSON.stringify(wcAccounts)}\nwcIsConnected: ${wcIsConnected}`);
     }
-  }, [connectedWalletAddress, wcAccounts, wcIsConnected]);
+  }, [localStorageWallet, connectedWalletAddress, wcAccounts, wcIsConnected]);
 
   const handleWalletSelect = (address) => {
     setWalletAddress(address);
