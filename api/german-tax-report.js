@@ -8,9 +8,15 @@
  * - Rate Limiting: 25 requests/second
  */
 
-// 🔧 MORALIS v2.2 KONFIGURATION
+/**
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - KOPIERT VON FUNKTIONIERENDER API
+ * 
+ * EXAKTE LOGIK VON moralis-transactions.js - DIE FUNKTIONIERT!
+ */
+
+// 🔧 MORALIS v2 KONFIGURATION (FUNKTIONIERT!)
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE = 'https://deep-index.moralis.io/api/v2';
+const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 // 🚦 RATE LIMITING: 25 requests/second (Standard Plan)
 let lastCallTime = 0;
@@ -49,39 +55,47 @@ const PULSECHAIN_CONFIG = {
   }
 };
 
-// 🔥 ERWEITERTE API-CALLS MIT v2.2
+/**
+ * Helper to fetch data from Moralis REST API with improved error handling
+ * EXAKTE KOPIE VON moralis-transactions.js
+ */
 async function moralisFetch(endpoint, params = {}) {
   try {
-    const url = `${MORALIS_BASE}/${endpoint}`;
-    const queryParams = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, value);
+    const url = new URL(`${MORALIS_BASE_URL}/${endpoint}`);
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null) {
+        url.searchParams.append(key, val);
       }
     });
+
+    console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
     
-    const fullUrl = `${url}?${queryParams.toString()}`;
-    
-    console.log(`🔍 MORALIS REQUEST: ${endpoint} with ${Object.keys(params).length} params`);
-    
-    const response = await fetch(fullUrl, {
+    const res = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'X-API-Key': MORALIS_API_KEY,
+        'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      timeout: 30000
+      signal: controller.signal
     });
     
-    if (!response.ok) {
-      console.error(`❌ MORALIS API ERROR: ${response.status} ${response.statusText}`);
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`❌ MORALIS API ERROR: ${res.status} - ${res.statusText}`);
+      console.error(`❌ ERROR DETAILS: ${errorText}`);
       return null;
     }
-    
-    const data = await response.json();
-    return data;
-    
+
+    const jsonData = await res.json();
+    console.log(`✅ MORALIS SUCCESS: ${endpoint} returned ${jsonData?.result?.length || 0} items`);
+    return jsonData;
+
   } catch (error) {
     console.error(`💥 MORALIS FETCH EXCEPTION: ${error.message}`);
     return null;
@@ -100,26 +114,26 @@ async function rateLimitedCall(fn) {
   return await fn();
 }
 
-// 🔥 SCHRITT 1: ERC20 TRANSFERS MIT v2.2 (KORREKTE URL)
+// 🔥 EXAKTE KOPIE DER FUNKTIONIERENDEN LOGIK
 async function fetchERC20TransfersV2(wallet, chainId, cursor = null) {
   try {
-    console.log(`📊 TAX v2.2: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
+    console.log(`📊 TAX: Fetching ERC20 transfers for ${wallet} on chain ${chainId}`);
     
-    // 🔥 KOPIERE EXAKTE WGEP API-LOGIK
+    // 🔥 EXAKTE KOPIE VON moralis-transactions.js
     const moralisParams = { 
       chain: chainId,
-      limit: 500
+      limit: 100 // Original working limit
     };
     
     if (cursor) moralisParams.cursor = cursor;
     
     const result = await moralisFetch(`${wallet}/erc20/transfers`, moralisParams);
     
-    console.log(`✅ TAX v2.2: Found ${result?.result?.length || 0} ERC20 transfers`);
+    console.log(`✅ TAX: Found ${result?.result?.length || 0} ERC20 transfers`);
     return result;
     
   } catch (error) {
-    console.error('❌ TAX v2.2: fetchERC20Transfers error:', error.message);
+    console.error('❌ TAX: fetchERC20Transfers error:', error.message);
     return { result: [], cursor: null };
   }
 }
@@ -130,7 +144,7 @@ async function fetchWalletHistoryV2(wallet, chainId) {
     console.log(`📊 TAX v2.2: Fetching wallet history for ${wallet} on chain ${chainId}`);
     
     // 🔥 KORREKTE URL: /wallets/:address/history
-    const url = `${MORALIS_BASE}/wallets/${wallet}/history?chain=${chainId}&limit=500`;
+    const url = `${MORALIS_BASE_URL}/wallets/${wallet}/history?chain=${chainId}&limit=500`;
     
     console.log(`🔍 DEBUG: Wallet History URL: ${url}`);
     
@@ -158,7 +172,7 @@ async function fetchTokenMetadataV2(tokenAddress, chainId) {
   try {
     console.log(`📋 TAX v2.2: Fetching metadata for token ${tokenAddress} on chain ${chainId}`);
     
-    const url = `${MORALIS_BASE}/erc20/metadata?chain=${chainId}&addresses=${tokenAddress}`;
+    const url = `${MORALIS_BASE_URL}/erc20/metadata?chain=${chainId}&addresses=${tokenAddress}`;
     
     const res = await fetch(url, {
       headers: { 'X-API-Key': MORALIS_API_KEY }
