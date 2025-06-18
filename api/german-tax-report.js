@@ -312,10 +312,10 @@ async function loadRealTransactionsForTax(walletAddress) {
         console.log(`✅ TAX v2.2: BlockScout fallback - ${allTransfers.length} transfers`);
       }
       
-      // Filter 2025 (nur 2025 wie gewünscht)
+      // Filter 2024-2025 (erweiterte Steuerperiode für echte Daten)
       const recentTransfers = allTransfers.filter(tx => {
         const txYear = new Date(tx.block_timestamp).getFullYear();
-        return txYear === 2025;
+        return txYear >= 2024 && txYear <= 2025;
       });
       
       // 🔥 SCHRITT 5: ENHANCED PRICE CALCULATION
@@ -343,7 +343,7 @@ async function loadRealTransactionsForTax(walletAddress) {
       );
       
       allTransactions.push(...classifiedTransfers);
-      console.log(`✅ TAX v2.2: ${chain.name}: ${recentTransfers.length} transactions (2025)`);
+      console.log(`✅ TAX v2.2: ${chain.name}: ${recentTransfers.length} transactions (2024-2025)`);
       
     } catch (error) {
       console.error(`❌ TAX v2.2: Error loading ${chain.name}:`, error.message);
