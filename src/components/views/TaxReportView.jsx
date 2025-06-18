@@ -92,66 +92,7 @@ const SimpleTaxTracker = () => {
       
       if (data.success && data.taxReport) {
         console.log('✅ Echte Daten erfolgreich geladen:', data.taxReport);
-        
-        // 🚨 FIX: Wenn alle Werte 0 sind, verwende Demo-Daten
-        if (data.taxReport.totalTransactions === 0 && data.taxReport.events === 0) {
-          console.log('⚠️ Alle Werte sind 0 - verwende Demo-Daten für bessere UX');
-          const demoData = {
-            totalTransactions: 127,
-            transactions: 127,
-            events: 23,
-            taxableEvents: 23,
-            totalGains: 2450.75,
-            gains: 2450.75,
-            totalTax: 612.69,
-            tax: 612.69,
-            taxEvents: [
-              {
-                date: '15.11.2024',
-                token: 'WGEP',
-                type: 'ROI-Einkommen (§22 EStG)',
-                valueEUR: 125.50,
-                value: 125.50,
-                tax: 31.38
-              },
-              {
-                date: '12.11.2024',
-                token: 'ETH',
-                type: 'Spekulation (§23 EStG)',
-                valueEUR: 890.25,
-                value: 890.25,
-                tax: 72.56
-              },
-              {
-                date: '08.11.2024',
-                token: 'HEX',
-                type: 'ROI-Einkommen (§22 EStG)',
-                valueEUR: 67.80,
-                value: 67.80,
-                tax: 16.95
-              },
-              {
-                date: '05.11.2024',
-                token: 'USDC',
-                type: 'Spekulation (§23 EStG)',
-                valueEUR: 445.20,
-                value: 445.20,
-                tax: 0
-              },
-              {
-                date: '02.11.2024',
-                token: 'PLSX',
-                type: 'ROI-Einkommen (§22 EStG)',
-                valueEUR: 234.15,
-                value: 234.15,
-                tax: 58.54
-              }
-            ]
-          };
-          setTaxData(demoData);
-        } else {
-          setTaxData(data.taxReport);
-        }
+        setTaxData(data.taxReport);
         
         // PDF-Daten für manuellen Download speichern
         if (data.taxReport.pdfBuffer) {

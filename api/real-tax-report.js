@@ -74,8 +74,10 @@ export default async function handler(req, res) {
 
         // API Key Check
         if (!MORALIS_CONFIG.apiKey || MORALIS_CONFIG.apiKey === 'undefined') {
-            console.warn('⚠️ Moralis API Key fehlt - verwende Demo-Daten');
-            return generateDemoTaxReport(address);
+            return res.status(500).json({ 
+                success: false,
+                error: 'Moralis API Key nicht konfiguriert. Bitte kontaktieren Sie den Administrator.' 
+            });
         }
 
         console.log(`🔍 Lade echte Transaktionen für: ${address}`);
@@ -135,93 +137,32 @@ export default async function handler(req, res) {
         };
 
         console.log('✅ Real Tax Report erfolgreich generiert');
+        
+        // 📄 PDF-GENERIERUNG: Einfache Text-zu-PDF Lösung
+        const pdfContent = generateSimplePDF(taxReport, address);
+        
         return res.status(200).json({
             success: true,
             taxReport: taxReport,
-            // Für PDF-Download (vereinfacht)
-            pdfBuffer: null // TODO: PDF-Generierung implementieren
+            // PDF-Buffer für Download
+            pdfBuffer: {
+                data: Array.from(new TextEncoder().encode(pdfContent)),
+                type: 'application/pdf',
+                filename: `PulseManager_Steuerreport_${address.slice(0,8)}_${new Date().toISOString().split('T')[0]}.pdf`
+            }
         });
 
     } catch (error) {
         console.error('❌ Real Tax Report Error:', error);
         
-        // Fallback zu Demo-Daten bei Fehlern
-        console.log('🚨 Fallback zu Demo-Daten wegen Fehler');
-        return generateDemoTaxReport(req.body.address || 'Unknown');
+        return res.status(500).json({
+            success: false,
+            error: `Fehler beim Laden der Transaktionsdaten: ${error.message}`
+        });
     }
 }
 
-// 🎭 DEMO TAX REPORT GENERATOR (Fallback)
-function generateDemoTaxReport(address) {
-    const demoTaxReport = {
-        totalTransactions: 127,
-        transactions: 127,
-        events: 23,
-        taxableEvents: 23,
-        totalGains: 2450.75,
-        gains: 2450.75,
-        totalTax: 612.69,
-        tax: 612.69,
 
-        taxEvents: [
-            {
-                date: '15.11.2024',
-                token: 'WGEP',
-                type: 'ROI-Einkommen (§22 EStG)',
-                valueEUR: 125.50,
-                value: 125.50,
-                tax: 31.38
-            },
-            {
-                date: '12.11.2024',
-                token: 'ETH',
-                type: 'Spekulation (§23 EStG)',
-                valueEUR: 890.25,
-                value: 890.25,
-                tax: 72.56
-            },
-            {
-                date: '08.11.2024',
-                token: 'HEX',
-                type: 'ROI-Einkommen (§22 EStG)',
-                valueEUR: 67.80,
-                value: 67.80,
-                tax: 16.95
-            },
-            {
-                date: '05.11.2024',
-                token: 'USDC',
-                type: 'Spekulation (§23 EStG)',
-                valueEUR: 445.20,
-                value: 445.20,
-                tax: 0 // Unter Freigrenze
-            },
-            {
-                date: '02.11.2024',
-                token: 'PLSX',
-                type: 'ROI-Einkommen (§22 EStG)',
-                valueEUR: 234.15,
-                value: 234.15,
-                tax: 58.54
-            }
-        ],
-
-        metadata: {
-            wallet: address,
-            year: 2024,
-            timestamp: new Date().toISOString(),
-            compliance: 'Demo-Daten - Deutsches EStG konform',
-            disclaimer: 'DEMO-MODUS: Echte API-Daten nicht verfügbar'
-        }
-    };
-
-    return {
-        success: true,
-        taxReport: demoTaxReport,
-        pdfBuffer: null,
-        isDemo: true
-    };
-}
 
 // 📡 LADE ECHTE TRANSAKTIONEN VON MORALIS
 async function loadRealTransactions(address, chains, year) {
@@ -413,10 +354,119 @@ function isSpamToken(tx) {
 
 function calculateTransactionValueEUR(tx) {
     try {
-        // Verwende USD-Preis falls verfügbar und konvertiere zu EUR
-        const usdValue = parseFloat(tx.value_formatted || 0) * parseFloat(tx.usd_price || 0);
-        return usdValue * 0.85; // USD zu EUR Konversion (grober Schätzwert)
+        if (tx.usd_price && tx.value) {
+            const tokenAmount = parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18);
+            return tokenAmount * parseFloat(tx.usd_price) * 0.92; // USD zu EUR Conversion (vereinfacht)
+        }
+        return 0.001; // Minimaler Wert für unbekannte Preise
     } catch (error) {
-        return 0;
+        console.warn('⚠️ EUR-Wert-Berechnung Fehler:', error.message);
+        return 0.001;
     }
+}
+
+// 📄 EINFACHE PDF-GENERIERUNG
+function generateSimplePDF(taxReport, walletAddress) {
+    const date = new Date().toLocaleDateString('de-DE');
+    const year = new Date().getFullYear();
+    
+    return `%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+/Resources <<
+/Font <<
+/F1 5 0 R
+>>
+>>
+>>
+endobj
+
+4 0 obj
+<<
+/Length 1500
+>>
+stream
+BT
+/F1 16 Tf
+50 750 Td
+(🇩🇪 PULSEMANAGER STEUERREPORT ${year}) Tj
+0 -30 Td
+/F1 12 Tf
+(Erstellt am: ${date}) Tj
+0 -20 Td
+(Wallet: ${walletAddress}) Tj
+0 -40 Td
+/F1 14 Tf
+(ÜBERSICHT:) Tj
+0 -25 Td
+/F1 12 Tf
+(Transaktionen: ${taxReport.totalTransactions}) Tj
+0 -20 Td
+(Steuer-Events: ${taxReport.events}) Tj
+0 -20 Td
+(Gesamte Gewinne: €${taxReport.totalGains.toFixed(2)}) Tj
+0 -20 Td
+(Geschätzte Steuerlast: €${taxReport.totalTax.toFixed(2)}) Tj
+0 -40 Td
+/F1 14 Tf
+(WICHTIGER HINWEIS:) Tj
+0 -25 Td
+/F1 10 Tf
+(Diese Berechnung ist nur eine grobe Orientierung!) Tj
+0 -15 Td
+(Für Ihre finale Steuererklärung MÜSSEN Sie einen) Tj
+0 -15 Td
+(Steuerberater konsultieren. Wir übernehmen keine) Tj
+0 -15 Td
+(Verantwortung für steuerliche Entscheidungen.) Tj
+0 -30 Td
+/F1 12 Tf
+(Generiert von PulseManager.vip) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000010 00000 n 
+0000000053 00000 n 
+0000000110 00000 n 
+0000000251 00000 n 
+0000001805 00000 n 
+trailer
+<<
+/Size 6
+/Root 1 0 R
+>>
+startxref
+1882
+%%EOF`;
 } 
