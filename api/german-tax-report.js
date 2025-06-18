@@ -209,51 +209,25 @@ function classifyTransactionForGermanTax(tx, walletAddress) {
   ];
   const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
   
-  // Calculate EUR value - VERBESSERTE PREISBERECHNUNG
+  // Calculate token amount
   const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals) || 18);
   
-  // 🚀 SICHERE PREIS-LOOKUP mit Fallback-Preisen
-  const safePrices = {
-    'PLS': 0.00003003,
-    'PLSX': 0.00008,
-    'HEX': 0.006,
-    'INC': 0.005,
-    'DAI': 1.0,
-    'USDC': 1.0,
-    'USDT': 1.0,
-    'WBTC': 95000,
-    'ETH': 2400,
-    'FINVESTA': 24.23,
-    'FLEXMAS': 0.293,
-    'SOIL': 0.106,
-    'BEAST': 0.606,
-    'FINFIRE': 3.426,
-    'MISSOR': 0.00936,
-    'SECRET': 0.0000145,
-    '🎭': 0.0001, // WGEP Token
-    'TREASURY BILL ㉾': 1.0, // Treasury Bill
-    '⛽': 0.0001, // Gas Token
-    'UNKNOWN': 0.0001 // Unbekannte Token
-  };
-  
-  // Preis ermitteln
+  // 🔥 KORREKTE PREISBERECHNUNG: Nur echte Moralis-Daten verwenden
   let usdValue = 0;
-  const tokenSymbol = tx.token_symbol?.toUpperCase();
+  let eurValue = 0;
   
-  // 1. Versuche Moralis USD-Preis
+  // 1. PRIORITY: Moralis USD-Preis (echte Daten)
   if (tx.usd_price && parseFloat(tx.usd_price) > 0) {
     usdValue = parseFloat(tx.usd_price);
+    eurValue = usdValue * 0.93; // USD to EUR conversion
+    console.log(`✅ REAL PRICE: ${tx.token_symbol} = $${usdValue} (Moralis data)`);
   }
-  // 2. Fallback auf sichere Preise
-  else if (safePrices[tokenSymbol]) {
-    usdValue = safePrices[tokenSymbol];
-  }
-  // 3. Sehr niedriger Fallback für unbekannte Token
+  // 2. FALLBACK: Wenn kein Moralis-Preis verfügbar
   else {
-    usdValue = 0.0001;
+    usdValue = 0;
+    eurValue = 0;
+    console.log(`⚠️ NO PRICE DATA: ${tx.token_symbol} - Preis unbekannt`);
   }
-  
-  const eurValue = usdValue * 0.93; // USD to EUR conversion
   
   // German tax classification
   if (isIncoming && (fromMinter || isROIToken)) {
@@ -265,7 +239,8 @@ function classifyTransactionForGermanTax(tx, walletAddress) {
       eurValue: eurValue,
       usdValue: usdValue,
       amount: amount,
-      direction: 'IN'
+      direction: 'IN',
+      priceSource: tx.usd_price ? 'moralis' : 'unknown'
     };
   } else if (isOutgoing) {
     return {
@@ -276,7 +251,8 @@ function classifyTransactionForGermanTax(tx, walletAddress) {
       eurValue: eurValue,
       usdValue: usdValue,
       amount: amount,
-      direction: 'OUT'
+      direction: 'OUT',
+      priceSource: tx.usd_price ? 'moralis' : 'unknown'
     };
   } else if (isIncoming) {
     return {
@@ -287,7 +263,8 @@ function classifyTransactionForGermanTax(tx, walletAddress) {
       eurValue: eurValue,
       usdValue: usdValue,
       amount: amount,
-      direction: 'IN'
+      direction: 'IN',
+      priceSource: tx.usd_price ? 'moralis' : 'unknown'
     };
   }
   
@@ -299,13 +276,74 @@ function classifyTransactionForGermanTax(tx, walletAddress) {
     eurValue: eurValue,
     usdValue: usdValue,
     amount: amount,
-    direction: isIncoming ? 'IN' : 'OUT'
+    direction: isIncoming ? 'IN' : 'OUT',
+    priceSource: tx.usd_price ? 'moralis' : 'unknown'
   };
 }
 
-// 🔥 SCHRITT 5: MAIN FUNCTION MIT v2.2 INTEGRATION
+// 🔥 AGGRESSIVE PAGINATION: Load ALL transactions (bis zu 300.000!)
+async function loadAllTransactionsAggressive(address, chainId, maxPages = 200) {
+  console.log(`🔥 AGGRESSIVE PAGINATION: Loading ALL transactions for ${address} (max ${maxPages} pages)`);
+  
+  const allTransactions = [];
+  let cursor = null;
+  let pageCount = 0;
+  
+  try {
+    do {
+      console.log(`📄 Loading page ${pageCount + 1}/${maxPages}...`);
+      
+      const moralisParams = { 
+        chain: chainId,
+        limit: 2000 // Maximum pro Request (wie WGEP API)
+      };
+      
+      if (cursor) moralisParams.cursor = cursor;
+      
+      const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
+      
+      if (!result || !result.result || result.result.length === 0) {
+        console.log(`📄 No more data at page ${pageCount + 1}`);
+        break;
+      }
+      
+      allTransactions.push(...result.result);
+      cursor = result.cursor;
+      pageCount++;
+      
+      console.log(`✅ Page ${pageCount}: ${result.result.length} transactions, Total: ${allTransactions.length}`);
+      
+      // Rate limiting zwischen Requests
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+    } while (cursor && pageCount < maxPages);
+    
+    console.log(`🔥 AGGRESSIVE PAGINATION COMPLETE: ${allTransactions.length} transactions across ${pageCount} pages`);
+    
+    return {
+      success: true,
+      result: allTransactions,
+      total: allTransactions.length,
+      pages: pageCount,
+      cursor: cursor,
+      _source: 'aggressive_pagination'
+    };
+    
+  } catch (error) {
+    console.error('💥 AGGRESSIVE PAGINATION ERROR:', error);
+    return {
+      success: false,
+      error: error.message,
+      result: allTransactions,
+      total: allTransactions.length,
+      pages: pageCount
+    };
+  }
+}
+
+// 🔥 SCHRITT 5: MAIN FUNCTION MIT AGGRESSIVER PAGINATION
 async function loadRealTransactionsForTax(walletAddress) {
-  console.log(`🇩🇪 TAX v2.2: Loading real transactions for ${walletAddress}`);
+  console.log(`🇩🇪 TAX: Loading ALL transactions for ${walletAddress} with aggressive pagination`);
   
   // Beide Chains laden (wie Portfolio System)
   const chains = [
@@ -316,172 +354,76 @@ async function loadRealTransactionsForTax(walletAddress) {
   const allTransactions = [];
   
   for (const chain of chains) {
-    console.log(`🔗 TAX v2.2: Loading ${chain.name} (${chain.id})...`);
+    console.log(`🔗 TAX: Loading ${chain.name} (${chain.id}) with aggressive pagination...`);
     
     try {
-      // 🔥 SCHRITT 5: MORALIS v2.2 MIT KORREKTEN ENDPUNKTEN
-      let allTransfers = [];
-      let cursor = null;
-      let pageCount = 0;
-      const maxPages = 10; // Max 10 pages = 5000 transactions
+      // 🔥 AGGRESSIVE PAGINATION: Lade ALLE Transaktionen
+      const aggressiveResult = await loadAllTransactionsAggressive(walletAddress, chain.id, 200);
       
-      console.log(`🔍 DEBUG: Starting Moralis v2.2 fetch for ${walletAddress} on ${chain.name}`);
-      
-      // 🔥 VERSUCHE ERC20 TRANSFERS ZUERST
-      do {
-        const transferData = await rateLimitedCall(() => 
-          fetchERC20TransfersV2(walletAddress, chain.id, cursor)
-        );
-        
-        console.log(`🔍 DEBUG: Page ${pageCount + 1} - Raw data:`, {
-          hasResult: !!transferData.result,
-          resultLength: transferData.result?.length || 0,
-          hasCursor: !!transferData.cursor,
-          cursor: transferData.cursor
-        });
-        
-        if (transferData.result && transferData.result.length > 0) {
-          allTransfers.push(...transferData.result);
-          cursor = transferData.cursor;
-          pageCount++;
-          console.log(`📄 TAX v2.2: Page ${pageCount} - ${transferData.result.length} transfers`);
-        } else {
-          console.log(`🔍 DEBUG: No more data on page ${pageCount + 1}`);
-          break;
-        }
-      } while (cursor && pageCount < maxPages);
-      
-      // 🔥 FALLBACK: WALLET HISTORY WENN ERC20 LEER
-      if (allTransfers.length === 0) {
-        console.log(`🔄 TAX v2.2: ERC20 empty, trying Wallet History...`);
-        
-        const historyData = await rateLimitedCall(() => 
-          fetchWalletHistoryV2(walletAddress, chain.id)
-        );
-        
-        if (historyData.result && historyData.result.length > 0) {
-          allTransfers = historyData.result;
-          console.log(`✅ TAX v2.2: Wallet History - ${allTransfers.length} items`);
-        }
+      if (aggressiveResult.success && aggressiveResult.result.length > 0) {
+        allTransactions.push(...aggressiveResult.result);
+        console.log(`✅ TAX: ${chain.name} - ${aggressiveResult.result.length} transactions loaded`);
+      } else {
+        console.log(`⚠️ TAX: ${chain.name} - No transactions found`);
       }
-      
-      console.log(`🔍 DEBUG: Total transfers loaded: ${allTransfers.length}`);
-      
-      // Show sample transaction for debugging
-      if (allTransfers.length > 0) {
-        const sampleTx = allTransfers[0];
-        console.log(`🔍 DEBUG: Sample transaction:`, {
-          hash: sampleTx.transaction_hash || sampleTx.hash,
-          timestamp: sampleTx.block_timestamp || sampleTx.timestamp,
-          year: new Date(sampleTx.block_timestamp || sampleTx.timestamp).getFullYear(),
-          token: sampleTx.token_symbol || sampleTx.token,
-          from: sampleTx.from_address || sampleTx.from,
-          to: sampleTx.to_address || sampleTx.to
-        });
-      }
-      
-      // 🔥 SCHRITT 5: BLOCKSCOUT FALLBACK FÜR PULSECHAIN
-      if (chain.id === PULSECHAIN_CONFIG.chainId && allTransfers.length === 0) {
-        console.log(`🔄 TAX v2.2: Moralis empty, trying BlockScout fallback...`);
-        
-        const [tokenTransfers, internalTxs, normalTxs] = await Promise.all([
-          getBlockscoutTokenTransfers(walletAddress),
-          getBlockscoutInternalTransactions(walletAddress),
-          getBlockscoutNormalTransactions(walletAddress)
-        ]);
-        
-        // Convert BlockScout format to Moralis format
-        const blockScoutTransfers = [
-          ...tokenTransfers.map(tx => ({
-            transaction_hash: tx.hash,
-            to_address: tx.to,
-            from_address: tx.from,
-            value: tx.value,
-            token_address: tx.contractAddress,
-            token_symbol: tx.tokenSymbol,
-            token_name: tx.tokenName,
-            token_decimals: tx.tokenDecimal,
-            block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-            block_number: tx.blockNumber,
-            chain: 'pulsechain',
-            source: 'blockscout_fallback'
-          })),
-          ...normalTxs.map(tx => ({
-            transaction_hash: tx.hash,
-            to_address: tx.to,
-            from_address: tx.from,
-            value: tx.value,
-            token_address: 'native',
-            token_symbol: 'PLS',
-            token_name: 'PulseChain',
-            token_decimals: '18',
-            block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-            block_number: tx.blockNumber,
-            chain: 'pulsechain',
-            source: 'blockscout_fallback'
-          }))
-        ];
-        
-        allTransfers = blockScoutTransfers;
-        console.log(`✅ TAX v2.2: BlockScout fallback - ${allTransfers.length} transfers`);
-      }
-      
-      // Filter 2025 (nur 2025 wie gewünscht)
-      // 🔍 DEBUG: Temporär alle Jahre anzeigen
-      const recentTransfers = allTransfers; // Entferne Jahr-Filter temporär
-      
-      console.log(`🔍 DEBUG: All transfers before year filter: ${allTransfers.length}`);
-      console.log(`🔍 DEBUG: Year distribution:`, allTransfers.reduce((acc, tx) => {
-        const year = new Date(tx.block_timestamp).getFullYear();
-        acc[year] = (acc[year] || 0) + 1;
-        return acc;
-      }, {}));
-      
-      // 🔍 DEBUG: Zeige erste 3 Transaktionen für Debugging
-      if (allTransfers.length > 0) {
-        console.log(`🔍 DEBUG: First 3 transactions:`, allTransfers.slice(0, 3).map(tx => ({
-          hash: tx.transaction_hash?.slice(0, 10) + '...',
-          timestamp: tx.block_timestamp,
-          year: new Date(tx.block_timestamp).getFullYear(),
-          token: tx.token_symbol,
-          from: tx.from_address?.slice(0, 8) + '...',
-          to: tx.to_address?.slice(0, 8) + '...'
-        })));
-      }
-      
-      // 🔥 SCHRITT 5: ENHANCED PRICE CALCULATION
-      const enhancedTransfers = await Promise.all(
-        recentTransfers.map(async (tx) => {
-          // Calculate real prices
-          const priceData = await calculateTokenPrice(
-            tx.token_symbol, 
-            tx.token_address, 
-            tx.block_timestamp
-          );
-          
-          return {
-            ...tx,
-            usd_price: priceData.usd,
-            eur_price: priceData.eur,
-            price_source: priceData.source
-          };
-        })
-      );
-      
-      // Deutsche Steuer-Klassifizierung
-      const classifiedTransfers = enhancedTransfers.map(tx => 
-        classifyTransactionForGermanTax(tx, walletAddress)
-      );
-      
-      allTransactions.push(...classifiedTransfers);
-      console.log(`✅ TAX v2.2: ${chain.name}: ${recentTransfers.length} transactions (2025)`);
       
     } catch (error) {
-      console.error(`❌ TAX v2.2: Error loading ${chain.name}:`, error.message);
+      console.error(`❌ TAX: Error loading ${chain.name}:`, error.message);
     }
   }
   
-  console.log(`📊 TAX v2.2: TOTAL ${allTransactions.length} transactions loaded`);
+  console.log(`🇩🇪 TAX: Total transactions loaded: ${allTransactions.length}`);
+  
+  // Filter 2025 (nur 2025 wie gewünscht)
+  // 🔍 DEBUG: Temporär alle Jahre anzeigen
+  const recentTransfers = allTransactions;
+  
+  console.log(`🔍 DEBUG: All transfers before year filter: ${allTransactions.length}`);
+  console.log(`🔍 DEBUG: Year distribution:`, allTransactions.reduce((acc, tx) => {
+    const year = new Date(tx.block_timestamp).getFullYear();
+    acc[year] = (acc[year] || 0) + 1;
+    return acc;
+  }, {}));
+  
+  // 🔍 DEBUG: Zeige erste 3 Transaktionen für Debugging
+  if (allTransactions.length > 0) {
+    console.log(`🔍 DEBUG: First 3 transactions:`, allTransactions.slice(0, 3).map(tx => ({
+      hash: tx.transaction_hash?.slice(0, 10) + '...',
+      timestamp: tx.block_timestamp,
+      year: new Date(tx.block_timestamp).getFullYear(),
+      token: tx.token_symbol,
+      from: tx.from_address?.slice(0, 8) + '...',
+      to: tx.to_address?.slice(0, 8) + '...'
+    })));
+  }
+  
+  // 🔥 SCHRITT 5: ENHANCED PRICE CALCULATION
+  const enhancedTransfers = await Promise.all(
+    recentTransfers.map(async (tx) => {
+      // Calculate real prices
+      const priceData = await calculateTokenPrice(
+        tx.token_symbol, 
+        tx.token_address, 
+        tx.block_timestamp
+      );
+      
+      return {
+        ...tx,
+        usd_price: priceData.usd,
+        eur_price: priceData.eur,
+        price_source: priceData.source
+      };
+    })
+  );
+  
+  // Deutsche Steuer-Klassifizierung
+  const classifiedTransfers = enhancedTransfers.map(tx => 
+    classifyTransactionForGermanTax(tx, walletAddress)
+  );
+  
+  allTransactions.push(...classifiedTransfers);
+  console.log(`✅ TAX: ${chains[0].name}: ${recentTransfers.length} transactions (2025)`);
+  
   return allTransactions;
 }
 
