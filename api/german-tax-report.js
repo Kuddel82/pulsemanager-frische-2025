@@ -333,10 +333,27 @@ async function loadRealTransactionsForTax(walletAddress) {
       }
       
       // Filter 2025 (nur 2025 wie gewünscht)
-      const recentTransfers = allTransfers.filter(tx => {
-        const txYear = new Date(tx.block_timestamp).getFullYear();
-        return txYear === 2025;
-      });
+      // 🔍 DEBUG: Temporär alle Jahre anzeigen
+      const recentTransfers = allTransfers; // Entferne Jahr-Filter temporär
+      
+      console.log(`🔍 DEBUG: All transfers before year filter: ${allTransfers.length}`);
+      console.log(`🔍 DEBUG: Year distribution:`, allTransfers.reduce((acc, tx) => {
+        const year = new Date(tx.block_timestamp).getFullYear();
+        acc[year] = (acc[year] || 0) + 1;
+        return acc;
+      }, {}));
+      
+      // 🔍 DEBUG: Zeige erste 3 Transaktionen für Debugging
+      if (allTransfers.length > 0) {
+        console.log(`🔍 DEBUG: First 3 transactions:`, allTransfers.slice(0, 3).map(tx => ({
+          hash: tx.transaction_hash?.slice(0, 10) + '...',
+          timestamp: tx.block_timestamp,
+          year: new Date(tx.block_timestamp).getFullYear(),
+          token: tx.token_symbol,
+          from: tx.from_address?.slice(0, 8) + '...',
+          to: tx.to_address?.slice(0, 8) + '...'
+        })));
+      }
       
       // 🔥 SCHRITT 5: ENHANCED PRICE CALCULATION
       const enhancedTransfers = await Promise.all(
@@ -611,6 +628,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Wallet address is required' });
     }
 
+    // 🔍 DEBUG: Zeige die tatsächliche Wallet-Adresse
+    console.log(`🔍 DEBUG: Processing wallet address: ${address}`);
+    console.log(`🔍 DEBUG: Address length: ${address.length}`);
+    console.log(`🔍 DEBUG: Is valid format: ${address.startsWith('0x') && address.length === 42}`);
+
     // API Key Check
     if (!MORALIS_API_KEY) {
       return res.status(500).json({ 
@@ -623,7 +645,10 @@ export default async function handler(req, res) {
     // 1. LADE ECHTE TRANSAKTIONEN (Portfolio API Logic)
     const transactions = await loadRealTransactionsForTax(address);
     
+    console.log(`🔍 DEBUG: Total transactions loaded: ${transactions.length}`);
+    
     if (transactions.length === 0) {
+      console.log(`🔍 DEBUG: No transactions found - returning empty report`);
       return res.status(200).json({
         success: true,
         taxReport: {
@@ -639,7 +664,14 @@ export default async function handler(req, res) {
           metadata: {
             source: 'moralis_portfolio_api_logic',
             message: 'No transactions found for 2025',
-            walletAddress: address
+            walletAddress: address,
+            debug: {
+              addressProcessed: address,
+              addressLength: address.length,
+              isValidFormat: address.startsWith('0x') && address.length === 42,
+              chainsChecked: ['0x1', '0x171'],
+              yearFilter: 2025
+            }
           }
         }
       });
