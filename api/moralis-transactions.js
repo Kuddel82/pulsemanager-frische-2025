@@ -4,7 +4,7 @@
 // Compatible with Pro Plan using separate API calls
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2.2';
+const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 /**
  * Helper to fetch data from Moralis REST API with improved error handling
@@ -139,7 +139,7 @@ export default async function handler(req, res) {
     // Load ERC20 transfers from Moralis
     console.log(`🚀 FETCHING TRANSFERS: ${address} on ${chainId}`);
     
-    const result = await moralisFetch(`${address}/erc20`, moralisParams);
+    const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
     
     if (!result) {
       console.warn(`⚠️ NO TRANSFER DATA: Returning empty result for ${address}`);
