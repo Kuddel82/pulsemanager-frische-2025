@@ -285,10 +285,10 @@ async function loadRealTransactionsForTax(walletAddress) {
         console.log(`✅ TAX v2.2: BlockScout fallback - ${allTransfers.length} transfers`);
       }
       
-      // Filter 2025-2035 (aktuelle Steuerperiode)
+      // Filter 2020-2035 (erweiterte Steuerperiode für echte Daten)
       const recentTransfers = allTransfers.filter(tx => {
         const txYear = new Date(tx.block_timestamp).getFullYear();
-        return txYear >= 2025 && txYear <= 2035;
+        return txYear >= 2020 && txYear <= 2035;
       });
       
       // 🔥 SCHRITT 5: ENHANCED PRICE CALCULATION
@@ -316,7 +316,7 @@ async function loadRealTransactionsForTax(walletAddress) {
       );
       
       allTransactions.push(...classifiedTransfers);
-      console.log(`✅ TAX v2.2: ${chain.name}: ${recentTransfers.length} transactions (2025-2035)`);
+      console.log(`✅ TAX v2.2: ${chain.name}: ${recentTransfers.length} transactions (2020-2035)`);
       
     } catch (error) {
       console.error(`❌ TAX v2.2: Error loading ${chain.name}:`, error.message);
@@ -358,7 +358,7 @@ function calculateGermanTax(transactions) {
       generatedAt: new Date().toISOString(),
       walletAddress: transactions[0]?.to_address || transactions[0]?.from_address || 'unknown',
       chains: ['Ethereum', 'PulseChain'],
-      year: '2025-2035'
+      year: '2020-2035'
     }
   };
 }
@@ -591,7 +591,7 @@ export default async function handler(req, res) {
           },
           metadata: {
             source: 'moralis_portfolio_api_logic',
-            message: 'No transactions found for 2025-2035',
+            message: 'No transactions found for 2020-2035',
             walletAddress: address
           }
         }
