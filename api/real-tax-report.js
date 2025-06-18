@@ -11,7 +11,7 @@
 
 // 🔧 MORALIS API CONFIGURATION
 const MORALIS_CONFIG = {
-    baseURL: 'https://deep-index.moralis.io/api/v2.2',
+    baseURL: 'https://deep-index.moralis.io/api/v2',
     apiKey: process.env.MORALIS_API_KEY, // 🔐 SICHER: Nur aus Environment Variables
     rateLimitMs: 200, // 5 calls/sec
     maxRetries: 3
@@ -255,20 +255,11 @@ async function loadRealTransactions(address, chains, startYear) {
                 }
 
                 const data = await response.json();
-                console.log(`🔍 DEBUGGING: Chain ${chainId} API Response:`, {
-                    status: response.status,
-                    hasResult: !!data.result,
-                    resultLength: data.result?.length || 0,
-                    hasCursor: !!data.cursor,
-                    fullData: JSON.stringify(data).substring(0, 500) + '...'
-                });
-                
                 const transfers = data.result || [];
                 
                 // Filter 2025-2035 (neue Wallet!)
                 const validTransactions = transfers.filter(tx => {
                     const txYear = new Date(tx.block_timestamp).getFullYear();
-                    console.log(`📅 TX Jahr: ${txYear} (${tx.block_timestamp}) - Valid: ${txYear >= 2025 && txYear <= 2035}`);
                     return txYear >= 2025 && txYear <= 2035;
                 });
 
