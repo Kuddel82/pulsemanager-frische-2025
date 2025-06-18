@@ -40,6 +40,12 @@ const TaxReportView = () => {
       
       const wallets = portfolioData?.wallets || [];
       
+      // 🔍 DEBUG: Zeige alle geladenen Wallets
+      console.log(`🔍 DEBUG: Loaded ${wallets.length} wallets from database:`);
+      wallets.forEach((wallet, index) => {
+        console.log(`  ${index + 1}. ${wallet.address} (Chain: ${wallet.chain_id})`);
+      });
+      
       if (wallets.length === 0) {
         setError('Keine Wallets gefunden. Fügen Sie zuerst Ihre Wallet-Adressen hinzu.');
         return;
@@ -54,45 +60,29 @@ const TaxReportView = () => {
         console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
         
         try {
-          // 🔥 RICHTIGE API: Verwende Moralis v2.2 direkt
-          console.log(`🔄 Verarbeite Wallet: ${wallet.address}`);
+          // 🔥 ALTERNATIVE: Verwende ScanTransactionService direkt
+          console.log(`🔍 DEBUG: Testing ScanTransactionService for ${wallet.address}...`);
           
-          // Verwende die RICHTIGEN Moralis API-Endpunkte
-          const [erc20Response, historyResponse] = await Promise.all([
-            fetch(`/api/moralis-proxy?endpoint=erc20-transfers&address=${wallet.address}&chain=0x171&limit=500`),
-            fetch(`/api/moralis-proxy?endpoint=wallet-history&address=${wallet.address}&chain=0x171&limit=500`)
-          ]);
+          const { ScanTransactionService } = await import('@/services/scanTransactionService.js');
+          const scanResult = await ScanTransactionService.getUltimateTaxHistory(wallet.address);
           
-          const [erc20Data, historyData] = await Promise.all([
-            erc20Response.json(),
-            historyResponse.json()
-          ]);
+          console.log(`🔍 DEBUG: ScanTransactionService result:`, scanResult);
+          console.log(`🔍 DEBUG: Total transactions from scan: ${scanResult.totalCount}`);
           
-          console.log(`🔍 DEBUG: ERC20 Response:`, erc20Data);
-          console.log(`🔍 DEBUG: History Response:`, historyData);
-          
-          // Kombiniere alle Transaktionen
-          const allTransactions = [
-            ...(erc20Data.result || []),
-            ...(historyData.result || [])
-          ];
-          
-          console.log(`🔍 DEBUG: Total transactions found: ${allTransactions.length}`);
-          
-          if (allTransactions.length > 0) {
+          if (scanResult.totalCount > 0) {
             // Erstelle einen einfachen Tax Report
             const taxReport = {
-              transactions: allTransactions,
+              transactions: scanResult.allTransactions,
               summary: {
-                totalTransactions: allTransactions.length,
-                roiCount: allTransactions.filter(tx => tx.isROI).length,
-                saleCount: allTransactions.filter(tx => tx.taxCategory === 'SALE_INCOME').length,
+                totalTransactions: scanResult.totalCount,
+                roiCount: scanResult.taxableCount,
+                saleCount: 0,
                 totalROIValueEUR: 0,
                 totalSaleValueEUR: 0,
                 totalTaxEUR: 0
               },
               metadata: {
-                source: 'moralis_v2.2_direct',
+                source: 'pulsechain_scan_direct',
                 walletAddress: wallet.address,
                 chains: ['0x171'],
                 year: 'all'
@@ -104,7 +94,7 @@ const TaxReportView = () => {
               report: taxReport,
               success: true
             });
-            console.log(`✅ Tax Report für ${wallet.address}: ${allTransactions.length} Transaktionen`);
+            console.log(`✅ Tax Report für ${wallet.address}: ${scanResult.totalCount} Transaktionen`);
           } else {
             reports.push({
               wallet: wallet.address,
