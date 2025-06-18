@@ -83,9 +83,30 @@ const SimpleTaxTracker = () => {
       console.log(`🔍 DEBUG: Total transactions from scan: ${scanResult.totalCount}`);
       
       if (scanResult.totalCount > 0) {
+        // 🔥 SICHERE DATENVALIDIERUNG: Verhindere React-Rendering-Fehler
+        const safeTransactions = scanResult.allTransactions.map(tx => ({
+          hash: tx.hash || '',
+          blockNumber: tx.blockNumber || 0,
+          timeStamp: tx.timeStamp || 0,
+          timestamp: tx.timestamp || new Date().toISOString(),
+          from: tx.from || '',
+          to: tx.to || '',
+          value: tx.value || '0',
+          tokenName: tx.tokenName || 'Unknown',
+          tokenSymbol: tx.tokenSymbol || 'UNKNOWN',
+          tokenDecimal: tx.tokenDecimal || 18,
+          contractAddress: tx.contractAddress || '',
+          gasUsed: tx.gasUsed || 0,
+          gasPrice: tx.gasPrice || '0',
+          direction: tx.direction || 'UNKNOWN',
+          type: tx.type || 'UNKNOWN',
+          source: tx.source || 'pulsechain_scan',
+          walletAddress: tx.walletAddress || walletAddress
+        }));
+        
         // Erstelle einen einfachen Tax Report
         const taxReport = {
-          transactions: scanResult.allTransactions,
+          transactions: safeTransactions,
           summary: {
             totalTransactions: scanResult.totalCount,
             roiCount: scanResult.taxableCount,
@@ -363,38 +384,38 @@ const SimpleTaxTracker = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {taxData.totalTransactions || taxData.transactions || 0}
+                  {taxData.summary?.totalTransactions || taxData.transactions?.length || 0}
                 </div>
                 <div className="pulse-stat-label">Transaktionen</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {taxData.events || taxData.taxableEvents || 0}
+                  {taxData.summary?.roiCount || 0}
                 </div>
                 <div className="pulse-stat-label">Steuer-Events</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {formatCurrency(taxData.totalGains || taxData.gains || 0)}
+                  {formatCurrency(taxData.summary?.totalROIValueEUR || 0)}
                 </div>
                 <div className="pulse-stat-label">Gesamte Gewinne</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {formatCurrency(taxData.totalTax || taxData.tax || 0)}
+                  {formatCurrency(taxData.summary?.totalTaxEUR || 0)}
                 </div>
                 <div className="pulse-stat-label">Grobe Steuerlast</div>
               </div>
             </div>
 
             {/* Events Table - PulseChain Style */}
-            {taxData.taxEvents && taxData.taxEvents.length > 0 && (
+            {taxData.transactions && taxData.transactions.length > 0 && (
               <div className="overflow-x-auto mb-6">
                 <h3 className="text-xl font-semibold pulse-text mb-4">
-                  📋 Steuerpflichtige Ereignisse (Top 10)
+                  📋 Transaktionen (Top 10 von {taxData.transactions.length})
                 </h3>
                 <table className="w-full rounded-lg overflow-hidden" style={{backgroundColor: 'var(--bg-secondary)'}}>
                   <thead style={{background: 'var(--pulse-gradient-primary)'}}>
@@ -402,27 +423,31 @@ const SimpleTaxTracker = () => {
                       <th className="px-4 py-3 text-left text-black font-semibold">Datum</th>
                       <th className="px-4 py-3 text-left text-black font-semibold">Token</th>
                       <th className="px-4 py-3 text-left text-black font-semibold">Typ</th>
-                      <th className="px-4 py-3 text-left text-black font-semibold">Wert (EUR)</th>
-                      <th className="px-4 py-3 text-left text-black font-semibold">Steuer (EUR)</th>
+                      <th className="px-4 py-3 text-left text-black font-semibold">Richtung</th>
+                      <th className="px-4 py-3 text-left text-black font-semibold">Wert</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {taxData.taxEvents.slice(0, 10).map((event, index) => (
+                    {taxData.transactions.slice(0, 10).map((tx, index) => (
                       <tr key={index} style={{backgroundColor: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)'}}>
                         <td className="px-4 py-3 text-sm pulse-text-secondary">
-                          {event.date || new Date().toLocaleDateString('de-DE')}
+                          {tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A'}
                         </td>
                         <td className="px-4 py-3 text-sm font-medium pulse-text">
-                          {event.token || 'N/A'}
+                          {tx.tokenSymbol || tx.tokenName || 'N/A'}
                         </td>
                         <td className="px-4 py-3 text-sm pulse-text-secondary">
-                          {event.type || 'N/A'}
+                          {tx.type || 'N/A'}
                         </td>
                         <td className="px-4 py-3 text-sm pulse-text">
-                          {formatCurrency(event.valueEUR || event.value || 0)}
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            tx.direction === 'IN' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {tx.direction === 'IN' ? '📥 IN' : '📤 OUT'}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-sm font-bold pulse-text-gradient">
-                          {formatCurrency(event.tax || 0)}
+                          {tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0'}
                         </td>
                       </tr>
                     ))}
