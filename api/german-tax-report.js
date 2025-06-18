@@ -125,10 +125,10 @@ export default async function handler(req, res) {
     const chainId = chainMap[chain.toLowerCase()] || chain;
     console.log(`🇩🇪 TAX CHAIN MAPPING: ${chain} -> ${chainId}`);
 
-    // Build Moralis API parameters - ORIGINAL WORKING LOGIC
+    // Build Moralis API parameters - ERHÖHTES LIMIT FÜR ALLE TRANSAKTIONEN
     const moralisParams = { 
       chain: chainId,
-      limit: Math.min(parseInt(limit) || 100, 100) // Back to original limit
+      limit: Math.min(parseInt(limit) || 2000, 2000) // Erhöht auf 2000 pro Request
     };
 
     // Add optional parameters
@@ -138,12 +138,37 @@ export default async function handler(req, res) {
     
     console.log(`🔧 TAX PAGE SIZE: Configured for ${moralisParams.limit} items per request`);
 
-    // Load ERC20 transfers from Moralis
-    console.log(`🚀 TAX FETCHING TRANSFERS: ${address} on ${chainId}`);
+    // 🔥 PAGINATION: Lade ALLE Transaktionen
+    let allTransactions = [];
+    let currentCursor = cursor;
+    let pageCount = 0;
+    const maxPages = 150; // Max 150 pages = 300.000 transactions
     
-    const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
+    do {
+      if (currentCursor) moralisParams.cursor = currentCursor;
+      
+      console.log(`🚀 TAX FETCHING PAGE ${pageCount + 1}: ${address} on ${chainId}`);
+      
+      const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
+      
+      if (result && result.result && result.result.length > 0) {
+        allTransactions.push(...result.result);
+        currentCursor = result.cursor;
+        pageCount++;
+        console.log(`✅ TAX PAGE ${pageCount}: ${result.result.length} transactions, Total: ${allTransactions.length}`);
+      } else {
+        console.log(`📄 TAX: No more data at page ${pageCount + 1}`);
+        break;
+      }
+      
+      // Rate limiting zwischen Requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } while (currentCursor && pageCount < maxPages);
     
-    if (!result) {
+    console.log(`🔥 TAX PAGINATION COMPLETE: ${allTransactions.length} transactions across ${pageCount} pages`);
+    
+    if (allTransactions.length === 0) {
       console.warn(`⚠️ TAX NO TRANSFER DATA: Returning empty result for ${address}`);
       return res.status(200).json({
         success: true,
@@ -168,10 +193,10 @@ export default async function handler(req, res) {
     }
 
     // Successful response with transaction categorization
-    const transferCount = result.result?.length || 0;
+    const transferCount = allTransactions.length;
     
     // 📊 TRANSACTION CATEGORIZATION für Tax Report
-    const categorizedTransactions = result.result?.map(tx => {
+    const categorizedTransactions = allTransactions.map(tx => {
       const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
       const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
       
@@ -216,7 +241,7 @@ export default async function handler(req, res) {
         fromMinter,
         isROIToken
       };
-    }) || [];
+    });
     
     console.log(`✅ TAX TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting`);
 
