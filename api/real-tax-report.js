@@ -257,10 +257,10 @@ async function loadRealTransactions(address, chains, startYear) {
                 const data = await response.json();
                 const transfers = data.result || [];
                 
-                // Filter 2025-2035 (10 Jahre!)
+                // TEMPORÄR: ALLE Transaktionen (ohne Jahr-Filter)
                 const validTransactions = transfers.filter(tx => {
-                    const txYear = new Date(tx.block_timestamp).getFullYear();
-                    return txYear >= 2025 && txYear <= 2035;
+                    // Nur grundlegende Validierung
+                    return tx && tx.block_timestamp;
                 });
 
                 allTransactions.push(...validTransactions);
@@ -310,11 +310,11 @@ async function loadFromBlockScout(address, startYear) {
         const data = await response.json();
         
         if (data.status === '1' && Array.isArray(data.result)) {
-            // Filter 2025-2035 und konvertiere zu Moralis-Format
+            // TEMPORÄR: ALLE BlockScout Transaktionen (ohne Jahr-Filter)
             const validTransactions = data.result
                 .filter(tx => {
-                    const txYear = new Date(parseInt(tx.timeStamp) * 1000).getFullYear();
-                    return txYear >= 2025 && txYear <= 2035;
+                    // Nur grundlegende Validierung
+                    return tx && tx.timeStamp;
                 })
                 .map(tx => ({
                     // Konvertiere BlockScout Format zu Moralis Format
