@@ -53,69 +53,6 @@ async function moralisFetch(endpoint, params = {}) {
 }
 
 /**
- * 🔥 AGGRESSIVE PAGINATION: Load ALL transactions for tax reporting
- * Löst das 44-Transaktionen-Problem durch automatisches Laden aller Seiten
- */
-async function loadAllTransactionsAggressive(address, chainId, maxPages = 50) {
-  console.log(`🔥 AGGRESSIVE PAGINATION: Loading ALL transactions for ${address} (max ${maxPages} pages)`);
-  
-  const allTransactions = [];
-  let cursor = null;
-  let pageCount = 0;
-  
-  try {
-    do {
-      console.log(`📄 Loading page ${pageCount + 1}/${maxPages}...`);
-      
-      const moralisParams = { 
-        chain: chainId,
-        limit: 2000 // Maximum pro Request
-      };
-      
-      if (cursor) moralisParams.cursor = cursor;
-      
-      const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
-      
-      if (!result || !result.result || result.result.length === 0) {
-        console.log(`📄 No more data at page ${pageCount + 1}`);
-        break;
-      }
-      
-      allTransactions.push(...result.result);
-      cursor = result.cursor;
-      pageCount++;
-      
-      console.log(`✅ Page ${pageCount}: ${result.result.length} transactions, Total: ${allTransactions.length}`);
-      
-      // Rate limiting zwischen Requests
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-    } while (cursor && pageCount < maxPages);
-    
-    console.log(`🔥 AGGRESSIVE PAGINATION COMPLETE: ${allTransactions.length} transactions across ${pageCount} pages`);
-    
-    return {
-      success: true,
-      result: allTransactions,
-      total: allTransactions.length,
-      pages: pageCount,
-      cursor: cursor,
-      _source: 'moralis_aggressive_pagination'
-    };
-    
-  } catch (error) {
-    console.error('💥 AGGRESSIVE PAGINATION ERROR:', error);
-    return {
-      success: false,
-      error: error.message,
-      result: allTransactions,
-      total: allTransactions.length,
-      pages: pageCount
-    };
-  }
-}
-
-/**
  * 🎯 TRANSACTIONS API - Load ERC20 transfers for tax reporting (FIXED)
  */
 export default async function handler(req, res) {
@@ -149,9 +86,7 @@ export default async function handler(req, res) {
       limit = 100, 
       cursor,
       from_date,
-      to_date,
-      aggressive = false, // 🔥 NEU: Aggressive Pagination Flag
-      max_pages = 50 // 🔥 NEU: Maximum Seiten für aggressive Pagination
+      to_date
     } = params;
 
     console.log('🔵 TRANSACTIONS PARAMS:', { 
@@ -159,9 +94,7 @@ export default async function handler(req, res) {
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
       limit,
       hasCursor: !!cursor,
-      hasDateRange: !!(from_date && to_date),
-      aggressive: !!aggressive, // 🔥 NEU
-      max_pages: parseInt(max_pages) || 50 // 🔥 NEU
+      hasDateRange: !!(from_date && to_date)
     });
 
     if (!address) {
@@ -190,103 +123,10 @@ export default async function handler(req, res) {
     const chainId = chainMap[chain.toLowerCase()] || chain;
     console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
 
-    // 🔥 AGGRESSIVE PAGINATION: Wenn aktiviert, lade ALLE Transaktionen
-    if (aggressive === 'true' || aggressive === true) {
-      console.log(`🔥 AGGRESSIVE MODE: Loading ALL transactions for ${address}`);
-      
-      const aggressiveResult = await loadAllTransactionsAggressive(
-        address, 
-        chainId, 
-        parseInt(max_pages) || 50
-      );
-      
-      if (!aggressiveResult.success) {
-        return res.status(500).json({
-          error: 'Aggressive pagination failed',
-          details: aggressiveResult.error,
-          partial_data: aggressiveResult.result,
-          _source: 'moralis_aggressive_pagination_failed'
-        });
-      }
-      
-      // 📊 TRANSACTION CATEGORIZATION für Tax Report
-      const categorizedTransactions = aggressiveResult.result.map(tx => {
-        const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
-        const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
-        
-        // ROI Token Detection
-        const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'];
-        const isROIToken = ROI_TOKENS.includes(tx.token_symbol?.toUpperCase());
-        
-        // Minter Detection
-        const KNOWN_MINTERS = [
-          '0x0000000000000000000000000000000000000000',
-          '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
-          '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3',
-          '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1',
-          '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6',
-          '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5',
-          '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4'
-        ];
-        const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
-        
-        // Tax Category Classification
-        let taxCategory = 'transfer'; // Default: steuerfreier Transfer
-        let isTaxable = false;
-        
-        if (isIncoming && (fromMinter || isROIToken)) {
-          taxCategory = 'roi_income';
-          isTaxable = true;
-        } else if (isOutgoing) {
-          taxCategory = 'purchase';
-          isTaxable = false; // Käufe sind nicht steuerpflichtig
-        } else if (isIncoming) {
-          taxCategory = 'sale_income';
-          isTaxable = true; // Verkaufserlöse sind steuerpflichtig
-        }
-        
-        return {
-          ...tx,
-          // Tax-spezifische Felder
-          direction: isIncoming ? 'in' : 'out',
-          taxCategory,
-          isTaxable,
-          isROI: fromMinter || isROIToken,
-          fromMinter,
-          isROIToken
-        };
-      });
-      
-      console.log(`🔥 AGGRESSIVE SUCCESS: ${aggressiveResult.total} transactions loaded and categorized`);
-      
-      return res.status(200).json({
-        result: categorizedTransactions,
-        cursor: aggressiveResult.cursor,
-        page: 1,
-        page_size: aggressiveResult.total,
-        total: aggressiveResult.total,
-        pages_loaded: aggressiveResult.pages,
-        _source: 'moralis_aggressive_pagination_success',
-        _chain: chainId,
-        _address: address,
-        _timestamp: new Date().toISOString(),
-        _count: aggressiveResult.total,
-        _aggressive_mode: true,
-        _tax_categorization: {
-          total: aggressiveResult.total,
-          roi_income: categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income').length,
-          purchases: categorizedTransactions.filter(tx => tx.taxCategory === 'purchase').length,
-          sales: categorizedTransactions.filter(tx => tx.taxCategory === 'sale_income').length,
-          transfers: categorizedTransactions.filter(tx => tx.taxCategory === 'transfer').length,
-          taxable: categorizedTransactions.filter(tx => tx.isTaxable).length
-        }
-      });
-    }
-
-    // Build Moralis API parameters - ERWEITERT für Tax Report (>25.000 Transaktionen)
+    // Build Moralis API parameters - ORIGINAL WORKING LOGIC
     const moralisParams = { 
       chain: chainId,
-      limit: Math.min(parseInt(limit) || 1000, 2000) // Bis zu 2000 pro Request für Tax Reports
+      limit: Math.min(parseInt(limit) || 100, 100) // Back to original limit
     };
 
     // Add optional parameters
@@ -294,7 +134,7 @@ export default async function handler(req, res) {
     if (from_date) moralisParams.from_date = from_date;
     if (to_date) moralisParams.to_date = to_date;
     
-    console.log(`🔧 PAGE SIZE: Configured for ${moralisParams.limit} items per request (Tax Report >25k optimized)`);
+    console.log(`🔧 PAGE SIZE: Configured for ${moralisParams.limit} items per request`);
 
     // Load ERC20 transfers from Moralis
     console.log(`🚀 FETCHING TRANSFERS: ${address} on ${chainId}`);
