@@ -17,9 +17,44 @@ export default function WGEPTestComponent() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [simpleTestResults, setSimpleTestResults] = useState(null);
 
   // 🔥 WGEP WALLET ADDRESS
   const WGEP_ADDRESS = '0x308e77281612bdc267d5feaf4599f2759cb3ed85';
+
+  /**
+   * 🔥 SIMPLE TEST - Diagnostiziert das Problem
+   */
+  const runSimpleTest = async () => {
+    setLoading(true);
+    setError(null);
+    setSimpleTestResults(null);
+
+    try {
+      console.log('🔥 WGEP SIMPLE TEST: Starting diagnostic test...');
+      
+      const response = await fetch(`/api/test-wgep-simple`);
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      console.log('🔥 WGEP SIMPLE TEST: Results:', data);
+      setSimpleTestResults(data);
+
+    } catch (err) {
+      console.error('🔥 WGEP SIMPLE TEST ERROR:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
    * 🔥 LOAD ALL WGEP TRANSACTIONS
@@ -126,7 +161,16 @@ export default function WGEPTestComponent() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
+            <Button 
+              onClick={runSimpleTest}
+              disabled={loading}
+              variant="outline"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              🔍 Simple Diagnostic Test
+            </Button>
+            
             <Button 
               onClick={loadAllWGEPTransactions}
               disabled={loading}
@@ -159,6 +203,88 @@ export default function WGEPTestComponent() {
                 ❌ Error: {error}
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* 🔥 SIMPLE TEST RESULTS */}
+          {simpleTestResults && (
+            <Card>
+              <CardHeader>
+                <CardTitle>🔍 Simple Diagnostic Test Results</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <h4 className="font-semibold text-blue-600">PulseChain ERC20</h4>
+                    <p>Success: {simpleTestResults.results.pulsechain.success ? '✅' : '❌'}</p>
+                    <p>Total: {simpleTestResults.results.pulsechain.total}</p>
+                    <p>Count: {simpleTestResults.results.pulsechain.count}</p>
+                    <p>Has Cursor: {simpleTestResults.results.pulsechain.hasCursor ? '✅' : '❌'}</p>
+                    {simpleTestResults.results.pulsechain.sample && (
+                      <div className="text-xs text-gray-500 mt-2">
+                        Sample: {simpleTestResults.results.pulsechain.sample.token} - {simpleTestResults.results.pulsechain.sample.value}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold text-green-600">Ethereum ERC20</h4>
+                    <p>Success: {simpleTestResults.results.ethereum.success ? '✅' : '❌'}</p>
+                    <p>Total: {simpleTestResults.results.ethereum.total}</p>
+                    <p>Count: {simpleTestResults.results.ethereum.count}</p>
+                    <p>Has Cursor: {simpleTestResults.results.ethereum.hasCursor ? '✅' : '❌'}</p>
+                    {simpleTestResults.results.ethereum.sample && (
+                      <div className="text-xs text-gray-500 mt-2">
+                        Sample: {simpleTestResults.results.ethereum.sample.token} - {simpleTestResults.results.ethereum.sample.value}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold text-purple-600">Wallet History</h4>
+                    <p>Success: {simpleTestResults.results.history.success ? '✅' : '❌'}</p>
+                    <p>Total: {simpleTestResults.results.history.total}</p>
+                    <p>Count: {simpleTestResults.results.history.count}</p>
+                    <p>Has Cursor: {simpleTestResults.results.history.hasCursor ? '✅' : '❌'}</p>
+                    {simpleTestResults.results.history.sample && (
+                      <div className="text-xs text-gray-500 mt-2">
+                        Sample: {simpleTestResults.results.history.sample.type} - {simpleTestResults.results.history.sample.value}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <Separator className="my-4" />
+                
+                <div className="text-center">
+                  <Badge variant="outline" className="text-lg">
+                    🔥 Combined: {simpleTestResults.combined.unique} unique transactions
+                  </Badge>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Total: {simpleTestResults.combined.total} • Unique: {simpleTestResults.combined.unique}
+                  </p>
+                </div>
+
+                {/* Sample Transactions */}
+                {simpleTestResults.combined.transactions.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold mb-2">Sample Transactions:</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {simpleTestResults.combined.transactions.map((tx, index) => (
+                        <div key={index} className="p-2 border rounded text-sm">
+                          <div className="flex justify-between">
+                            <span>{tx.transaction_hash?.slice(0, 10)}...</span>
+                            <Badge variant="outline">{tx.chain}</Badge>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {tx.token_symbol || tx.type} - {tx.value} - {new Date(tx.block_timestamp).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {stats && (
