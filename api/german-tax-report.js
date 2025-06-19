@@ -391,8 +391,16 @@ export default async function handler(req, res) {
           address: address,
           timestamp: new Date().toISOString(),
           count: categorizedTransactions.length,
-          status: 'ENHANCED_COMPLETE_VERSION_ALL_TRANSACTION_TYPES',
-          message: 'Erweiterte Multi-Chain-Abfrage mit allen Transaktionstypen',
+          status: 'ENHANCED_COMPLETE_VERSION',
+          message: 'Vollständige Wallet-Abfrage: ERC20 + Native + Internal',
+          transactionTypes: {
+            total: categorizedTransactions.length,
+            erc20: typeStats.erc20,
+            native: typeStats.native,
+            internal: typeStats.internal,
+            ethereum: typeStats.ethereum,
+            pulsechain: typeStats.pulsechain
+          },
           tax_categorization: {
             total: categorizedTransactions.length,
             roi_income: roiTransactions.length,
