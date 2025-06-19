@@ -210,7 +210,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔗 MULTI-CHAIN: Ethereum + PulseChain mit alternativen IDs
+    // 🔗 MULTI-CHAIN: Ethereum + PulseChain mit alternativen IDs für ALLE WALLETS
     const chains = [
       { id: '0x1', name: 'Ethereum', shortName: 'ETH' },
       { id: 'eth', name: 'Ethereum Alt', shortName: 'ETH2' },
@@ -220,9 +220,9 @@ export default async function handler(req, res) {
     
     let allTransactions = [];
     
-    // Load data from both chains
+    // Load data from all chains for the provided wallet address
     for (const chainConfig of chains) {
-      console.log(`\n🔗 Loading ${chainConfig.name} (${chainConfig.id})...`);
+      console.log(`\n🔗 Loading ${chainConfig.name} (${chainConfig.id}) for wallet ${address.slice(0, 8)}...`);
       
       try {
         const chainTransactions = await getWalletHistory(address, chainConfig.id, limit);
