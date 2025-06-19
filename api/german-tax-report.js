@@ -94,72 +94,58 @@ async function moralisFetch(endpoint, params = {}) {
 }
 
 /**
- * 🔥 NEUE Wallet History API - Holt ALLES in wenigen Calls
+ * 🔥 REPARIERTE Wallet History API - Verwendet ERC20 Transfers statt Wallet History
  */
 async function getWalletHistory(address, chainId, limit = 500) {
   console.log(`🔍 Getting wallet history for ${address.slice(0, 8)}... on chain ${chainId}`);
   
   try {
+    // 🔥 FIX: Verwende ERC20 Transfers API statt Wallet History API
+    // Wallet History API gibt HTML zurück, ERC20 Transfers funktioniert!
     const params = {
       chain: chainId,
-      limit: Math.min(limit, 500), // Max 500 per call für Wallet History
+      limit: Math.min(limit, 500),
       order: 'DESC'
     };
     
-    console.log(`🚀 Wallet History params:`, params);
+    console.log(`🚀 ERC20 Transfers params:`, params);
     
-    // NEUER Wallet History Endpoint - viel besser!
-    const result = await moralisFetch(`wallets/${address}/history`, params);
+    // 🔥 VERWENDE ERC20 TRANSFERS API - DAS FUNKTIONIERT!
+    const result = await moralisFetch(`${address}/erc20/transfers`, params);
     
     if (!result || !result.result) {
-      console.log(`📄 No wallet history found for ${address.slice(0, 8)}... on chain ${chainId}`);
+      console.log(`📄 No ERC20 transfers found for ${address.slice(0, 8)}... on chain ${chainId}`);
       return [];
     }
     
-    console.log(`✅ Wallet History: ${result.result.length} transactions found for chain ${chainId}`);
-    return result.result;
+    console.log(`✅ ERC20 Transfers: ${result.result.length} transfers found for chain ${chainId}`);
+    
+    // 🔥 KONVERTIERE ERC20 TRANSFERS ZU WALLET HISTORY FORMAT
+    const convertedTransactions = result.result.map(tx => ({
+      ...tx,
+      category: 'token transfer',
+      summary: `${tx.token_symbol} transfer`,
+      possible_spam: false,
+      // Add missing fields that wallet history usually has
+      native_transfers: [],
+      erc20_transfers: [tx],
+      nft_transfers: [],
+      // Add direction info
+      direction: tx.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out',
+      directionIcon: tx.to_address?.toLowerCase() === address.toLowerCase() ? '📥 IN' : '📤 OUT',
+      // Add tax category
+      taxCategory: tx.to_address?.toLowerCase() === address.toLowerCase() ? 'Token Transfer (In)' : 'Token Transfer (Out)',
+      // Add formatted value
+      formattedValue: tx.value_decimal || '0',
+      tokenSymbol: tx.token_symbol || 'UNKNOWN'
+    }));
+    
+    return convertedTransactions;
     
   } catch (error) {
-    console.error(`❌ Wallet History Error for chain ${chainId}:`, error.message);
+    console.error(`❌ ERC20 Transfers Error for chain ${chainId}:`, error.message);
     console.error(`❌ Full error:`, error);
-    
-    // FALLBACK: Versuche den alten ERC20 transfers endpoint
-    console.log(`🔄 Fallback: Trying ERC20 transfers for chain ${chainId}`);
-    
-    try {
-      const fallbackParams = {
-        chain: chainId,
-        limit: Math.min(limit, 500)
-      };
-      
-      console.log(`🚀 ERC20 Fallback params:`, fallbackParams);
-      
-      const fallbackResult = await moralisFetch(`${address}/erc20/transfers`, fallbackParams);
-      
-      if (fallbackResult && fallbackResult.result) {
-        console.log(`✅ Fallback Success: ${fallbackResult.result.length} ERC20 transfers for chain ${chainId}`);
-        
-        // Convert ERC20 transfers to wallet history format
-        return fallbackResult.result.map(tx => ({
-          ...tx,
-          category: 'token transfer',
-          summary: `${tx.token_symbol} transfer`,
-          possible_spam: false,
-          // Add missing fields that wallet history usually has
-          native_transfers: [],
-          erc20_transfers: [tx],
-          nft_transfers: []
-        }));
-      }
-      
-      console.log(`📄 No ERC20 transfers found for chain ${chainId}`);
-      return [];
-      
-    } catch (fallbackError) {
-      console.error(`❌ Fallback also failed for chain ${chainId}:`, fallbackError.message);
-      console.error(`❌ Full fallback error:`, fallbackError);
-      return [];
-    }
+    return [];
   }
 }
 
