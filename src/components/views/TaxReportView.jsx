@@ -31,11 +31,14 @@ const SimpleTaxTracker = () => {
         return;
       }
 
+      console.log('🔍 DEBUG: Alle Wallets aus DB:', wallets?.map(w => w.address) || []);
       setDbWallets(wallets || []);
       
       // Automatisch erste Wallet setzen (OHNE API-Aufruf!)
       if (wallets && wallets.length > 0 && !walletAddress) {
         const firstWallet = wallets[0].address;
+        console.log('🎯 DEBUG: Erste Wallet wird gesetzt:', firstWallet);
+        console.log('🎯 DEBUG: Ist das die richtige Wallet mit 9562 PLS TX?');
         setWalletAddress(firstWallet);
         console.log('✅ Wallet automatisch geladen:', firstWallet.slice(0, 8) + '...');
         // KEIN AUTOMATISCHER API-AUFRUF MEHR!
@@ -79,6 +82,8 @@ const SimpleTaxTracker = () => {
     try {
       console.log('🔥🔥🔥 STEUERREPORT: NEUE WALLET HISTORY API 🔥🔥🔥');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
+      console.log(`🔍 DEBUG: Vollständige Adresse: ${walletAddress}`);
+      console.log(`🔍 DEBUG: Sollte sein: 0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a`);
       
       // 🇩🇪 NEUE WALLET HISTORY API - BESSERE PERFORMANCE
       const response = await fetch('/api/german-tax-report', {
