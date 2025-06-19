@@ -1,8 +1,13 @@
+# 📄 ORIGINAL CODE BACKUP - VOR ERWEITERUNG
+## Datum: 19.06.2025
+
+### 🔒 BACKUP: `api/german-tax-report.js` (ORIGINAL VERSION)
+
+```javascript
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - KONSERVATIVE ERWEITERUNG
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - EXAKTE KOPIE DER FUNKTIONIERENDEN API
  * 
- * BASIERT AUF DEINER FUNKTIONIERENDEN VERSION + Native Transactions
- * BACKUP: Deine ursprüngliche Version bleibt als Fallback verfügbar
+ * KOPIERT VON moralis-transactions.js - DIE FUNKTIONIERT!
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
@@ -10,7 +15,7 @@ const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 /**
  * Helper to fetch data from Moralis REST API with improved error handling
- * ✅ UNVERÄNDERT - EXAKTE KOPIE VON DEINER FUNKTIONIERENDEN VERSION
+ * EXAKTE KOPIE VON moralis-transactions.js
  */
 async function moralisFetch(endpoint, params = {}) {
   try {
@@ -56,87 +61,13 @@ async function moralisFetch(endpoint, params = {}) {
 }
 
 /**
- * 🔄 NEUE FUNKTION: Multi-Endpoint Transaction Loading
- * Lädt sowohl ERC20 Transfers als auch Native Transactions
- */
-async function loadAllTransactionsForChain(address, chainConfig, moralisParams) {
-  console.log(`🔗 ENHANCED: Loading multi-endpoint data for ${chainConfig.name} (${chainConfig.id})...`);
-  
-  // 📡 ENDPOINT DEFINITIONEN (Konservativ erweitert)
-  const endpoints = [
-    { 
-      path: `${address}/erc20/transfers`, 
-      type: 'erc20',
-      description: 'ERC20 Token Transfers'
-    },
-    { 
-      path: `${address}`, 
-      type: 'native',
-      description: 'Native Transactions (ETH, PLS, etc.)'
-    }
-  ];
-  
-  let allChainTransactions = [];
-  
-  // 🔄 LOAD DATA FROM EACH ENDPOINT
-  for (const endpoint of endpoints) {
-    console.log(`📡 ENHANCED: Loading ${endpoint.description} for ${chainConfig.name}...`);
-    
-    let endpointTransactions = [];
-    let currentCursor = moralisParams.cursor;
-    let pageCount = 0;
-    const maxPages = 150; // Max 150 pages = 300.000 transactions per endpoint
-    
-    do {
-      // Prepare parameters for this endpoint
-      const endpointParams = { ...moralisParams };
-      if (currentCursor) endpointParams.cursor = currentCursor;
-      
-      console.log(`🚀 ENHANCED: Fetching ${endpoint.type} page ${pageCount + 1} on ${chainConfig.name}`);
-      
-      const result = await moralisFetch(endpoint.path, endpointParams);
-      
-      if (result && result.result && result.result.length > 0) {
-        // ✅ ADD METADATA TO TRANSACTIONS
-        const transactionsWithMetadata = result.result.map(tx => ({
-          ...tx,
-          chain: chainConfig.name,
-          chainId: chainConfig.id,
-          endpointType: endpoint.type,  // NEW: Track which endpoint this came from
-          dataSource: 'moralis_multi_endpoint' // NEW: Track data source
-        }));
-        
-        endpointTransactions.push(...transactionsWithMetadata);
-        currentCursor = result.cursor;
-        pageCount++;
-        
-        console.log(`✅ ENHANCED: ${endpoint.type} page ${pageCount}: ${result.result.length} items, Total: ${endpointTransactions.length} on ${chainConfig.name}`);
-      } else {
-        console.log(`📄 ENHANCED: No more ${endpoint.type} data at page ${pageCount + 1} on ${chainConfig.name}`);
-        break;
-      }
-      
-      // Rate limiting zwischen Requests
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-    } while (currentCursor && pageCount < maxPages);
-    
-    console.log(`🔥 ENHANCED: ${endpoint.description} complete: ${endpointTransactions.length} transactions across ${pageCount} pages on ${chainConfig.name}`);
-    allChainTransactions.push(...endpointTransactions);
-  }
-  
-  return allChainTransactions;
-}
-
-/**
- * 🇩🇪 DEUTSCHE STEUERREPORT API - ERWEITERTE VERSION
- * ✅ BEWAHRT DEINE FUNKTIONIERENDE LOGIK + ERWEITERT UM NATIVE TRANSACTIONS
+ * 🇩🇪 DEUTSCHE STEUERREPORT API - EXAKTE KOPIE DER FUNKTIONIERENDEN LOGIK
  */
 export default async function handler(req, res) {
-  console.log('🇩🇪 ENHANCED TAX API: Starting with CONSERVATIVE ENHANCEMENT');
+  console.log('🇩🇪 TAX API: Starting with EXACT WORKING LOGIC');
   
   try {
-    // Enable CORS - ✅ UNVERÄNDERT
+    // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
@@ -145,7 +76,7 @@ export default async function handler(req, res) {
       return res.status(200).end();
     }
 
-    // API Key validation - ✅ UNVERÄNDERT
+    // API Key validation
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
       console.error('🚨 MORALIS API KEY MISSING');
       return res.status(503).json({ 
@@ -155,7 +86,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Extract parameters - ✅ UNVERÄNDERT
+    // Extract parameters with better handling
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
     const { 
       address, 
@@ -166,13 +97,12 @@ export default async function handler(req, res) {
       to_date
     } = params;
 
-    console.log('🇩🇪 ENHANCED TAX PARAMS:', { 
+    console.log('🇩🇪 TAX PARAMS:', { 
       chain, 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
       limit,
       hasCursor: !!cursor,
-      hasDateRange: !!(from_date && to_date),
-      enhancement: 'MULTI_ENDPOINT_LOADING'
+      hasDateRange: !!(from_date && to_date)
     });
 
     if (!address) {
@@ -183,7 +113,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔥 MULTI-CHAIN: Lade BEIDE Chains (Ethereum + PulseChain) - ✅ UNVERÄNDERT
+    // 🔥 MULTI-CHAIN: Lade BEIDE Chains (Ethereum + PulseChain)
     const chains = [
       { id: '0x1', name: 'Ethereum' },
       { id: '0x171', name: 'PulseChain' }
@@ -191,32 +121,66 @@ export default async function handler(req, res) {
     
     let allTransactions = [];
     
-    // 🔄 ENHANCED: Use new multi-endpoint loading function
     for (const chainConfig of chains) {
-      console.log(`🔗 ENHANCED: Processing ${chainConfig.name} (${chainConfig.id}) with multi-endpoint loading...`);
+      console.log(`🔗 TAX: Loading ${chainConfig.name} (${chainConfig.id})...`);
       
-      // Build Moralis API parameters für diese Chain - ✅ UNVERÄNDERT
+      // Build Moralis API parameters für diese Chain
       const moralisParams = { 
         chain: chainConfig.id,
         limit: Math.min(parseInt(limit) || 2000, 2000) // Erhöht auf 2000 pro Request
       };
 
-      // Add optional parameters - ✅ UNVERÄNDERT
+      // Add optional parameters
       if (cursor) moralisParams.cursor = cursor;
       if (from_date) moralisParams.from_date = from_date;
       if (to_date) moralisParams.to_date = to_date;
       
-      // 🔥 NEW: Use enhanced multi-endpoint loading
-      const chainTransactions = await loadAllTransactionsForChain(address, chainConfig, moralisParams);
+      console.log(`🔧 TAX PAGE SIZE: Configured for ${moralisParams.limit} items per request on ${chainConfig.name}`);
+
+      // 🔥 PAGINATION: Lade ALLE Transaktionen für diese Chain
+      let chainTransactions = [];
+      let currentCursor = cursor;
+      let pageCount = 0;
+      const maxPages = 150; // Max 150 pages = 300.000 transactions
       
-      console.log(`🔥 ENHANCED: ${chainConfig.name} multi-endpoint loading complete: ${chainTransactions.length} total transactions`);
-      allTransactions.push(...chainTransactions);
+      do {
+        if (currentCursor) moralisParams.cursor = currentCursor;
+        
+        console.log(`🚀 TAX FETCHING PAGE ${pageCount + 1}: ${address} on ${chainConfig.name}`);
+        
+        const result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
+        
+        if (result && result.result && result.result.length > 0) {
+          chainTransactions.push(...result.result);
+          currentCursor = result.cursor;
+          pageCount++;
+          console.log(`✅ TAX PAGE ${pageCount}: ${result.result.length} transactions, Total: ${chainTransactions.length} on ${chainConfig.name}`);
+        } else {
+          console.log(`📄 TAX: No more data at page ${pageCount + 1} on ${chainConfig.name}`);
+          break;
+        }
+        
+        // Rate limiting zwischen Requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } while (currentCursor && pageCount < maxPages);
+      
+      console.log(`🔥 TAX PAGINATION COMPLETE: ${chainTransactions.length} transactions across ${pageCount} pages on ${chainConfig.name}`);
+      
+      // Füge Chain-Information zu den Transaktionen hinzu
+      const chainTransactionsWithInfo = chainTransactions.map(tx => ({
+        ...tx,
+        chain: chainConfig.name,
+        chainId: chainConfig.id
+      }));
+      
+      allTransactions.push(...chainTransactionsWithInfo);
     }
     
-    console.log(`🔥 ENHANCED MULTI-CHAIN COMPLETE: ${allTransactions.length} total transactions (Ethereum + PulseChain) from multiple endpoints`);
+    console.log(`🔥 TAX MULTI-CHAIN COMPLETE: ${allTransactions.length} total transactions (Ethereum + PulseChain)`);
     
     if (allTransactions.length === 0) {
-      console.warn(`⚠️ ENHANCED: No transfer data found for ${address} across all endpoints`);
+      console.warn(`⚠️ TAX NO TRANSFER DATA: Returning empty result for ${address}`);
       return res.status(200).json({
         success: true,
         taxReport: {
@@ -230,29 +194,28 @@ export default async function handler(req, res) {
             totalTaxEUR: 0
           },
           metadata: {
-            source: 'moralis_v2_enhanced_multi_endpoint_empty',
-            message: 'No transaction data available on any chain or endpoint',
+            source: 'moralis_v2_pro_transactions_empty',
+            message: 'No transfer data available on any chain',
             walletAddress: address,
-            chainsChecked: chains.map(c => c.name),
-            endpointsChecked: ['erc20/transfers', 'native_transactions']
+            chainsChecked: chains.map(c => c.name)
           }
         }
       });
     }
 
-    // Successful response with transaction categorization - ✅ UNVERÄNDERT
+    // Successful response with transaction categorization
     const transferCount = allTransactions.length;
     
-    // 📊 TRANSACTION CATEGORIZATION für Tax Report - ✅ UNVERÄNDERT
+    // 📊 TRANSACTION CATEGORIZATION für Tax Report
     const categorizedTransactions = allTransactions.map(tx => {
       const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
       const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
       
-      // ROI Token Detection - ✅ UNVERÄNDERT
+      // ROI Token Detection
       const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'];
       const isROIToken = ROI_TOKENS.includes(tx.token_symbol?.toUpperCase());
       
-      // Minter Detection - ✅ UNVERÄNDERT
+      // Minter Detection
       const KNOWN_MINTERS = [
         '0x0000000000000000000000000000000000000000',
         '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
@@ -264,7 +227,7 @@ export default async function handler(req, res) {
       ];
       const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
       
-      // Tax Category Classification - ✅ UNVERÄNDERT
+      // Tax Category Classification
       let taxCategory = 'transfer'; // Default: steuerfreier Transfer
       let isTaxable = false;
       
@@ -281,7 +244,7 @@ export default async function handler(req, res) {
       
       return {
         ...tx,
-        // Tax-spezifische Felder - ✅ UNVERÄNDERT
+        // Tax-spezifische Felder
         direction: isIncoming ? 'in' : 'out',
         taxCategory,
         isTaxable,
@@ -291,18 +254,12 @@ export default async function handler(req, res) {
       };
     });
     
-    console.log(`✅ ENHANCED TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting from multiple endpoints`);
+    console.log(`✅ TAX TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting`);
 
-    // Calculate German tax summary - ✅ UNVERÄNDERT
+    // Calculate German tax summary
     const roiTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income');
     const saleTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'sale_income');
     const purchaseTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'purchase');
-
-    // 📊 ENHANCED SUMMARY: Add endpoint breakdown
-    const endpointBreakdown = {
-      erc20: categorizedTransactions.filter(tx => tx.endpointType === 'erc20').length,
-      native: categorizedTransactions.filter(tx => tx.endpointType === 'native').length
-    };
 
     const summary = {
       totalTransactions: transferCount,
@@ -311,8 +268,7 @@ export default async function handler(req, res) {
       purchaseCount: purchaseTransactions.length,
       totalROIValueEUR: 0, // Will be calculated with real prices
       totalSaleValueEUR: 0, // Will be calculated with real prices
-      totalTaxEUR: 0, // Will be calculated with real prices
-      endpointBreakdown // NEW: Show breakdown by endpoint type
+      totalTaxEUR: 0 // Will be calculated with real prices
     };
 
     return res.status(200).json({
@@ -321,14 +277,11 @@ export default async function handler(req, res) {
         transactions: categorizedTransactions,
         summary: summary,
         metadata: {
-          source: 'moralis_v2_enhanced_multi_endpoint_success',
-          chain: chains.map(c => c.name).join(' + '),
+          source: 'moralis_v2_pro_transactions_success',
+          chain: chains[0].name,
           address: address,
           timestamp: new Date().toISOString(),
           count: transferCount,
-          enhancement: 'MULTI_ENDPOINT_LOADING',
-          endpointsUsed: ['erc20/transfers', 'native_transactions'],
-          endpointBreakdown,
           tax_categorization: {
             total: transferCount,
             roi_income: roiTransactions.length,
@@ -342,10 +295,10 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('💥 ENHANCED TAX API CRITICAL ERROR:', error);
+    console.error('💥 TAX API CRITICAL ERROR:', error);
     console.error('💥 ERROR STACK:', error.stack);
     
-    // Return graceful error response to prevent tax report crash - ✅ UNVERÄNDERT
+    // Return graceful error response to prevent tax report crash
     return res.status(200).json({
       success: true,
       taxReport: {
@@ -356,17 +309,36 @@ export default async function handler(req, res) {
           saleCount: 0,
           totalROIValueEUR: 0,
           totalSaleValueEUR: 0,
-          totalTaxEUR: 0,
-          endpointBreakdown: { erc20: 0, native: 0 }
+          totalTaxEUR: 0
         },
         metadata: {
-          source: 'moralis_v2_enhanced_multi_endpoint_error',
+          source: 'moralis_v2_pro_transactions_error',
           error: error.message,
           timestamp: new Date().toISOString(),
-          debug: 'Check server logs for details',
-          enhancement: 'MULTI_ENDPOINT_LOADING'
+          debug: 'Check server logs for details'
         }
       }
     });
   }
-} 
+}
+```
+
+### 📊 WICHTIGE MERKMALE DER ORIGINAL VERSION:
+
+1. **Nur ERC20 Transfers:** `${address}/erc20/transfers`
+2. **Keine Native Transactions**
+3. **Einfache Chain-Metadaten:** `chain`, `chainId`
+4. **Keine Endpoint-Tracking**
+5. **Standard Tax Categorization**
+6. **Bewährte Pagination-Logik**
+
+### 🔄 WAS GEÄNDERT WIRD:
+
+1. **Neue Funktion:** `loadAllTransactionsForChain()`
+2. **Zusätzliche Endpoints:** Native Transactions
+3. **Erweiterte Metadaten:** `endpointType`, `dataSource`
+4. **Endpoint Breakdown:** Statistik über Datenquellen
+
+---
+**Backup erstellt:** 19.06.2025 19:00 Uhr
+**Status:** ✅ ORIGINAL CODE GESICHERT 
