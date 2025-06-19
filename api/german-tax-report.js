@@ -51,14 +51,17 @@ async function moralisFetch(endpoint, params = {}) {
   }
 }
 
-// 🔥 AGGRESSIVE PAGINATION FUNKTION
+// 🔥 CHUNKED PAGINATION FUNKTION (Serverless-Timeout-Fix)
 async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
-  console.log(`🔥 AGGRESSIVE PAGINATION: ${address} auf ${chainName} - Ziel: ${maxTransactions} Transaktionen`);
+  console.log(`🔥 CHUNKED PAGINATION: ${address} auf ${chainName} - Ziel: ${maxTransactions} Transaktionen`);
   
   let allTransfers = [];
   let cursor = null;
   let pageCount = 0;
   const maxPages = Math.ceil(maxTransactions / 100); // 100 pro Seite
+  const maxTimeSeconds = 8; // 🔥 KRITISCH: Max 8 Sekunden für Serverless-Timeout
+  const startTime = Date.now();
+  
   let debugInfo = {
     chainName,
     maxTransactions,
@@ -67,10 +70,22 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
     totalTransfers: 0,
     stopReason: null,
     cursorHistory: [],
-    errors: []
+    errors: [],
+    timeElapsed: 0,
+    timeLimit: maxTimeSeconds
   };
   
   while (allTransfers.length < maxTransactions && pageCount < maxPages) {
+    // 🔥 KRITISCH: Timeout-Check
+    const timeElapsed = (Date.now() - startTime) / 1000;
+    debugInfo.timeElapsed = timeElapsed;
+    
+    if (timeElapsed >= maxTimeSeconds) {
+      console.log(`⏰ TIMEOUT REACHED: ${timeElapsed.toFixed(1)}s - Serverless-Limit erreicht`);
+      debugInfo.stopReason = `Timeout nach ${timeElapsed.toFixed(1)}s`;
+      break;
+    }
+    
     pageCount++;
     debugInfo.pagesProcessed = pageCount;
     
@@ -85,14 +100,12 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
         debugInfo.cursorHistory.push(cursor.slice(0, 20) + '...');
       }
       
-      console.log(`📄 Seite ${pageCount}: Lade ${allTransfers.length + 100} von ${maxTransactions}...`);
-      console.log(`🔍 DEBUG: Cursor = ${cursor ? cursor.slice(0, 20) + '...' : 'null'}`);
+      console.log(`📄 Seite ${pageCount}: Lade ${allTransfers.length + 100} von ${maxTransactions}... (${timeElapsed.toFixed(1)}s)`);
       
       const result = await moralisFetch(`${address}/erc20/transfers`, params);
       
       if (!result || !result.result) {
         console.log(`⚠️ Keine weiteren Daten für ${chainName} - Seite ${pageCount}`);
-        console.log(`🔍 DEBUG: Result = ${JSON.stringify(result, null, 2)}`);
         debugInfo.stopReason = 'No result or result.result';
         debugInfo.errors.push(`Page ${pageCount}: No result`);
         break;
@@ -102,37 +115,35 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       allTransfers.push(...transfers);
       debugInfo.totalTransfers = allTransfers.length;
       
-      console.log(`✅ Seite ${pageCount}: ${transfers.length} Transfers geladen (Total: ${allTransfers.length})`);
-      console.log(`🔍 DEBUG: Cursor vorhanden = ${!!result.cursor}, Transfers < 100 = ${transfers.length < 100}`);
+      console.log(`✅ Seite ${pageCount}: ${transfers.length} Transfers geladen (Total: ${allTransfers.length}) in ${timeElapsed.toFixed(1)}s`);
       
       // Prüfe ob es weitere Seiten gibt
       if (!result.cursor || transfers.length < 100) {
         console.log(`🏁 Keine weiteren Seiten für ${chainName} - Ende erreicht`);
         const reason = !result.cursor ? 'Kein Cursor' : 'Weniger als 100 Transfers';
-        console.log(`🔍 DEBUG: Grund = ${reason}`);
         debugInfo.stopReason = reason;
         break;
       }
       
       cursor = result.cursor;
       
-      // Rate Limiting: Kurze Pause zwischen Requests
-      if (pageCount % 5 === 0) { // 🔥 REDUZIERT: Pause nach 5 statt 10 Seiten
+      // 🔥 AGGRESSIVES RATE LIMITING: Minimale Pausen
+      if (pageCount % 3 === 0) { // Pause nach 3 Seiten
         console.log(`⏳ Rate Limiting: Pause nach ${pageCount} Seiten...`);
-        await new Promise(resolve => setTimeout(resolve, 500)); // 🔥 REDUZIERT: 500ms statt 1000ms
+        await new Promise(resolve => setTimeout(resolve, 200)); // Nur 200ms Pause
       }
       
     } catch (error) {
       console.error(`❌ Fehler bei Seite ${pageCount} für ${chainName}:`, error.message);
-      console.log(`🔍 DEBUG: Error Details = ${JSON.stringify(error, null, 2)}`);
       debugInfo.stopReason = 'Error';
       debugInfo.errors.push(`Page ${pageCount}: ${error.message}`);
       break;
     }
   }
   
-  console.log(`🎯 ${chainName} PAGINATION COMPLETE: ${allTransfers.length} Transfers in ${pageCount} Seiten`);
-  console.log(`🔍 DEBUG: Finale Analyse - Max Pages: ${maxPages}, Geladen: ${allTransfers.length}, Ziel: ${maxTransactions}`);
+  const finalTime = (Date.now() - startTime) / 1000;
+  console.log(`🎯 ${chainName} CHUNKED PAGINATION COMPLETE: ${allTransfers.length} Transfers in ${pageCount} Seiten in ${finalTime.toFixed(1)}s`);
+  console.log(`🔍 DEBUG: Finale Analyse - Max Pages: ${maxPages}, Geladen: ${allTransfers.length}, Ziel: ${maxTransactions}, Zeit: ${finalTime.toFixed(1)}s`);
   
   return { transfers: allTransfers, debugInfo };
 }
