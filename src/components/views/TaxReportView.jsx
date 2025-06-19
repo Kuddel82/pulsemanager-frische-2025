@@ -77,10 +77,10 @@ const SimpleTaxTracker = () => {
     setReportGenerated(false);
 
     try {
-      console.log('🇩🇪 Starte deutsche Steuerreport-Generierung...');
+      console.log('🔥🔥🔥 STEUERREPORT: ROLLBACK TO STABLE VERSION 🔥🔥🔥');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       
-      // 🇩🇪 ERWEITERTE MULTI-CHAIN STEUERREPORT API VERWENDEN (ERC20 + Native + Internal)
+      // 🇩🇪 STABILE VERSION: NUR ERC20 TRANSFERS - BEWÄHRT
       const response = await fetch('/api/german-tax-report', {
         method: 'POST',
         headers: {
@@ -89,7 +89,7 @@ const SimpleTaxTracker = () => {
         body: JSON.stringify({
           address: walletAddress,
           chain: 'all', // Lade beide Chains
-          limit: 2000 // Erhöhtes Limit für erweiterte Version
+          limit: 2000 // Stabiles Limit
         })
       });
 
@@ -99,7 +99,7 @@ const SimpleTaxTracker = () => {
         throw new Error(data.error || 'Fehler beim Laden der Steuerdaten');
       }
 
-      console.log('✅ Erweiterte Multi-Chain Steuerreport erfolgreich geladen:', data.taxReport);
+      console.log('✅ Stabile Steuerreport erfolgreich geladen:', data.taxReport);
       setTaxData(data.taxReport);
       setReportGenerated(true);
 
@@ -108,127 +108,6 @@ const SimpleTaxTracker = () => {
       setError(`Fehler: ${error.message}`);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // 🔥 ETHEREUM TRANSACTION LOADER
-  const loadEthereumTransactions = async (walletAddress) => {
-    try {
-      console.log(`🔍 DEBUG: Loading Ethereum transactions for ${walletAddress}...`);
-      
-      // Verwende Moralis Proxy für Ethereum - als GET Request mit Query-Parametern
-      const params = new URLSearchParams({
-        endpoint: 'erc20-transfers',
-        address: walletAddress,
-        chain: '0x1', // Ethereum
-        limit: '1000' // Mehr Transaktionen für Tax Report
-      });
-
-      const response = await fetch(`/api/moralis-proxy?${params}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
-
-      const data = await response.json();
-      
-      if (!data.success) {
-        console.warn(`⚠️ Ethereum API Error: ${data.error}`);
-        return { transactions: [] };
-      }
-
-      console.log(`✅ Ethereum: ${data.result?.length || 0} transactions loaded`);
-      
-      // Formatiere Ethereum Transaktionen
-      const formattedTransactions = (data.result || []).map(tx => {
-        // 🔥 SICHERE TIMESTAMP-VALIDIERUNG
-        let safeTimestamp;
-        try {
-          if (tx.block_timestamp && !isNaN(tx.block_timestamp)) {
-            safeTimestamp = new Date(tx.block_timestamp * 1000).toISOString();
-          } else {
-            safeTimestamp = new Date().toISOString(); // Fallback
-          }
-        } catch (error) {
-          console.warn(`⚠️ Invalid timestamp for tx ${tx.transaction_hash}: ${tx.block_timestamp}`);
-          safeTimestamp = new Date().toISOString(); // Fallback
-        }
-
-        // 🔥 TOKEN-NAME REPARATUR
-        let tokenName = tx.token_name || 'Unknown';
-        let tokenSymbol = tx.token_symbol || 'UNKNOWN';
-        
-        // Spezielle Token-Mappings
-        if (tx.token_address?.toLowerCase() === '0xfca88920ca5639ad5e954ea776e73dec54fdc065') {
-          tokenName = 'WGEP';
-          tokenSymbol = 'WGEP';
-        } else if (tx.token_address?.toLowerCase() === '0xa0b86a33e6441b8c4c8c8c8c8c8c8c8c8c8c8c8') {
-          tokenName = 'MASKMAN';
-          tokenSymbol = 'MASKMAN';
-        } else if (tx.token_address?.toLowerCase() === '0xa0b86a33e6441b8c4c8c8c8c8c8c8c8c8c8c8c9') {
-          tokenName = 'BORK';
-          tokenSymbol = 'BORK';
-        }
-
-        // 🔥 WERTE-FORMATIERUNG
-        let formattedValue = '0';
-        try {
-          if (tx.value && tx.token_decimals) {
-            const rawValue = parseFloat(tx.value);
-            const decimals = parseInt(tx.token_decimals);
-            const actualValue = rawValue / Math.pow(10, decimals);
-            
-            // Spezielle Formatierung für verschiedene Token
-            if (tokenSymbol === 'USDC') {
-              formattedValue = actualValue.toFixed(2); // 2 Dezimalstellen für USDC
-            } else if (tokenSymbol === 'USDT') {
-              formattedValue = actualValue.toFixed(2); // 2 Dezimalstellen für USDT
-            } else if (tokenSymbol === 'WGEP') {
-              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für WGEP
-            } else if (tokenSymbol === 'ETH') {
-              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für ETH
-            } else if (tokenSymbol === 'MASKMAN') {
-              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für MASKMAN
-            } else if (tokenSymbol === 'BORK') {
-              formattedValue = actualValue.toFixed(6); // 6 Dezimalstellen für BORK
-            } else {
-              formattedValue = actualValue.toFixed(6); // Standard 6 Dezimalstellen
-            }
-          }
-        } catch (error) {
-          console.warn(`⚠️ Value formatting error for ${tokenSymbol}: ${tx.value}`);
-          formattedValue = '0';
-        }
-
-        return {
-          hash: tx.transaction_hash || '',
-          blockNumber: tx.block_number || 0,
-          timeStamp: tx.block_timestamp || 0,
-          timestamp: safeTimestamp,
-          from: tx.from_address || '',
-          to: tx.to_address || '',
-          value: tx.value || '0',
-          formattedValue: formattedValue, // 🔥 NEU: Formatierter Wert
-          tokenName: tokenName,
-          tokenSymbol: tokenSymbol,
-          tokenDecimal: tx.token_decimals || 18,
-          contractAddress: tx.token_address || '',
-          gasUsed: tx.gas_used || 0,
-          gasPrice: tx.gas_price || '0',
-          direction: tx.to_address?.toLowerCase() === walletAddress.toLowerCase() ? 'IN' : 'OUT',
-          type: 'ERC20_TRANSFER',
-          source: 'ethereum_moralis',
-          walletAddress: walletAddress,
-          chain: '0x1'
-        };
-      });
-
-      return { transactions: formattedTransactions };
-      
-    } catch (error) {
-      console.error('❌ Ethereum loading error:', error);
-      return { transactions: [] };
     }
   };
 
