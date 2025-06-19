@@ -51,6 +51,40 @@ metadata: {
 }
 ```
 
+### 🔧 SPEZIFISCHE VERBESSERUNGEN (UPDATE 19.06.2025 19:10)
+
+#### 5. **Erweiterte Endpoint-Definitionen**
+```javascript
+// VERBESSERT: Endpoints mit expliziten params
+const endpoints = [
+  { 
+    path: `${address}/erc20/transfers`, 
+    type: 'erc20',
+    description: 'ERC20 Token Transfers',
+    params: { ...moralisParams } // ✅ NEU: Explizite Parameter
+  },
+  { 
+    path: `${address}`, 
+    type: 'native',
+    description: 'Native Transactions (ETH, PLS, etc.)',
+    params: { ...moralisParams } // ✅ NEU: Explizite Parameter
+  }
+];
+```
+
+#### 6. **Verbessertes Parameter-Handling**
+```javascript
+// VERBESSERT: Verwendung von endpoint.params statt moralisParams
+const endpointParams = { ...endpoint.params }; // ✅ NEU: Endpoint-spezifische Parameter
+if (currentCursor) endpointParams.cursor = currentCursor;
+```
+
+#### 7. **Erweitertes Debugging-Logging**
+```javascript
+// NEU: Zusätzliches Logging für bessere Debugging
+console.log(`🔧 ENHANCED: Using params:`, endpointParams);
+```
+
 ### ✅ BEWAHRTE FUNKTIONALITÄT
 
 #### **Unverändert geblieben:**
@@ -91,6 +125,10 @@ const chainTransactions = await loadAllTransactionsForChain(address, chainConfig
 - **Vorher:** Nur Gesamtanzahl
 - **Nachher:** Aufschlüsselung nach Endpoint-Typ
 
+#### **Verbesserte Debugging:**
+- **Vorher:** Basis-Logging
+- **Nachher:** Detaillierte Parameter-Logs für bessere Fehleranalyse
+
 ### 🧪 TEST-PROTOKOLL
 
 #### **Zu testende Wallets:**
@@ -102,6 +140,7 @@ const chainTransactions = await loadAllTransactionsForChain(address, chainConfig
 - `endpointBreakdown.erc20` > 0 (Token Transfers)
 - `endpointBreakdown.native` > 0 (Native Coin Transfers)
 - `totalTransactions` sollte höher sein als vorher
+- Verbesserte Debugging-Logs in der Konsole
 
 ### 🔒 ROLLBACK-INFORMATIONEN
 
@@ -129,12 +168,14 @@ cp 19.6.2025Steuerreport/ORIGINAL_CODE_BACKUP.md api/german-tax-report.js
 - ✅ Aggressive Pagination
 - ✅ Graceful Error Handling
 - ✅ Memory-Efficient Processing
+- ✅ Verbesserte Parameter-Handling
 
 ### 🎉 ERFOLGREICHE IMPLEMENTIERUNG
 
 #### **Status:**
 - ✅ Backup erstellt
 - ✅ Erweiterung implementiert
+- ✅ Spezifische Verbesserungen übernommen
 - ✅ Dokumentation vollständig
 - ✅ Rollback-Plan verfügbar
 - ✅ Test-Protokoll bereit
@@ -144,8 +185,10 @@ cp 19.6.2025Steuerreport/ORIGINAL_CODE_BACKUP.md api/german-tax-report.js
 2. Vergleich der `endpointBreakdown` Zahlen
 3. Validierung der Tax-Kategorisierung
 4. Performance-Monitoring
+5. Debugging-Logs überprüfen
 
 ---
 **Implementierung abgeschlossen:** 19.06.2025 19:05 Uhr
-**Status:** ✅ MULTI-ENDPOINT ERWEITERUNG AKTIV
+**Spezifische Verbesserungen:** 19.06.2025 19:10 Uhr
+**Status:** ✅ MULTI-ENDPOINT ERWEITERUNG AKTIV + VERBESSERT
 **Backup:** ✅ VOLLSTÄNDIG GESICHERT 

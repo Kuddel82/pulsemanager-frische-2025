@@ -67,12 +67,14 @@ async function loadAllTransactionsForChain(address, chainConfig, moralisParams) 
     { 
       path: `${address}/erc20/transfers`, 
       type: 'erc20',
-      description: 'ERC20 Token Transfers'
+      description: 'ERC20 Token Transfers',
+      params: { ...moralisParams } // Alle ERC20 (beide Richtungen)
     },
     { 
       path: `${address}`, 
       type: 'native',
-      description: 'Native Transactions (ETH, PLS, etc.)'
+      description: 'Native Transactions (ETH, PLS, etc.)',
+      params: { ...moralisParams } // Native ETH Transaktionen
     }
   ];
   
@@ -89,10 +91,11 @@ async function loadAllTransactionsForChain(address, chainConfig, moralisParams) 
     
     do {
       // Prepare parameters for this endpoint
-      const endpointParams = { ...moralisParams };
+      const endpointParams = { ...endpoint.params };
       if (currentCursor) endpointParams.cursor = currentCursor;
       
       console.log(`🚀 ENHANCED: Fetching ${endpoint.type} page ${pageCount + 1} on ${chainConfig.name}`);
+      console.log(`🔧 ENHANCED: Using params:`, endpointParams);
       
       const result = await moralisFetch(endpoint.path, endpointParams);
       
