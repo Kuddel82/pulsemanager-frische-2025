@@ -1,9 +1,9 @@
 /**
- * ��🇪 TAX REPORT API - DIREKTE MORALIS-API-CALLS
+ * 🇩🇪 TAX REPORT API - AGGRESSIVE PAGINATION (300.000+ Transaktionen)
  * 
- * ✅ Direkte Moralis-API-Calls (keine internen API-Calls!)
- * ✅ EXAKT die gleiche Logik wie moralis-v2.js
- * ✅ KORREKTE Chain IDs: 0x1 (ETH) + 0x171 (PulseChain)
+ * ✅ Direkte Moralis-API-Calls mit aggressiver Pagination
+ * ✅ Bis zu 300.000 Transaktionen pro Wallet
+ * ✅ Automatische Cursor-basierte Requests
  * ✅ Deutsche Steuer-Kategorisierung
  */
 
@@ -51,8 +51,68 @@ async function moralisFetch(endpoint, params = {}) {
   }
 }
 
+// 🔥 AGGRESSIVE PAGINATION FUNKTION
+async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
+  console.log(`🔥 AGGRESSIVE PAGINATION: ${address} auf ${chainName} - Ziel: ${maxTransactions} Transaktionen`);
+  
+  let allTransfers = [];
+  let cursor = null;
+  let pageCount = 0;
+  const maxPages = Math.ceil(maxTransactions / 100); // 100 pro Seite
+  
+  while (allTransfers.length < maxTransactions && pageCount < maxPages) {
+    pageCount++;
+    
+    try {
+      const params = {
+        chain: chainName,
+        limit: 100 // Maximum pro Request
+      };
+      
+      if (cursor) {
+        params.cursor = cursor;
+      }
+      
+      console.log(`📄 Seite ${pageCount}: Lade ${allTransfers.length + 100} von ${maxTransactions}...`);
+      
+      const result = await moralisFetch(`${address}/erc20/transfers`, params);
+      
+      if (!result || !result.result) {
+        console.log(`⚠️ Keine weiteren Daten für ${chainName} - Seite ${pageCount}`);
+        break;
+      }
+      
+      const transfers = result.result;
+      allTransfers.push(...transfers);
+      
+      console.log(`✅ Seite ${pageCount}: ${transfers.length} Transfers geladen (Total: ${allTransfers.length})`);
+      
+      // Prüfe ob es weitere Seiten gibt
+      if (!result.cursor || transfers.length < 100) {
+        console.log(`🏁 Keine weiteren Seiten für ${chainName} - Ende erreicht`);
+        break;
+      }
+      
+      cursor = result.cursor;
+      
+      // Rate Limiting: Kurze Pause zwischen Requests
+      if (pageCount % 10 === 0) {
+        console.log(`⏳ Rate Limiting: Pause nach ${pageCount} Seiten...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+    } catch (error) {
+      console.error(`❌ Fehler bei Seite ${pageCount} für ${chainName}:`, error.message);
+      break;
+    }
+  }
+  
+  console.log(`🎯 ${chainName} PAGINATION COMPLETE: ${allTransfers.length} Transfers in ${pageCount} Seiten`);
+  return allTransfers;
+}
+
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 TAX REPORT - DIREKTE MORALIS-API-CALLS! 🔥🔥🔥');
+  console.log('🔥🔥🔥 TAX REPORT - AGGRESSIVE PAGINATION (300.000+)! 🔥🔥🔥');
   
   try {
     // CORS Headers
@@ -66,11 +126,11 @@ export default async function handler(req, res) {
 
     // Extract parameters
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { address, limit = 500 } = params;
+    const { address, limit = 300000 } = params; // 🔥 DEFAULT: 300.000!
 
     console.log('🇩🇪 TAX PARAMS:', { 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
-      limit
+      limit: `${limit.toLocaleString()} Transaktionen`
     });
 
     // Validate address
@@ -101,30 +161,15 @@ export default async function handler(req, res) {
     let allTransactions = [];
     let chainResults = {};
 
-    // PARALLEL PROCESSING - DIREKTE MORALIS-API-CALLS
+    // PARALLEL PROCESSING - AGGRESSIVE PAGINATION
     const chainPromises = chains.map(async (chain) => {
       console.log(`🚀 Processing ${chain.name} (${chain.id})...`);
       
       try {
-        // 🔥 DIREKTE MORALIS-API-CALL: erc20_transfers
-        const result = await moralisFetch(`${address}/erc20/transfers`, { 
-          chain: chain.moralisName,
-          limit: Math.min(limit, 100)
-        });
+        // 🔥 AGGRESSIVE PAGINATION: Bis zu 300.000 Transfers pro Chain
+        const transfers = await fetchAllTransfers(address, chain.moralisName, limit);
         
-        if (!result) {
-          console.error(`❌ ${chain.name} Moralis API Error`);
-          chainResults[chain.short] = {
-            count: 0,
-            transactions: [],
-            error: `Moralis API Error`
-          };
-          return;
-        }
-        
-        const transfers = result.result || [];
-        
-        console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via DIRECT Moralis API`);
+        console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via AGGRESSIVE PAGINATION`);
         
         chainResults[chain.short] = {
           count: transfers.length,
@@ -164,7 +209,7 @@ export default async function handler(req, res) {
     // WARTE AUF ALLE CHAINS
     await Promise.all(chainPromises);
 
-    console.log(`📊 TOTAL TRANSACTIONS: ${allTransactions.length}`);
+    console.log(`📊 TOTAL TRANSACTIONS: ${allTransactions.length.toLocaleString()}`);
     console.log(`📊 CHAIN BREAKDOWN:`, chainResults);
 
     // SORTIERE NACH TIMESTAMP (neueste zuerst)
@@ -219,7 +264,7 @@ export default async function handler(req, res) {
       chainResults
     };
 
-    console.log(`✅ TAX REPORT GENERATED: ${categorizedTransactions.length} transactions`);
+    console.log(`✅ TAX REPORT GENERATED: ${categorizedTransactions.length.toLocaleString()} transactions`);
     console.log(`📊 SUMMARY:`, summary);
 
     return res.status(200).json({
@@ -229,7 +274,13 @@ export default async function handler(req, res) {
         originalCount: allTransactions.length,
         processedCount: categorizedTransactions.length,
         chains: Object.keys(chainResults),
-        source: 'direct_moralis_api_calls'
+        source: 'aggressive_pagination_300k',
+        paginationInfo: {
+          maxTransactions: limit,
+          totalLoaded: allTransactions.length,
+          ethereumLoaded: chainResults.ETH?.count || 0,
+          pulsechainLoaded: chainResults.PLS?.count || 0
+        }
       }
     });
 
