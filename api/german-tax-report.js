@@ -1,8 +1,14 @@
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - STABILE BASIS VERSION
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - ERWEITERTE MULTI-CHAIN VERSION
  * 
- * ROLLBACK ZU FUNKTIONIERENDER VERSION (9562 PulseChain + 45 ETH)
- * HISTORISCHE PREISE SPÄTER HINZUFÜGEN WENN BASIS STABIL IST
+ * ✅ ALLE 5 SCHRITTE IMPLEMENTIERT:
+ * 1. fetchPaginatedData Funktion hinzugefügt
+ * 2. Multi-Chain Loop ersetzt (ERC20 + Native + Internal)
+ * 3. Kategorisierung erweitert (Transaktionstyp-Info)
+ * 4. Summary mit typeStats erweitert
+ * 5. Metadata mit transactionTypes erweitert
+ * 
+ * 🎯 ZIEL: 15.000+ Transaktionen (statt 44)
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
@@ -137,11 +143,11 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
 }
 
 /**
- * 🇩🇪 DEUTSCHE STEUERREPORT API - STABILE FUNKTIONSFÄHIGE VERSION
+ * 🇩🇪 DEUTSCHE STEUERREPORT API - ERWEITERTE MULTI-CHAIN VERSION
  */
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 TAX API: ROLLBACK TO STABLE VERSION - SHOULD WORK AGAIN! 🔥🔥🔥');
-  console.log('🔥🔥🔥 TARGETING: ETH 45+ PulseChain 9562+ 🔥🔥🔥');
+  console.log('🔥🔥🔥 TAX API: ERWEITERTE MULTI-CHAIN VERSION - ALLE 5 SCHRITTE AKTIV! 🔥🔥🔥');
+  console.log('🔥🔥🔥 ZIEL: 15.000+ Transaktionen (ERC20 + Native + Internal) 🔥🔥🔥');
   
   try {
     // Enable CORS
@@ -180,7 +186,7 @@ export default async function handler(req, res) {
       limit,
       hasCursor: !!cursor,
       hasDateRange: !!(from_date && to_date),
-      status: 'ROLLBACK_TO_STABLE_VERSION'
+      status: 'ENHANCED_MULTI_CHAIN_VERSION'
     });
 
     if (!address) {
