@@ -24,7 +24,7 @@ async function moralisFetch(endpoint, params = {}) {
     console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout für Performance
     
     const res = await fetch(url.toString(), {
       method: 'GET',
@@ -145,25 +145,51 @@ export default async function handler(req, res) {
         
         console.log(`🚀 TAX FETCHING PAGE ${pageCount + 1}: ${address} on ${chainConfig.name}`);
         
-        // 🔥 EXAKTE KOPIE: Nur ERC20 Transfers Endpoint (der funktioniert hat!)
+        // 🔥 MULTIPLE ENDPOINTS FÜR VOLLSTÄNDIGE IN+OUT ABDECKUNG
+        let allResults = [];
+        
+        // ENDPOINT 1: ERC20 Transfers (funktioniert für PulseChain)
+        console.log(`📤 Loading ERC20 transfers for ${chainConfig.name}...`);
         const erc20Result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
         
-        if (erc20Result && erc20Result.result && erc20Result.result.length > 0) {
-          // ✅ ADD METADATA TO TRANSACTIONS - EXAKTE KOPIE
-          const transactionsWithMetadata = erc20Result.result.map(tx => ({
+        if (erc20Result && erc20Result.result) {
+          allResults.push(...erc20Result.result.map(tx => ({...tx, type: 'erc20'})));
+          console.log(`✅ ERC20: ${erc20Result.result.length} transactions on ${chainConfig.name}`);
+        }
+        
+        // ENDPOINT 2: FÜR ETHEREUM - NATIVE ETH TRANSACTIONS
+        if (chainConfig.id === '0x1') {
+          console.log(`💰 Loading Native ETH transactions for ${chainConfig.name}...`);
+          const nativeResult = await moralisFetch(`${address}`, moralisParams);
+          
+          if (nativeResult && nativeResult.result) {
+            allResults.push(...nativeResult.result.map(tx => ({
+              ...tx, 
+              type: 'native',
+              token_symbol: 'ETH',
+              token_decimals: 18,
+              token_address: '0x0000000000000000000000000000000000000000'
+            })));
+            console.log(`✅ NATIVE: ${nativeResult.result.length} ETH transactions on ${chainConfig.name}`);
+          }
+        }
+        
+        if (allResults.length > 0) {
+          // ✅ ADD METADATA TO TRANSACTIONS - ERWEITERT
+          const transactionsWithMetadata = allResults.map(tx => ({
             ...tx,
             chain: chainConfig.name,
             chainId: chainConfig.id,
-            dataSource: 'moralis_restored_working_version'
+            dataSource: 'moralis_multi_endpoint_version'
           }));
           
           chainTransactions.push(...transactionsWithMetadata);
           
-          // Cursor vom ERC20 Result nehmen (Haupt-Endpoint)
-          currentCursor = erc20Result.cursor;
+          // Cursor vom ERC20 Result nehmen (Haupt-endpoint)
+          currentCursor = erc20Result?.cursor;
           pageCount++;
           
-          console.log(`✅ TAX PAGE ${pageCount}: ${erc20Result.result.length} transactions, Total: ${chainTransactions.length} on ${chainConfig.name}`);
+          console.log(`✅ TAX PAGE ${pageCount}: ${allResults.length} total transactions (ERC20+Native), Chain Total: ${chainTransactions.length} on ${chainConfig.name}`);
         } else {
           console.log(`📄 TAX: No more data at page ${pageCount + 1} on ${chainConfig.name}`);
           break;
@@ -268,6 +294,19 @@ export default async function handler(req, res) {
       roiCount: roiTransactions.length,
       saleCount: saleTransactions.length,
       purchaseCount: purchaseTransactions.length,
+      
+      // Direction breakdown
+      inCount: categorizedTransactions.filter(tx => tx.direction === 'in').length,
+      outCount: categorizedTransactions.filter(tx => tx.direction === 'out').length,
+      
+      // Chain breakdown
+      ethereumCount: allTransactions.filter(tx => tx.chain === 'Ethereum').length,
+      pulsechainCount: allTransactions.filter(tx => tx.chain === 'PulseChain').length,
+      
+      // Type breakdown
+      erc20Count: allTransactions.filter(tx => tx.type === 'erc20').length,
+      nativeCount: allTransactions.filter(tx => tx.type === 'native').length,
+      
       totalROIValueEUR: 0,
       totalSaleValueEUR: 0,
       totalGainsEUR: 0,
