@@ -93,7 +93,7 @@ async function moralisFetch(endpoint, params = {}) {
  * 🔥 NEUE Wallet History API - Holt ALLES in wenigen Calls
  */
 async function getWalletHistory(address, chainId, limit = 500) {
-  console.log(`🔍 Getting wallet history for ${address} on chain ${chainId}`);
+  console.log(`🔍 Getting wallet history for ${address.slice(0, 8)}... on chain ${chainId}`);
   
   try {
     const params = {
@@ -102,19 +102,22 @@ async function getWalletHistory(address, chainId, limit = 500) {
       order: 'DESC'
     };
     
+    console.log(`🚀 Wallet History params:`, params);
+    
     // NEUER Wallet History Endpoint - viel besser!
     const result = await moralisFetch(`wallets/${address}/history`, params);
     
     if (!result || !result.result) {
-      console.log(`📄 No wallet history found for ${address} on chain ${chainId}`);
+      console.log(`📄 No wallet history found for ${address.slice(0, 8)}... on chain ${chainId}`);
       return [];
     }
     
-    console.log(`✅ Wallet History: ${result.result.length} transactions found`);
+    console.log(`✅ Wallet History: ${result.result.length} transactions found for chain ${chainId}`);
     return result.result;
     
   } catch (error) {
     console.error(`❌ Wallet History Error for chain ${chainId}:`, error.message);
+    console.error(`❌ Full error:`, error);
     
     // FALLBACK: Versuche den alten ERC20 transfers endpoint
     console.log(`🔄 Fallback: Trying ERC20 transfers for chain ${chainId}`);
@@ -125,10 +128,12 @@ async function getWalletHistory(address, chainId, limit = 500) {
         limit: Math.min(limit, 500)
       };
       
+      console.log(`🚀 ERC20 Fallback params:`, fallbackParams);
+      
       const fallbackResult = await moralisFetch(`${address}/erc20/transfers`, fallbackParams);
       
       if (fallbackResult && fallbackResult.result) {
-        console.log(`✅ Fallback Success: ${fallbackResult.result.length} ERC20 transfers`);
+        console.log(`✅ Fallback Success: ${fallbackResult.result.length} ERC20 transfers for chain ${chainId}`);
         
         // Convert ERC20 transfers to wallet history format
         return fallbackResult.result.map(tx => ({
@@ -143,10 +148,12 @@ async function getWalletHistory(address, chainId, limit = 500) {
         }));
       }
       
+      console.log(`📄 No ERC20 transfers found for chain ${chainId}`);
       return [];
       
     } catch (fallbackError) {
-      console.error(`❌ Fallback also failed:`, fallbackError.message);
+      console.error(`❌ Fallback also failed for chain ${chainId}:`, fallbackError.message);
+      console.error(`❌ Full fallback error:`, fallbackError);
       return [];
     }
   }
@@ -240,6 +247,7 @@ export default async function handler(req, res) {
         
       } catch (chainError) {
         console.error(`❌ Error loading ${chainConfig.name}:`, chainError.message);
+        console.error(`❌ Chain ID ${chainConfig.id} failed for wallet ${address.slice(0, 8)}`);
         // Continue with other chains even if one fails
       }
     }
