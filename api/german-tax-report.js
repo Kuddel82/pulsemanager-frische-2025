@@ -1,14 +1,13 @@
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - ERWEITERTE MULTI-CHAIN VERSION
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - REPARIERTE VERSION
  * 
- * ✅ ALLE 5 SCHRITTE IMPLEMENTIERT:
- * 1. fetchPaginatedData Funktion hinzugefügt
- * 2. Multi-Chain Loop ersetzt (ERC20 + Native + Internal)
- * 3. Kategorisierung erweitert (Transaktionstyp-Info)
- * 4. Summary mit typeStats erweitert
- * 5. Metadata mit transactionTypes erweitert
+ * 🔧 FIXES:
+ * 1. Verbesserte Fehlerbehandlung
+ * 2. Fallback zu Etherscan für Ethereum
+ * 3. Bessere Debug-Logs
+ * 4. Robustere Pagination
  * 
- * 🎯 ZIEL: 15.000+ Transaktionen (statt 44)
+ * 🎯 ZIEL: Transaktionen korrekt laden
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
@@ -61,14 +60,16 @@ async function moralisFetch(endpoint, params = {}) {
 }
 
 /**
- * 🛠️ PAGINIERTE DATEN-FETCHING FUNKTION - NEU HINZUFÜGEN
- * Bewährte Pagination für alle Endpunkte
+ * 🔧 REPARIERTE PAGINIERTE DATEN-FETCHING FUNKTION
+ * Mit verbesserter Fehlerbehandlung und Fallbacks
  */
 async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
   let allData = [];
   let currentCursor = baseParams.cursor;
   let pageCount = 0;
-  const maxPages = 150; // Bewährt aus stabiler Version
+  const maxPages = 50; // Reduziert für Stabilität
+  
+  console.log(`🔧 PAGINATION START: ${endpoint} für ${chainConfig.name}`);
   
   do {
     const params = { ...baseParams };
@@ -132,8 +133,8 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
       break;
     }
     
-    // Konservatives Rate Limiting (aus stabiler Version)
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Konservatives Rate Limiting
+    await new Promise(resolve => setTimeout(resolve, 200));
     
   } while (currentCursor && pageCount < maxPages);
   
@@ -143,11 +144,58 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
 }
 
 /**
- * 🇩🇪 DEUTSCHE STEUERREPORT API - ERWEITERTE MULTI-CHAIN VERSION
+ * 🔧 ETHERSCAN FALLBACK für Ethereum
+ * Falls Moralis keine Daten liefert
+ */
+async function fetchEtherscanTransactions(address, limit = 100) {
+  try {
+    console.log(`🔧 ETHERSCAN FALLBACK: Loading transactions for ${address}`);
+    
+    const response = await fetch(`https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=latest&page=1&offset=${limit}&sort=desc`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.status === '1' && data.result) {
+        console.log(`✅ ETHERSCAN SUCCESS: ${data.result.length} transactions`);
+        
+        // Konvertiere Etherscan Format zu Moralis Format
+        return data.result.map(tx => ({
+          transaction_hash: tx.hash,
+          block_number: tx.blockNumber,
+          block_timestamp: tx.timeStamp,
+          from_address: tx.from,
+          to_address: tx.to,
+          value: tx.value,
+          gas_used: tx.gasUsed,
+          gas_price: tx.gasPrice,
+          token_symbol: 'ETH',
+          token_name: 'Ethereum',
+          token_decimals: '18',
+          token_address: null,
+          readableAmount: (parseFloat(tx.value) / Math.pow(10, 18)).toLocaleString('de-DE', { 
+            minimumFractionDigits: 0, 
+            maximumFractionDigits: 8 
+          }),
+          dataSource: 'etherscan_fallback',
+          fetchTimestamp: new Date().toISOString()
+        }));
+      }
+    }
+    
+    console.warn(`⚠️ ETHERSCAN FALLBACK: No data available`);
+    return [];
+    
+  } catch (error) {
+    console.error(`💥 ETHERSCAN FALLBACK ERROR: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * 🇩🇪 DEUTSCHE STEUERREPORT API - REPARIERTE VERSION
  */
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 TAX API: ERWEITERTE MULTI-CHAIN VERSION - ALLE 5 SCHRITTE AKTIV! 🔥🔥🔥');
-  console.log('🔥🔥🔥 ZIEL: 15.000+ Transaktionen (ERC20 + Native + Internal) 🔥🔥🔥');
+  console.log('🔧🔧🔧 TAX API: REPARIERTE VERSION - MIT FALLBACKS! 🔧🔧🔧');
   
   try {
     // Enable CORS
@@ -173,20 +221,20 @@ export default async function handler(req, res) {
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
     const { 
       address, 
-      chain = 'pulsechain', 
+      chain = 'all', 
       limit = 100, 
       cursor,
       from_date,
       to_date
     } = params;
 
-    console.log('🇩🇪 TAX PARAMS:', { 
+    console.log('🔧 TAX PARAMS:', { 
       chain, 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
       limit,
       hasCursor: !!cursor,
       hasDateRange: !!(from_date && to_date),
-      status: 'ENHANCED_MULTI_CHAIN_VERSION'
+      status: 'REPAIRED_VERSION_WITH_FALLBACKS'
     });
 
     if (!address) {
@@ -197,7 +245,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔥 ERWEITERTE MULTI-CHAIN ABFRAGE - ALLE DATENTYPEN
+    // 🔧 REPARIERTE MULTI-CHAIN ABFRAGE
     const chains = [
       { id: '0x1', name: 'Ethereum' },
       { id: '0x171', name: 'PulseChain' }
@@ -206,17 +254,19 @@ export default async function handler(req, res) {
     let allTransactions = [];
 
     for (const chainConfig of chains) {
-      console.log(`🔗 VOLLSTÄNDIGE ABFRAGE: ${chainConfig.name} (${chainConfig.id})...`);
+      console.log(`🔧 LOADING: ${chainConfig.name} (${chainConfig.id})...`);
       
       const moralisParams = { 
         chain: chainConfig.id,
-        limit: Math.min(parseInt(limit) || 2000, 2000)
+        limit: Math.min(parseInt(limit) || 1000, 1000)
       };
 
       // Add optional parameters
       if (cursor) moralisParams.cursor = cursor;
       if (from_date) moralisParams.from_date = from_date;
       if (to_date) moralisParams.to_date = to_date;
+
+      let chainTransactions = [];
 
       // 🚀 DATENTYP 1: ERC20 TRANSFERS
       console.log(`📊 ${chainConfig.name}: Lade ERC20 Transfers...`);
@@ -226,26 +276,30 @@ export default async function handler(req, res) {
       console.log(`💎 ${chainConfig.name}: Lade Native Transfers...`);
       let nativeTransactions = await fetchPaginatedData(`${address}/transactions`, moralisParams, chainConfig);
       
-      // 🚀 DATENTYP 3: INTERNAL TRANSACTIONS
-      console.log(`🔄 ${chainConfig.name}: Lade Internal Transactions...`);
-      let internalTransactions = await fetchPaginatedData(`${address}/internal-transactions`, moralisParams, chainConfig);
+      // 🔧 ETHERSCAN FALLBACK für Ethereum
+      if (chainConfig.id === '0x1' && erc20Transactions.length === 0 && nativeTransactions.length === 0) {
+        console.log(`🔧 ETHERSCAN FALLBACK: Trying Etherscan for Ethereum...`);
+        const etherscanTransactions = await fetchEtherscanTransactions(address, 100);
+        if (etherscanTransactions.length > 0) {
+          nativeTransactions = etherscanTransactions;
+          console.log(`✅ ETHERSCAN FALLBACK: Loaded ${etherscanTransactions.length} transactions`);
+        }
+      }
 
       // 📋 ZUSAMMENFÜHRUNG mit Typ-Kennzeichnung
-      const chainTransactions = [
+      chainTransactions = [
         ...erc20Transactions.map(tx => ({ ...tx, transactionType: 'erc20', chain: chainConfig.name, chainId: chainConfig.id })),
-        ...nativeTransactions.map(tx => ({ ...tx, transactionType: 'native', chain: chainConfig.name, chainId: chainConfig.id })),
-        ...internalTransactions.map(tx => ({ ...tx, transactionType: 'internal', chain: chainConfig.name, chainId: chainConfig.id }))
+        ...nativeTransactions.map(tx => ({ ...tx, transactionType: 'native', chain: chainConfig.name, chainId: chainConfig.id }))
       ];
 
       console.log(`✅ ${chainConfig.name} KOMPLETT: ${chainTransactions.length} Transaktionen`);
       console.log(`   📊 ERC20: ${erc20Transactions.length}`);
       console.log(`   💎 Native: ${nativeTransactions.length}`);
-      console.log(`   🔄 Internal: ${internalTransactions.length}`);
 
       allTransactions.push(...chainTransactions);
     }
 
-    console.log(`🔥 VOLLSTÄNDIGE WALLET-ABFRAGE KOMPLETT: ${allTransactions.length} ALLE Transaktionen`);
+    console.log(`🔧 VOLLSTÄNDIGE WALLET-ABFRAGE KOMPLETT: ${allTransactions.length} ALLE Transaktionen`);
     
     if (allTransactions.length === 0) {
       console.warn(`⚠️ TAX NO TRANSFER DATA: Returning empty result for ${address}`);
@@ -262,10 +316,11 @@ export default async function handler(req, res) {
             totalTaxEUR: "0,00"
           },
           metadata: {
-            source: 'moralis_enhanced_complete_empty',
+            source: 'moralis_repaired_empty',
             message: 'No transfer data available',
             walletAddress: address,
-            chainsChecked: chains.map(c => c.name)
+            chainsChecked: chains.map(c => c.name),
+            fallbacks_tried: true
           }
         }
       });
@@ -354,7 +409,6 @@ export default async function handler(req, res) {
       total: categorizedTransactions.length,
       erc20: categorizedTransactions.filter(tx => tx.transactionType === 'erc20').length,
       native: categorizedTransactions.filter(tx => tx.transactionType === 'native').length,
-      internal: categorizedTransactions.filter(tx => tx.transactionType === 'internal').length,
       ethereum: categorizedTransactions.filter(tx => tx.chain === 'Ethereum').length,
       pulsechain: categorizedTransactions.filter(tx => tx.chain === 'PulseChain').length
     };
@@ -383,7 +437,7 @@ export default async function handler(req, res) {
       totalPurchaseValueEUR: "0,00", // NEU
       totalTaxEUR: "0,00",
       
-      status: "ENHANCED_COMPLETE_VERSION_ALL_TRANSACTION_TYPES"
+      status: "REPAIRED_VERSION_WITH_FALLBACKS"
     };
 
     return res.status(200).json({
@@ -392,18 +446,17 @@ export default async function handler(req, res) {
         transactions: categorizedTransactions,
         summary: summary,
         metadata: {
-          source: 'moralis_enhanced_complete_success',
+          source: 'moralis_repaired_success',
           chains: chains.map(c => c.name),
           address: address,
           timestamp: new Date().toISOString(),
           count: categorizedTransactions.length,
-          status: 'ENHANCED_COMPLETE_VERSION',
-          message: 'Vollständige Wallet-Abfrage: ERC20 + Native + Internal',
+          status: 'REPAIRED_VERSION',
+          message: 'Reparierte Wallet-Abfrage: ERC20 + Native + Etherscan Fallback',
           transactionTypes: {
             total: categorizedTransactions.length,
             erc20: typeStats.erc20,
             native: typeStats.native,
-            internal: typeStats.internal,
             ethereum: typeStats.ethereum,
             pulsechain: typeStats.pulsechain
           },
@@ -425,25 +478,11 @@ export default async function handler(req, res) {
     console.error('💥 TAX API CRITICAL ERROR:', error);
     console.error('💥 ERROR STACK:', error.stack);
     
-    return res.status(200).json({
-      success: true,
-      taxReport: {
-        transactions: [],
-        summary: {
-          totalTransactions: 0,
-          roiCount: 0,
-          saleCount: 0,
-          totalROIValueEUR: "0,00",
-          totalSaleValueEUR: "0,00",
-          totalTaxEUR: "0,00"
-        },
-        metadata: {
-          source: 'moralis_enhanced_complete_error',
-          error: error.message,
-          timestamp: new Date().toISOString(),
-          debug: 'Enhanced multi-chain version error'
-        }
-      }
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 }
