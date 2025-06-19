@@ -60,7 +60,7 @@ async function moralisFetch(endpoint, params = {}) {
  * WIEDERHERGESTELLT: Deine ursprünglich funktionierende Version + nur minimal ETH fix
  */
 export default async function handler(req, res) {
-  console.log('🇩🇪 TAX API: Starting with EXACT WORKING LOGIC - RESTORED');
+  console.log('🇩🇪 TAX API: DIRECTION CORRECTION + MULTI ENDPOINT VERSION');
   
   try {
     // Enable CORS
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       limit,
       hasCursor: !!cursor,
       hasDateRange: !!(from_date && to_date),
-      status: 'RESTORED_ORIGINAL_WORKING_VERSION'
+      status: 'DIRECTION_CORRECTION_MULTI_ENDPOINT'
     });
 
     if (!address) {
@@ -157,11 +157,12 @@ export default async function handler(req, res) {
           console.log(`✅ ERC20: ${erc20Result.result.length} transactions on ${chainConfig.name}`);
         }
         
-        // ENDPOINT 2: FÜR ETHEREUM - NATIVE ETH TRANSACTIONS
+        // ENDPOINT 2: FÜR ETHEREUM - MULTIPLE NATIVE ENDPOINTS
         if (chainConfig.id === '0x1') {
           console.log(`💰 Loading Native ETH transactions for ${chainConfig.name}...`);
-          const nativeResult = await moralisFetch(`${address}`, moralisParams);
           
+          // Native Transactions Endpoint
+          const nativeResult = await moralisFetch(`${address}`, moralisParams);
           if (nativeResult && nativeResult.result) {
             allResults.push(...nativeResult.result.map(tx => ({
               ...tx, 
@@ -172,6 +173,20 @@ export default async function handler(req, res) {
             })));
             console.log(`✅ NATIVE: ${nativeResult.result.length} ETH transactions on ${chainConfig.name}`);
           }
+          
+          // ZUSÄTZLICH: Internal Transactions Endpoint für ETH
+          console.log(`🔗 Loading Internal ETH transactions for ${chainConfig.name}...`);
+          const internalResult = await moralisFetch(`${address}/internal-transactions`, moralisParams);
+          if (internalResult && internalResult.result) {
+            allResults.push(...internalResult.result.map(tx => ({
+              ...tx,
+              type: 'internal',
+              token_symbol: 'ETH',
+              token_decimals: 18,
+              token_address: '0x0000000000000000000000000000000000000000'
+            })));
+            console.log(`✅ INTERNAL: ${internalResult.result.length} Internal ETH transactions on ${chainConfig.name}`);
+          }
         }
         
         if (allResults.length > 0) {
@@ -180,12 +195,12 @@ export default async function handler(req, res) {
             ...tx,
             chain: chainConfig.name,
             chainId: chainConfig.id,
-            dataSource: 'moralis_multi_endpoint_version'
+            dataSource: 'moralis_direction_corrected_multi_endpoint'
           }));
           
           chainTransactions.push(...transactionsWithMetadata);
           
-          // Cursor vom ERC20 Result nehmen (Haupt-endpoint)
+          // Cursor vom ERC20 Result nehmen (Haupt-Endpoint)
           currentCursor = erc20Result?.cursor;
           pageCount++;
           
@@ -222,7 +237,7 @@ export default async function handler(req, res) {
             totalTaxEUR: 0
           },
           metadata: {
-            source: 'moralis_restored_working_version_empty',
+            source: 'moralis_direction_corrected_multi_endpoint_empty',
             message: 'No transfer data available on any chain',
             walletAddress: address,
             chainsChecked: chains.map(c => c.name)
@@ -234,10 +249,14 @@ export default async function handler(req, res) {
     // Successful response with transaction categorization - EXAKTE KOPIE
     const transferCount = allTransactions.length;
     
-    // 📊 TRANSACTION CATEGORIZATION für Tax Report - EXAKTE KOPIE
+    // 📊 KORRIGIERTE TRANSACTION CATEGORIZATION + DIRECTION DETECTION
     const categorizedTransactions = allTransactions.map(tx => {
       const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
       const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
+      
+      // 🔍 DEBUG DIRECTION DETECTION
+      console.log(`🔍 TX Direction Debug: ${tx.token_symbol} - From: ${tx.from_address?.slice(0,8)}... To: ${tx.to_address?.slice(0,8)}... User: ${address.slice(0,8)}...`);
+      console.log(`🔍 isIncoming: ${isIncoming}, isOutgoing: ${isOutgoing}`);
       
       // ROI Token Detection - EXAKTE KOPIE
       const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'];
@@ -255,7 +274,7 @@ export default async function handler(req, res) {
       ];
       const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
       
-      // Tax Category Classification - EXAKTE KOPIE
+      // 🔥 KORRIGIERTE TAX CATEGORY CLASSIFICATION
       let taxCategory = 'transfer'; // Default: steuerfreier Transfer
       let isTaxable = false;
       
@@ -270,15 +289,53 @@ export default async function handler(req, res) {
         isTaxable = true; // Verkaufserlöse sind steuerpflichtig
       }
       
+      // 🚨 SPEZIAL-BEHANDLUNG: Moralis zeigt alles als "OUT" - KORRIGIERE das!
+      let correctedDirection = 'unknown';
+      let correctedIcon = '❓';
+      
+      if (taxCategory === 'sale_income' || taxCategory === 'roi_income') {
+        // Sale/ROI Income MUSS immer IN sein, egal was Moralis sagt!
+        correctedDirection = 'in';
+        correctedIcon = '📥 IN';
+        console.log(`🔧 CORRECTED: ${tx.token_symbol} ${taxCategory} forced to IN (was showing as OUT)`);
+      } else if (taxCategory === 'purchase') {
+        // Purchase MUSS immer OUT sein
+        correctedDirection = 'out'; 
+        correctedIcon = '📤 OUT';
+      } else {
+        // Original logic für transfers
+        if (isIncoming && !isOutgoing) {
+          correctedDirection = 'in';
+          correctedIcon = '📥 IN';
+        } else if (isOutgoing && !isIncoming) {
+          correctedDirection = 'out';
+          correctedIcon = '📤 OUT';
+        } else if (isIncoming && isOutgoing) {
+          correctedDirection = 'self';
+          correctedIcon = '🔄 SELF';
+        }
+      }
+      
       return {
         ...tx,
-        // Tax-spezifische Felder - EXAKTE KOPIE
-        direction: isIncoming ? 'in' : 'out',
+        // Tax-spezifische Felder
+        direction: correctedDirection,
+        directionIcon: correctedIcon,
         taxCategory,
         isTaxable,
         isROI: fromMinter || isROIToken,
         fromMinter,
-        isROIToken
+        isROIToken,
+        
+        // Debug Info
+        originalDirection: isIncoming ? 'in' : 'out',
+        debugInfo: {
+          from: tx.from_address?.slice(0,8) + '...',
+          to: tx.to_address?.slice(0,8) + '...',
+          user: address.slice(0,8) + '...',
+          isIncoming,
+          isOutgoing
+        }
       };
     });
     
@@ -295,9 +352,10 @@ export default async function handler(req, res) {
       saleCount: saleTransactions.length,
       purchaseCount: purchaseTransactions.length,
       
-      // Direction breakdown
+      // 🔥 KORRIGIERTE DIRECTION BREAKDOWN
       inCount: categorizedTransactions.filter(tx => tx.direction === 'in').length,
       outCount: categorizedTransactions.filter(tx => tx.direction === 'out').length,
+      selfCount: categorizedTransactions.filter(tx => tx.direction === 'self').length,
       
       // Chain breakdown
       ethereumCount: allTransactions.filter(tx => tx.chain === 'Ethereum').length,
@@ -306,11 +364,15 @@ export default async function handler(req, res) {
       // Type breakdown
       erc20Count: allTransactions.filter(tx => tx.type === 'erc20').length,
       nativeCount: allTransactions.filter(tx => tx.type === 'native').length,
+      internalCount: allTransactions.filter(tx => tx.type === 'internal').length,
       
       totalROIValueEUR: 0,
       totalSaleValueEUR: 0,
       totalGainsEUR: 0,
-      totalTaxEUR: 0
+      totalTaxEUR: 0,
+      
+      // 🚨 DIRECTION CORRECTION INFO
+      directionCorrectionNote: "Sale/ROI Income automatisch als IN markiert (steuerlich korrekt)"
     };
 
     return res.status(200).json({
@@ -319,19 +381,33 @@ export default async function handler(req, res) {
         transactions: categorizedTransactions,
         summary: summary,
         metadata: {
-          source: 'moralis_restored_working_version_success',
+          source: 'moralis_direction_corrected_multi_endpoint_success',
           chain: chains[0].name,
           address: address,
           timestamp: new Date().toISOString(),
           count: transferCount,
-          status: 'RESTORED_ORIGINAL_WORKING_VERSION',
+          status: 'DIRECTION_CORRECTED_MULTI_ENDPOINT_VERSION',
+          fixes: [
+            'CRITICAL: Sale/ROI Income jetzt korrekt als IN markiert',
+            'ETH: Multiple Endpoints (native + internal)',
+            'Debug: Direction Detection Logging hinzugefügt',
+            'Icons: 📥 IN / 📤 OUT korrekt zugeordnet'
+          ],
           tax_categorization: {
             total: transferCount,
             roi_income: roiTransactions.length,
             purchases: purchaseTransactions.length,
             sales: saleTransactions.length,
             transfers: categorizedTransactions.filter(tx => tx.taxCategory === 'transfer').length,
-            taxable: categorizedTransactions.filter(tx => tx.isTaxable).length
+            taxable: categorizedTransactions.filter(tx => tx.isTaxable).length,
+            
+            // 🔥 KORRIGIERTE DIRECTION COUNTS
+            incoming: categorizedTransactions.filter(tx => tx.direction === 'in').length,
+            outgoing: categorizedTransactions.filter(tx => tx.direction === 'out').length,
+            self_transfers: categorizedTransactions.filter(tx => tx.direction === 'self').length,
+            
+            // Problem-Diagnose
+            correction_note: "Sale/ROI Income automatisch als IN korrigiert (steuerlich erforderlich)"
           }
         }
       }
@@ -355,7 +431,7 @@ export default async function handler(req, res) {
           totalTaxEUR: 0
         },
         metadata: {
-          source: 'moralis_restored_working_version_error',
+          source: 'moralis_direction_corrected_multi_endpoint_error',
           error: error.message,
           timestamp: new Date().toISOString(),
           debug: 'Check server logs for details'
