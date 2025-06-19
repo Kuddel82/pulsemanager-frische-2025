@@ -14,7 +14,7 @@ const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 async function fetchAllEtherscanTransactions(address, maxTransactions = 10000) {
   let allTransactions = [];
   let page = 1;
-  const offset = 100; // Etherscan Limit pro Seite
+  const offset = 1000; // 🔧 KRITISCH: Etherscan Maximum ist 1000 pro Seite!
   
   console.log(`🔧 ETHERSCAN PAGINATION: Loading ALL transactions for ${address} (max ${maxTransactions})`);
   
@@ -84,7 +84,7 @@ async function fetchAllMoralisTransactions(address, chainId, maxTransactions = 1
   let allTransactions = [];
   let cursor = null;
   let pageCount = 0;
-  const limit = 100; // Moralis Limit pro Request
+  const limit = 2000; // 🔧 KRITISCH: Moralis Maximum ist 2000 pro Request!
   
   console.log(`🔧 MORALIS PAGINATION: Loading ALL transactions for ${address} on chain ${chainId} (max ${maxTransactions})`);
   
