@@ -113,11 +113,9 @@ export default async function handler(req, res) {
     }
 
     // 🔥 MULTI-CHAIN: Lade BEIDE Chains (Ethereum + PulseChain) - EXAKTE KOPIE
-    const chains = chain === 'all' ? [
+    const chains = [
       { id: '0x1', name: 'Ethereum' },
       { id: '0x171', name: 'PulseChain' }
-    ] : [
-      { id: chain === 'ethereum' ? '0x1' : '0x171', name: chain === 'ethereum' ? 'Ethereum' : 'PulseChain' }
     ];
     
     let allTransactions = [];
@@ -161,11 +159,11 @@ export default async function handler(req, res) {
           console.log(`✅ ERC20: ${erc20Result.result.length} transactions on ${chainConfig.name}`);
         }
         
-        // ENDPOINT 2: FÜR ETHEREUM - MULTIPLE NATIVE ENDPOINTS
+        // ENDPOINT 2: FÜR ETHEREUM - ALLE TRANSAKTIONSTYPEN LADEN
         if (chainConfig.id === '0x1') {
-          console.log(`💰 Loading Native ETH transactions for ${chainConfig.name}...`);
+          console.log(`💰 Loading ALL ETH transaction types for ${chainConfig.name}...`);
           
-          // Native Transactions Endpoint
+          // 2A: Native ETH Transactions
           const nativeResult = await moralisFetch(`${address}`, moralisParams);
           if (nativeResult && nativeResult.result) {
             allResults.push(...nativeResult.result.map(tx => ({
@@ -175,11 +173,10 @@ export default async function handler(req, res) {
               token_decimals: 18,
               token_address: '0x0000000000000000000000000000000000000000'
             })));
-            console.log(`✅ NATIVE: ${nativeResult.result.length} ETH transactions on ${chainConfig.name}`);
+            console.log(`✅ NATIVE ETH: ${nativeResult.result.length} transactions`);
           }
           
-          // ZUSÄTZLICH: Internal Transactions Endpoint für ETH
-          console.log(`🔗 Loading Internal ETH transactions for ${chainConfig.name}...`);
+          // 2B: Internal ETH Transactions
           const internalResult = await moralisFetch(`${address}/internal-transactions`, moralisParams);
           if (internalResult && internalResult.result) {
             allResults.push(...internalResult.result.map(tx => ({
@@ -189,7 +186,34 @@ export default async function handler(req, res) {
               token_decimals: 18,
               token_address: '0x0000000000000000000000000000000000000000'
             })));
-            console.log(`✅ INTERNAL: ${internalResult.result.length} Internal ETH transactions on ${chainConfig.name}`);
+            console.log(`✅ INTERNAL ETH: ${internalResult.result.length} transactions`);
+          }
+          
+          // 2C: NFT Transactions
+          const nftResult = await moralisFetch(`${address}/nft/transfers`, moralisParams);
+          if (nftResult && nftResult.result) {
+            allResults.push(...nftResult.result.map(tx => ({
+              ...tx,
+              type: 'nft',
+              token_symbol: tx.token_name || 'NFT',
+              token_decimals: 0,
+              value: '1',
+              token_address: tx.token_address || tx.address
+            })));
+            console.log(`✅ NFT: ${nftResult.result.length} NFT transactions`);
+          }
+          
+          // 2D: Contract Events (zusätzliche Token Interactions)
+          const eventsResult = await moralisFetch(`${address}/events`, moralisParams);
+          if (eventsResult && eventsResult.result) {
+            allResults.push(...eventsResult.result.map(tx => ({
+              ...tx,
+              type: 'event',
+              token_symbol: 'CONTRACT',
+              token_decimals: 0,
+              value: '0'
+            })));
+            console.log(`✅ EVENTS: ${eventsResult.result.length} contract events`);
           }
         }
         
@@ -204,7 +228,7 @@ export default async function handler(req, res) {
           
           chainTransactions.push(...transactionsWithMetadata);
           
-          // Cursor vom ERC20 Result nehmen (Haupt-endpoint)
+          // Cursor vom ERC20 Result nehmen (Haupt-Endpoint)
           currentCursor = erc20Result?.cursor;
           pageCount++;
           
@@ -374,10 +398,12 @@ export default async function handler(req, res) {
       ethereumCount: allTransactions.filter(tx => tx.chain === 'Ethereum').length,
       pulsechainCount: allTransactions.filter(tx => tx.chain === 'PulseChain').length,
       
-      // Type breakdown
+      // 🔥 ERWEITERTE TYPE BREAKDOWN
       erc20Count: allTransactions.filter(tx => tx.type === 'erc20').length,
       nativeCount: allTransactions.filter(tx => tx.type === 'native').length,
       internalCount: allTransactions.filter(tx => tx.type === 'internal').length,
+      nftCount: allTransactions.filter(tx => tx.type === 'nft').length,
+      eventCount: allTransactions.filter(tx => tx.type === 'event').length,
       
       totalROIValueEUR: 0,
       totalSaleValueEUR: 0,
@@ -385,7 +411,8 @@ export default async function handler(req, res) {
       totalTaxEUR: 0,
       
       // 🚨 DIRECTION CORRECTION INFO
-      directionCorrectionNote: "Sale/ROI Income automatisch als IN markiert (steuerlich korrekt)"
+      directionCorrectionNote: "Sale/ROI Income automatisch als IN markiert (steuerlich korrekt)",
+      nextStep: "Historische Preise für echte EUR-Werte hinzufügen"
     };
 
     return res.status(200).json({
