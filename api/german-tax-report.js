@@ -51,7 +51,15 @@ async function moralisFetch(endpoint, params = {}) {
     const jsonData = await res.json();
     console.log(`✅ MORALIS SUCCESS: ${endpoint} returned ${jsonData?.result?.length || 0} items`);
     console.log(`📊 MORALIS DATA:`, JSON.stringify(jsonData, null, 2).substring(0, 500));
-    return jsonData;
+    
+    // 🔥 KRITISCHER FIX: Stelle sicher dass wir die Daten zurückgeben
+    if (jsonData && jsonData.result) {
+      console.log(`🔥 MORALIS DATA CONFIRMED: ${jsonData.result.length} items ready for processing`);
+      return jsonData;
+    } else {
+      console.error(`❌ MORALIS DATA INVALID: No result array in response`);
+      return null;
+    }
 
   } catch (error) {
     console.error(`💥 MORALIS FETCH EXCEPTION: ${error.message}`);
