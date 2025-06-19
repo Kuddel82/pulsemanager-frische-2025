@@ -1,14 +1,58 @@
 /**
- * 🇩🇪 TAX REPORT API - EXAKT WIE DAS PORTFOLIO
+ * ��🇪 TAX REPORT API - DIREKTE MORALIS-API-CALLS
  * 
- * ✅ Verwendet /api/moralis-v2 (funktioniert im Portfolio!)
- * ✅ EXAKT die gleiche Logik wie das Portfolio
+ * ✅ Direkte Moralis-API-Calls (keine internen API-Calls!)
+ * ✅ EXAKT die gleiche Logik wie moralis-v2.js
  * ✅ KORREKTE Chain IDs: 0x1 (ETH) + 0x171 (PulseChain)
  * ✅ Deutsche Steuer-Kategorisierung
  */
 
+// 🔥 DIREKTE MORALIS-API-FUNKTION (exakt wie moralis-v2.js)
+async function moralisFetch(endpoint, params = {}) {
+  const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
+  
+  if (!MORALIS_API_KEY) {
+    console.error('❌ MORALIS_API_KEY nicht gefunden!');
+    return null;
+  }
+
+  const baseUrl = 'https://deep-index.moralis.io/api/v2.2';
+  const url = new URL(`${baseUrl}/${endpoint}`);
+  
+  // Add parameters
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      url.searchParams.append(key, params[key]);
+    }
+  });
+
+  try {
+    console.log(`🚀 MORALIS API CALL: ${url.toString()}`);
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'X-API-Key': MORALIS_API_KEY,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`❌ MORALIS API ERROR: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log(`✅ MORALIS API SUCCESS: ${endpoint}`);
+    return data;
+    
+  } catch (error) {
+    console.error(`💥 MORALIS API FETCH ERROR: ${error.message}`);
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 TAX REPORT - EXAKT WIE PORTFOLIO! 🔥🔥🔥');
+  console.log('🔥🔥🔥 TAX REPORT - DIREKTE MORALIS-API-CALLS! 🔥🔥🔥');
   
   try {
     // CORS Headers
@@ -48,7 +92,7 @@ export default async function handler(req, res) {
 
     console.log(`🔍 Processing wallet: ${address.slice(0, 8)}...`);
 
-    // KORREKTE CHAIN IDs - EXAKT WIE PORTFOLIO
+    // KORREKTE CHAIN IDs - EXAKT WIE MORALIS-V2
     const chains = [
       { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: 'eth' },
       { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: 'pulsechain' }
@@ -57,28 +101,30 @@ export default async function handler(req, res) {
     let allTransactions = [];
     let chainResults = {};
 
-    // PARALLEL PROCESSING - EXAKT WIE PORTFOLIO
+    // PARALLEL PROCESSING - DIREKTE MORALIS-API-CALLS
     const chainPromises = chains.map(async (chain) => {
       console.log(`🚀 Processing ${chain.name} (${chain.id})...`);
       
       try {
-        // 🔥 EXAKT WIE PORTFOLIO: Verwende /api/moralis-v2 mit erc20_transfers
-        const response = await fetch(`/api/moralis-v2?address=${address}&chain=${chain.moralisName}&endpoint=erc20_transfers&limit=${limit}`);
+        // 🔥 DIREKTE MORALIS-API-CALL: erc20_transfers
+        const result = await moralisFetch(`${address}/erc20/transfers`, { 
+          chain: chain.moralisName,
+          limit: Math.min(limit, 100)
+        });
         
-        if (!response.ok) {
-          console.error(`❌ ${chain.name} API Error: ${response.status}`);
+        if (!result) {
+          console.error(`❌ ${chain.name} Moralis API Error`);
           chainResults[chain.short] = {
             count: 0,
             transactions: [],
-            error: `API Error: ${response.status}`
+            error: `Moralis API Error`
           };
           return;
         }
         
-        const data = await response.json();
-        const transfers = data.transfers || [];
+        const transfers = result.result || [];
         
-        console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via /api/moralis-v2`);
+        console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via DIRECT Moralis API`);
         
         chainResults[chain.short] = {
           count: transfers.length,
@@ -183,7 +229,7 @@ export default async function handler(req, res) {
         originalCount: allTransactions.length,
         processedCount: categorizedTransactions.length,
         chains: Object.keys(chainResults),
-        source: 'portfolio_compatible_api'
+        source: 'direct_moralis_api_calls'
       }
     });
 
