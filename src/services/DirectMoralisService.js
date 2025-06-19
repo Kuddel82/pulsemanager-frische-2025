@@ -8,36 +8,41 @@ export class DirectMoralisService {
     console.log(`🔧 DirectMoralisService: Loading transfers for ${walletAddress} on chain ${chain}`);
     
     try {
-      // Verwende die NEUE funktionierende german-tax-report API
-      const response = await fetch('/api/german-tax-report', {
+      // 🔥 FIX: Verwende Portfolio-Cache statt TaxReport-API
+      // Das verhindert mehrfache API-Calls!
+      const response = await fetch('/api/portfolio-cache', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          address: walletAddress
+          address: walletAddress,
+          chain: chain,
+          limit: limit
         })
       });
       
       if (!response.ok) {
-        throw new Error(`German Tax API Error: ${response.status}`);
+        throw new Error(`Portfolio Cache Error: ${response.status}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tax API Error: ${data.error}`);
+        throw new Error(`Portfolio Error: ${data.error}`);
       }
       
-      // Konvertiere Tax Report Daten zu ROI-Format
-      const taxReport = data.taxReport;
-      const roiTransfers = taxReport.roiTransactions || [];
+      // Konvertiere Portfolio-Daten zu ROI-Format
+      const portfolioData = data.portfolio;
+      const roiTransfers = portfolioData.transactions?.filter(tx => 
+        tx.category === 'token_transfer' || tx.category === 'native_transfer'
+      ) || [];
       
-      console.log(`✅ DirectMoralisService: Found ${roiTransfers.length} ROI transfers`);
+      console.log(`✅ DirectMoralisService: Found ${roiTransfers.length} transfers from portfolio cache`);
       
       return {
         success: true,
         roiTransfers: roiTransfers,
         cuUsed: 1,
-        source: 'german_tax_api_integration'
+        source: 'portfolio_cache_integration'
       };
       
     } catch (error) {
@@ -56,33 +61,38 @@ export class DirectMoralisService {
     console.log(`🔧 DirectMoralisService: Loading tax data for ${walletAddress}`);
     
     try {
-      // Verwende die neue german-tax-report API
-      const response = await fetch('/api/german-tax-report', {
+      // 🔥 FIX: Verwende Portfolio-Cache statt TaxReport-API
+      const response = await fetch('/api/portfolio-cache', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          address: walletAddress
+          address: walletAddress,
+          chain: chain
         })
       });
       
       if (!response.ok) {
-        throw new Error(`Tax API Error: ${response.status}`);
+        throw new Error(`Portfolio Cache Error: ${response.status}`);
       }
       
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(`Tax API Error: ${data.error}`);
+        throw new Error(`Portfolio Error: ${data.error}`);
       }
       
-      const taxReport = data.taxReport;
+      const portfolioData = data.portfolio;
+      const allTransfers = portfolioData.transactions || [];
+      const taxableTransfers = allTransfers.filter(tx => 
+        tx.category === 'token_transfer' || tx.category === 'native_transfer'
+      );
       
       return {
         success: true,
-        allTransfers: taxReport.transactions || [],
-        taxableTransfers: taxReport.roiTransactions || [],
-        totalTransfers: taxReport.summary?.totalTransactions || 0,
-        source: 'german_tax_api_integration'
+        allTransfers: allTransfers,
+        taxableTransfers: taxableTransfers,
+        totalTransfers: allTransfers.length,
+        source: 'portfolio_cache_integration'
       };
       
     } catch (error) {
