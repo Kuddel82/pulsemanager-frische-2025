@@ -55,6 +55,88 @@ async function moralisFetch(endpoint, params = {}) {
 }
 
 /**
+ * 🛠️ PAGINIERTE DATEN-FETCHING FUNKTION - NEU HINZUFÜGEN
+ * Bewährte Pagination für alle Endpunkte
+ */
+async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
+  let allData = [];
+  let currentCursor = baseParams.cursor;
+  let pageCount = 0;
+  const maxPages = 150; // Bewährt aus stabiler Version
+  
+  do {
+    const params = { ...baseParams };
+    if (currentCursor) params.cursor = currentCursor;
+    
+    console.log(`🚀 ${chainConfig.name} ${endpoint}: Seite ${pageCount + 1}`);
+    
+    const result = await moralisFetch(endpoint, params);
+    
+    if (result && result.result && result.result.length > 0) {
+      // Füge Basis-Metadaten hinzu
+      const transactionsWithMetadata = result.result.map(tx => ({
+        ...tx,
+        dataSource: 'moralis_enhanced_complete',
+        fetchTimestamp: new Date().toISOString(),
+        
+        // NATIVE TOKEN HANDLING für ETH/PLS
+        ...(endpoint.includes('transactions') && !endpoint.includes('erc20') && !endpoint.includes('internal') ? {
+          token_symbol: chainConfig.name === 'Ethereum' ? 'ETH' : 'PLS',
+          token_name: chainConfig.name === 'Ethereum' ? 'Ethereum' : 'Pulse',
+          token_decimals: '18',
+          token_address: null, // Native tokens haben keine Contract Address
+          // Value bereits in wei, readable amount berechnen
+          readableAmount: tx.value ? 
+            (parseFloat(tx.value) / Math.pow(10, 18)).toLocaleString('de-DE', { 
+              minimumFractionDigits: 0, 
+              maximumFractionDigits: 8 
+            }) : 'N/A'
+        } : {}),
+        
+        // ERC20 READABLE AMOUNT (bereits aus stabiler Version)
+        ...(endpoint.includes('erc20') ? {
+          readableAmount: tx.value && tx.token_decimals ? 
+            (parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals))).toLocaleString('de-DE', { 
+              minimumFractionDigits: 0, 
+              maximumFractionDigits: 6 
+            }) : 'N/A'
+        } : {}),
+        
+        // INTERNAL TRANSACTION HANDLING
+        ...(endpoint.includes('internal') ? {
+          token_symbol: chainConfig.name === 'Ethereum' ? 'ETH' : 'PLS',
+          token_name: chainConfig.name === 'Ethereum' ? 'Ethereum Internal' : 'Pulse Internal',
+          token_decimals: '18',
+          token_address: null,
+          readableAmount: tx.value ? 
+            (parseFloat(tx.value) / Math.pow(10, 18)).toLocaleString('de-DE', { 
+              minimumFractionDigits: 0, 
+              maximumFractionDigits: 8 
+            }) : 'N/A'
+        } : {})
+      }));
+      
+      allData.push(...transactionsWithMetadata);
+      currentCursor = result.cursor;
+      pageCount++;
+      
+      console.log(`✅ Seite ${pageCount}: ${result.result.length} items, Total: ${allData.length}`);
+    } else {
+      console.log(`📄 Keine weiteren Daten auf Seite ${pageCount + 1}`);
+      break;
+    }
+    
+    // Konservatives Rate Limiting (aus stabiler Version)
+    await new Promise(resolve => setTimeout(resolve, 150));
+    
+  } while (currentCursor && pageCount < maxPages);
+  
+  console.log(`🔥 ${endpoint} PAGINATION KOMPLETT: ${allData.length} items über ${pageCount} Seiten`);
+  
+  return allData;
+}
+
+/**
  * 🇩🇪 DEUTSCHE STEUERREPORT API - STABILE FUNKTIONSFÄHIGE VERSION
  */
 export default async function handler(req, res) {
@@ -109,18 +191,17 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔥 MULTI-CHAIN: Lade BEIDE Chains - STABILE VERSION
+    // 🔥 ERWEITERTE MULTI-CHAIN ABFRAGE - ALLE DATENTYPEN
     const chains = [
       { id: '0x1', name: 'Ethereum' },
       { id: '0x171', name: 'PulseChain' }
     ];
-    
+
     let allTransactions = [];
-    
+
     for (const chainConfig of chains) {
-      console.log(`🔗 TAX: Loading ${chainConfig.name} (${chainConfig.id})...`);
+      console.log(`🔗 VOLLSTÄNDIGE ABFRAGE: ${chainConfig.name} (${chainConfig.id})...`);
       
-      // STABILE PARAMETER - KEINE EXPERIMENTE
       const moralisParams = { 
         chain: chainConfig.id,
         limit: Math.min(parseInt(limit) || 2000, 2000)
@@ -130,65 +211,35 @@ export default async function handler(req, res) {
       if (cursor) moralisParams.cursor = cursor;
       if (from_date) moralisParams.from_date = from_date;
       if (to_date) moralisParams.to_date = to_date;
-      
-      console.log(`🔧 TAX PAGE SIZE: Configured for ${moralisParams.limit} items per request on ${chainConfig.name}`);
 
-      // STABILE PAGINATION - BEWÄHRT
-      let chainTransactions = [];
-      let currentCursor = cursor;
-      let pageCount = 0;
-      const maxPages = 150; // Original bewährt
+      // 🚀 DATENTYP 1: ERC20 TRANSFERS
+      console.log(`📊 ${chainConfig.name}: Lade ERC20 Transfers...`);
+      let erc20Transactions = await fetchPaginatedData(`${address}/erc20/transfers`, moralisParams, chainConfig);
       
-      do {
-        if (currentCursor) moralisParams.cursor = currentCursor;
-        
-        console.log(`🚀 TAX FETCHING PAGE ${pageCount + 1}: ${address} on ${chainConfig.name}`);
-        
-        // NUR ERC20 TRANSFERS - STABIL UND BEWÄHRT
-        const erc20Result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
-        
-        if (erc20Result && erc20Result.result && erc20Result.result.length > 0) {
-          // MINIMALE METADATA - KEINE KOMPLEXEN OPERATIONS
-          const transactionsWithMetadata = erc20Result.result.map(tx => ({
-            ...tx,
-            chain: chainConfig.name,
-            chainId: chainConfig.id,
-            dataSource: 'moralis_stable_rollback_version',
-            
-            // EINFACHE READABLE AMOUNT
-            readableAmount: tx.value && tx.token_decimals ? 
-              (parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals))).toLocaleString('de-DE', { 
-                minimumFractionDigits: 0, 
-                maximumFractionDigits: 6 
-              }) : 'N/A',
-            
-            // PLATZHALTER FÜR PREISE (SPÄTER)
-            priceEUR: "0.00",
-            valueEUR: "0.00"
-          }));
-          
-          chainTransactions.push(...transactionsWithMetadata);
-          
-          currentCursor = erc20Result.cursor;
-          pageCount++;
-          
-          console.log(`✅ TAX PAGE ${pageCount}: ${erc20Result.result.length} transactions, Total: ${chainTransactions.length} on ${chainConfig.name}`);
-        } else {
-          console.log(`📄 TAX: No more data at page ${pageCount + 1} on ${chainConfig.name}`);
-          break;
-        }
-        
-        // KONSERVATIVES RATE LIMITING
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-      } while (currentCursor && pageCount < maxPages);
+      // 🚀 DATENTYP 2: NATIVE TRANSFERS (ETH/PLS)
+      console.log(`💎 ${chainConfig.name}: Lade Native Transfers...`);
+      let nativeTransactions = await fetchPaginatedData(`${address}/transactions`, moralisParams, chainConfig);
       
-      console.log(`🔥 TAX PAGINATION COMPLETE: ${chainTransactions.length} transactions across ${pageCount} pages on ${chainConfig.name}`);
-      
+      // 🚀 DATENTYP 3: INTERNAL TRANSACTIONS
+      console.log(`🔄 ${chainConfig.name}: Lade Internal Transactions...`);
+      let internalTransactions = await fetchPaginatedData(`${address}/internal-transactions`, moralisParams, chainConfig);
+
+      // 📋 ZUSAMMENFÜHRUNG mit Typ-Kennzeichnung
+      const chainTransactions = [
+        ...erc20Transactions.map(tx => ({ ...tx, transactionType: 'erc20', chain: chainConfig.name, chainId: chainConfig.id })),
+        ...nativeTransactions.map(tx => ({ ...tx, transactionType: 'native', chain: chainConfig.name, chainId: chainConfig.id })),
+        ...internalTransactions.map(tx => ({ ...tx, transactionType: 'internal', chain: chainConfig.name, chainId: chainConfig.id }))
+      ];
+
+      console.log(`✅ ${chainConfig.name} KOMPLETT: ${chainTransactions.length} Transaktionen`);
+      console.log(`   📊 ERC20: ${erc20Transactions.length}`);
+      console.log(`   💎 Native: ${nativeTransactions.length}`);
+      console.log(`   🔄 Internal: ${internalTransactions.length}`);
+
       allTransactions.push(...chainTransactions);
     }
-    
-    console.log(`🔥 TAX MULTI-CHAIN COMPLETE: ${allTransactions.length} total transactions (Ethereum + PulseChain)`);
+
+    console.log(`🔥 VOLLSTÄNDIGE WALLET-ABFRAGE KOMPLETT: ${allTransactions.length} ALLE Transaktionen`);
     
     if (allTransactions.length === 0) {
       console.warn(`⚠️ TAX NO TRANSFER DATA: Returning empty result for ${address}`);
@@ -250,29 +301,29 @@ export default async function handler(req, res) {
         isTaxable = true;
       }
 
-      // BEWÄHRTE DIRECTION LOGIC
+      // ERWEITERTE DIRECTION LOGIC - MIT TRANSAKTIONSTYPEN
       let finalDirection = 'unknown';
       let finalIcon = '❓';
-      
+
       if (taxCategory === 'sale_income') {
         finalDirection = 'in';
-        finalIcon = '📥 IN';
+        finalIcon = `📥 IN (${tx.transactionType?.toUpperCase() || 'UNKNOWN'})`;
       } else if (taxCategory === 'roi_income') {
         finalDirection = 'in';
-        finalIcon = '📥 IN';
+        finalIcon = `📥 ROI (${tx.transactionType?.toUpperCase() || 'UNKNOWN'})`;
       } else if (taxCategory === 'purchase') {
         finalDirection = 'out';
-        finalIcon = '📤 OUT';
+        finalIcon = `📤 OUT (${tx.transactionType?.toUpperCase() || 'UNKNOWN'})`;
       } else {
         if (isIncoming && !isOutgoing) {
           finalDirection = 'in';
-          finalIcon = '📥 IN';
+          finalIcon = `📥 IN (${tx.transactionType?.toUpperCase() || 'UNKNOWN'})`;
         } else if (isOutgoing && !isIncoming) {
           finalDirection = 'out';
-          finalIcon = '📤 OUT';
+          finalIcon = `📤 OUT (${tx.transactionType?.toUpperCase() || 'UNKNOWN'})`;
         } else {
           finalDirection = 'transfer';
-          finalIcon = '🔄 TRANSFER';
+          finalIcon = `🔄 TRANSFER (${tx.transactionType?.toUpperCase() || 'UNKNOWN'})`;
         }
       }
       
@@ -285,7 +336,8 @@ export default async function handler(req, res) {
         isROI: fromMinter || isROIToken,
         fromMinter,
         isROIToken,
-        gainsEUR: "0,00" // Platzhalter für später
+        priceEUR: "0.00", // Platzhalter für PRIORITÄT 2
+        valueEUR: "0.00"  // Platzhalter für PRIORITÄT 2
       };
     });
     
@@ -314,7 +366,7 @@ export default async function handler(req, res) {
       totalGainsEUR: "0,00",
       totalTaxEUR: "0,00",
       
-      status: "STABLE_ROLLBACK_VERSION_WORKING"
+      status: "ENHANCED_MULTI_CHAIN_VERSION"
     };
 
     return res.status(200).json({
@@ -323,13 +375,13 @@ export default async function handler(req, res) {
         transactions: categorizedTransactions,
         summary: summary,
         metadata: {
-          source: 'moralis_stable_rollback_success',
+          source: 'moralis_enhanced_complete_success',
           chains: chains.map(c => c.name),
           address: address,
           timestamp: new Date().toISOString(),
           count: categorizedTransactions.length,
-          status: 'STABLE_ROLLBACK_VERSION',
-          message: 'Zurück zu bewährter stabiler Version',
+          status: 'ENHANCED_MULTI_CHAIN_VERSION',
+          message: 'Erweiterte Multi-Chain-Abfrage mit allen Transaktionstypen',
           tax_categorization: {
             total: categorizedTransactions.length,
             roi_income: roiTransactions.length,
@@ -361,12 +413,12 @@ export default async function handler(req, res) {
           totalTaxEUR: "0,00"
         },
         metadata: {
-          source: 'moralis_stable_rollback_error',
+          source: 'moralis_enhanced_complete_error',
           error: error.message,
           timestamp: new Date().toISOString(),
-          debug: 'Rollback to stable version due to complexity issues'
+          debug: 'Enhanced multi-chain version error'
         }
       }
     });
   }
-} 
+}
