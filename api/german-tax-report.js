@@ -56,34 +56,33 @@ async function moralisFetch(endpoint, params = {}) {
 }
 
 /**
- * 🔥 KOMPLETT NEUE FUNCTION: Lädt ALLE Transaction-Typen
- * DAS IST DIE LÖSUNG FÜR DIE FEHLENDEN TRANSAKTIONEN!
+ * 🔥 KOMPLETT NEUE FUNCTION: Lädt ERC20 + Native ETH (nur für Ethereum)
+ * KONSERVATIVE ÄNDERUNG: Nur die wichtigsten Endpoints
  */
 async function loadCompleteTransactionHistory(address, chainConfig, baseParams) {
-  console.log(`🔥 COMPLETE LOADING: Starting for ${chainConfig.name} (${chainConfig.id})`);
+  console.log(`🔥 CONSERVATIVE LOADING: Starting for ${chainConfig.name} (${chainConfig.id})`);
   
-  // 📡 ALLE MORALIS ENDPOINTS FÜR VOLLSTÄNDIGE DATEN
+  // 📡 KONSERVATIVE ENDPOINTS: ERC20 + Native ETH (nur für Ethereum)
   const allEndpoints = [
     { 
       path: `${address}/erc20/transfers`, 
       type: 'erc20_transfers',
       description: 'ERC20 Token Transfers (IN + OUT)'
-    },
-    { 
-      path: `${address}`, 
-      type: 'native_transactions',
-      description: 'Native ETH/PLS Transactions'
-    },
-    { 
-      path: `${address}/verbose`, 
-      type: 'decoded_transactions',
-      description: 'Decoded Contract Interactions'
     }
   ];
   
+  // 🚀 NATIVE ETH: Nur für Ethereum hinzufügen
+  if (chainConfig.id === '0x1') {
+    allEndpoints.push({
+      path: `${address}`, 
+      type: 'native_transactions',
+      description: 'Native ETH Transactions (nur Ethereum)'
+    });
+  }
+  
   let allChainTransactions = [];
   
-  // 🔄 LADE JEDEN ENDPOINT KOMPLETT AB
+  // 🔄 LADE KONSERVATIVE ENDPOINTS
   for (const endpoint of allEndpoints) {
     console.log(`📡 LOADING: ${endpoint.description} for ${chainConfig.name}...`);
     
@@ -113,7 +112,7 @@ async function loadCompleteTransactionHistory(address, chainConfig, baseParams) 
           chain: chainConfig.name,
           chainId: chainConfig.id,
           endpointType: endpoint.type,
-          dataSource: 'moralis_complete_history',
+          dataSource: 'moralis_conservative_loading',
           loadedAt: new Date().toISOString()
         }));
         
@@ -141,10 +140,10 @@ async function loadCompleteTransactionHistory(address, chainConfig, baseParams) 
 }
 
 /**
- * 🇩🇪 DEUTSCHE STEUERREPORT API - VOLLSTÄNDIGE VERSION
+ * 🇩🇪 DEUTSCHE STEUERREPORT API - KONSERVATIVE VERSION
  */
 export default async function handler(req, res) {
-  console.log('🇩🇪 COMPLETE TAX API: Starting with FULL TRANSACTION LOADING');
+  console.log('🇩🇪 CONSERVATIVE TAX API: Starting with ERC20 + Native ETH loading');
   
   try {
     // Enable CORS - ✅ UNVERÄNDERT
@@ -177,13 +176,13 @@ export default async function handler(req, res) {
       to_date
     } = params;
 
-    console.log('🇩🇪 COMPLETE TAX PARAMS:', { 
+    console.log('🇩🇪 CONSERVATIVE TAX PARAMS:', { 
       chain, 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
       limit,
       hasCursor: !!cursor,
       hasDateRange: !!(from_date && to_date),
-      solution: 'COMPLETE_TRANSACTION_LOADING'
+      solution: 'CONSERVATIVE_ERC20_NATIVE_LOADING'
     });
 
     if (!address) {
@@ -202,9 +201,9 @@ export default async function handler(req, res) {
     
     let allTransactions = [];
     
-    // 🔄 COMPLETE: Use new complete transaction loading
+    // 🔄 CONSERVATIVE: Use conservative transaction loading
     for (const chainConfig of chains) {
-      console.log(`🔗 COMPLETE LOADING: Processing ${chainConfig.name} (${chainConfig.id}) with full transaction history...`);
+      console.log(`🔗 CONSERVATIVE LOADING: Processing ${chainConfig.name} (${chainConfig.id}) with ERC20 + Native ETH...`);
       
       // Build base Moralis API parameters
       const baseParams = { 
@@ -215,17 +214,17 @@ export default async function handler(req, res) {
       if (from_date) baseParams.from_date = from_date;
       if (to_date) baseParams.to_date = to_date;
       
-      // 🔥 NEW: Use complete transaction history loading
+      // 🔥 NEW: Use conservative transaction loading
       const chainTransactions = await loadCompleteTransactionHistory(address, chainConfig, baseParams);
       
-      console.log(`🔥 COMPLETE: ${chainConfig.name} complete loading finished: ${chainTransactions.length} total transactions`);
+      console.log(`🔥 CONSERVATIVE: ${chainConfig.name} conservative loading finished: ${chainTransactions.length} total transactions`);
       allTransactions.push(...chainTransactions);
     }
     
-    console.log(`🎯 COMPLETE MULTI-CHAIN FINISHED: ${allTransactions.length} total transactions (Ethereum + PulseChain) from ALL endpoints`);
+    console.log(`🎯 CONSERVATIVE MULTI-CHAIN FINISHED: ${allTransactions.length} total transactions (Ethereum + PulseChain) from ERC20 + Native ETH`);
     
     if (allTransactions.length === 0) {
-      console.warn(`⚠️ COMPLETE: No transaction data found for ${address} across all endpoints`);
+      console.warn(`⚠️ CONSERVATIVE: No transaction data found for ${address} across ERC20 + Native ETH endpoints`);
       return res.status(200).json({
         success: true,
         taxReport: {
@@ -239,11 +238,11 @@ export default async function handler(req, res) {
             totalTaxEUR: 0
           },
           metadata: {
-            source: 'moralis_complete_transaction_loading_empty',
-            message: 'No transaction data available on any chain or endpoint',
+            source: 'moralis_conservative_loading_empty',
+            message: 'No transaction data available on ERC20 + Native ETH endpoints',
             walletAddress: address,
             chainsChecked: chains.map(c => c.name),
-            endpointsChecked: ['erc20/transfers', 'native_transactions', 'decoded_transactions']
+            endpointsChecked: ['erc20/transfers', 'native_transactions']
           }
         }
       });
@@ -300,18 +299,17 @@ export default async function handler(req, res) {
       };
     });
     
-    console.log(`✅ COMPLETE TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting from ALL endpoints`);
+    console.log(`✅ CONSERVATIVE TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting from ERC20 + Native ETH`);
 
     // Calculate German tax summary - ✅ UNVERÄNDERT
     const roiTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income');
     const saleTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'sale_income');
     const purchaseTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'purchase');
 
-    // 📊 COMPLETE SUMMARY: Add endpoint breakdown
+    // 📊 CONSERVATIVE SUMMARY: Add endpoint breakdown
     const endpointBreakdown = {
       erc20_transfers: categorizedTransactions.filter(tx => tx.endpointType === 'erc20_transfers').length,
-      native_transactions: categorizedTransactions.filter(tx => tx.endpointType === 'native_transactions').length,
-      decoded_transactions: categorizedTransactions.filter(tx => tx.endpointType === 'decoded_transactions').length
+      native_transactions: categorizedTransactions.filter(tx => tx.endpointType === 'native_transactions').length
     };
 
     const summary = {
@@ -331,13 +329,13 @@ export default async function handler(req, res) {
         transactions: categorizedTransactions,
         summary: summary,
         metadata: {
-          source: 'moralis_complete_transaction_loading_success',
+          source: 'moralis_conservative_loading_success',
           chain: chains.map(c => c.name).join(' + '),
           address: address,
           timestamp: new Date().toISOString(),
           count: transferCount,
-          solution: 'COMPLETE_TRANSACTION_LOADING',
-          endpointsUsed: ['erc20/transfers', 'native_transactions', 'decoded_transactions'],
+          solution: 'CONSERVATIVE_ERC20_NATIVE_LOADING',
+          endpointsUsed: ['erc20/transfers', 'native_transactions'],
           endpointBreakdown,
           tax_categorization: {
             total: transferCount,
@@ -352,7 +350,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('💥 COMPLETE TAX API CRITICAL ERROR:', error);
+    console.error('💥 CONSERVATIVE TAX API CRITICAL ERROR:', error);
     console.error('💥 ERROR STACK:', error.stack);
     
     // Return graceful error response to prevent tax report crash
@@ -367,14 +365,14 @@ export default async function handler(req, res) {
           totalROIValueEUR: 0,
           totalSaleValueEUR: 0,
           totalTaxEUR: 0,
-          endpointBreakdown: { erc20_transfers: 0, native_transactions: 0, decoded_transactions: 0 }
+          endpointBreakdown: { erc20_transfers: 0, native_transactions: 0 }
         },
         metadata: {
-          source: 'moralis_complete_transaction_loading_error',
+          source: 'moralis_conservative_loading_error',
           error: error.message,
           timestamp: new Date().toISOString(),
           debug: 'Check server logs for details',
-          solution: 'COMPLETE_TRANSACTION_LOADING'
+          solution: 'CONSERVATIVE_ERC20_NATIVE_LOADING'
         }
       }
     });
