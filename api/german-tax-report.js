@@ -210,10 +210,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔗 MULTI-CHAIN: Ethereum + PulseChain
+    // 🔗 MULTI-CHAIN: Ethereum + PulseChain mit alternativen IDs
     const chains = [
       { id: '0x1', name: 'Ethereum', shortName: 'ETH' },
-      { id: '0x171', name: 'PulseChain', shortName: 'PLS' }
+      { id: 'eth', name: 'Ethereum Alt', shortName: 'ETH2' },
+      { id: '369', name: 'PulseChain', shortName: 'PLS' },
+      { id: 'pulsechain', name: 'PulseChain Alt', shortName: 'PLS2' }
     ];
     
     let allTransactions = [];
