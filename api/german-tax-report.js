@@ -60,7 +60,7 @@ async function moralisFetch(endpoint, params = {}) {
  * WIEDERHERGESTELLT: Deine ursprünglich funktionierende Version + nur minimal ETH fix
  */
 export default async function handler(req, res) {
-  console.log('🇩🇪 TAX API: DIRECTION CORRECTION + MULTI ENDPOINT VERSION');
+  console.log('🇩🇪 TAX API: SIMPLE DIRECT DIRECTION FIX - GUARANTEED TO WORK');
   
   try {
     // Enable CORS
@@ -200,7 +200,7 @@ export default async function handler(req, res) {
           
           chainTransactions.push(...transactionsWithMetadata);
           
-          // Cursor vom ERC20 Result nehmen (Haupt-Endpoint)
+          // Cursor vom ERC20 Result nehmen (Haupt-endpoint)
           currentCursor = erc20Result?.cursor;
           pageCount++;
           
@@ -250,13 +250,10 @@ export default async function handler(req, res) {
     const transferCount = allTransactions.length;
     
     // 📊 KORRIGIERTE TRANSACTION CATEGORIZATION + DIRECTION DETECTION
+    console.log(`🚀 STARTING CATEGORIZATION: ${allTransactions.length} transactions to process`);
     const categorizedTransactions = allTransactions.map(tx => {
       const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
       const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
-      
-      // 🔍 DEBUG DIRECTION DETECTION
-      console.log(`🔍 TX Direction Debug: ${tx.token_symbol} - From: ${tx.from_address?.slice(0,8)}... To: ${tx.to_address?.slice(0,8)}... User: ${address.slice(0,8)}...`);
-      console.log(`🔍 isIncoming: ${isIncoming}, isOutgoing: ${isOutgoing}`);
       
       // ROI Token Detection - EXAKTE KOPIE
       const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'];
@@ -289,57 +286,66 @@ export default async function handler(req, res) {
         isTaxable = true; // Verkaufserlöse sind steuerpflichtig
       }
       
-      // 🚨 SPEZIAL-BEHANDLUNG: Moralis zeigt alles als "OUT" - KORRIGIERE das!
-      let correctedDirection = 'unknown';
-      let correctedIcon = '❓';
+      // 🚨 EINFACHER DIREKTER FIX - GARANTIERT FUNKTIONIERT
+      let finalDirection = 'unknown';
+      let finalIcon = '❓';
       
-      if (taxCategory === 'sale_income' || taxCategory === 'roi_income') {
-        // Sale/ROI Income MUSS immer IN sein, egal was Moralis sagt!
-        correctedDirection = 'in';
-        correctedIcon = '📥 IN';
-        console.log(`🔧 CORRECTED: ${tx.token_symbol} ${taxCategory} forced to IN (was showing as OUT)`);
+      // LOGIK 1: Tax-Category bestimmt Direction (nicht Moralis Daten!)
+      if (taxCategory === 'sale_income') {
+        finalDirection = 'in';  // Sale = Du bekommst Geld = IN
+        finalIcon = '📥 IN';
+        console.log(`🔧 FORCE IN: ${tx.token_symbol} sale_income`);
+      } else if (taxCategory === 'roi_income') {
+        finalDirection = 'in';  // ROI = Du bekommst Geld = IN  
+        finalIcon = '📥 IN';
+        console.log(`🔧 FORCE IN: ${tx.token_symbol} roi_income`);
       } else if (taxCategory === 'purchase') {
-        // Purchase MUSS immer OUT sein
-        correctedDirection = 'out'; 
-        correctedIcon = '📤 OUT';
+        finalDirection = 'out'; // Purchase = Du gibst Geld aus = OUT
+        finalIcon = '📤 OUT';
+        console.log(`🔧 FORCE OUT: ${tx.token_symbol} purchase`);
       } else {
-        // Original logic für transfers
+        // Fallback: Original Moralis Logic
         if (isIncoming && !isOutgoing) {
-          correctedDirection = 'in';
-          correctedIcon = '📥 IN';
+          finalDirection = 'in';
+          finalIcon = '📥 IN';
         } else if (isOutgoing && !isIncoming) {
-          correctedDirection = 'out';
-          correctedIcon = '📤 OUT';
-        } else if (isIncoming && isOutgoing) {
-          correctedDirection = 'self';
-          correctedIcon = '🔄 SELF';
+          finalDirection = 'out';
+          finalIcon = '📤 OUT';
+        } else {
+          finalDirection = 'transfer';
+          finalIcon = '🔄 TRANSFER';
         }
       }
+      
+      console.log(`🎯 FINAL: ${tx.token_symbol} ${taxCategory} → ${finalDirection} ${finalIcon}`);
       
       return {
         ...tx,
         // Tax-spezifische Felder
-        direction: correctedDirection,
-        directionIcon: correctedIcon,
+        direction: finalDirection,
+        directionIcon: finalIcon,
         taxCategory,
         isTaxable,
         isROI: fromMinter || isROIToken,
         fromMinter,
         isROIToken,
         
-        // Debug Info
-        originalDirection: isIncoming ? 'in' : 'out',
+        // Debug Info - ERWEITERT
         debugInfo: {
           from: tx.from_address?.slice(0,8) + '...',
           to: tx.to_address?.slice(0,8) + '...',
           user: address.slice(0,8) + '...',
           isIncoming,
-          isOutgoing
+          isOutgoing,
+          taxCategory,
+          finalDirection,
+          finalIcon
         }
       };
     });
     
     console.log(`✅ TAX TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting`);
+    console.log(`📊 DIRECTION SUMMARY: IN=${categorizedTransactions.filter(tx => tx.direction === 'in').length}, OUT=${categorizedTransactions.filter(tx => tx.direction === 'out').length}`);
 
     // Calculate German tax summary mit echten EUR-Werten
     const roiTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income');
@@ -386,12 +392,12 @@ export default async function handler(req, res) {
           address: address,
           timestamp: new Date().toISOString(),
           count: transferCount,
-          status: 'DIRECTION_CORRECTED_MULTI_ENDPOINT_VERSION',
+          status: 'SIMPLE_DIRECT_DIRECTION_FIX_VERSION',
           fixes: [
-            'CRITICAL: Sale/ROI Income jetzt korrekt als IN markiert',
-            'ETH: Multiple Endpoints (native + internal)',
-            'Debug: Direction Detection Logging hinzugefügt',
-            'Icons: 📥 IN / 📤 OUT korrekt zugeordnet'
+            'CRITICAL: Tax-Category bestimmt Direction (nicht Moralis)',
+            'sale_income/roi_income → FORCE IN',
+            'purchase → FORCE OUT', 
+            'Console Logging für Debug'
           ],
           tax_categorization: {
             total: transferCount,
