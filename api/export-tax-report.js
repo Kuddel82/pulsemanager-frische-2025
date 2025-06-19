@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         address: wallet,
         chain: 'all',
-        limit: 2000
+        limit: 300000
       })
     });
 

@@ -623,7 +623,7 @@ export class CentralDataService {
   // 💰 ENTERPRISE FEATURES DISABLED FOR COST REDUCTION
   // All Enterprise API calls disabled to reduce Moralis costs by 80-90%
 
-  static async loadWalletHistoryVerbose(wallets, limit = 100) {
+  static async loadWalletHistoryVerbose(wallets, limit = 300000) {
     console.log(`💰 PRO MODE: Enterprise features disabled for cost reduction`);
     return { transactions: [], totalApiCalls: 0, source: 'enterprise_disabled' };
   }
@@ -638,7 +638,7 @@ export class CentralDataService {
     return { netWorthData: [], totalNetWorth: 0, totalApiCalls: 0, source: 'enterprise_disabled' };
   }
 
-  static async loadTokenTransfersEnhanced(wallets, limit = 100) {
+  static async loadTokenTransfersEnhanced(wallets, limit = 300000) {
     console.log(`💰 PRO MODE: Enterprise features disabled for cost reduction`);
     return { transfers: [], roiTransfersFound: 0, totalApiCalls: 0, source: 'enterprise_disabled' };
   }

@@ -374,7 +374,7 @@ export class MoralisV2Service {
       const [historyResult, portfolioResult] = await Promise.all([
         this.getCompleteHistory(address, chain, { 
           getAllPages: true, // Tax needs all transactions
-          limit: 100
+          limit: 300000 // 🔥 ERHÖHT: 300.000 Transaktionen für Tax Reports!
         }),
         this.getPortfolioNetWorth(address, chain)
       ]);

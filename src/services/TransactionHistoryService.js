@@ -38,7 +38,7 @@ export class TransactionHistoryService {
    * @param {number} limit - Max transactions to fetch
    * @returns {Promise<Object>} Transaction history data
    */
-  static async getTransactionHistory(walletAddress, chain = 'eth', limit = 100) {
+  static async getTransactionHistory(walletAddress, chain = 'eth', limit = 300000) {
     if (!walletAddress || !this.SUPPORTED_CHAINS.includes(chain)) {
       throw new Error('Invalid wallet address or unsupported chain');
     }

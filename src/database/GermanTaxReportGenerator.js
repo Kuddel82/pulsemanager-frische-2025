@@ -380,7 +380,7 @@ class GermanTaxReportGenerator {
         let yPos = 80;
         const transactions = reportData.taxCalculations.transactions || [];
 
-        for (const tx of transactions.slice(0, 50)) { // Limit für PDF
+        for (const tx of transactions.slice(0, 1000)) { // 🔥 ERHÖHT: 1000 Transaktionen für PDF!
             if (yPos > 700) {
                 doc.addPage();
                 yPos = 50;
@@ -393,8 +393,8 @@ class GermanTaxReportGenerator {
             yPos += 15;
         }
 
-        if (transactions.length > 50) {
-            doc.text(`... und ${transactions.length - 50} weitere Transaktionen`, 50, yPos + 20);
+        if (transactions.length > 1000) {
+            doc.text(`... und ${transactions.length - 1000} weitere Transaktionen`, 50, yPos + 20);
         }
     }
 
