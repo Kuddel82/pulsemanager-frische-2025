@@ -318,248 +318,260 @@ export class CentralDataService {
 
     for (const wallet of wallets) {
       try {
-        const chainId = wallet.chain_id || 369;
-        const chain = this.getChainConfig(chainId);
+        // 🔥 FIX: Lade IMMER beide Chains für jede Wallet!
+        const chainsToLoad = [
+          { id: 1, name: 'Ethereum', moralisChainId: '0x1', nativeSymbol: 'ETH' },
+          { id: 369, name: 'PulseChain', moralisChainId: '0x171', nativeSymbol: 'PLS' }
+        ];
         
-        // 🚀 SCHRITT 1: Wallet Tokens via Moralis laden (nur Balances!)
-        console.log(`📊 TOKENS: Loading balances for ${wallet.address.slice(0,8)}... on ${chain.name}`);
+        console.log(`🔍 MULTI-CHAIN: Loading ${wallet.address.slice(0,8)}... on BOTH chains (ETH + PLS)`);
         
-        const tokensResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=erc20`);
-        apiCallsUsed++;
-        
-        if (!tokensResponse.ok) {
-          console.error(`⚠️ TOKENS: Failed to load for ${wallet.address}: ${tokensResponse.status}`);
-          continue;
-        }
-        
-        const tokensData = await tokensResponse.json();
-        let rawTokens = tokensData.result || [];
-        
-        // 🚀 SCHRITT 1.5: Native Token hinzufügen (ETH, PLS) - REPARIERT
-        try {
-          console.log(`🔍 NATIVE CHECK: Loading native balance for ${chain.name} (${chainId})`);
-          
-          // 🎯 VERBESSERTE NATIVE BALANCE LOGIK
-          let nativeBalance = '0';
-          let nativeSymbol = chain.nativeSymbol || 'NATIVE';
-          let nativeName = chain.name || 'Native Token';
-          
-          if (chainId === 1 || chainId === '1' || chainId === '0x1') {
-            // Ethereum: Verwende Etherscan als Backup
-            try {
-              const etherscanResponse = await fetch(`https://api.etherscan.io/api?module=account&action=balance&address=${wallet.address}&tag=latest`);
-              if (etherscanResponse.ok) {
-                const etherscanData = await etherscanResponse.json();
-                if (etherscanData.status === '1') {
-                  nativeBalance = etherscanData.result;
-                  nativeSymbol = 'ETH';
-                  nativeName = 'Ethereum';
-                  console.log(`✅ ETHERSCAN NATIVE: ${parseFloat(nativeBalance) / 1e18} ETH`);
-                }
-              }
-            } catch (etherscanError) {
-              console.warn(`⚠️ ETHERSCAN FALLBACK: ${etherscanError.message}`);
-            }
-          } else if (chainId === 369 || chainId === '369' || chainId === '0x171') {
-            // PulseChain: Verwende Moralis direkt
-            try {
-              const nativeResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=pulsechain&endpoint=native-balance`);
-              apiCallsUsed++;
-              
-              if (nativeResponse.ok) {
-                const nativeData = await nativeResponse.json();
-                nativeBalance = nativeData.balance || '0';
-                nativeSymbol = 'PLS';
-                nativeName = 'PulseChain';
-                console.log(`✅ MORALIS NATIVE: ${parseFloat(nativeBalance) / 1e18} PLS`);
-              }
-            } catch (moralisError) {
-              console.warn(`⚠️ MORALIS NATIVE: ${moralisError.message}`);
-            }
-          }
-          
-          const balanceValue = parseFloat(nativeBalance);
-          
-          if (balanceValue > 0) {
-            const nativeToken = {
-              token_address: 'native',
-              symbol: nativeSymbol,
-              name: nativeName,
-              decimals: 18,
-              balance: nativeBalance
-            };
+        for (const chain of chainsToLoad) {
+          try {
+            console.log(`📊 TOKENS: Loading balances for ${wallet.address.slice(0,8)}... on ${chain.name} (${chain.id})`);
             
-            rawTokens.unshift(nativeToken); // Native Token an den Anfang
-            console.log(`✅ NATIVE ADDED: ${nativeToken.symbol} (${nativeToken.name}) with balance ${balanceValue / 1e18} on chain ${chainId}`);
-          } else {
-            console.log(`⚪ NATIVE SKIP: Zero balance for ${chain.name} (${chainId})`);
-          }
-        } catch (nativeError) {
-          console.error(`💥 NATIVE ERROR: Could not load native balance for ${chain.name} - ${nativeError.message}`);
-        }
-        
-        console.log(`✅ TOKENS: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)} (incl. native)`);
-        
-        // 🔍 DEBUG: Liste aller geladenen Token anzeigen
-        if (rawTokens.length > 0) {
-          console.log(`🔍 ALL LOADED TOKENS for ${wallet.address.slice(0, 8)}:`);
-          rawTokens.forEach((token, index) => {
-            const balance = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-            console.log(`  ${index + 1}. ${token.symbol} (${token.token_address}) - Balance: ${balance.toLocaleString()}`);
-          });
-          
-          // 🔍 WGEP SPECIFIC: Suche nach WGEP oder ähnlichen Token
-          const wgepLike = rawTokens.filter(token => 
-            token.symbol?.toUpperCase().includes('WG') || 
-            token.name?.toUpperCase().includes('WGEP') ||
-            token.name?.toUpperCase().includes('GREEN') ||
-            token.token_address?.toLowerCase() === '0xfca88920ca5639ad5e954ea776e73dec54fdc065' || // WGEP Contract
-            token.symbol?.includes('🖨️') // WGEP Printer Emoji
-          );
-          
-          if (wgepLike.length > 0) {
-            console.log(`🔍 WGEP-LIKE TOKENS FOUND:`, wgepLike.map(t => `${t.symbol} (${t.token_address})`));
-          } else {
-            console.warn(`⚠️ NO WGEP-LIKE TOKENS found in ${rawTokens.length} tokens for ${wallet.address.slice(0, 8)}`);
-          }
-        }
-        
-        // 🚀 SCHRITT 2: Preise über TokenPricingService strukturiert laden
-        if (rawTokens.length > 0) {
-          // Vorbereite Token-Array für Pricing-Service
-          const tokensForPricing = rawTokens.map(token => ({
-            address: token.token_address,
-            symbol: token.symbol,
-            chain: chain.moralisChainId || '0x171'
-          }));
-          
-          console.log(`🎯 PRICING: Loading DIRECT MORALIS prices for ${tokensForPricing.length} tokens`);
-          
-          // 🚀 ZURÜCK ZU DIREKTEN MORALIS-AUFRUFEN (wie früher)
-          const pricesData = await this.loadTokenPricesMoralisOnly(tokensForPricing);
-          
-          // 🚀 SCHRITT 3: Token-Processing ohne willkürliche Blockierungen
-          const processedTokens = rawTokens.map((token) => {
+            // 🚀 SCHRITT 1: Wallet Tokens via Moralis laden (nur Balances!)
+            const tokensResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=${chain.name.toLowerCase()}&endpoint=erc20`);
+            apiCallsUsed++;
+            
+            if (!tokensResponse.ok) {
+              console.error(`⚠️ TOKENS: Failed to load for ${wallet.address} on ${chain.name}: ${tokensResponse.status}`);
+              continue;
+            }
+            
+            const tokensData = await tokensResponse.json();
+            let rawTokens = tokensData.result || [];
+            
+            // 🚀 SCHRITT 1.5: Native Token hinzufügen (ETH, PLS) - REPARIERT
             try {
-              // Token-Balance berechnen
-              const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
-              const tokenAddress = token.token_address?.toLowerCase();
-              const tokenSymbol = token.symbol?.toUpperCase();
+              console.log(`🔍 NATIVE CHECK: Loading native balance for ${chain.name} (${chain.id})`);
               
-              console.log(`📊 PROCESSING: ${tokenSymbol} = ${balanceReadable.toLocaleString()} tokens (${tokenAddress})`);
+              // 🎯 VERBESSERTE NATIVE BALANCE LOGIK
+              let nativeBalance = '0';
+              let nativeSymbol = chain.nativeSymbol;
+              let nativeName = chain.name;
               
-              // 🚨 CRITICAL: Block falschen DOMINANCE Token - VERSTÄRKT
-              if (tokenSymbol === 'DOMINANCE') {
-                if (tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea') {
-                  console.error(`🚨 BLOCKED FAKE DOMINANCE: ${tokenAddress} - Only 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea allowed`);
-                  console.error(`🚨 FAKE DOMINANCE DETAILS: Symbol: ${tokenSymbol}, Address: ${tokenAddress}, Balance: ${balanceReadable}`);
-                  return null; // BLOCKIERE komplett
-                } else {
-                  console.log(`✅ REAL DOMINANCE APPROVED: ${tokenAddress}`);
+              if (chain.id === 1) {
+                // Ethereum: Verwende Moralis direkt (nicht Etherscan!)
+                try {
+                  const nativeResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=eth&endpoint=native-balance`);
+                  apiCallsUsed++;
+                  
+                  if (nativeResponse.ok) {
+                    const nativeData = await nativeResponse.json();
+                    nativeBalance = nativeData.balance || '0';
+                    nativeSymbol = 'ETH';
+                    nativeName = 'Ethereum';
+                    console.log(`✅ MORALIS ETH NATIVE: ${parseFloat(nativeBalance) / 1e18} ETH`);
+                  }
+                } catch (moralisError) {
+                  console.warn(`⚠️ MORALIS ETH NATIVE: ${moralisError.message}`);
+                }
+              } else if (chain.id === 369) {
+                // PulseChain: Verwende Moralis direkt
+                try {
+                  const nativeResponse = await fetch(`/api/moralis-v2?address=${wallet.address}&chain=pulsechain&endpoint=native-balance`);
+                  apiCallsUsed++;
+                  
+                  if (nativeResponse.ok) {
+                    const nativeData = await nativeResponse.json();
+                    nativeBalance = nativeData.balance || '0';
+                    nativeSymbol = 'PLS';
+                    nativeName = 'PulseChain';
+                    console.log(`✅ MORALIS NATIVE: ${parseFloat(nativeBalance) / 1e18} PLS`);
+                  }
+                } catch (moralisError) {
+                  console.warn(`⚠️ MORALIS NATIVE: ${moralisError.message}`);
                 }
               }
               
-              // 🚨 ADDITIONAL: Block specific fake addresses
-              const BLOCKED_ADDRESSES = [
-                '0x64bab8470043748014318b075685addaa1f22a87', // Fake DOMINANCE
-                '0x64bab8470043748014318b075685addaa1f22a88', // Possible variants
-                '0x64bab8470043748014318b075685addaa1f22a89'  // Possible variants
-              ];
+              const balanceValue = parseFloat(nativeBalance);
               
-              if (BLOCKED_ADDRESSES.includes(tokenAddress)) {
-                console.error(`🚨 BLOCKED FAKE TOKEN: ${tokenSymbol} (${tokenAddress}) - Address in blocklist`);
-                return null;
-              }
-              
-              // Skip Zero-Balance Tokens
-              if (balanceReadable === 0) {
-                console.log(`⚪ SKIPPING: ${tokenSymbol} has zero balance`);
-                return null;
-              }
-              
-              // Hole strukturierte Preis-Daten
-              const priceData = pricesData[tokenAddress] || {};
-              let finalPrice = priceData.final || 0; // 🔧 FIX: let statt const für Überschreibung
-              const priceSource = priceData.source || 'no_price';
-              // 🔧 FIXED: Lockere Preis-Validierung - Preis > 0 ist ausreichend
-              const isReliable = finalPrice > 0 && priceSource !== 'no_price' && priceSource !== 'unknown';
-              
-              let totalUsd = balanceReadable * finalPrice; // 🔧 FIX: let statt const für Überschreibung
-              
-              // 📈 DEBUG: Log alle Token mit Werten über $100
-              if (totalUsd > 100) {
-                console.log(`💎 HIGH VALUE: ${tokenSymbol} - Balance: ${balanceReadable.toLocaleString()}, Price: $${finalPrice} (${priceSource}), Value: $${totalUsd.toLocaleString()}`);
-              }
-              
-              // 🔍 DEBUG: Log ALLE Token für bessere Diagnose
-              if (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP' || tokenSymbol.includes('WG') || 
-                  tokenAddress === '0xfca88920ca5639ad5e954ea776e73dec54fdc065' || 
-                  tokenAddress === 'native') {
-                console.log(`🔍 DEBUG TOKEN: ${tokenSymbol} - Balance: ${balanceReadable}, Price: $${finalPrice}, Value: $${totalUsd}, Source: ${priceSource}`);
-              }
-              
-              // 🚨 CRITICAL ETH PRICE FIX: Use the real-time prices that were already loaded
-              if (tokenSymbol === 'ETH' && totalUsd > 200000) {
-                console.error(`🚨 ETH PRICE ERROR: Calculated $${totalUsd.toLocaleString()} - Using real ETH price from structured pricing`);
-                console.error(`🚨 ETH DEBUG: Balance=${balanceReadable}, Price=${finalPrice}, Calculation=${balanceReadable}*${finalPrice}=${totalUsd}`);
+              if (balanceValue > 0) {
+                const nativeToken = {
+                  token_address: 'native',
+                  symbol: nativeSymbol,
+                  name: nativeName,
+                  decimals: 18,
+                  balance: nativeBalance
+                };
                 
-                // Use structured pricing real ETH price (which loads live from Moralis)
-                const correctedPrice = finalPrice > 100 && finalPrice < 10000 ? finalPrice : 2400; // Trust Moralis if reasonable
-                const correctedValue = balanceReadable * correctedPrice;
-                console.log(`🔧 ETH CORRECTED: $${correctedValue.toFixed(2)} (was $${totalUsd.toLocaleString()}) using price $${correctedPrice}`);
-                
-                // Override the calculated values
-                finalPrice = correctedPrice;
-                totalUsd = correctedValue;
+                rawTokens.unshift(nativeToken); // Native Token an den Anfang
+                console.log(`✅ NATIVE ADDED: ${nativeToken.symbol} (${nativeToken.name}) with balance ${balanceValue / 1e18} on chain ${chain.id}`);
+              } else {
+                console.log(`⚪ NATIVE SKIP: Zero balance for ${chain.name} (${chain.id})`);
               }
-              
-              // 🚨 CRITICAL: Mindest-Wert Filter zu strikt?
-              const MIN_VALUE_FOR_DISPLAY = 0.01;
-              const shouldInclude = totalUsd >= MIN_VALUE_FOR_DISPLAY;
-              
-              if (!shouldInclude && (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP')) {
-                console.warn(`⚠️ FILTERED OUT: ${tokenSymbol} ($${totalUsd}) below minimum $${MIN_VALUE_FOR_DISPLAY}`);
-              }
-              
-              // 🔧 TOKEN NAME FALLBACK - Repariert "Unknown Token" Problem
-              const tokenName = token.name || 
-                               priceData.name || 
-                               this.getKnownTokenName(tokenAddress, tokenSymbol) || 
-                               `${tokenSymbol} Token` || 
-                               'Unknown Token';
-              
-              return {
-                symbol: token.symbol,
-                name: tokenName,
-                contractAddress: token.token_address,
-                decimals: token.decimals,
-                balance: balanceReadable,
-                price: finalPrice, // Kann durch ETH-Fix überschrieben werden
-                total_usd: totalUsd, // Kann durch ETH-Fix überschrieben werden
-                value: totalUsd, // Kann durch ETH-Fix überschrieben werden
-                hasReliablePrice: isReliable,
-                priceSource: this.getPriceSourceDisplay(priceData.source || 'unknown', finalPrice),
-                isIncludedInPortfolio: totalUsd > 0.01,
-                walletAddress: wallet.address,
-                chainId: chainId,
-                source: 'structured_pricing_service',
-                _rawBalance: token.balance,
-                _rawDecimals: token.decimals,
-                _priceData: priceData, // Vollständige Preis-Informationen
-                _ethFixed: tokenSymbol === 'ETH' && totalUsd !== (balanceReadable * (priceData.final || 0)) // ETH Fix angewendet
-              };
-              
-            } catch (tokenError) {
-              console.error(`💥 TOKEN PROCESSING ERROR: ${token.symbol} - ${tokenError.message}`);
-              return null;
+            } catch (nativeError) {
+              console.error(`💥 NATIVE ERROR: Could not load native balance for ${chain.name} - ${nativeError.message}`);
             }
-          }).filter(Boolean); // Entferne null-Werte
-          
-          allTokens.push(...processedTokens);
-          console.log(`✅ PROCESSED: ${processedTokens.length} tokens for ${wallet.address.slice(0, 8)}`);
-          
-        } else {
-          console.log(`⚪ NO TOKENS: ${wallet.address.slice(0, 8)} has no tokens`);
+            
+            console.log(`✅ TOKENS: ${rawTokens.length} tokens found for ${wallet.address.slice(0, 8)} on ${chain.name} (incl. native)`);
+            
+            // 🔍 DEBUG: Liste aller geladenen Token anzeigen
+            if (rawTokens.length > 0) {
+              console.log(`🔍 ALL LOADED TOKENS for ${wallet.address.slice(0, 8)} on ${chain.name}:`);
+              rawTokens.forEach((token, index) => {
+                const balance = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+                console.log(`  ${index + 1}. ${token.symbol} (${token.token_address}) - Balance: ${balance.toLocaleString()}`);
+              });
+              
+              // 🔍 WGEP SPECIFIC: Suche nach WGEP oder ähnlichen Token
+              const wgepLike = rawTokens.filter(token => 
+                token.symbol?.toUpperCase().includes('WG') || 
+                token.name?.toUpperCase().includes('WGEP') ||
+                token.name?.toUpperCase().includes('GREEN') ||
+                token.token_address?.toLowerCase() === '0xfca88920ca5639ad5e954ea776e73dec54fdc065' || // WGEP Contract
+                token.symbol?.includes('🖨️') // WGEP Printer Emoji
+              );
+              
+              if (wgepLike.length > 0) {
+                console.log(`🔍 WGEP-LIKE TOKENS FOUND on ${chain.name}:`, wgepLike.map(t => `${t.symbol} (${t.token_address})`));
+              } else {
+                console.warn(`⚠️ NO WGEP-LIKE TOKENS found in ${rawTokens.length} tokens for ${wallet.address.slice(0, 8)} on ${chain.name}`);
+              }
+            }
+            
+            // 🚀 SCHRITT 2: Preise über TokenPricingService strukturiert laden
+            if (rawTokens.length > 0) {
+              // Vorbereite Token-Array für Pricing-Service
+              const tokensForPricing = rawTokens.map(token => ({
+                address: token.token_address,
+                symbol: token.symbol,
+                chain: chain.moralisChainId
+              }));
+              
+              console.log(`🎯 PRICING: Loading DIRECT MORALIS prices for ${tokensForPricing.length} tokens on ${chain.name}`);
+              
+              // 🚀 ZURÜCK ZU DIREKTEN MORALIS-AUFRUFEN (wie früher)
+              const pricesData = await this.loadTokenPricesMoralisOnly(tokensForPricing);
+              
+              // 🚀 SCHRITT 3: Token-Processing ohne willkürliche Blockierungen
+              const processedTokens = rawTokens.map((token) => {
+                try {
+                  // Token-Balance berechnen
+                  const balanceReadable = parseFloat(token.balance) / Math.pow(10, token.decimals || 18);
+                  const tokenAddress = token.token_address?.toLowerCase();
+                  const tokenSymbol = token.symbol?.toUpperCase();
+                  
+                  console.log(`📊 PROCESSING: ${tokenSymbol} = ${balanceReadable.toLocaleString()} tokens (${tokenAddress}) on ${chain.name}`);
+                  
+                  // 🚨 CRITICAL: Block falschen DOMINANCE Token - VERSTÄRKT
+                  if (tokenSymbol === 'DOMINANCE') {
+                    if (tokenAddress !== '0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea') {
+                      console.error(`🚨 BLOCKED FAKE DOMINANCE: ${tokenAddress} - Only 0x116d162d729e27e2e1d6478f1d2a8aed9c7a2bea allowed`);
+                      console.error(`🚨 FAKE DOMINANCE DETAILS: Symbol: ${tokenSymbol}, Address: ${tokenAddress}, Balance: ${balanceReadable}`);
+                      return null; // BLOCKIERE komplett
+                    } else {
+                      console.log(`✅ REAL DOMINANCE APPROVED: ${tokenAddress}`);
+                    }
+                  }
+                  
+                  // 🚨 ADDITIONAL: Block specific fake addresses
+                  const BLOCKED_ADDRESSES = [
+                    '0x64bab8470043748014318b075685addaa1f22a87', // Fake DOMINANCE
+                    '0x64bab8470043748014318b075685addaa1f22a88', // Possible variants
+                    '0x64bab8470043748014318b075685addaa1f22a89'  // Possible variants
+                  ];
+                  
+                  if (BLOCKED_ADDRESSES.includes(tokenAddress)) {
+                    console.error(`🚨 BLOCKED FAKE TOKEN: ${tokenSymbol} (${tokenAddress}) - Address in blocklist`);
+                    return null;
+                  }
+                  
+                  // Skip Zero-Balance Tokens
+                  if (balanceReadable === 0) {
+                    console.log(`⚪ SKIPPING: ${tokenSymbol} has zero balance on ${chain.name}`);
+                    return null;
+                  }
+                  
+                  // Hole strukturierte Preis-Daten
+                  const priceData = pricesData[tokenAddress] || {};
+                  let finalPrice = priceData.final || 0; // 🔧 FIX: let statt const für Überschreibung
+                  const priceSource = priceData.source || 'no_price';
+                  // 🔧 FIXED: Lockere Preis-Validierung - Preis > 0 ist ausreichend
+                  const isReliable = finalPrice > 0 && priceSource !== 'no_price' && priceSource !== 'unknown';
+                  
+                  let totalUsd = balanceReadable * finalPrice; // 🔧 FIX: let statt const für Überschreibung
+                  
+                  // 📈 DEBUG: Log alle Token mit Werten über $100
+                  if (totalUsd > 100) {
+                    console.log(`💎 HIGH VALUE: ${tokenSymbol} on ${chain.name} - Balance: ${balanceReadable.toLocaleString()}, Price: $${finalPrice} (${priceSource}), Value: $${totalUsd.toLocaleString()}`);
+                  }
+                  
+                  // 🔍 DEBUG: Log ALLE Token für bessere Diagnose
+                  if (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP' || tokenSymbol.includes('WG') || 
+                      tokenAddress === '0xfca88920ca5639ad5e954ea776e73dec54fdc065' || 
+                      tokenAddress === 'native') {
+                    console.log(`🔍 DEBUG TOKEN: ${tokenSymbol} on ${chain.name} - Balance: ${balanceReadable}, Price: $${finalPrice}, Value: $${totalUsd}, Source: ${priceSource}`);
+                  }
+                  
+                  // 🚨 CRITICAL ETH PRICE FIX: Use the real-time prices that were already loaded
+                  if (tokenSymbol === 'ETH' && totalUsd > 200000) {
+                    console.error(`🚨 ETH PRICE ERROR: Calculated $${totalUsd.toLocaleString()} - Using real ETH price from structured pricing`);
+                    console.error(`🚨 ETH DEBUG: Balance=${balanceReadable}, Price=${finalPrice}, Calculation=${balanceReadable}*${finalPrice}=${totalUsd}`);
+                    
+                    // Use structured pricing real ETH price (which loads live from Moralis)
+                    const correctedPrice = finalPrice > 100 && finalPrice < 10000 ? finalPrice : 2400; // Trust Moralis if reasonable
+                    const correctedValue = balanceReadable * correctedPrice;
+                    console.log(`🔧 ETH CORRECTED: $${correctedValue.toFixed(2)} (was $${totalUsd.toLocaleString()}) using price $${correctedPrice}`);
+                    
+                    // Override the calculated values
+                    finalPrice = correctedPrice;
+                    totalUsd = correctedValue;
+                  }
+                  
+                  // 🚨 CRITICAL: Mindest-Wert Filter zu strikt?
+                  const MIN_VALUE_FOR_DISPLAY = 0.01;
+                  const shouldInclude = totalUsd >= MIN_VALUE_FOR_DISPLAY;
+                  
+                  if (!shouldInclude && (tokenSymbol === 'ETH' || tokenSymbol === 'WGEP')) {
+                    console.warn(`⚠️ FILTERED OUT: ${tokenSymbol} ($${totalUsd}) below minimum $${MIN_VALUE_FOR_DISPLAY}`);
+                  }
+                  
+                  // 🔧 TOKEN NAME FALLBACK - Repariert "Unknown Token" Problem
+                  const tokenName = token.name || 
+                                   priceData.name || 
+                                   this.getKnownTokenName(tokenAddress, tokenSymbol) || 
+                                   `${tokenSymbol} Token` || 
+                                   'Unknown Token';
+                  
+                  return {
+                    symbol: token.symbol,
+                    name: tokenName,
+                    contractAddress: token.token_address,
+                    decimals: token.decimals,
+                    balance: balanceReadable,
+                    price: finalPrice, // Kann durch ETH-Fix überschrieben werden
+                    total_usd: totalUsd, // Kann durch ETH-Fix überschrieben werden
+                    value: totalUsd, // Kann durch ETH-Fix überschrieben werden
+                    hasReliablePrice: isReliable,
+                    priceSource: this.getPriceSourceDisplay(priceData.source || 'unknown', finalPrice),
+                    isIncludedInPortfolio: totalUsd > 0.01,
+                    walletAddress: wallet.address,
+                    chainId: chain.id,
+                    source: 'structured_pricing_service',
+                    _rawBalance: token.balance,
+                    _rawDecimals: token.decimals,
+                    _priceData: priceData, // Vollständige Preis-Informationen
+                    _ethFixed: tokenSymbol === 'ETH' && totalUsd !== (balanceReadable * (priceData.final || 0)) // ETH Fix angewendet
+                  };
+                  
+                } catch (tokenError) {
+                  console.error(`💥 TOKEN PROCESSING ERROR: ${token.symbol} - ${tokenError.message}`);
+                  return null;
+                }
+              }).filter(Boolean); // Entferne null-Werte
+              
+              allTokens.push(...processedTokens);
+              console.log(`✅ PROCESSED: ${processedTokens.length} tokens for ${wallet.address.slice(0, 8)} on ${chain.name}`);
+              
+            } else {
+              console.log(`⚪ NO TOKENS: ${wallet.address.slice(0, 8)} has no tokens on ${chain.name}`);
+            }
+            
+          } catch (chainError) {
+            console.error(`💥 CHAIN ERROR: ${wallet.address.slice(0, 8)} - ${chainError.message}`);
+          }
         }
         
       } catch (walletError) {
