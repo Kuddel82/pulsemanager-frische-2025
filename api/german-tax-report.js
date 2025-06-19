@@ -343,13 +343,24 @@ export default async function handler(req, res) {
     
     console.log(`✅ TAX TRANSFERS LOADED: ${categorizedTransactions.length} transfers for ${address}, categorized for tax reporting`);
 
-    // EINFACHE SUMMARY
+    // ERWEITERTE SUMMARY mit Typ-Statistiken
+    const typeStats = {
+      total: categorizedTransactions.length,
+      erc20: categorizedTransactions.filter(tx => tx.transactionType === 'erc20').length,
+      native: categorizedTransactions.filter(tx => tx.transactionType === 'native').length,
+      internal: categorizedTransactions.filter(tx => tx.transactionType === 'internal').length,
+      ethereum: categorizedTransactions.filter(tx => tx.chain === 'Ethereum').length,
+      pulsechain: categorizedTransactions.filter(tx => tx.chain === 'PulseChain').length
+    };
+
     const roiTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income');
     const saleTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'sale_income');
     const purchaseTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'purchase');
 
     const summary = {
       totalTransactions: categorizedTransactions.length,
+      typeStats: typeStats, // NEU: Typ-Statistiken
+      
       roiCount: roiTransactions.length,
       saleCount: saleTransactions.length,
       purchaseCount: purchaseTransactions.length,
@@ -357,16 +368,16 @@ export default async function handler(req, res) {
       inCount: categorizedTransactions.filter(tx => tx.direction === 'in').length,
       outCount: categorizedTransactions.filter(tx => tx.direction === 'out').length,
       
-      ethereumCount: allTransactions.filter(tx => tx.chain === 'Ethereum').length,
-      pulsechainCount: allTransactions.filter(tx => tx.chain === 'PulseChain').length,
+      ethereumCount: typeStats.ethereum, // Vereinfacht
+      pulsechainCount: typeStats.pulsechain, // Vereinfacht
       
-      // PLATZHALTER FÜR EUR-WERTE
+      // Platzhalter für EUR-Werte (PRIORITÄT 2)
       totalROIValueEUR: "0,00",
       totalSaleValueEUR: "0,00",
-      totalGainsEUR: "0,00",
+      totalPurchaseValueEUR: "0,00", // NEU
       totalTaxEUR: "0,00",
       
-      status: "ENHANCED_MULTI_CHAIN_VERSION"
+      status: "ENHANCED_COMPLETE_VERSION_ALL_TRANSACTION_TYPES"
     };
 
     return res.status(200).json({
@@ -380,7 +391,7 @@ export default async function handler(req, res) {
           address: address,
           timestamp: new Date().toISOString(),
           count: categorizedTransactions.length,
-          status: 'ENHANCED_MULTI_CHAIN_VERSION',
+          status: 'ENHANCED_COMPLETE_VERSION_ALL_TRANSACTION_TYPES',
           message: 'Erweiterte Multi-Chain-Abfrage mit allen Transaktionstypen',
           tax_categorization: {
             total: categorizedTransactions.length,
