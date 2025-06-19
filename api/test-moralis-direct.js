@@ -1,19 +1,19 @@
 /**
- * 🔥 DIREKTER MORALIS TEST - Zeigt sofort was passiert
- * 
- * Testet direkt die Moralis APIs ohne Fallback-Logik
+ * 🔥 DIREKTE MORALIS TEST API - Zeigt sofort was mit den TaxReport-Wallets passiert
+ * Testet alle Moralis Endpoints direkt für die problematischen Wallets
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
+const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 DIREKTER MORALIS TEST STARTING 🔥🔥🔥');
+  console.log('🔥🔥🔥 DIREKTE MORALIS TEST API 🔥🔥🔥');
   
   try {
     // CORS Headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
 
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
@@ -27,223 +27,231 @@ export default async function handler(req, res) {
       });
     }
 
-    const { address } = req.method === 'POST' ? req.body : req.query;
+    // Extract parameters
+    const { address = '0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a' } = req.query;
 
-    if (!address) {
-      return res.status(400).json({
-        error: 'Missing address parameter',
-        success: false
-      });
-    }
-
-    console.log('🎯 TESTING WALLET:', address);
-    console.log('🔑 API KEY:', MORALIS_API_KEY.slice(0, 10) + '...');
+    console.log(`🔍 TESTING DIRECT MORALIS for: ${address.slice(0, 8)}...`);
 
     const results = {
-      walletAddress: address,
-      tests: []
+      address: address,
+      timestamp: new Date().toISOString(),
+      tests: {}
     };
 
-    // Test 1: Wallet History API mit 0x1 (Ethereum)
-    console.log('\n📋 TEST 1: Wallet History API (0x1)');
+    // Test 1: Wallet History (Ethereum)
     try {
-      const url = `https://deep-index.moralis.io/api/v2/wallets/${address}/history?chain=0x1&limit=10`;
-      console.log('🚀 URL:', url);
+      console.log(`🚀 TEST 1: Wallet History ETH for ${address.slice(0, 8)}...`);
+      const ethHistoryUrl = `${MORALIS_BASE_URL}/wallets/${address}/history?chain=0x1&limit=50&order=DESC`;
       
-      const response = await fetch(url, {
+      const ethHistoryResponse = await fetch(ethHistoryUrl, {
         headers: {
           'X-API-Key': MORALIS_API_KEY,
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         }
       });
-
-      console.log('📡 Response Status:', response.status);
-      console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ SUCCESS - Data:', data);
-        results.tests.push({
-          test: 'Wallet History (0x1)',
-          success: true,
-          status: response.status,
-          count: data.result?.length || 0,
-          data: data
-        });
-      } else {
-        const errorText = await response.text();
-        console.log('❌ ERROR - Status:', response.status);
-        console.log('❌ ERROR - Text:', errorText);
-        results.tests.push({
-          test: 'Wallet History (0x1)',
-          success: false,
-          status: response.status,
-          error: errorText
-        });
-      }
+      
+      const ethHistoryData = await ethHistoryResponse.json();
+      
+      results.tests.ethHistory = {
+        success: ethHistoryResponse.ok,
+        status: ethHistoryResponse.status,
+        data: ethHistoryData,
+        count: ethHistoryData?.result?.length || 0,
+        url: ethHistoryUrl
+      };
+      
+      console.log(`✅ ETH History: ${ethHistoryData?.result?.length || 0} transactions`);
+      
     } catch (error) {
-      console.log('💥 EXCEPTION:', error);
-      results.tests.push({
-        test: 'Wallet History (0x1)',
+      results.tests.ethHistory = {
         success: false,
         error: error.message
-      });
+      };
+      console.error(`❌ ETH History Error:`, error.message);
     }
 
-    // Test 2: ERC20 Transfers mit 0x1 (Ethereum)
-    console.log('\n🪙 TEST 2: ERC20 Transfers (0x1)');
+    // Test 2: Wallet History (PulseChain)
     try {
-      const url = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=0x1&limit=10`;
-      console.log('🚀 URL:', url);
+      console.log(`🚀 TEST 2: Wallet History PLS for ${address.slice(0, 8)}...`);
+      const plsHistoryUrl = `${MORALIS_BASE_URL}/wallets/${address}/history?chain=0x171&limit=50&order=DESC`;
       
-      const response = await fetch(url, {
+      const plsHistoryResponse = await fetch(plsHistoryUrl, {
         headers: {
           'X-API-Key': MORALIS_API_KEY,
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         }
       });
-
-      console.log('📡 Response Status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ SUCCESS - Data:', data);
-        results.tests.push({
-          test: 'ERC20 Transfers (0x1)',
-          success: true,
-          status: response.status,
-          count: data.result?.length || 0,
-          data: data
-        });
-      } else {
-        const errorText = await response.text();
-        console.log('❌ ERROR - Status:', response.status);
-        console.log('❌ ERROR - Text:', errorText);
-        results.tests.push({
-          test: 'ERC20 Transfers (0x1)',
-          success: false,
-          status: response.status,
-          error: errorText
-        });
-      }
+      
+      const plsHistoryData = await plsHistoryResponse.json();
+      
+      results.tests.plsHistory = {
+        success: plsHistoryResponse.ok,
+        status: plsHistoryResponse.status,
+        data: plsHistoryData,
+        count: plsHistoryData?.result?.length || 0,
+        url: plsHistoryUrl
+      };
+      
+      console.log(`✅ PLS History: ${plsHistoryData?.result?.length || 0} transactions`);
+      
     } catch (error) {
-      console.log('💥 EXCEPTION:', error);
-      results.tests.push({
-        test: 'ERC20 Transfers (0x1)',
+      results.tests.plsHistory = {
         success: false,
         error: error.message
-      });
+      };
+      console.error(`❌ PLS History Error:`, error.message);
     }
 
-    // Test 3: ERC20 Transfers mit 369 (PulseChain)
-    console.log('\n🟣 TEST 3: ERC20 Transfers (369)');
+    // Test 3: ERC20 Transfers (Ethereum)
     try {
-      const url = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=369&limit=10`;
-      console.log('🚀 URL:', url);
+      console.log(`🚀 TEST 3: ERC20 Transfers ETH for ${address.slice(0, 8)}...`);
+      const ethTransfersUrl = `${MORALIS_BASE_URL}/${address}/erc20/transfers?chain=0x1&limit=50&order=DESC`;
       
-      const response = await fetch(url, {
+      const ethTransfersResponse = await fetch(ethTransfersUrl, {
         headers: {
           'X-API-Key': MORALIS_API_KEY,
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         }
       });
-
-      console.log('📡 Response Status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ SUCCESS - Data:', data);
-        results.tests.push({
-          test: 'ERC20 Transfers (369)',
-          success: true,
-          status: response.status,
-          count: data.result?.length || 0,
-          data: data
-        });
-      } else {
-        const errorText = await response.text();
-        console.log('❌ ERROR - Status:', response.status);
-        console.log('❌ ERROR - Text:', errorText);
-        results.tests.push({
-          test: 'ERC20 Transfers (369)',
-          success: false,
-          status: response.status,
-          error: errorText
-        });
-      }
+      
+      const ethTransfersData = await ethTransfersResponse.json();
+      
+      results.tests.ethTransfers = {
+        success: ethTransfersResponse.ok,
+        status: ethTransfersResponse.status,
+        data: ethTransfersData,
+        count: ethTransfersData?.result?.length || 0,
+        url: ethTransfersUrl
+      };
+      
+      console.log(`✅ ETH Transfers: ${ethTransfersData?.result?.length || 0} transfers`);
+      
     } catch (error) {
-      console.log('💥 EXCEPTION:', error);
-      results.tests.push({
-        test: 'ERC20 Transfers (369)',
+      results.tests.ethTransfers = {
         success: false,
         error: error.message
-      });
+      };
+      console.error(`❌ ETH Transfers Error:`, error.message);
     }
 
-    // Test 4: ERC20 Transfers mit pulsechain (PulseChain)
-    console.log('\n🟣 TEST 4: ERC20 Transfers (pulsechain)');
+    // Test 4: ERC20 Transfers (PulseChain)
     try {
-      const url = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=pulsechain&limit=10`;
-      console.log('🚀 URL:', url);
+      console.log(`🚀 TEST 4: ERC20 Transfers PLS for ${address.slice(0, 8)}...`);
+      const plsTransfersUrl = `${MORALIS_BASE_URL}/${address}/erc20/transfers?chain=0x171&limit=50&order=DESC`;
       
-      const response = await fetch(url, {
+      const plsTransfersResponse = await fetch(plsTransfersUrl, {
         headers: {
           'X-API-Key': MORALIS_API_KEY,
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         }
       });
-
-      console.log('📡 Response Status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ SUCCESS - Data:', data);
-        results.tests.push({
-          test: 'ERC20 Transfers (pulsechain)',
-          success: true,
-          status: response.status,
-          count: data.result?.length || 0,
-          data: data
-        });
-      } else {
-        const errorText = await response.text();
-        console.log('❌ ERROR - Status:', response.status);
-        console.log('❌ ERROR - Text:', errorText);
-        results.tests.push({
-          test: 'ERC20 Transfers (pulsechain)',
-          success: false,
-          status: response.status,
-          error: errorText
-        });
-      }
+      
+      const plsTransfersData = await plsTransfersResponse.json();
+      
+      results.tests.plsTransfers = {
+        success: plsTransfersResponse.ok,
+        status: plsTransfersResponse.status,
+        data: plsTransfersData,
+        count: plsTransfersData?.result?.length || 0,
+        url: plsTransfersUrl
+      };
+      
+      console.log(`✅ PLS Transfers: ${plsTransfersData?.result?.length || 0} transfers`);
+      
     } catch (error) {
-      console.log('💥 EXCEPTION:', error);
-      results.tests.push({
-        test: 'ERC20 Transfers (pulsechain)',
+      results.tests.plsTransfers = {
         success: false,
         error: error.message
-      });
+      };
+      console.error(`❌ PLS Transfers Error:`, error.message);
     }
 
-    console.log('\n🏁 ALL TESTS COMPLETE');
+    // Test 5: Native Balance (Ethereum)
+    try {
+      console.log(`🚀 TEST 5: Native Balance ETH for ${address.slice(0, 8)}...`);
+      const ethBalanceUrl = `${MORALIS_BASE_URL}/${address}/balance?chain=0x1`;
+      
+      const ethBalanceResponse = await fetch(ethBalanceUrl, {
+        headers: {
+          'X-API-Key': MORALIS_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const ethBalanceData = await ethBalanceResponse.json();
+      
+      results.tests.ethBalance = {
+        success: ethBalanceResponse.ok,
+        status: ethBalanceResponse.status,
+        data: ethBalanceData,
+        balance: ethBalanceData?.balance || '0',
+        url: ethBalanceUrl
+      };
+      
+      console.log(`✅ ETH Balance: ${ethBalanceData?.balance || '0'}`);
+      
+    } catch (error) {
+      results.tests.ethBalance = {
+        success: false,
+        error: error.message
+      };
+      console.error(`❌ ETH Balance Error:`, error.message);
+    }
+
+    // Test 6: Native Balance (PulseChain)
+    try {
+      console.log(`🚀 TEST 6: Native Balance PLS for ${address.slice(0, 8)}...`);
+      const plsBalanceUrl = `${MORALIS_BASE_URL}/${address}/balance?chain=0x171`;
+      
+      const plsBalanceResponse = await fetch(plsBalanceUrl, {
+        headers: {
+          'X-API-Key': MORALIS_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const plsBalanceData = await plsBalanceResponse.json();
+      
+      results.tests.plsBalance = {
+        success: plsBalanceResponse.ok,
+        status: plsBalanceResponse.status,
+        data: plsBalanceData,
+        balance: plsBalanceData?.balance || '0',
+        url: plsBalanceUrl
+      };
+      
+      console.log(`✅ PLS Balance: ${plsBalanceData?.balance || '0'}`);
+      
+    } catch (error) {
+      results.tests.plsBalance = {
+        success: false,
+        error: error.message
+      };
+      console.error(`❌ PLS Balance Error:`, error.message);
+    }
+
+    // Summary
+    results.summary = {
+      totalTests: Object.keys(results.tests).length,
+      successfulTests: Object.values(results.tests).filter(t => t.success).length,
+      totalTransactions: (results.tests.ethHistory?.count || 0) + (results.tests.plsHistory?.count || 0),
+      totalTransfers: (results.tests.ethTransfers?.count || 0) + (results.tests.plsTransfers?.count || 0),
+      hasEthBalance: parseFloat(results.tests.ethBalance?.balance || '0') > 0,
+      hasPlsBalance: parseFloat(results.tests.plsBalance?.balance || '0') > 0
+    };
+
+    console.log(`📊 TEST SUMMARY:`, results.summary);
 
     return res.status(200).json({
       success: true,
-      results: results,
-      summary: {
-        totalTests: results.tests.length,
-        successfulTests: results.tests.filter(t => t.success).length,
-        failedTests: results.tests.filter(t => !t.success).length,
-        timestamp: new Date().toISOString()
-      }
+      results: results
     });
 
   } catch (error) {
-    console.error('💥 TEST API ERROR:', error);
+    console.error('💥 DIRECT TEST ERROR:', error);
     return res.status(500).json({
       success: false,
-      error: 'Test API error',
-      message: error.message
+      error: error.message
     });
   }
 } 
