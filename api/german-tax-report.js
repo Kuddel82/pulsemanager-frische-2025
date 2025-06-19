@@ -59,7 +59,7 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   let cursor = null;
   let pageCount = 0;
   const maxPages = Math.ceil(maxTransactions / 100); // 100 pro Seite
-  const maxTimeSeconds = 15; // 🔥 ERHÖHT: 15 Sekunden für mehr Transaktionen
+  const maxTimeSeconds = 45; // 🔥 DRAMATISCH ERHÖHT: 45 Sekunden für 300.000 Transaktionen!
   const startTime = Date.now();
   
   let debugInfo = {
