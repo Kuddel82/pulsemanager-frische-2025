@@ -7,6 +7,7 @@
  * ✅ KORREKTE Chain IDs: 0x1 (ETH) + 0x171 (PulseChain)
  * ✅ AUTOMATISCHE Kategorisierung von Moralis
  * ✅ ROBUSTE Error Handling
+ * 🔥 VERHINDERT MEHRFACHE API-CALLS
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
@@ -15,6 +16,9 @@ const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 // VERBESSERTES RATE LIMITING
 let lastRequestTime = 0;
 const MIN_REQUEST_DELAY = 250; // 250ms zwischen requests (sicherer)
+
+// 🔥 REQUEST DEDUPLICATION - Verhindert mehrfache gleichzeitige Calls
+const activeRequests = new Map();
 
 async function rateLimitedDelay() {
   const now = Date.now();
@@ -200,240 +204,228 @@ export default async function handler(req, res) {
       hasDateRange: !!(from_date && to_date)
     });
 
-    // Address validation
-    if (!address) {
-      return res.status(400).json({ 
-        error: 'Missing address parameter',
-        usage: 'POST /api/german-tax-report with { address: "0x..." }',
-        success: false
-      });
-    }
-
-    if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-      return res.status(400).json({
-        error: 'Invalid Ethereum address format',
-        address: address,
-        success: false
-      });
-    }
-
-    // 🔗 MULTI-CHAIN: Ethereum + PulseChain mit alternativen IDs für ALLE WALLETS
-    const chains = [
-      { id: '0x1', name: 'Ethereum', shortName: 'ETH' },
-      { id: 'eth', name: 'Ethereum Alt', shortName: 'ETH2' },
-      { id: '369', name: 'PulseChain', shortName: 'PLS' },
-      { id: 'pulsechain', name: 'PulseChain Alt', shortName: 'PLS2' }
-    ];
+    // 🔥 REQUEST DEDUPLICATION - Verhindert mehrfache gleichzeitige Calls
+    const requestKey = `${address}-${limit}-${from_date}-${to_date}`;
     
-    let allTransactions = [];
-    
-    // Load data from all chains for the provided wallet address
-    for (const chainConfig of chains) {
-      console.log(`\n🔗 Loading ${chainConfig.name} (${chainConfig.id}) for wallet ${address.slice(0, 8)}...`);
+    if (activeRequests.has(requestKey)) {
+      console.log(`🚫 DUPLICATE REQUEST DETECTED: ${requestKey.slice(0, 20)}...`);
+      console.log(`⏳ Waiting for existing request to complete...`);
       
+      // Warte auf bestehenden Request
+      const existingPromise = activeRequests.get(requestKey);
+      const result = await existingPromise;
+      
+      console.log(`✅ Returning result from existing request`);
+      return res.status(200).json(result);
+    }
+
+    // 🔥 NEUER REQUEST - Erstelle Promise und speichere es
+    const requestPromise = (async () => {
       try {
-        const chainTransactions = await getWalletHistory(address, chainConfig.id, limit);
-        
-        // Add chain metadata to each transaction
-        const enrichedTransactions = chainTransactions.map(tx => ({
-          ...tx,
-          sourceChain: chainConfig.name,
-          sourceChainId: chainConfig.id,
-          sourceChainShort: chainConfig.shortName
-        }));
-        
-        allTransactions.push(...enrichedTransactions);
-        console.log(`✅ ${chainConfig.name}: ${enrichedTransactions.length} transactions loaded`);
-        
-      } catch (chainError) {
-        console.error(`❌ Error loading ${chainConfig.name}:`, chainError.message);
-        console.error(`❌ Chain ID ${chainConfig.id} failed for wallet ${address.slice(0, 8)}`);
-        // Continue with other chains even if one fails
-      }
-    }
-    
-    console.log(`\n🔥 TOTAL LOADED: ${allTransactions.length} transactions across all chains`);
+        // Validate address
+        if (!address) {
+          return {
+            success: false,
+            error: 'Wallet address is required',
+            taxReport: null
+          };
+        }
 
-    // Handle empty results
-    if (allTransactions.length === 0) {
-      console.warn(`⚠️ NO TRANSACTIONS FOUND for address ${address}`);
-      
-      return res.status(200).json({
-        success: true,
-        message: 'No transactions found for this address',
-        taxReport: {
-          transactions: [],
-          summary: {
-            totalTransactions: 0,
-            ethereumCount: 0,
-            pulsechainCount: 0,
-            roiCount: 0,
-            saleCount: 0,
-            purchaseCount: 0,
-            totalValueEUR: "0,00"
-          },
-          metadata: {
-            address: address,
-            chainsChecked: chains.map(c => c.name),
-            timestamp: new Date().toISOString(),
-            source: 'moralis_wallet_history_empty',
-            version: '2025_wallet_history_api'
+        // Validate address format
+        if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+          return {
+            success: false,
+            error: 'Invalid wallet address format',
+            taxReport: null
+          };
+        }
+
+        console.log(`🔍 Processing wallet: ${address.slice(0, 8)}...`);
+
+        // 🔥 KORREKTE CHAIN IDs für 2025
+        const chains = [
+          { id: '0x1', name: 'Ethereum', short: 'ETH' },
+          { id: '0x171', name: 'PulseChain', short: 'PLS' }
+        ];
+
+        let allTransactions = [];
+        let chainResults = {};
+
+        // 🔥 PARALLEL PROCESSING für bessere Performance
+        const chainPromises = chains.map(async (chain) => {
+          console.log(`🚀 Processing ${chain.name} (${chain.id})...`);
+          
+          try {
+            const transactions = await getWalletHistory(address, chain.id, limit);
+            
+            chainResults[chain.short] = {
+              count: transactions.length,
+              transactions: transactions
+            };
+            
+            // Add chain info to transactions
+            const processedTransactions = transactions.map(tx => ({
+              ...tx,
+              sourceChain: chain.name,
+              sourceChainShort: chain.short,
+              sourceChainId: chain.id
+            }));
+            
+            allTransactions.push(...processedTransactions);
+            
+            console.log(`✅ ${chain.name}: ${transactions.length} transactions processed`);
+            
+          } catch (error) {
+            console.error(`❌ ${chain.name} processing failed:`, error.message);
+            chainResults[chain.short] = {
+              count: 0,
+              transactions: [],
+              error: error.message
+            };
           }
-        }
-      });
-    }
+        });
 
-    // 🏷️ TRANSACTION CATEGORIZATION
-    const categorizedTransactions = allTransactions.map(tx => {
-      const walletAddress = address.toLowerCase();
-      
-      // Determine direction based on transaction type and addresses
-      let direction = 'unknown';
-      let icon = '❓';
-      let category = tx.category || 'unknown';
-      
-      // Check if this wallet is sender or receiver
-      const isIncoming = tx.to_address?.toLowerCase() === walletAddress;
-      const isOutgoing = tx.from_address?.toLowerCase() === walletAddress;
-      
-      // Check ERC20 transfers within the transaction
-      if (tx.erc20_transfers && tx.erc20_transfers.length > 0) {
-        const erc20Transfer = tx.erc20_transfers[0]; // Take first transfer
-        const erc20Incoming = erc20Transfer.to_address?.toLowerCase() === walletAddress;
-        const erc20Outgoing = erc20Transfer.from_address?.toLowerCase() === walletAddress;
-        
-        if (erc20Incoming && !erc20Outgoing) {
-          direction = 'in';
-          icon = '📥 IN';
-        } else if (erc20Outgoing && !erc20Incoming) {
-          direction = 'out';
-          icon = '📤 OUT';
-        } else {
-          direction = 'transfer';
-          icon = '🔄';
-        }
-      } else {
-        // Native transfers
-        if (isIncoming && !isOutgoing) {
-          direction = 'in';
-          icon = '📥 IN';
-        } else if (isOutgoing && !isIncoming) {
-          direction = 'out';
-          icon = '📤 OUT';
-        } else {
-          direction = 'transfer';
-          icon = '🔄';
-        }
+        // 🔥 WARTE AUF ALLE CHAINS
+        await Promise.all(chainPromises);
+
+        console.log(`📊 TOTAL TRANSACTIONS: ${allTransactions.length}`);
+        console.log(`📊 CHAIN BREAKDOWN:`, chainResults);
+
+        // 🔥 SORTIERE NACH TIMESTAMP (neueste zuerst)
+        allTransactions.sort((a, b) => {
+          const timeA = new Date(a.block_timestamp || a.timestamp || 0).getTime();
+          const timeB = new Date(b.block_timestamp || b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+
+        // 🔥 DEUTSCHE STEUER-KATEGORISIERUNG
+        const categorizedTransactions = allTransactions.map(tx => {
+          let taxCategory = 'Sonstige';
+          let direction = 'unknown';
+          let directionIcon = '❓';
+          let formattedValue = '0';
+          let tokenSymbol = 'N/A';
+
+          // 🔥 ERC20 TRANSFERS
+          if (tx.erc20_transfers && tx.erc20_transfers.length > 0) {
+            const transfer = tx.erc20_transfers[0];
+            tokenSymbol = transfer.token_symbol || 'N/A';
+            
+            // Determine direction
+            if (transfer.from_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'out';
+              directionIcon = '📤 OUT';
+              taxCategory = 'Token Transfer (Out)';
+            } else if (transfer.to_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'in';
+              directionIcon = '📥 IN';
+              taxCategory = 'Token Transfer (In)';
+            }
+
+            // Format value
+            if (transfer.value && transfer.token_decimals) {
+              const value = parseFloat(transfer.value) / Math.pow(10, transfer.token_decimals);
+              formattedValue = value.toFixed(6);
+            }
+          }
+          
+          // 🔥 NATIVE TRANSFERS (ETH/PLS)
+          else if (tx.native_transfers && tx.native_transfers.length > 0) {
+            const transfer = tx.native_transfers[0];
+            tokenSymbol = tx.sourceChainShort === 'ETH' ? 'ETH' : 'PLS';
+            
+            if (transfer.from_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'out';
+              directionIcon = '📤 OUT';
+              taxCategory = 'Native Transfer (Out)';
+            } else if (transfer.to_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'in';
+              directionIcon = '📥 IN';
+              taxCategory = 'Native Transfer (In)';
+            }
+
+            if (transfer.value) {
+              const value = parseFloat(transfer.value) / Math.pow(10, 18);
+              formattedValue = value.toFixed(6);
+            }
+          }
+
+          // 🔥 ROI DETECTION für bekannte Tokens
+          if (['WGEP', 'MASKMAN', 'BORK'].includes(tokenSymbol)) {
+            if (direction === 'in') {
+              taxCategory = 'ROI Einkommen (§22 EStG)';
+              directionIcon = '💰 ROI';
+            }
+          }
+
+          return {
+            ...tx,
+            taxCategory,
+            direction,
+            directionIcon,
+            formattedValue,
+            tokenSymbol,
+            timestamp: tx.block_timestamp || tx.timestamp
+          };
+        });
+
+        // 🔥 ZUSAMMENFASSUNG
+        const summary = {
+          totalTransactions: categorizedTransactions.length,
+          ethereumCount: chainResults.ETH?.count || 0,
+          pulsechainCount: chainResults.PLS?.count || 0,
+          roiCount: categorizedTransactions.filter(tx => tx.taxCategory.includes('ROI')).length,
+          totalROIValueEUR: 0, // TODO: Implement EUR conversion
+          totalTaxEUR: 0 // TODO: Implement tax calculation
+        };
+
+        const taxReport = {
+          walletAddress: address,
+          generatedAt: new Date().toISOString(),
+          summary,
+          transactions: categorizedTransactions,
+          chainResults
+        };
+
+        console.log(`✅ TAX REPORT GENERATED: ${categorizedTransactions.length} transactions`);
+        console.log(`📊 SUMMARY:`, summary);
+
+        return {
+          success: true,
+          taxReport,
+          debug: {
+            originalCount: allTransactions.length,
+            processedCount: categorizedTransactions.length,
+            chains: Object.keys(chainResults)
+          }
+        };
+
+      } catch (error) {
+        console.error('💥 TAX API ERROR:', error);
+        return {
+          success: false,
+          error: error.message,
+          taxReport: null
+        };
       }
-      
-      // ROI Token Detection (German crypto tax relevant)
-      const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'PLS'];
-      const tokenSymbol = tx.erc20_transfers?.[0]?.token_symbol || tx.token_symbol || '';
-      const isROIToken = ROI_TOKENS.includes(tokenSymbol.toUpperCase());
-      
-      // Minter detection (for tax classification)
-      const KNOWN_MINTERS = [
-        '0x0000000000000000000000000000000000000000',
-        '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
-        '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3'
-      ];
-      const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
-      
-      // Tax categorization for German tax law
-      let taxCategory = 'transfer';
-      let isTaxable = false;
-      
-      if (direction === 'in' && (fromMinter || isROIToken)) {
-        taxCategory = 'roi_income';
-        isTaxable = true;
-      } else if (direction === 'out') {
-        taxCategory = 'purchase';
-        isTaxable = false;
-      } else if (direction === 'in') {
-        taxCategory = 'sale_income';
-        isTaxable = true;
-      }
-      
-      return {
-        ...tx,
-        direction,
-        directionIcon: icon,
-        taxCategory,
-        isTaxable,
-        isROI: fromMinter || isROIToken,
-        fromMinter,
-        isROIToken,
-        tokenSymbol,
-        // Placeholder for price data (to be added later)
-        priceEUR: "0.00",
-        valueEUR: "0.00",
-        gainsEUR: "0.00"
-      };
-    });
+    })();
 
-    // 📊 SUMMARY STATISTICS
-    const summary = {
-      totalTransactions: categorizedTransactions.length,
-      
-      // By chain
-      ethereumCount: categorizedTransactions.filter(tx => tx.sourceChain === 'Ethereum').length,
-      pulsechainCount: categorizedTransactions.filter(tx => tx.sourceChain === 'PulseChain').length,
-      
-      // By direction
-      incomingCount: categorizedTransactions.filter(tx => tx.direction === 'in').length,
-      outgoingCount: categorizedTransactions.filter(tx => tx.direction === 'out').length,
-      transferCount: categorizedTransactions.filter(tx => tx.direction === 'transfer').length,
-      
-      // By tax category
-      roiCount: categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income').length,
-      saleCount: categorizedTransactions.filter(tx => tx.taxCategory === 'sale_income').length,
-      purchaseCount: categorizedTransactions.filter(tx => tx.taxCategory === 'purchase').length,
-      
-      // Tax relevance
-      taxableCount: categorizedTransactions.filter(tx => tx.isTaxable).length,
-      nonTaxableCount: categorizedTransactions.filter(tx => !tx.isTaxable).length,
-      
-      // Value placeholders (to be calculated when price data is added)
-      totalValueEUR: "0,00",
-      totalROIValueEUR: "0,00",
-      totalSaleValueEUR: "0,00",
-      totalTaxEUR: "0,00"
-    };
-
-    console.log(`✅ TAX REPORT COMPLETE: ${summary.totalTransactions} transactions categorized`);
-    console.log(`📊 Summary: ETH=${summary.ethereumCount}, PLS=${summary.pulsechainCount}, ROI=${summary.roiCount}, Sales=${summary.saleCount}`);
-
-    return res.status(200).json({
-      success: true,
-      taxReport: {
-        transactions: categorizedTransactions,
-        summary: summary,
-        metadata: {
-          address: address,
-          chainsProcessed: chains.map(c => c.name),
-          timestamp: new Date().toISOString(),
-          source: 'moralis_wallet_history_api',
-          version: '2025_improved',
-          apiUsed: 'wallet_history_with_fallback',
-          count: categorizedTransactions.length,
-          message: 'Using new Moralis Wallet History API for better performance'
-        }
-      }
-    });
+    // 🔥 SPEICHERE REQUEST UND WARTE AUF ERGEBNIS
+    activeRequests.set(requestKey, requestPromise);
+    
+    const result = await requestPromise;
+    
+    // 🔥 ENTFERNE REQUEST AUS ACTIVE REQUESTS
+    activeRequests.delete(requestKey);
+    
+    return res.status(200).json(result);
 
   } catch (error) {
-    console.error('💥 TAX API FATAL ERROR:', error);
-    console.error('💥 ERROR STACK:', error.stack);
-    
+    console.error('💥 HANDLER ERROR:', error);
     return res.status(500).json({
       success: false,
-      error: 'Internal server error',
-      message: error.message,
-      timestamp: new Date().toISOString(),
-      debug: {
-        errorType: error.constructor.name,
-        stack: error.stack?.split('\n').slice(0, 3) // First 3 lines only
-      }
+      error: error.message,
+      taxReport: null
     });
   }
 }

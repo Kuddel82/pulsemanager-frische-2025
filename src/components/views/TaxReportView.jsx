@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileText, AlertTriangle, Info, Download, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -13,6 +13,10 @@ const SimpleTaxTracker = () => {
   const [pdfData, setPdfData] = useState(null);
   const [dbWallets, setDbWallets] = useState([]);
   const [reportGenerated, setReportGenerated] = useState(false);
+
+  // 🔥 VERHINDERE MEHRFACHE API-CALLS
+  const abortControllerRef = useRef(null);
+  const isRequestInProgressRef = useRef(false);
 
   // 🎯 WALLET INTEGRATION: Lade Wallets direkt aus Datenbank
   const loadWalletsFromDatabase = async () => {
@@ -65,10 +69,25 @@ const SimpleTaxTracker = () => {
   };
 
   const handleGenerateReport = async () => {
+    // 🔥 VERHINDERE MEHRFACHE API-CALLS
+    if (isRequestInProgressRef.current) {
+      console.log('🚫 API-Call bereits in Bearbeitung, ignoriere...');
+      return;
+    }
+
     if (!walletAddress) {
       alert('Bitte Wallet-Adresse eingeben oder verbundene Wallet auswählen');
       return;
     }
+
+    // 🔥 ABORT VORHERIGE REQUESTS
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 🔥 NEUER ABORT CONTROLLER
+    abortControllerRef.current = new AbortController();
+    isRequestInProgressRef.current = true;
 
     setIsLoading(true);
     setTaxData(null);
@@ -89,7 +108,8 @@ const SimpleTaxTracker = () => {
         body: JSON.stringify({
           address: walletAddress,
           limit: 500 // Neue API kann bis zu 500 pro Call
-        })
+        }),
+        signal: abortControllerRef.current.signal // 🔥 ABORT SIGNAL
       });
 
       const data = await response.json();
@@ -103,10 +123,17 @@ const SimpleTaxTracker = () => {
       setReportGenerated(true);
 
     } catch (error) {
+      // 🔥 IGNORIERE ABORT ERRORS
+      if (error.name === 'AbortError') {
+        console.log('🚫 Request wurde abgebrochen');
+        return;
+      }
+      
       console.error('❌ Fehler:', error);
       setError(`Fehler: ${error.message}`);
     } finally {
       setIsLoading(false);
+      isRequestInProgressRef.current = false;
     }
   };
 
