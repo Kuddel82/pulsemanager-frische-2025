@@ -262,7 +262,7 @@ export default async function handler(req, res) {
             totalTaxEUR: "0,00"
           },
           metadata: {
-            source: 'moralis_stable_rollback_empty',
+            source: 'moralis_enhanced_complete_empty',
             message: 'No transfer data available',
             walletAddress: address,
             chainsChecked: chains.map(c => c.name)
@@ -271,7 +271,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // TRANSACTION CATEGORIZATION - STABIL UND BEWÄHRT
+    // TRANSACTION CATEGORIZATION - ERWEITERT
     const categorizedTransactions = allTransactions.map(tx => {
       const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
       const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();

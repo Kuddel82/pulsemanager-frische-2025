@@ -74,7 +74,7 @@ const SimpleTaxTracker = () => {
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       
       // 🇩🇪 ERWEITERTE MULTI-CHAIN STEUERREPORT API VERWENDEN (ERC20 + Native + Internal)
-      const response = await fetch('/api/german-tax-report-enhanced', {
+      const response = await fetch('/api/german-tax-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
