@@ -12,6 +12,7 @@ const SimpleTaxTracker = () => {
   const [error, setError] = useState(null);
   const [pdfData, setPdfData] = useState(null);
   const [dbWallets, setDbWallets] = useState([]);
+  const [reportGenerated, setReportGenerated] = useState(false);
 
   // 🎯 WALLET INTEGRATION: Lade Wallets direkt aus Datenbank
   const loadWalletsFromDatabase = async () => {
@@ -32,11 +33,12 @@ const SimpleTaxTracker = () => {
 
       setDbWallets(wallets || []);
       
-      // Automatisch erste Wallet setzen
+      // Automatisch erste Wallet setzen (OHNE API-Aufruf!)
       if (wallets && wallets.length > 0 && !walletAddress) {
         const firstWallet = wallets[0].address;
         setWalletAddress(firstWallet);
         console.log('✅ Wallet automatisch geladen:', firstWallet.slice(0, 8) + '...');
+        // KEIN AUTOMATISCHER API-AUFRUF MEHR!
       }
       
     } catch (error) {
@@ -56,6 +58,10 @@ const SimpleTaxTracker = () => {
 
   const handleWalletSelect = (address) => {
     setWalletAddress(address);
+    // Reset report data when wallet changes
+    setTaxData(null);
+    setReportGenerated(false);
+    setError(null);
   };
 
   const handleGenerateReport = async () => {
@@ -68,6 +74,7 @@ const SimpleTaxTracker = () => {
     setTaxData(null);
     setError(null);
     setPdfData(null);
+    setReportGenerated(false);
 
     try {
       console.log('🇩🇪 Starte deutsche Steuerreport-Generierung...');
@@ -94,6 +101,7 @@ const SimpleTaxTracker = () => {
 
       console.log('✅ Erweiterte Multi-Chain Steuerreport erfolgreich geladen:', data.taxReport);
       setTaxData(data.taxReport);
+      setReportGenerated(true);
 
     } catch (error) {
       console.error('❌ Fehler:', error);
