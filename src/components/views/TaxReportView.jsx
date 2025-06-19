@@ -14,9 +14,10 @@ const SimpleTaxTracker = () => {
   const [dbWallets, setDbWallets] = useState([]);
   const [reportGenerated, setReportGenerated] = useState(false);
 
-  // 🔥 VERHINDERE MEHRFACHE API-CALLS
+  // 🔥 VERHINDERE MEHRFACHE API-CALLS - ERWEITERT
   const abortControllerRef = useRef(null);
   const isRequestInProgressRef = useRef(false);
+  const currentRequestTokenRef = useRef(null);
 
   // 🎯 WALLET INTEGRATION: Lade Wallets direkt aus Datenbank
   const loadWalletsFromDatabase = async () => {
@@ -69,7 +70,7 @@ const SimpleTaxTracker = () => {
   };
 
   const handleGenerateReport = async () => {
-    // 🔥 VERHINDERE MEHRFACHE API-CALLS
+    // 🔥 VERHINDERE MEHRFACHE API-CALLS - ERWEITERT
     if (isRequestInProgressRef.current) {
       console.log('🚫 API-Call bereits in Bearbeitung, ignoriere...');
       return;
@@ -85,8 +86,10 @@ const SimpleTaxTracker = () => {
       abortControllerRef.current.abort();
     }
 
-    // 🔥 NEUER ABORT CONTROLLER
+    // 🔥 NEUER ABORT CONTROLLER UND REQUEST TOKEN
     abortControllerRef.current = new AbortController();
+    const requestToken = Date.now() + Math.random();
+    currentRequestTokenRef.current = requestToken;
     isRequestInProgressRef.current = true;
 
     setIsLoading(true);
@@ -98,6 +101,7 @@ const SimpleTaxTracker = () => {
     try {
       console.log('🔥🔥🔥 STEUERREPORT: NEUE WALLET HISTORY API 🔥🔥🔥');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
+      console.log(`🔑 REQUEST TOKEN: ${requestToken}`);
       
       // 🇩🇪 NEUE WALLET HISTORY API - BESSERE PERFORMANCE
       const response = await fetch('/api/german-tax-report', {
@@ -107,10 +111,17 @@ const SimpleTaxTracker = () => {
         },
         body: JSON.stringify({
           address: walletAddress,
-          limit: 300000 // 🔥 ERHÖHT: 300.000 Transaktionen für große Wallets!
+          limit: 300000, // 🔥 ERHÖHT: 300.000 Transaktionen für große Wallets!
+          requestToken: requestToken // 🔑 REQUEST TOKEN FÜR DEDUPLICATION
         }),
         signal: abortControllerRef.current.signal // 🔥 ABORT SIGNAL
       });
+
+      // 🔑 PRÜFE OB DIESER REQUEST NOCH AKTUELL IST
+      if (currentRequestTokenRef.current !== requestToken) {
+        console.log('🚫 Request wurde durch neueren Request ersetzt, ignoriere...');
+        return;
+      }
 
       const data = await response.json();
       
@@ -132,8 +143,11 @@ const SimpleTaxTracker = () => {
       console.error('❌ Fehler:', error);
       setError(`Fehler: ${error.message}`);
     } finally {
-      setIsLoading(false);
-      isRequestInProgressRef.current = false;
+      // 🔑 NUR CLEANUP WENN DIESER REQUEST NOCH AKTUELL IST
+      if (currentRequestTokenRef.current === requestToken) {
+        setIsLoading(false);
+        isRequestInProgressRef.current = false;
+      }
     }
   };
 

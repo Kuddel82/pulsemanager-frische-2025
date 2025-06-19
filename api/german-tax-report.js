@@ -5,7 +5,12 @@
  * ✅ Bis zu 300.000 Transaktionen pro Wallet
  * ✅ Automatische Cursor-basierte Requests
  * ✅ Deutsche Steuer-Kategorisierung
+ * 🔥 REQUEST DEDUPLICATION - Verhindert mehrfache identische Requests
  */
+
+// 🔥 REQUEST DEDUPLICATION CACHE
+const requestCache = new Map();
+const CACHE_DURATION = 30000; // 30 Sekunden
 
 // 🔥 DIREKTE MORALIS-API-FUNKTION (exakt wie moralis-v2.js)
 async function moralisFetch(endpoint, params = {}) {
@@ -235,11 +240,43 @@ export default async function handler(req, res) {
 
     // Extract parameters
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { address, limit = 300000 } = params; // 🔥 DEFAULT: 300.000!
+    const { address, limit = 300000, requestToken } = params; // 🔥 REQUEST TOKEN FÜR DEDUPLICATION
 
     console.log('🇩🇪 TAX PARAMS:', { 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
-      limit: `${limit.toLocaleString()} Transaktionen`
+      limit: `${limit.toLocaleString()} Transaktionen`,
+      requestToken: requestToken ? requestToken.toString().slice(-6) : 'NONE'
+    });
+
+    // 🔥 REQUEST DEDUPLICATION - Verhindert mehrfache identische Requests
+    const requestKey = `${address}-${limit}-${requestToken}`;
+    const now = Date.now();
+    
+    // Prüfe ob identischer Request bereits läuft
+    if (requestCache.has(requestKey)) {
+      const cached = requestCache.get(requestKey);
+      if (now - cached.timestamp < CACHE_DURATION) {
+        console.log(`🚫 REQUEST DEDUPLICATION: Identischer Request bereits in Bearbeitung (${requestKey.slice(0, 20)}...)`);
+        return res.status(200).json({
+          success: true,
+          taxReport: cached.data,
+          debug: {
+            ...cached.debug,
+            deduplicated: true,
+            originalRequestTime: new Date(cached.timestamp).toISOString()
+          }
+        });
+      } else {
+        // Cache abgelaufen, entferne
+        requestCache.delete(requestKey);
+      }
+    }
+
+    // Markiere Request als in Bearbeitung
+    requestCache.set(requestKey, {
+      timestamp: now,
+      data: null,
+      debug: null
     });
 
     // Validate address
@@ -384,26 +421,43 @@ export default async function handler(req, res) {
     console.log(`✅ TAX REPORT GENERATED: ${categorizedTransactions.length.toLocaleString()} transactions`);
     console.log(`📊 SUMMARY:`, summary);
 
+    // 🔥 CACHE DIE ERGEBNISSE FÜR DEDUPLICATION
+    const debugInfo = {
+      originalCount: allTransactions.length,
+      processedCount: categorizedTransactions.length,
+      chains: Object.keys(chainResults),
+      source: 'aggressive_pagination_300k',
+      paginationInfo: {
+        maxTransactions: limit,
+        totalLoaded: allTransactions.length,
+        ethereumLoaded: chainResults.ETH?.count || 0,
+        pulsechainLoaded: chainResults.PLS?.count || 0
+      },
+      debugInfo: allDebugInfo
+    };
+
+    // Update cache mit den finalen Daten
+    requestCache.set(requestKey, {
+      timestamp: now,
+      data: taxReport,
+      debug: debugInfo
+    });
+
     return res.status(200).json({
       success: true,
       taxReport,
-      debug: {
-        originalCount: allTransactions.length,
-        processedCount: categorizedTransactions.length,
-        chains: Object.keys(chainResults),
-        source: 'aggressive_pagination_300k',
-        paginationInfo: {
-          maxTransactions: limit,
-          totalLoaded: allTransactions.length,
-          ethereumLoaded: chainResults.ETH?.count || 0,
-          pulsechainLoaded: chainResults.PLS?.count || 0
-        },
-        debugInfo: allDebugInfo
-      }
+      debug: debugInfo
     });
 
   } catch (error) {
     console.error('💥 TAX API ERROR:', error);
+    
+    // 🔥 ENTFERNE FEHLERHAFTE REQUESTS AUS DEM CACHE
+    if (requestToken) {
+      const requestKey = `${address}-${limit}-${requestToken}`;
+      requestCache.delete(requestKey);
+    }
+    
     return res.status(500).json({
       success: false,
       error: error.message
