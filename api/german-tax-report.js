@@ -60,7 +60,9 @@ async function moralisFetch(endpoint, params = {}) {
  * WIEDERHERGESTELLT: Deine ursprünglich funktionierende Version + nur minimal ETH fix
  */
 export default async function handler(req, res) {
-  console.log('🇩🇪 TAX API: SIMPLE DIRECT DIRECTION FIX - GUARANTEED TO WORK');
+  // 🚨 KRITISCHER TEST - MUSS SICHTBAR SEIN
+  console.log('🚨🚨🚨 TAX API: CLAUDE UPDATE IS RUNNING - THIS SHOULD BE VISIBLE! 🚨🚨🚨');
+  console.log('🚨🚨🚨 IF YOU SEE THIS, THE API IS UPDATED! 🚨🚨🚨');
   
   try {
     // Enable CORS
@@ -250,7 +252,7 @@ export default async function handler(req, res) {
     const transferCount = allTransactions.length;
     
     // 📊 KORRIGIERTE TRANSACTION CATEGORIZATION + DIRECTION DETECTION
-    console.log(`🚀 STARTING CATEGORIZATION: ${allTransactions.length} transactions to process`);
+    console.log(`🚨🚨🚨 STARTING CATEGORIZATION: ${allTransactions.length} transactions to process 🚨🚨🚨`);
     const categorizedTransactions = allTransactions.map(tx => {
       const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
       const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
@@ -286,6 +288,9 @@ export default async function handler(req, res) {
         isTaxable = true; // Verkaufserlöse sind steuerpflichtig
       }
       
+      // 🚨 KRITISCHER DIRECTION TEST
+      console.log(`🚨 DIRECTION TEST: ${tx.token_symbol} ${taxCategory} → SHOULD BE ${taxCategory === 'sale_income' ? 'IN' : 'OUT'}`);
+      
       // 🚨 EINFACHER DIREKTER FIX - GARANTIERT FUNKTIONIERT
       let finalDirection = 'unknown';
       let finalIcon = '❓';
@@ -294,15 +299,15 @@ export default async function handler(req, res) {
       if (taxCategory === 'sale_income') {
         finalDirection = 'in';  // Sale = Du bekommst Geld = IN
         finalIcon = '📥 IN';
-        console.log(`🔧 FORCE IN: ${tx.token_symbol} sale_income`);
+        console.log(`🚨🚨🚨 FORCE IN: ${tx.token_symbol} sale_income 🚨🚨🚨`);
       } else if (taxCategory === 'roi_income') {
         finalDirection = 'in';  // ROI = Du bekommst Geld = IN  
         finalIcon = '📥 IN';
-        console.log(`🔧 FORCE IN: ${tx.token_symbol} roi_income`);
+        console.log(`🚨🚨🚨 FORCE IN: ${tx.token_symbol} roi_income 🚨🚨🚨`);
       } else if (taxCategory === 'purchase') {
         finalDirection = 'out'; // Purchase = Du gibst Geld aus = OUT
         finalIcon = '📤 OUT';
-        console.log(`🔧 FORCE OUT: ${tx.token_symbol} purchase`);
+        console.log(`🚨🚨🚨 FORCE OUT: ${tx.token_symbol} purchase 🚨🚨🚨`);
       } else {
         // Fallback: Original Moralis Logic
         if (isIncoming && !isOutgoing) {
@@ -317,7 +322,7 @@ export default async function handler(req, res) {
         }
       }
       
-      console.log(`🎯 FINAL: ${tx.token_symbol} ${taxCategory} → ${finalDirection} ${finalIcon}`);
+      console.log(`🚨🚨🚨 FINAL: ${tx.token_symbol} ${taxCategory} → ${finalDirection} ${finalIcon} 🚨🚨🚨`);
       
       return {
         ...tx,
