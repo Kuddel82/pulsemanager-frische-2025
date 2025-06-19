@@ -38,16 +38,17 @@ async function moralisFetch(endpoint, params = {}) {
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`❌ MORALIS ERROR: ${res.status} - ${res.statusText}`);
-      return null;
+      console.error(`❌ MORALIS ERROR DETAILS: ${errorText}`);
+      return { error: true, status: res.status, message: errorText };
     }
 
     const jsonData = await res.json();
     console.log(`✅ MORALIS: ${endpoint} - ${jsonData?.result?.length || 0} items`);
-    return jsonData;
+    return { success: true, data: jsonData };
 
   } catch (error) {
     console.error(`💥 MORALIS EXCEPTION: ${error.message}`);
-    return null;
+    return { error: true, message: error.message };
   }
 }
 
@@ -68,8 +69,14 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
     
     const result = await moralisFetch(endpoint, params);
     
-    if (result && result.result && result.result.length > 0) {
-      const transactionsWithMetadata = result.result.map(tx => ({
+    // Error Handling
+    if (result.error) {
+      console.error(`❌ ${chainConfig.name} ${endpoint}: ${result.message}`);
+      break;
+    }
+    
+    if (result.success && result.data && result.data.result && result.data.result.length > 0) {
+      const transactionsWithMetadata = result.data.result.map(tx => ({
         ...tx,
         dataSource: 'moralis_enhanced_complete',
         fetchTimestamp: new Date().toISOString(),
@@ -111,10 +118,10 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
       }));
       
       allData.push(...transactionsWithMetadata);
-      currentCursor = result.cursor;
+      currentCursor = result.data.cursor;
       pageCount++;
       
-      console.log(`✅ Seite ${pageCount}: ${result.result.length} items, Total: ${allData.length}`);
+      console.log(`✅ Seite ${pageCount}: ${result.data.result.length} items, Total: ${allData.length}`);
     } else {
       console.log(`📄 Keine weiteren Daten auf Seite ${pageCount + 1}`);
       break;
