@@ -73,15 +73,16 @@ const SimpleTaxTracker = () => {
       console.log('🇩🇪 Starte deutsche Steuerreport-Generierung...');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       
-      // 🇩🇪 MULTI-CHAIN STEUERREPORT API VERWENDEN (Ethereum + PulseChain)
-      const response = await fetch('/api/german-tax-report', {
+      // 🇩🇪 ERWEITERTE MULTI-CHAIN STEUERREPORT API VERWENDEN (ERC20 + Native + Internal)
+      const response = await fetch('/api/german-tax-report-enhanced', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           address: walletAddress,
-          chain: 'all' // Lade beide Chains
+          chain: 'all', // Lade beide Chains
+          limit: 2000 // Erhöhtes Limit für erweiterte Version
         })
       });
 
@@ -91,7 +92,7 @@ const SimpleTaxTracker = () => {
         throw new Error(data.error || 'Fehler beim Laden der Steuerdaten');
       }
 
-      console.log('✅ Multi-Chain Steuerreport erfolgreich geladen:', data.taxReport);
+      console.log('✅ Erweiterte Multi-Chain Steuerreport erfolgreich geladen:', data.taxReport);
       setTaxData(data.taxReport);
 
     } catch (error) {
