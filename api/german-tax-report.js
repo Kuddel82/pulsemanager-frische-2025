@@ -1,8 +1,8 @@
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - FUNKTIONIERENDE VERSION + HISTORISCHE PREISE
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - STABILE VERSION 
  * 
- * BASIERT AUF: Deiner funktionierenden Version
- * ERWEITERT: Exakte historische Preise für deutsche Steuern
+ * ZUERST: Funktionalität + IN/OUT Transaktionen
+ * DANN: Historische Preise intelligent hinzufügen
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
@@ -10,7 +10,6 @@ const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 /**
  * Helper to fetch data from Moralis REST API with improved error handling
- * EXAKTE KOPIE VON DEINER FUNKTIONIERENDEN VERSION
  */
 async function moralisFetch(endpoint, params = {}) {
   try {
@@ -24,7 +23,7 @@ async function moralisFetch(endpoint, params = {}) {
     console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     const res = await fetch(url.toString(), {
       method: 'GET',
@@ -99,10 +98,10 @@ async function getHistoricalPrice(tokenAddress, chainId, blockNumber) {
 }
 
 /**
- * 🇩🇪 DEUTSCHE STEUERREPORT API - FUNKTIONIERENDE VERSION + HISTORISCHE PREISE
+ * 🇩🇪 DEUTSCHE STEUERREPORT API - STABILE VERSION + IN/OUT FIX
  */
 export default async function handler(req, res) {
-  console.log('🇩🇪 TAX API: Starting with WORKING VERSION + HISTORICAL PRICES');
+  console.log('🇩🇪 TAX API: Starting STABLE VERSION - IN/OUT TRANSACTIONS FIX');
   
   try {
     // Enable CORS
@@ -124,7 +123,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Extract parameters with better handling
+    // Extract parameters
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
     const { 
       address, 
@@ -141,7 +140,7 @@ export default async function handler(req, res) {
       limit,
       hasCursor: !!cursor,
       hasDateRange: !!(from_date && to_date),
-      status: 'WORKING_VERSION_WITH_HISTORICAL_PRICES'
+      status: 'STABLE_IN_OUT_TRANSACTIONS_FIX'
     });
 
     if (!address) {
@@ -152,7 +151,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔥 MULTI-CHAIN: Lade BEIDE Chains (Ethereum + PulseChain) - EXAKTE KOPIE
+    // 🔥 MULTI-CHAIN: Lade BEIDE Chains mit richtigen Parametern
     const chains = [
       { id: '0x1', name: 'Ethereum', moralisChain: 'eth' },
       { id: '0x171', name: 'PulseChain', moralisChain: 'pulsechain' }
@@ -163,152 +162,167 @@ export default async function handler(req, res) {
     for (const chainConfig of chains) {
       console.log(`🔗 TAX: Loading ${chainConfig.name} (${chainConfig.id})...`);
       
-      // Build Moralis API parameters für diese Chain - FIXED für IN+OUT
+      // 🔥 KORRIGIERTE PARAMETER - Moralis erwartet diese Werte
       const moralisParams = { 
-        chain: chainConfig.id,
-        limit: Math.min(parseInt(limit) || 2000, 2000), // Erhöht auf 2000 pro Request
-        direction: 'both' // 🔥 FIX: Lade IN + OUT Transaktionen
+        chain: chainConfig.moralisChain, // ✅ 'eth' statt '0x1'
+        limit: Math.min(parseInt(limit) || 1000, 1000),
+        order: 'DESC' // Neueste zuerst
       };
 
-      // Add optional parameters - EXAKTE KOPIE
+      // Add optional parameters
       if (cursor) moralisParams.cursor = cursor;
       if (from_date) moralisParams.from_date = from_date;
       if (to_date) moralisParams.to_date = to_date;
       
-      console.log(`🔧 TAX PAGE SIZE: Configured for ${moralisParams.limit} items per request on ${chainConfig.name}`);
+      console.log(`🔧 TAX PARAMS: Chain ${chainConfig.name}:`, moralisParams);
 
-      // 🔥 PAGINATION: Lade ALLE Transaktionen für diese Chain - EXAKTE KOPIE
+      // 🔥 LOAD ALL TRANSACTION TYPES FÜR VOLLSTÄNDIGE IN/OUT ABDECKUNG
       let chainTransactions = [];
       let currentCursor = cursor;
       let pageCount = 0;
-      const maxPages = 150; // Max 150 pages = 300.000 transactions
+      const maxPages = 50; // Reduziert für Performance
       
       do {
         if (currentCursor) moralisParams.cursor = currentCursor;
         
         console.log(`🚀 TAX FETCHING PAGE ${pageCount + 1}: ${address} on ${chainConfig.name}`);
         
-        // ENDPOINT 1: ERC20 Transfers (deine ursprüngliche funktionierende Version)
+        let allResults = [];
+        
+        // 🔥 ENDPOINT 1: ERC20 TRANSFERS (Haupt-Endpoint)
+        console.log(`📤 Loading ERC20 transfers for ${chainConfig.name}...`);
         const erc20Result = await moralisFetch(`${address}/erc20/transfers`, moralisParams);
         
-        // ENDPOINT 2: Native Transactions (nur für ETH hinzugefügt)
-        let nativeResult = null;
-        if (chainConfig.id === '0x1') { // Nur für Ethereum
-          console.log(`🔗 ZUSÄTZLICH: Lade Native ETH für ${chainConfig.name}`);
-          nativeResult = await moralisFetch(`${address}`, moralisParams);
-        }
-        
-        // Kombiniere Ergebnisse
-        let combinedResults = [];
         if (erc20Result && erc20Result.result) {
-          combinedResults.push(...erc20Result.result.map(tx => ({...tx, type: 'erc20'})));
-        }
-        if (nativeResult && nativeResult.result) {
-          combinedResults.push(...nativeResult.result.map(tx => ({...tx, type: 'native'})));
+          const erc20Transactions = erc20Result.result.map(tx => ({
+            ...tx, 
+            type: 'erc20',
+            chain: chainConfig.name,
+            chainId: chainConfig.id
+          }));
+          allResults.push(...erc20Transactions);
+          console.log(`✅ ERC20: ${erc20Transactions.length} transactions on ${chainConfig.name}`);
         }
         
-        if (combinedResults.length > 0) {
-          // ✅ ADD METADATA + HISTORISCHE PREISE TO TRANSACTIONS
-          console.log(`🏛️ ADDING HISTORICAL PRICES: ${combinedResults.length} transactions on ${chainConfig.name}`);
+        // 🔥 ENDPOINT 2: NATIVE TRANSACTIONS (ETH für Ethereum)
+        if (chainConfig.id === '0x1') {
+          console.log(`💰 Loading Native ETH transactions for ${chainConfig.name}...`);
+          const nativeResult = await moralisFetch(`${address}`, moralisParams);
           
-          const transactionsWithMetadata = await Promise.all(combinedResults.map(async (tx) => {
-            // 🔥 BERECHNE READABLE AMOUNT (coin menge)
+          if (nativeResult && nativeResult.result) {
+            const nativeTransactions = nativeResult.result.map(tx => ({
+              ...tx,
+              type: 'native',
+              token_symbol: 'ETH',
+              token_decimals: 18,
+              chain: chainConfig.name,
+              chainId: chainConfig.id
+            }));
+            allResults.push(...nativeTransactions);
+            console.log(`✅ NATIVE: ${nativeTransactions.length} ETH transactions on ${chainConfig.name}`);
+          }
+        }
+        
+        // 🔥 ENDPOINT 3: NFT TRANSFERS (für komplette Abdeckung)
+        console.log(`🎨 Loading NFT transfers for ${chainConfig.name}...`);
+        const nftResult = await moralisFetch(`${address}/nft/transfers`, moralisParams);
+        
+        if (nftResult && nftResult.result) {
+          const nftTransactions = nftResult.result.map(tx => ({
+            ...tx,
+            type: 'nft', 
+            value: '1', // NFTs haben value 1
+            token_decimals: 0,
+            chain: chainConfig.name,
+            chainId: chainConfig.id
+          }));
+          allResults.push(...nftTransactions);
+          console.log(`✅ NFT: ${nftTransactions.length} NFT transactions on ${chainConfig.name}`);
+        }
+        
+        if (allResults.length > 0) {
+          // ✅ ADD METADATA TO TRANSACTIONS - OHNE LANGSAME PREIS-CALLS
+          const transactionsWithMetadata = allResults.map(tx => {
+            // 🔥 BERECHNE READABLE AMOUNT
             let readableAmount = 'N/A';
             let numericAmount = 0;
             
-            if (tx.value && tx.token_decimals) {
-              numericAmount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals));
-              readableAmount = numericAmount.toLocaleString('de-DE', { 
-                minimumFractionDigits: 0, 
-                maximumFractionDigits: 6 
-              });
-            } else if (tx.value && tx.type === 'native') {
-              // Native ETH: 18 decimals
-              numericAmount = parseFloat(tx.value) / Math.pow(10, 18);
+            if (tx.value && tx.token_decimals !== undefined) {
+              const decimals = parseInt(tx.token_decimals) || 0;
+              numericAmount = parseFloat(tx.value) / Math.pow(10, decimals);
               readableAmount = numericAmount.toLocaleString('de-DE', { 
                 minimumFractionDigits: 0, 
                 maximumFractionDigits: 6 
               });
             }
 
-            // 🏛️ HOLE EXAKTE HISTORISCHE PREISE FÜR DEUTSCHE STEUERN
-            let priceEUR = "0.00";
-            let valueEUR = "0.00";
+            // 🔍 DIRECTION DETECTION (IN/OUT)
+            const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
+            const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
             
-            if (tx.token_address && tx.block_number && numericAmount > 0) {
-              const historicalPrice = await getHistoricalPrice(
-                tx.token_address, 
-                chainConfig.id, 
-                tx.block_number
-              );
-              
-              priceEUR = historicalPrice.priceEUR;
-              
-              // Berechne Gesamtwert in EUR
-              const totalValueEUR = numericAmount * parseFloat(priceEUR);
-              valueEUR = totalValueEUR.toLocaleString('de-DE', { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2 
-              });
-            }
+            let direction = 'unknown';
+            if (isIncoming && !isOutgoing) direction = 'in';
+            else if (isOutgoing && !isIncoming) direction = 'out';
+            else if (isIncoming && isOutgoing) direction = 'self';
 
             return {
               ...tx,
-              chain: chainConfig.name,
-              chainId: chainConfig.id,
-              dataSource: 'moralis_working_version_with_historical_prices',
+              dataSource: 'moralis_stable_in_out_fix',
               
-              // 🔥 READABLE AMOUNTS + PREISE
+              // 🔥 READABLE DATA
               readableAmount,
               numericAmount,
-              displayAmount: `${readableAmount} ${tx.token_symbol || 'ETH'}`,
-              priceEUR, // ✅ EXAKTE HISTORISCHE PREISE
-              valueEUR, // ✅ ECHTE EUR-WERTE
+              displayAmount: `${readableAmount} ${tx.token_symbol || 'Unknown'}`,
+              direction,
+              
+              // 🏛️ PLATZHALTER FÜR PREISE (später hinzufügen)
+              priceEUR: "0.00", // Später: Historische Preise
+              valueEUR: "0.00", // Später: Berechnete Werte
               timestamp: tx.block_timestamp
             };
-          }));
+          });
           
           chainTransactions.push(...transactionsWithMetadata);
           
-          // Cursor vom ERC20 Result nehmen (Haupt-Endpoint)
-          currentCursor = erc20Result?.cursor;
+          // Cursor management 
+          currentCursor = erc20Result?.cursor || nftResult?.cursor;
           pageCount++;
           
-          console.log(`✅ TAX PAGE ${pageCount}: ${combinedResults.length} transactions, Total: ${chainTransactions.length} on ${chainConfig.name}`);
+          console.log(`✅ TAX PAGE ${pageCount}: ${allResults.length} total transactions, Chain Total: ${chainTransactions.length} on ${chainConfig.name}`);
+          
+          // Rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
         } else {
           console.log(`📄 TAX: No more data at page ${pageCount + 1} on ${chainConfig.name}`);
           break;
         }
         
-        // Rate limiting zwischen Requests - EXAKTE KOPIE
-        await new Promise(resolve => setTimeout(resolve, 200)); // Erhöht für Preis-Requests
-        
       } while (currentCursor && pageCount < maxPages);
       
-      console.log(`🔥 TAX PAGINATION COMPLETE: ${chainTransactions.length} transactions across ${pageCount} pages on ${chainConfig.name}`);
+      console.log(`🔥 TAX CHAIN COMPLETE: ${chainTransactions.length} transactions across ${pageCount} pages on ${chainConfig.name}`);
       
       allTransactions.push(...chainTransactions);
     }
     
-    console.log(`🔥 TAX MULTI-CHAIN COMPLETE: ${allTransactions.length} total transactions (Ethereum + PulseChain)`);
+    console.log(`🔥 TAX MULTI-CHAIN COMPLETE: ${allTransactions.length} total transactions (ALL CHAINS)`);
     
     if (allTransactions.length === 0) {
-      console.warn(`⚠️ TAX NO TRANSFER DATA: Returning empty result for ${address}`);
+      console.warn(`⚠️ TAX NO DATA: Returning empty result for ${address}`);
       return res.status(200).json({
         success: true,
         taxReport: {
           transactions: [],
           summary: {
             totalTransactions: 0,
+            inCount: 0,
+            outCount: 0,
             roiCount: 0,
             saleCount: 0,
-            totalROIValueEUR: "0,00",
-            totalSaleValueEUR: "0,00",
-            totalTaxEUR: "0,00"
+            totalGainsEUR: "0,00"
           },
           metadata: {
-            source: 'moralis_working_version_with_historical_prices_empty',
-            message: 'No transfer data available on any chain',
+            source: 'moralis_stable_in_out_fix_empty',
+            message: 'No transaction data available',
             walletAddress: address,
             chainsChecked: chains.map(c => c.name)
           }
@@ -316,32 +330,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // Successful response with transaction categorization - ERWEITERT MIT PREISEN
-    const transferCount = allTransactions.length;
-    
-    // 📊 TRANSACTION CATEGORIZATION für Tax Report - EXAKTE KOPIE + PREISE
+    // 📊 TRANSACTION CATEGORIZATION für Tax Report
     const categorizedTransactions = allTransactions.map(tx => {
-      const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
-      const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
+      const isIncoming = tx.direction === 'in';
+      const isOutgoing = tx.direction === 'out';
       
-      // ROI Token Detection - EXAKTE KOPIE
+      // ROI Token Detection
       const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS'];
       const isROIToken = ROI_TOKENS.includes(tx.token_symbol?.toUpperCase());
       
-      // Minter Detection - EXAKTE KOPIE
+      // Minter Detection
       const KNOWN_MINTERS = [
         '0x0000000000000000000000000000000000000000',
         '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
-        '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3',
-        '0x83d0cf6a8bc7d9af84b7fc1a6a8ad51f1e1e6fe1',
-        '0xa4b89c0d48421c4ae9c7743e9e58b06e5ad8e2c6',
-        '0xb7c3a5e1c6b45b9db4d4b8e6f4e2c7f8b8a7e6d5',
-        '0xc8d4b2f5e7a9c6b3d8e1f4a7b2c5d8e9f6a3b7c4'
+        '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3'
       ];
       const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
       
-      // Tax Category Classification - EXAKTE KOPIE
-      let taxCategory = 'transfer'; // Default: steuerfreier Transfer
+      // Tax Category Classification
+      let taxCategory = 'transfer';
       let isTaxable = false;
       
       if (isIncoming && (fromMinter || isROIToken)) {
@@ -349,57 +356,56 @@ export default async function handler(req, res) {
         isTaxable = true;
       } else if (isOutgoing) {
         taxCategory = 'purchase';
-        isTaxable = false; // Käufe sind nicht steuerpflichtig
+        isTaxable = false;
       } else if (isIncoming) {
         taxCategory = 'sale_income';
-        isTaxable = true; // Verkaufserlöse sind steuerpflichtig
+        isTaxable = true;
       }
       
       return {
         ...tx,
-        // Tax-spezifische Felder - EXAKTE KOPIE
-        direction: isIncoming ? 'in' : 'out',
         taxCategory,
         isTaxable,
         isROI: fromMinter || isROIToken,
         fromMinter,
         isROIToken,
-        // 🔥 STEUER-BERECHNUNGEN mit echten Preisen
-        gainsEUR: isTaxable ? tx.valueEUR : "0,00"
+        gainsEUR: "0,00" // Später mit historischen Preisen berechnen
       };
     });
     
-    console.log(`✅ TAX TRANSFERS LOADED: ${transferCount} transfers for ${address}, categorized for tax reporting WITH HISTORICAL PRICES`);
+    console.log(`✅ TAX CATEGORIZATION COMPLETE: ${categorizedTransactions.length} transactions categorized`);
 
-    // Calculate German tax summary mit echten EUR-Werten
+    // Calculate summary
+    const inTransactions = categorizedTransactions.filter(tx => tx.direction === 'in');
+    const outTransactions = categorizedTransactions.filter(tx => tx.direction === 'out');
     const roiTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'roi_income');
     const saleTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'sale_income');
     const purchaseTransactions = categorizedTransactions.filter(tx => tx.taxCategory === 'purchase');
 
-    // 🔥 BERECHNE ECHTE EUR-SUMMEN MIT HISTORISCHEN PREISEN
-    const totalROIValueEUR = roiTransactions.reduce((sum, tx) => {
-      const value = parseFloat(tx.valueEUR?.replace(/\./g, '').replace(',', '.')) || 0;
-      return sum + value;
-    }, 0);
-    
-    const totalSaleValueEUR = saleTransactions.reduce((sum, tx) => {
-      const value = parseFloat(tx.valueEUR?.replace(/\./g, '').replace(',', '.')) || 0;
-      return sum + value;
-    }, 0);
-    
-    const totalGainsEUR = totalROIValueEUR + totalSaleValueEUR;
-    const totalTaxEUR = totalGainsEUR * 0.25; // Grobe 25% Steuer
-
     const summary = {
-      totalTransactions: transferCount,
+      totalTransactions: categorizedTransactions.length,
+      inCount: inTransactions.length,
+      outCount: outTransactions.length,
       roiCount: roiTransactions.length,
       saleCount: saleTransactions.length,
       purchaseCount: purchaseTransactions.length,
-      totalROIValueEUR: totalROIValueEUR.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      totalSaleValueEUR: totalSaleValueEUR.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      totalGainsEUR: totalGainsEUR.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      totalTaxEUR: totalTaxEUR.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      transferCount: categorizedTransactions.filter(tx => tx.taxCategory === 'transfer').length,
+      
+      // Platzhalter für Preis-basierte Berechnungen
+      totalGainsEUR: "0,00", // Später mit historischen Preisen
+      totalTaxEUR: "0,00",   // Später mit historischen Preisen
+      
+      // Zeige Transaktions-Verteilung
+      breakdown: {
+        ethereum: allTransactions.filter(tx => tx.chain === 'Ethereum').length,
+        pulsechain: allTransactions.filter(tx => tx.chain === 'PulseChain').length,
+        erc20: allTransactions.filter(tx => tx.type === 'erc20').length,
+        native: allTransactions.filter(tx => tx.type === 'native').length,
+        nft: allTransactions.filter(tx => tx.type === 'nft').length
+      }
     };
+
+    console.log(`🎯 TRANSACTION BREAKDOWN:`, summary.breakdown);
 
     return res.status(200).json({
       success: true,
@@ -407,21 +413,22 @@ export default async function handler(req, res) {
         transactions: categorizedTransactions,
         summary: summary,
         metadata: {
-          source: 'moralis_working_version_with_historical_prices_success',
+          source: 'moralis_stable_in_out_fix_success',
           chains: chains.map(c => c.name),
           address: address,
           timestamp: new Date().toISOString(),
-          count: transferCount,
-          status: 'WORKING_VERSION_WITH_HISTORICAL_PRICES',
+          count: categorizedTransactions.length,
+          status: 'STABLE_IN_OUT_TRANSACTIONS_LOADED',
           features: [
-            'IN_OUT_TRANSACTIONS',
-            'HISTORICAL_PRICES',
-            'READABLE_AMOUNTS', 
-            'EUR_VALUES',
-            'TAX_CATEGORIZATION'
+            'MULTI_CHAIN_SUPPORT',
+            'IN_OUT_DETECTION', 
+            'ERC20_NATIVE_NFT',
+            'TAX_CATEGORIZATION',
+            'READABLE_AMOUNTS'
           ],
+          note: 'Historische Preise werden in nächstem Update hinzugefügt',
           tax_categorization: {
-            total: transferCount,
+            total: categorizedTransactions.length,
             roi_income: roiTransactions.length,
             purchases: purchaseTransactions.length,
             sales: saleTransactions.length,
@@ -436,24 +443,20 @@ export default async function handler(req, res) {
     console.error('💥 TAX API CRITICAL ERROR:', error);
     console.error('💥 ERROR STACK:', error.stack);
     
-    // Return graceful error response to prevent tax report crash - EXAKTE KOPIE
     return res.status(200).json({
       success: true,
       taxReport: {
         transactions: [],
         summary: {
           totalTransactions: 0,
-          roiCount: 0,
-          saleCount: 0,
-          totalROIValueEUR: "0,00",
-          totalSaleValueEUR: "0,00",
-          totalTaxEUR: "0,00"
+          inCount: 0,
+          outCount: 0,
+          totalGainsEUR: "0,00"
         },
         metadata: {
-          source: 'moralis_working_version_with_historical_prices_error',
+          source: 'moralis_stable_in_out_fix_error',
           error: error.message,
-          timestamp: new Date().toISOString(),
-          debug: 'Check server logs for details'
+          timestamp: new Date().toISOString()
         }
       }
     });
