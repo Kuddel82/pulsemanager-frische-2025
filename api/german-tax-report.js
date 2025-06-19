@@ -154,8 +154,8 @@ export default async function handler(req, res) {
 
     // KORREKTE CHAIN IDs - EXAKT WIE MORALIS-V2
     const chains = [
-      { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: 'eth' },
-      { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: 'pulsechain' }
+      { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: 'eth', moralisId: '0x1' },
+      { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: 'pulsechain', moralisId: '0x171' }
     ];
 
     let allTransactions = [];
@@ -167,7 +167,8 @@ export default async function handler(req, res) {
       
       try {
         // 🔥 AGGRESSIVE PAGINATION: Bis zu 300.000 Transfers pro Chain
-        const transfers = await fetchAllTransfers(address, chain.moralisName, limit);
+        // 🔧 FIX: Verwende Chain-ID statt Chain-Name für Moralis API
+        const transfers = await fetchAllTransfers(address, chain.moralisId, limit);
         
         console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via AGGRESSIVE PAGINATION`);
         
