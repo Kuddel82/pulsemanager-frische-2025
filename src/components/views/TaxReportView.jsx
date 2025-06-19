@@ -77,10 +77,10 @@ const SimpleTaxTracker = () => {
     setReportGenerated(false);
 
     try {
-      console.log('🔥🔥🔥 STEUERREPORT: ROLLBACK TO STABLE VERSION 🔥🔥🔥');
+      console.log('🔥🔥🔥 STEUERREPORT: NEUE WALLET HISTORY API 🔥🔥🔥');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       
-      // 🇩🇪 STABILE VERSION: NUR ERC20 TRANSFERS - BEWÄHRT
+      // 🇩🇪 NEUE WALLET HISTORY API - BESSERE PERFORMANCE
       const response = await fetch('/api/german-tax-report', {
         method: 'POST',
         headers: {
@@ -88,8 +88,7 @@ const SimpleTaxTracker = () => {
         },
         body: JSON.stringify({
           address: walletAddress,
-          chain: 'all', // Lade beide Chains
-          limit: 2000 // Stabiles Limit
+          limit: 500 // Neue API kann bis zu 500 pro Call
         })
       });
 
@@ -99,7 +98,7 @@ const SimpleTaxTracker = () => {
         throw new Error(data.error || 'Fehler beim Laden der Steuerdaten');
       }
 
-      console.log('✅ Stabile Steuerreport erfolgreich geladen:', data.taxReport);
+      console.log('✅ Neue Wallet History API erfolgreich geladen:', data.taxReport);
       setTaxData(data.taxReport);
       setReportGenerated(true);
 
@@ -160,11 +159,11 @@ const SimpleTaxTracker = () => {
                 <p>Gesamt Transaktionen</p>
               </div>
               <div class="stat">
-                <h3>${taxData.summary?.pulsechainTransactions || 0}</h3>
+                <h3>${taxData.summary?.pulsechainCount || 0}</h3>
                 <p>PulseChain</p>
               </div>
               <div class="stat">
-                <h3>${taxData.summary?.ethereumTransactions || 0}</h3>
+                <h3>${taxData.summary?.ethereumCount || 0}</h3>
                 <p>Ethereum</p>
               </div>
               <div class="stat">
@@ -198,7 +197,7 @@ const SimpleTaxTracker = () => {
               <tbody>
                 ${taxData.transactions.map((tx, index) => {
                   const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
-                  const chain = tx.chain === '0x1' ? 'ETH' : tx.chain === '0x171' ? 'PLS' : 'UNK';
+                  const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
                   const token = tx.tokenSymbol || 'N/A';
                   const direction = tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT');
                   const value = tx.formattedValue || (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0');
@@ -207,7 +206,7 @@ const SimpleTaxTracker = () => {
                       <td>${date}</td>
                       <td>${chain}</td>
                       <td>${token}</td>
-                      <td>${tx.type || 'N/A'}</td>
+                      <td>${tx.taxCategory || 'N/A'}</td>
                       <td>${direction}</td>
                       <td>${value}</td>
                     </tr>
