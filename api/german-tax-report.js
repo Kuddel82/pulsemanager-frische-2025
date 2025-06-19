@@ -51,9 +51,9 @@ async function moralisFetch(endpoint, params = {}) {
   }
 }
 
-// 🔥 CHUNKED PAGINATION FUNKTION (Serverless-Timeout-Fix)
+// 🔥 CHUNKED PAGINATION FUNKTION (Serverless-Timeout-Fix) - ERWEITERT FÜR NATIVE + ERC20
 async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
-  console.log(`🔥 CHUNKED PAGINATION: ${address} auf ${chainName} - Ziel: ${maxTransactions} Transaktionen`);
+  console.log(`🔥 CHUNKED PAGINATION: ${address} auf ${chainName} - Ziel: ${maxTransactions} Transaktionen (ERC20 + Native)`);
   
   let allTransfers = [];
   let cursor = null;
@@ -75,6 +75,8 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
     timeLimit: maxTimeSeconds
   };
   
+  // 🔥 LADE ERC20 TRANSFERS
+  console.log(`🪙 Lade ERC20 Transfers für ${chainName}...`);
   while (allTransfers.length < maxTransactions && pageCount < maxPages) {
     // 🔥 KRITISCH: Timeout-Check
     const timeElapsed = (Date.now() - startTime) / 1000;
@@ -105,7 +107,7 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       const result = await moralisFetch(`${address}/erc20/transfers`, params);
       
       if (!result || !result.result) {
-        console.log(`⚠️ Keine weiteren Daten für ${chainName} - Seite ${pageCount}`);
+        console.log(`⚠️ Keine weiteren ERC20 Daten für ${chainName} - Seite ${pageCount}`);
         debugInfo.stopReason = 'No result or result.result';
         debugInfo.errors.push(`Page ${pageCount}: No result`);
         break;
@@ -115,11 +117,11 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       allTransfers.push(...transfers);
       debugInfo.totalTransfers = allTransfers.length;
       
-      console.log(`✅ Seite ${pageCount}: ${transfers.length} Transfers geladen (Total: ${allTransfers.length}) in ${timeElapsed.toFixed(1)}s`);
+      console.log(`✅ Seite ${pageCount}: ${transfers.length} ERC20 Transfers geladen (Total: ${allTransfers.length}) in ${timeElapsed.toFixed(1)}s`);
       
       // Prüfe ob es weitere Seiten gibt
       if (!result.cursor || transfers.length < 100) {
-        console.log(`🏁 Keine weiteren Seiten für ${chainName} - Ende erreicht`);
+        console.log(`🏁 Keine weiteren ERC20 Seiten für ${chainName} - Ende erreicht`);
         const reason = !result.cursor ? 'Kein Cursor' : 'Weniger als 100 Transfers';
         debugInfo.stopReason = reason;
         break;
@@ -141,8 +143,78 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
     }
   }
   
+  // 🔥 LADE NATIVE TRANSFERS (ETH/PLS)
+  console.log(`💰 Lade Native Transfers für ${chainName}...`);
+  const nativeStartTime = Date.now();
+  let nativeCursor = null;
+  let nativePageCount = 0;
+  
+  while (allTransfers.length < maxTransactions && nativePageCount < maxPages) {
+    const timeElapsed = (Date.now() - startTime) / 1000;
+    
+    if (timeElapsed >= maxTimeSeconds) {
+      console.log(`⏰ NATIVE TIMEOUT: ${timeElapsed.toFixed(1)}s - Serverless-Limit erreicht`);
+      break;
+    }
+    
+    nativePageCount++;
+    
+    try {
+      const params = {
+        chain: chainName,
+        limit: 100
+      };
+      
+      if (nativeCursor) {
+        params.cursor = nativeCursor;
+      }
+      
+      console.log(`💰 Native Seite ${nativePageCount}: Lade ${allTransfers.length + 100} von ${maxTransactions}... (${timeElapsed.toFixed(1)}s)`);
+      
+      const result = await moralisFetch(`${address}/transactions`, params);
+      
+      if (!result || !result.result) {
+        console.log(`⚠️ Keine weiteren Native Daten für ${chainName} - Seite ${nativePageCount}`);
+        break;
+      }
+      
+      const transactions = result.result;
+      
+      // Konvertiere Native Transactions zu Transfer-Format
+      const nativeTransfers = transactions.map(tx => ({
+        ...tx,
+        token_symbol: chainName === 'eth' ? 'ETH' : 'PLS',
+        token_name: chainName === 'eth' ? 'Ethereum' : 'PulseChain',
+        token_decimals: '18',
+        value_decimal: (parseFloat(tx.value) / Math.pow(10, 18)).toString(),
+        is_native: true,
+        transfer_type: 'native'
+      }));
+      
+      allTransfers.push(...nativeTransfers);
+      debugInfo.totalTransfers = allTransfers.length;
+      
+      console.log(`✅ Native Seite ${nativePageCount}: ${nativeTransfers.length} Native Transfers geladen (Total: ${allTransfers.length}) in ${timeElapsed.toFixed(1)}s`);
+      
+      if (!result.cursor || transactions.length < 100) {
+        console.log(`🏁 Keine weiteren Native Seiten für ${chainName} - Ende erreicht`);
+        break;
+      }
+      
+      nativeCursor = result.cursor;
+      
+      if (nativePageCount % 5 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+    } catch (error) {
+      console.error(`❌ Native Fehler bei Seite ${nativePageCount} für ${chainName}:`, error.message);
+      break;
+    }
+  }
+  
   const finalTime = (Date.now() - startTime) / 1000;
-  console.log(`🎯 ${chainName} CHUNKED PAGINATION COMPLETE: ${allTransfers.length} Transfers in ${pageCount} Seiten in ${finalTime.toFixed(1)}s`);
+  console.log(`🎯 ${chainName} CHUNKED PAGINATION COMPLETE: ${allTransfers.length} Transfers (ERC20 + Native) in ${pageCount + nativePageCount} Seiten in ${finalTime.toFixed(1)}s`);
   console.log(`🔍 DEBUG: Finale Analyse - Max Pages: ${maxPages}, Geladen: ${allTransfers.length}, Ziel: ${maxTransactions}, Zeit: ${finalTime.toFixed(1)}s`);
   
   return { transfers: allTransfers, debugInfo };
