@@ -21,6 +21,8 @@ async function moralisFetch(endpoint, params = {}) {
     });
 
     console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
+    console.log(`🔑 API KEY EXISTS: ${!!MORALIS_API_KEY}`);
+    console.log(`🔑 API KEY LENGTH: ${MORALIS_API_KEY ? MORALIS_API_KEY.length : 0}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
@@ -37,6 +39,8 @@ async function moralisFetch(endpoint, params = {}) {
     
     clearTimeout(timeoutId);
 
+    console.log(`📡 MORALIS RESPONSE STATUS: ${res.status} ${res.statusText}`);
+
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`❌ MORALIS API ERROR: ${res.status} - ${res.statusText}`);
@@ -46,10 +50,12 @@ async function moralisFetch(endpoint, params = {}) {
 
     const jsonData = await res.json();
     console.log(`✅ MORALIS SUCCESS: ${endpoint} returned ${jsonData?.result?.length || 0} items`);
+    console.log(`📊 MORALIS DATA:`, JSON.stringify(jsonData, null, 2).substring(0, 500));
     return jsonData;
 
   } catch (error) {
     console.error(`💥 MORALIS FETCH EXCEPTION: ${error.message}`);
+    console.error(`💥 ERROR STACK:`, error.stack);
     return null;
   }
 }
