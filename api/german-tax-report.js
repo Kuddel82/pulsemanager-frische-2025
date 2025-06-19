@@ -1,120 +1,14 @@
 /**
- * 🇩🇪 EINFACHE FUNKTIONIERENDE CRYPTO TAX API
+ * 🇩🇪 TAX REPORT API - EXAKT WIE DAS PORTFOLIO
  * 
- * ✅ Verwendet ERC20 Transfers API (funktioniert!)
- * ✅ Einfache Logik ohne Komplikationen
+ * ✅ Verwendet /api/moralis-v2 (funktioniert im Portfolio!)
+ * ✅ EXAKT die gleiche Logik wie das Portfolio
  * ✅ KORREKTE Chain IDs: 0x1 (ETH) + 0x171 (PulseChain)
  * ✅ Deutsche Steuer-Kategorisierung
  */
 
-const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
-
-// EINFACHES RATE LIMITING
-let lastRequestTime = 0;
-const MIN_REQUEST_DELAY = 200;
-
-async function rateLimitedDelay() {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-  
-  if (timeSinceLastRequest < MIN_REQUEST_DELAY) {
-    const delayNeeded = MIN_REQUEST_DELAY - timeSinceLastRequest;
-    await new Promise(resolve => setTimeout(resolve, delayNeeded));
-  }
-  
-  lastRequestTime = Date.now();
-}
-
-/**
- * EINFACHE Moralis Fetch Function
- */
-async function moralisFetch(endpoint, params = {}) {
-  await rateLimitedDelay();
-  
-  try {
-    const url = new URL(`${MORALIS_BASE_URL}/${endpoint}`);
-    
-    Object.entries(params).forEach(([key, val]) => {
-      if (val !== undefined && val !== null && val !== '') {
-        url.searchParams.append(key, val);
-      }
-    });
-
-    console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
-
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-API-Key': MORALIS_API_KEY,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP_${res.status}: ${res.statusText}`);
-    }
-
-    const jsonData = await res.json();
-    console.log(`✅ MORALIS SUCCESS: ${endpoint} returned ${jsonData?.result?.length || 0} items`);
-    
-    return jsonData;
-
-  } catch (error) {
-    console.error(`💥 MORALIS FETCH ERROR: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * EINFACHE Wallet History - Verwendet ERC20 Transfers
- */
-async function getWalletHistory(address, chainId, limit = 500) {
-  console.log(`🔍 Getting ERC20 transfers for ${address.slice(0, 8)}... on chain ${chainId}`);
-  
-  try {
-    const params = {
-      chain: chainId,
-      limit: Math.min(limit, 500),
-      order: 'DESC'
-    };
-    
-    const result = await moralisFetch(`${address}/erc20/transfers`, params);
-    
-    if (!result || !result.result) {
-      console.log(`📄 No ERC20 transfers found for chain ${chainId}`);
-      return [];
-    }
-    
-    console.log(`✅ ERC20 Transfers: ${result.result.length} transfers found for chain ${chainId}`);
-    
-    // Konvertiere zu TaxReport-Format
-    return result.result.map(tx => ({
-      ...tx,
-      category: 'token transfer',
-      summary: `${tx.token_symbol} transfer`,
-      possible_spam: false,
-      native_transfers: [],
-      erc20_transfers: [tx],
-      nft_transfers: [],
-      direction: tx.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out',
-      directionIcon: tx.to_address?.toLowerCase() === address.toLowerCase() ? '📥 IN' : '📤 OUT',
-      taxCategory: tx.to_address?.toLowerCase() === address.toLowerCase() ? 'Token Transfer (In)' : 'Token Transfer (Out)',
-      formattedValue: tx.value_decimal || '0',
-      tokenSymbol: tx.token_symbol || 'UNKNOWN'
-    }));
-    
-  } catch (error) {
-    console.error(`❌ ERC20 Transfers Error for chain ${chainId}:`, error.message);
-    return [];
-  }
-}
-
-/**
- * 🇩🇪 HAUPTFUNKTION - Deutsche Steuer API
- */
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 EINFACHE TAX API - SOLLTE FUNKTIONIEREN! 🔥🔥🔥');
+  console.log('🔥🔥🔥 TAX REPORT - EXAKT WIE PORTFOLIO! 🔥🔥🔥');
   
   try {
     // CORS Headers
@@ -124,15 +18,6 @@ export default async function handler(req, res) {
 
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
-    }
-
-    // API Key Check
-    if (!MORALIS_API_KEY) {
-      console.error('🚨 MORALIS API KEY MISSING');
-      return res.status(503).json({ 
-        error: 'Moralis API Key missing',
-        success: false
-      });
     }
 
     // Extract parameters
@@ -163,38 +48,62 @@ export default async function handler(req, res) {
 
     console.log(`🔍 Processing wallet: ${address.slice(0, 8)}...`);
 
-    // KORREKTE CHAIN IDs
+    // KORREKTE CHAIN IDs - EXAKT WIE PORTFOLIO
     const chains = [
-      { id: '0x1', name: 'Ethereum', short: 'ETH' },
-      { id: '0x171', name: 'PulseChain', short: 'PLS' }
+      { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: 'eth' },
+      { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: 'pulsechain' }
     ];
 
     let allTransactions = [];
     let chainResults = {};
 
-    // PARALLEL PROCESSING
+    // PARALLEL PROCESSING - EXAKT WIE PORTFOLIO
     const chainPromises = chains.map(async (chain) => {
       console.log(`🚀 Processing ${chain.name} (${chain.id})...`);
       
       try {
-        const transactions = await getWalletHistory(address, chain.id, limit);
+        // 🔥 EXAKT WIE PORTFOLIO: Verwende /api/moralis-v2 mit erc20_transfers
+        const response = await fetch(`/api/moralis-v2?address=${address}&chain=${chain.moralisName}&endpoint=erc20_transfers&limit=${limit}`);
+        
+        if (!response.ok) {
+          console.error(`❌ ${chain.name} API Error: ${response.status}`);
+          chainResults[chain.short] = {
+            count: 0,
+            transactions: [],
+            error: `API Error: ${response.status}`
+          };
+          return;
+        }
+        
+        const data = await response.json();
+        const transfers = data.transfers || [];
+        
+        console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via /api/moralis-v2`);
         
         chainResults[chain.short] = {
-          count: transactions.length,
-          transactions: transactions
+          count: transfers.length,
+          transactions: transfers
         };
         
         // Add chain info to transactions
-        const processedTransactions = transactions.map(tx => ({
+        const processedTransactions = transfers.map(tx => ({
           ...tx,
           sourceChain: chain.name,
           sourceChainShort: chain.short,
-          sourceChainId: chain.id
+          sourceChainId: chain.id,
+          // Add direction info
+          direction: tx.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out',
+          directionIcon: tx.to_address?.toLowerCase() === address.toLowerCase() ? '📥 IN' : '📤 OUT',
+          // Add tax category
+          taxCategory: tx.to_address?.toLowerCase() === address.toLowerCase() ? 'Token Transfer (In)' : 'Token Transfer (Out)',
+          // Add formatted value
+          formattedValue: tx.value_decimal || '0',
+          tokenSymbol: tx.token_symbol || 'UNKNOWN'
         }));
         
         allTransactions.push(...processedTransactions);
         
-        console.log(`✅ ${chain.name}: ${transactions.length} transactions processed`);
+        console.log(`✅ ${chain.name}: ${transfers.length} transactions processed`);
         
       } catch (error) {
         console.error(`❌ ${chain.name} processing failed:`, error.message);
@@ -273,7 +182,8 @@ export default async function handler(req, res) {
       debug: {
         originalCount: allTransactions.length,
         processedCount: categorizedTransactions.length,
-        chains: Object.keys(chainResults)
+        chains: Object.keys(chainResults),
+        source: 'portfolio_compatible_api'
       }
     });
 
