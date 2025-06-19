@@ -113,9 +113,11 @@ export default async function handler(req, res) {
     }
 
     // 🔥 MULTI-CHAIN: Lade BEIDE Chains (Ethereum + PulseChain) - EXAKTE KOPIE
-    const chains = [
+    const chains = chain === 'all' ? [
       { id: '0x1', name: 'Ethereum' },
       { id: '0x171', name: 'PulseChain' }
+    ] : [
+      { id: chain === 'ethereum' ? '0x1' : '0x171', name: chain === 'ethereum' ? 'Ethereum' : 'PulseChain' }
     ];
     
     let allTransactions = [];
