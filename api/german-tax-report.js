@@ -1,17 +1,13 @@
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - ERWEITERTE VOLLSTÄNDIGE VERSION
- * 
- * PRIORITÄT 1: VOLLSTÄNDIGE WALLET-ABFRAGE (ALLE TRANSAKTIONSTYPEN)
- * - ERC20 Transfers
- * - Native Transfers (ETH/PLS)  
- * - Internal Transactions
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API
+ * Vollständige Wallet-Abfrage: ERC20 + Native + Internal Transaktionen
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 /**
- * Helper to fetch data from Moralis REST API with improved error handling
+ * Moralis API Helper mit Error Handling
  */
 async function moralisFetch(endpoint, params = {}) {
   try {
@@ -22,7 +18,7 @@ async function moralisFetch(endpoint, params = {}) {
       }
     });
 
-    console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
+    console.log(`🚀 MORALIS: ${url.toString()}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
@@ -41,53 +37,49 @@ async function moralisFetch(endpoint, params = {}) {
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`❌ MORALIS API ERROR: ${res.status} - ${res.statusText}`);
-      console.error(`❌ ERROR DETAILS: ${errorText}`);
+      console.error(`❌ MORALIS ERROR: ${res.status} - ${res.statusText}`);
       return null;
     }
 
     const jsonData = await res.json();
-    console.log(`✅ MORALIS SUCCESS: ${endpoint} returned ${jsonData?.result?.length || 0} items`);
+    console.log(`✅ MORALIS: ${endpoint} - ${jsonData?.result?.length || 0} items`);
     return jsonData;
 
   } catch (error) {
-    console.error(`💥 MORALIS FETCH EXCEPTION: ${error.message}`);
+    console.error(`💥 MORALIS EXCEPTION: ${error.message}`);
     return null;
   }
 }
 
 /**
- * 🛠️ PAGINIERTE DATEN-FETCHING FUNKTION
- * Bewährte Pagination für alle Endpunkte
+ * Paginierte Daten-Abfrage für alle Endpunkte
  */
 async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
   let allData = [];
   let currentCursor = baseParams.cursor;
   let pageCount = 0;
-  const maxPages = 150; // Bewährt aus stabiler Version
+  const maxPages = 150;
   
   do {
     const params = { ...baseParams };
     if (currentCursor) params.cursor = currentCursor;
     
-    console.log(`🚀 ${chainConfig.name} ${endpoint}: Seite ${pageCount + 1}`);
+    console.log(`📄 ${chainConfig.name} ${endpoint}: Seite ${pageCount + 1}`);
     
     const result = await moralisFetch(endpoint, params);
     
     if (result && result.result && result.result.length > 0) {
-      // Füge Basis-Metadaten hinzu
       const transactionsWithMetadata = result.result.map(tx => ({
         ...tx,
         dataSource: 'moralis_enhanced_complete',
         fetchTimestamp: new Date().toISOString(),
         
-        // NATIVE TOKEN HANDLING für ETH/PLS
+        // Native Token Handling (ETH/PLS)
         ...(endpoint.includes('transactions') && !endpoint.includes('erc20') && !endpoint.includes('internal') ? {
           token_symbol: chainConfig.name === 'Ethereum' ? 'ETH' : 'PLS',
           token_name: chainConfig.name === 'Ethereum' ? 'Ethereum' : 'Pulse',
           token_decimals: '18',
-          token_address: null, // Native tokens haben keine Contract Address
-          // Value bereits in wei, readable amount berechnen
+          token_address: null,
           readableAmount: tx.value ? 
             (parseFloat(tx.value) / Math.pow(10, 18)).toLocaleString('de-DE', { 
               minimumFractionDigits: 0, 
@@ -95,7 +87,7 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
             }) : 'N/A'
         } : {}),
         
-        // ERC20 READABLE AMOUNT (bereits aus stabiler Version)
+        // ERC20 Token Handling
         ...(endpoint.includes('erc20') ? {
           readableAmount: tx.value && tx.token_decimals ? 
             (parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals))).toLocaleString('de-DE', { 
@@ -104,7 +96,7 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
             }) : 'N/A'
         } : {}),
         
-        // INTERNAL TRANSACTION HANDLING
+        // Internal Transaction Handling
         ...(endpoint.includes('internal') ? {
           token_symbol: chainConfig.name === 'Ethereum' ? 'ETH' : 'PLS',
           token_name: chainConfig.name === 'Ethereum' ? 'Ethereum Internal' : 'Pulse Internal',
@@ -128,25 +120,22 @@ async function fetchPaginatedData(endpoint, baseParams, chainConfig) {
       break;
     }
     
-    // Konservatives Rate Limiting (aus stabiler Version)
     await new Promise(resolve => setTimeout(resolve, 150));
     
   } while (currentCursor && pageCount < maxPages);
   
-  console.log(`🔥 ${endpoint} PAGINATION KOMPLETT: ${allData.length} items über ${pageCount} Seiten`);
-  
+  console.log(`🔥 ${endpoint} KOMPLETT: ${allData.length} items über ${pageCount} Seiten`);
   return allData;
 }
 
 /**
- * 🇩🇪 DEUTSCHE STEUERREPORT API - ERWEITERTE VOLLSTÄNDIGE VERSION
+ * 🇩🇪 DEUTSCHE STEUERREPORT API
  */
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 TAX API: ERWEITERTE VOLLSTÄNDIGE WALLET-ABFRAGE 🔥🔥🔥');
-  console.log('🔥🔥🔥 ALLE TRANSAKTIONSTYPEN: ERC20 + NATIVE + INTERNAL 🔥🔥🔥');
+  console.log('🔥 TAX API: Vollständige Wallet-Abfrage gestartet');
   
   try {
-    // Enable CORS
+    // CORS Setup
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
@@ -155,17 +144,16 @@ export default async function handler(req, res) {
       return res.status(200).end();
     }
 
-    // API Key validation
+    // API Key Validation
     if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
       console.error('🚨 MORALIS API KEY MISSING');
       return res.status(503).json({ 
         error: 'Moralis API Key missing or invalid.',
-        _pro_mode: true,
-        _debug: 'Check MORALIS_API_KEY environment variable'
+        _pro_mode: true
       });
     }
 
-    // Extract parameters
+    // Parameter Extraction
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
     const { 
       address, 
@@ -181,19 +169,17 @@ export default async function handler(req, res) {
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
       limit,
       hasCursor: !!cursor,
-      hasDateRange: !!(from_date && to_date),
-      status: 'ENHANCED_COMPLETE_VERSION'
+      hasDateRange: !!(from_date && to_date)
     });
 
     if (!address) {
       return res.status(400).json({ 
         error: 'Missing address parameter.',
-        usage: 'POST /api/german-tax-report with address, chain, limit',
-        received: params
+        usage: 'POST /api/german-tax-report with address, chain, limit'
       });
     }
 
-    // 🔥 ERWEITERTE MULTI-CHAIN ABFRAGE - ALLE DATENTYPEN
+    // Multi-Chain Abfrage
     const chains = [
       { id: '0x1', name: 'Ethereum' },
       { id: '0x171', name: 'PulseChain' }
@@ -202,38 +188,37 @@ export default async function handler(req, res) {
     let allTransactions = [];
     
     for (const chainConfig of chains) {
-      console.log(`🔗 VOLLSTÄNDIGE ABFRAGE: ${chainConfig.name} (${chainConfig.id})...`);
+      console.log(`🔗 ABFRAGE: ${chainConfig.name} (${chainConfig.id})`);
       
       const moralisParams = { 
         chain: chainConfig.id,
         limit: Math.min(parseInt(limit) || 2000, 2000)
       };
 
-      // Add optional parameters
       if (cursor) moralisParams.cursor = cursor;
       if (from_date) moralisParams.from_date = from_date;
       if (to_date) moralisParams.to_date = to_date;
 
-      // 🚀 DATENTYP 1: ERC20 TRANSFERS
-      console.log(`📊 ${chainConfig.name}: Lade ERC20 Transfers...`);
+      // ERC20 Transfers
+      console.log(`📊 ${chainConfig.name}: ERC20 Transfers laden...`);
       let erc20Transactions = await fetchPaginatedData(`${address}/erc20/transfers`, moralisParams, chainConfig);
       
-      // 🚀 DATENTYP 2: NATIVE TRANSFERS (ETH/PLS)
-      console.log(`💎 ${chainConfig.name}: Lade Native Transfers...`);
+      // Native Transfers (ETH/PLS)
+      console.log(`💎 ${chainConfig.name}: Native Transfers laden...`);
       let nativeTransactions = await fetchPaginatedData(`${address}/transactions`, moralisParams, chainConfig);
       
-      // 🚀 DATENTYP 3: INTERNAL TRANSACTIONS
-      console.log(`🔄 ${chainConfig.name}: Lade Internal Transactions...`);
+      // Internal Transactions
+      console.log(`🔄 ${chainConfig.name}: Internal Transactions laden...`);
       let internalTransactions = await fetchPaginatedData(`${address}/internal-transactions`, moralisParams, chainConfig);
 
-      // 📋 ZUSAMMENFÜHRUNG mit Typ-Kennzeichnung
+      // Zusammenführung
       const chainTransactions = [
         ...erc20Transactions.map(tx => ({ ...tx, transactionType: 'erc20', chain: chainConfig.name, chainId: chainConfig.id })),
         ...nativeTransactions.map(tx => ({ ...tx, transactionType: 'native', chain: chainConfig.name, chainId: chainConfig.id })),
         ...internalTransactions.map(tx => ({ ...tx, transactionType: 'internal', chain: chainConfig.name, chainId: chainConfig.id }))
       ];
 
-      console.log(`✅ ${chainConfig.name} KOMPLETT: ${chainTransactions.length} Transaktionen`);
+      console.log(`✅ ${chainConfig.name}: ${chainTransactions.length} Transaktionen`);
       console.log(`   📊 ERC20: ${erc20Transactions.length}`);
       console.log(`   💎 Native: ${nativeTransactions.length}`);
       console.log(`   🔄 Internal: ${internalTransactions.length}`);
@@ -241,10 +226,10 @@ export default async function handler(req, res) {
       allTransactions.push(...chainTransactions);
     }
     
-    console.log(`🔥 VOLLSTÄNDIGE WALLET-ABFRAGE KOMPLETT: ${allTransactions.length} ALLE Transaktionen`);
+    console.log(`🔥 GESAMT: ${allTransactions.length} Transaktionen geladen`);
     
     if (allTransactions.length === 0) {
-      console.warn(`⚠️ TAX NO DATA: Returning empty result for ${address}`);
+      console.warn(`⚠️ KEINE DATEN: ${address}`);
       return res.status(200).json({
         success: true,
         taxReport: {
@@ -262,12 +247,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // TRANSACTION CATEGORIZATION - ERWEITERT FÜR ALLE TYPEN
+    // Transaktions-Kategorisierung
     const categorizedTransactions = allTransactions.map(tx => {
       const isIncoming = tx.to_address?.toLowerCase() === address.toLowerCase();
       const isOutgoing = tx.from_address?.toLowerCase() === address.toLowerCase();
       
-      // ROI Token Detection (erweitert)
+      // ROI Token Detection
       const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'FLEXMES', 'PLS', 'ETH'];
       const isROIToken = ROI_TOKENS.includes(tx.token_symbol?.toUpperCase());
       
@@ -283,7 +268,7 @@ export default async function handler(req, res) {
       ];
       const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
       
-      // Tax Category Classification (erweitert für Native/Internal)
+      // Tax Category Classification
       let taxCategory = 'transfer';
       let isTaxable = false;
       
@@ -298,7 +283,7 @@ export default async function handler(req, res) {
         isTaxable = true;
       }
 
-      // Direction Logic (erweitert)
+      // Direction Logic
       let finalDirection = 'unknown';
       let finalIcon = '❓';
       
@@ -333,14 +318,14 @@ export default async function handler(req, res) {
         isROI: fromMinter || isROIToken,
         fromMinter,
         isROIToken,
-        priceEUR: "0.00", // Platzhalter für PRIORITÄT 2
-        valueEUR: "0.00"  // Platzhalter für PRIORITÄT 2
+        priceEUR: "0.00",
+        valueEUR: "0.00"
       };
     });
     
-    console.log(`✅ VOLLSTÄNDIGE KATEGORISIERUNG: ${categorizedTransactions.length} Transaktionen für deutsche Steuern`);
+    console.log(`✅ KATEGORISIERUNG: ${categorizedTransactions.length} Transaktionen`);
 
-    // ERWEITERTE SUMMARY mit Typ-Statistiken
+    // Summary Statistics
     const typeStats = {
       total: categorizedTransactions.length,
       erc20: categorizedTransactions.filter(tx => tx.transactionType === 'erc20').length,
@@ -365,13 +350,12 @@ export default async function handler(req, res) {
       inCount: categorizedTransactions.filter(tx => tx.direction === 'in').length,
       outCount: categorizedTransactions.filter(tx => tx.direction === 'out').length,
       
-      // Platzhalter für EUR-Werte (PRIORITÄT 2)
       totalROIValueEUR: "0,00",
       totalSaleValueEUR: "0,00",
       totalPurchaseValueEUR: "0,00",
       totalTaxEUR: "0,00",
       
-      status: "ENHANCED_COMPLETE_VERSION_ALL_TRANSACTION_TYPES"
+      status: "ENHANCED_COMPLETE_VERSION"
     };
 
     return res.status(200).json({
@@ -410,12 +394,11 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('💥 TAX API CRITICAL ERROR:', error);
-    console.error('💥 ERROR STACK:', error.stack);
+    console.error('💥 TAX API ERROR:', error);
     
     return res.status(500).json({
       success: false,
-      error: 'Internal server error during enhanced wallet fetch',
+      error: 'Internal server error during wallet fetch',
       debug: error.message,
       timestamp: new Date().toISOString()
     });
