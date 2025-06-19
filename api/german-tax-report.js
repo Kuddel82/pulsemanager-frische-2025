@@ -191,8 +191,8 @@ export default async function handler(req, res) {
 
     // KORREKTE CHAIN IDs - EXAKT WIE MORALIS-V2
     const chains = [
-      { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: 'eth', moralisId: '0x1' },
-      { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: 'pulsechain', moralisId: '0x171' }
+      { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: 'eth', moralisId: 'eth' },
+      { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: 'pulsechain', moralisId: 'pulsechain' }
     ];
 
     let allTransactions = [];
