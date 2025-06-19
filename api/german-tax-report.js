@@ -74,11 +74,13 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       }
       
       console.log(`📄 Seite ${pageCount}: Lade ${allTransfers.length + 100} von ${maxTransactions}...`);
+      console.log(`🔍 DEBUG: Cursor = ${cursor ? cursor.slice(0, 20) + '...' : 'null'}`);
       
       const result = await moralisFetch(`${address}/erc20/transfers`, params);
       
       if (!result || !result.result) {
         console.log(`⚠️ Keine weiteren Daten für ${chainName} - Seite ${pageCount}`);
+        console.log(`🔍 DEBUG: Result = ${JSON.stringify(result, null, 2)}`);
         break;
       }
       
@@ -86,28 +88,32 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       allTransfers.push(...transfers);
       
       console.log(`✅ Seite ${pageCount}: ${transfers.length} Transfers geladen (Total: ${allTransfers.length})`);
+      console.log(`🔍 DEBUG: Cursor vorhanden = ${!!result.cursor}, Transfers < 100 = ${transfers.length < 100}`);
       
       // Prüfe ob es weitere Seiten gibt
       if (!result.cursor || transfers.length < 100) {
         console.log(`🏁 Keine weiteren Seiten für ${chainName} - Ende erreicht`);
+        console.log(`🔍 DEBUG: Grund = ${!result.cursor ? 'Kein Cursor' : 'Weniger als 100 Transfers'}`);
         break;
       }
       
       cursor = result.cursor;
       
       // Rate Limiting: Kurze Pause zwischen Requests
-      if (pageCount % 10 === 0) {
+      if (pageCount % 5 === 0) { // 🔥 REDUZIERT: Pause nach 5 statt 10 Seiten
         console.log(`⏳ Rate Limiting: Pause nach ${pageCount} Seiten...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500)); // 🔥 REDUZIERT: 500ms statt 1000ms
       }
       
     } catch (error) {
       console.error(`❌ Fehler bei Seite ${pageCount} für ${chainName}:`, error.message);
+      console.log(`🔍 DEBUG: Error Details = ${JSON.stringify(error, null, 2)}`);
       break;
     }
   }
   
   console.log(`🎯 ${chainName} PAGINATION COMPLETE: ${allTransfers.length} Transfers in ${pageCount} Seiten`);
+  console.log(`🔍 DEBUG: Finale Analyse - Max Pages: ${maxPages}, Geladen: ${allTransfers.length}, Ziel: ${maxTransactions}`);
   return allTransfers;
 }
 
