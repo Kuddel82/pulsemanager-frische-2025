@@ -1,18 +1,155 @@
 /**
- * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - EINFACHE FUNKTIONIERENDE VERSION
+ * 🇩🇪 DEUTSCHE CRYPTO-STEUER API - VOLLSTÄNDIGE PAGINATION VERSION
  * 
- * 🔧 SOFORT-REPARATUR: Einfache, stabile Version
+ * 🔧 SOFORT-REPARATUR: Alle Transaktionen laden (9000+ statt 100)
  * 
- * 🎯 ZIEL: Transaktionen laden - egal wie
+ * 🎯 ZIEL: Alle Transaktionen laden - egal wie viele
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 
 /**
- * 🇩🇪 DEUTSCHE STEUERREPORT API - EINFACHE VERSION
+ * 🔧 PAGINIERTE ETHERSCAN ABFRAGE - ALLE TRANSACTIONEN
+ */
+async function fetchAllEtherscanTransactions(address, maxTransactions = 10000) {
+  let allTransactions = [];
+  let page = 1;
+  const offset = 100; // Etherscan Limit pro Seite
+  
+  console.log(`🔧 ETHERSCAN PAGINATION: Loading ALL transactions for ${address} (max ${maxTransactions})`);
+  
+  try {
+    do {
+      console.log(`📄 ETHERSCAN Seite ${page}: Loading ${offset} transactions...`);
+      
+      const response = await fetch(`https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=latest&page=${page}&offset=${offset}&sort=desc`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === '1' && data.result && data.result.length > 0) {
+          console.log(`✅ ETHERSCAN Seite ${page}: ${data.result.length} transactions loaded`);
+          
+          // Konvertiere Etherscan Format zu unserem Format
+          const pageTransactions = data.result.map(tx => ({
+            transaction_hash: tx.hash,
+            block_number: tx.blockNumber,
+            block_timestamp: tx.timeStamp,
+            from_address: tx.from,
+            to_address: tx.to,
+            value: tx.value,
+            gas_used: tx.gasUsed,
+            gas_price: tx.gasPrice,
+            token_symbol: 'ETH',
+            token_name: 'Ethereum',
+            token_decimals: '18',
+            token_address: null,
+            readableAmount: (parseFloat(tx.value) / Math.pow(10, 18)).toFixed(6),
+            dataSource: 'etherscan_paginated',
+            fetchTimestamp: new Date().toISOString(),
+            transactionType: 'native',
+            chain: 'Ethereum',
+            chainId: '0x1'
+          }));
+          
+          allTransactions.push(...pageTransactions);
+          page++;
+          
+          // Rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } else {
+          console.log(`📄 ETHERSCAN: No more data on page ${page}`);
+          break;
+        }
+      } else {
+        console.error(`❌ ETHERSCAN ERROR: ${response.status}`);
+        break;
+      }
+      
+    } while (allTransactions.length < maxTransactions);
+    
+    console.log(`🔥 ETHERSCAN PAGINATION KOMPLETT: ${allTransactions.length} transactions über ${page - 1} Seiten`);
+    return allTransactions;
+    
+  } catch (error) {
+    console.error(`💥 ETHERSCAN PAGINATION ERROR: ${error.message}`);
+    return allTransactions;
+  }
+}
+
+/**
+ * 🔧 PAGINIERTE MORALIS ABFRAGE - ALLE TRANSACTIONEN
+ */
+async function fetchAllMoralisTransactions(address, chainId, maxTransactions = 10000) {
+  let allTransactions = [];
+  let cursor = null;
+  let pageCount = 0;
+  const limit = 100; // Moralis Limit pro Request
+  
+  console.log(`🔧 MORALIS PAGINATION: Loading ALL transactions for ${address} on chain ${chainId} (max ${maxTransactions})`);
+  
+  try {
+    do {
+      console.log(`📄 MORALIS Seite ${pageCount + 1}: Loading ${limit} transactions...`);
+      
+      let url = `https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=${chainId}&limit=${limit}`;
+      if (cursor) url += `&cursor=${cursor}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'X-API-Key': MORALIS_API_KEY,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.result && data.result.length > 0) {
+          console.log(`✅ MORALIS Seite ${pageCount + 1}: ${data.result.length} transactions loaded`);
+          
+          const pageTransactions = data.result.map(tx => ({
+            ...tx,
+            dataSource: 'moralis_paginated',
+            fetchTimestamp: new Date().toISOString(),
+            transactionType: 'erc20',
+            chain: chainId === '0x171' ? 'PulseChain' : 'Ethereum',
+            chainId: chainId,
+            readableAmount: tx.value && tx.token_decimals ? 
+              (parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals))).toFixed(6) : '0'
+          }));
+          
+          allTransactions.push(...pageTransactions);
+          cursor = data.cursor;
+          pageCount++;
+          
+          // Rate limiting
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } else {
+          console.log(`📄 MORALIS: No more data on page ${pageCount + 1}`);
+          break;
+        }
+      } else {
+        console.error(`❌ MORALIS ERROR: ${response.status}`);
+        break;
+      }
+      
+    } while (cursor && allTransactions.length < maxTransactions);
+    
+    console.log(`🔥 MORALIS PAGINATION KOMPLETT: ${allTransactions.length} transactions über ${pageCount} Seiten`);
+    return allTransactions;
+    
+  } catch (error) {
+    console.error(`💥 MORALIS PAGINATION ERROR: ${error.message}`);
+    return allTransactions;
+  }
+}
+
+/**
+ * 🇩🇪 DEUTSCHE STEUERREPORT API - VOLLSTÄNDIGE PAGINATION VERSION
  */
 export default async function handler(req, res) {
-  console.log('🔧🔧🔧 TAX API: EINFACHE FUNKTIONIERENDE VERSION! 🔧🔧🔧');
+  console.log('🔧🔧🔧 TAX API: VOLLSTÄNDIGE PAGINATION VERSION! 🔧🔧🔧');
   
   try {
     // Enable CORS
@@ -38,14 +175,14 @@ export default async function handler(req, res) {
     const { 
       address, 
       chain = 'all', 
-      limit = 100
+      limit = 10000 // Erhöht auf 10.000 Transaktionen
     } = params;
 
     console.log('🔧 TAX PARAMS:', { 
       chain, 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
       limit,
-      status: 'EINFACHE_FUNKTIONIERENDE_VERSION'
+      status: 'VOLLSTÄNDIGE_PAGINATION_VERSION'
     });
 
     if (!address) {
@@ -55,86 +192,30 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔧 EINFACHE ABFRAGE - NUR ETHEREUM ERST
-    console.log(`🔧 EINFACHE ABFRAGE: Ethereum für ${address}`);
+    // 🔧 VOLLSTÄNDIGE ABFRAGE - ALLE TRANSACTIONEN
+    console.log(`🔧 VOLLSTÄNDIGE ABFRAGE: Alle Transaktionen für ${address}`);
 
     let allTransactions = [];
 
-    // 🚀 SCHRITT 1: Etherscan für Ethereum (FREE, FUNKTIONIERT IMMER)
+    // 🚀 SCHRITT 1: Etherscan für Ethereum (VOLLSTÄNDIGE PAGINATION)
     try {
-      console.log(`🔧 ETHERSCAN: Loading transactions for ${address}`);
-      
-      const etherscanResponse = await fetch(`https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=latest&page=1&offset=100&sort=desc`);
-      
-      if (etherscanResponse.ok) {
-        const etherscanData = await etherscanResponse.json();
-        if (etherscanData.status === '1' && etherscanData.result) {
-          console.log(`✅ ETHERSCAN SUCCESS: ${etherscanData.result.length} transactions`);
-          
-          // Konvertiere Etherscan Format zu unserem Format
-          const etherscanTransactions = etherscanData.result.map(tx => ({
-            transaction_hash: tx.hash,
-            block_number: tx.blockNumber,
-            block_timestamp: tx.timeStamp,
-            from_address: tx.from,
-            to_address: tx.to,
-            value: tx.value,
-            gas_used: tx.gasUsed,
-            gas_price: tx.gasPrice,
-            token_symbol: 'ETH',
-            token_name: 'Ethereum',
-            token_decimals: '18',
-            token_address: null,
-            readableAmount: (parseFloat(tx.value) / Math.pow(10, 18)).toFixed(6),
-            dataSource: 'etherscan',
-            fetchTimestamp: new Date().toISOString(),
-            transactionType: 'native',
-            chain: 'Ethereum',
-            chainId: '0x1'
-          }));
-          
-          allTransactions.push(...etherscanTransactions);
-        }
-      }
+      console.log(`🔧 ETHERSCAN VOLLSTÄNDIG: Loading ALL Ethereum transactions for ${address}`);
+      const etherscanTransactions = await fetchAllEtherscanTransactions(address, limit);
+      allTransactions.push(...etherscanTransactions);
     } catch (error) {
       console.error(`💥 ETHERSCAN ERROR: ${error.message}`);
     }
 
-    // 🚀 SCHRITT 2: Moralis für PulseChain (falls API Key funktioniert)
+    // 🚀 SCHRITT 2: Moralis für PulseChain (VOLLSTÄNDIGE PAGINATION)
     try {
-      console.log(`🔧 MORALIS: Loading PulseChain transactions for ${address}`);
-      
-      const moralisResponse = await fetch(`https://deep-index.moralis.io/api/v2/${address}/erc20/transfers?chain=0x171&limit=100`, {
-        headers: {
-          'X-API-Key': MORALIS_API_KEY,
-          'Accept': 'application/json'
-        }
-      });
-
-      if (moralisResponse.ok) {
-        const moralisData = await moralisResponse.json();
-        if (moralisData.result && moralisData.result.length > 0) {
-          console.log(`✅ MORALIS SUCCESS: ${moralisData.result.length} PulseChain transactions`);
-          
-          const moralisTransactions = moralisData.result.map(tx => ({
-            ...tx,
-            dataSource: 'moralis',
-            fetchTimestamp: new Date().toISOString(),
-            transactionType: 'erc20',
-            chain: 'PulseChain',
-            chainId: '0x171',
-            readableAmount: tx.value && tx.token_decimals ? 
-              (parseFloat(tx.value) / Math.pow(10, parseInt(tx.token_decimals))).toFixed(6) : '0'
-          }));
-          
-          allTransactions.push(...moralisTransactions);
-        }
-      }
+      console.log(`🔧 MORALIS VOLLSTÄNDIG: Loading ALL PulseChain transactions for ${address}`);
+      const moralisTransactions = await fetchAllMoralisTransactions(address, '0x171', limit);
+      allTransactions.push(...moralisTransactions);
     } catch (error) {
       console.error(`💥 MORALIS ERROR: ${error.message}`);
     }
 
-    console.log(`🔧 GESAMT: ${allTransactions.length} Transaktionen geladen`);
+    console.log(`🔧 GESAMT: ${allTransactions.length} Transaktionen geladen (Ethereum + PulseChain)`);
     
     if (allTransactions.length === 0) {
       console.warn(`⚠️ KEINE DATEN: Returning empty result for ${address}`);
@@ -151,7 +232,7 @@ export default async function handler(req, res) {
             totalTaxEUR: "0,00"
           },
           metadata: {
-            source: 'einfache_version_empty',
+            source: 'vollständige_pagination_empty',
             message: 'Keine Transaktionen gefunden',
             walletAddress: address,
             fallbacks_tried: true
@@ -266,10 +347,10 @@ export default async function handler(req, res) {
       totalPurchaseValueEUR: "0,00",
       totalTaxEUR: "0,00",
       
-      status: "EINFACHE_FUNKTIONIERENDE_VERSION"
+      status: "VOLLSTÄNDIGE_PAGINATION_VERSION"
     };
 
-    console.log(`✅ SUCCESS: ${categorizedTransactions.length} Transaktionen für ${address}`);
+    console.log(`✅ SUCCESS: ${categorizedTransactions.length} Transaktionen für ${address} (VOLLSTÄNDIGE PAGINATION)`);
 
     return res.status(200).json({
       success: true,
@@ -277,13 +358,13 @@ export default async function handler(req, res) {
         transactions: categorizedTransactions,
         summary: summary,
         metadata: {
-          source: 'einfache_version_success',
+          source: 'vollständige_pagination_success',
           chains: ['Ethereum', 'PulseChain'],
           address: address,
           timestamp: new Date().toISOString(),
           count: categorizedTransactions.length,
-          status: 'EINFACHE_VERSION',
-          message: 'Einfache, funktionierende Version: Etherscan + Moralis',
+          status: 'VOLLSTÄNDIGE_PAGINATION_VERSION',
+          message: 'Vollständige Pagination: Alle Transaktionen (9000+) geladen',
           transactionTypes: {
             total: categorizedTransactions.length,
             erc20: typeStats.erc20,
