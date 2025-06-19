@@ -59,7 +59,7 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   let cursor = null;
   let pageCount = 0;
   const maxPages = Math.ceil(maxTransactions / 100); // 100 pro Seite
-  const maxTimeSeconds = 8; // 🔥 KRITISCH: Max 8 Sekunden für Serverless-Timeout
+  const maxTimeSeconds = 15; // 🔥 ERHÖHT: 15 Sekunden für mehr Transaktionen
   const startTime = Date.now();
   
   let debugInfo = {
@@ -128,9 +128,9 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       cursor = result.cursor;
       
       // 🔥 AGGRESSIVES RATE LIMITING: Minimale Pausen
-      if (pageCount % 3 === 0) { // Pause nach 3 Seiten
+      if (pageCount % 5 === 0) { // Pause nach 5 Seiten
         console.log(`⏳ Rate Limiting: Pause nach ${pageCount} Seiten...`);
-        await new Promise(resolve => setTimeout(resolve, 200)); // Nur 200ms Pause
+        await new Promise(resolve => setTimeout(resolve, 100)); // Nur 100ms Pause
       }
       
     } catch (error) {
