@@ -9,7 +9,7 @@ const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
 /**
- * Helper to fetch data from Moralis REST API with improved error handling
+ * Helper to fetch data from Moralis REST API - EINFACHE VERSION
  */
 async function moralisFetch(endpoint, params = {}) {
   try {
@@ -21,23 +21,15 @@ async function moralisFetch(endpoint, params = {}) {
     });
 
     console.log(`🚀 MORALIS FETCH: ${url.toString()}`);
-    console.log(`🔑 API KEY EXISTS: ${!!MORALIS_API_KEY}`);
-    console.log(`🔑 API KEY LENGTH: ${MORALIS_API_KEY ? MORALIS_API_KEY.length : 0}`);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-    
     const res = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'X-API-Key': MORALIS_API_KEY,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      signal: controller.signal
+      }
     });
-    
-    clearTimeout(timeoutId);
 
     console.log(`📡 MORALIS RESPONSE STATUS: ${res.status} ${res.statusText}`);
 
@@ -50,20 +42,12 @@ async function moralisFetch(endpoint, params = {}) {
 
     const jsonData = await res.json();
     console.log(`✅ MORALIS SUCCESS: ${endpoint} returned ${jsonData?.result?.length || 0} items`);
-    console.log(`📊 MORALIS DATA:`, JSON.stringify(jsonData, null, 2).substring(0, 500));
     
-    // 🔥 KRITISCHER FIX: Stelle sicher dass wir die Daten zurückgeben
-    if (jsonData && jsonData.result) {
-      console.log(`🔥 MORALIS DATA CONFIRMED: ${jsonData.result.length} items ready for processing`);
-      return jsonData;
-    } else {
-      console.error(`❌ MORALIS DATA INVALID: No result array in response`);
-      return null;
-    }
+    // 🔥 EINFACHER RETURN - KEINE KOMPLEXE VALIDIERUNG
+    return jsonData;
 
   } catch (error) {
     console.error(`💥 MORALIS FETCH EXCEPTION: ${error.message}`);
-    console.error(`💥 ERROR STACK:`, error.stack);
     return null;
   }
 }
