@@ -107,7 +107,7 @@ const SimpleTaxTracker = () => {
         },
         body: JSON.stringify({
           address: walletAddress,
-          limit: 500 // Neue API kann bis zu 500 pro Call
+          limit: 300000 // 🔥 ERHÖHT: 300.000 Transaktionen für große Wallets!
         }),
         signal: abortControllerRef.current.signal // 🔥 ABORT SIGNAL
       });
