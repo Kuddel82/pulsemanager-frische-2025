@@ -84,25 +84,27 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
       let endpoint = '';
       switch (singleExport.format) {
         case 'pdf':
-          endpoint = '/api/export-tax-report';
+          endpoint = '/api/german-tax-report';
           break;
         case 'csv':
-          endpoint = '/api/export-tax-report';
+          endpoint = '/api/german-tax-report';
           break;
         case 'elster':
-          endpoint = '/api/export-tax-report';
+          endpoint = '/api/german-tax-report';
           break;
         default:
-          endpoint = '/api/export-tax-report';
+          endpoint = '/api/german-tax-report';
       }
 
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletAddress: singleExport.walletAddress,
+          address: singleExport.walletAddress,
+          limit: 300000,
           format: singleExport.format,
-          year: singleExport.taxYear
+          year: singleExport.taxYear,
+          requestToken: Date.now() + Math.random()
         })
       });
 
@@ -159,13 +161,15 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
       // Sequentiell alle Wallets exportieren
       const results = [];
       for (const wallet of bulkExport.wallets) {
-        const response = await fetch('/api/export-tax-report', {
+        const response = await fetch('/api/german-tax-report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            walletAddress: wallet,
+            address: wallet,
+            limit: 300000,
             format: bulkExport.format,
-            year: bulkExport.taxYear
+            year: bulkExport.taxYear,
+            requestToken: Date.now() + Math.random()
           })
         });
         
@@ -220,14 +224,16 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
         setProgress(prev => Math.min(prev + 8, 90));
       }, 400);
 
-      const response = await fetch('/api/export-tax-report', {
+      const response = await fetch('/api/german-tax-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          walletAddress: elsterExport.walletAddress,
+          address: elsterExport.walletAddress,
+          limit: 300000,
           format: 'elster',
           year: elsterExport.taxYear,
-          taxpayer: elsterExport.taxpayer
+          taxpayer: elsterExport.taxpayer,
+          requestToken: Date.now() + Math.random()
         })
       });
 

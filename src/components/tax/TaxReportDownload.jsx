@@ -2,7 +2,7 @@
  * 🇩🇪 TAX REPORT DOWNLOAD COMPONENT
  * 
  * Einfache Download-Komponente für Steuerreports
- * Verwendet die funktionierende export-tax-report API
+ * Verwendet die neue german-tax-report API mit 300k Transaktionen
  */
 
 import React, { useState } from 'react';
@@ -36,29 +36,134 @@ const TaxReportDownload = ({ walletAddress }) => {
     try {
       console.log('📥 Starte Tax Report Download...');
       
-      // Verwende die funktionierende export-tax-report API
-      const response = await fetch(
-        `/api/export-tax-report?userId=${user.id}&wallet=${walletAddress}&year=${selectedYear}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
+      // Verwende die neue german-tax-report API
+      const response = await fetch('/api/german-tax-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address: walletAddress,
+          limit: 300000,
+          year: selectedYear,
+          requestToken: Date.now() + Math.random()
+        })
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Download fehlgeschlagen');
       }
 
-      // HTML-Download (statt PDF)
-      const htmlContent = await response.text();
+      const data = await response.json();
+      
+      if (!data.success || !data.taxReport) {
+        throw new Error('Keine Steuerdaten erhalten');
+      }
+
+      // HTML-Report generieren
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const walletShort = walletAddress.slice(0, 8);
+      
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>PulseManager Steuerreport ${selectedYear}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .section { margin-bottom: 20px; }
+            .stats { display: flex; justify-content: space-between; margin-bottom: 20px; }
+            .stat { text-align: center; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .legal { margin-top: 30px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🇩🇪 PulseManager Steuerreport ${selectedYear}</h1>
+            <p>Wallet: ${walletAddress}</p>
+            <p>Generiert am: ${today.toLocaleDateString('de-DE')}</p>
+          </div>
+          
+          <div class="section">
+            <h2>📊 Steuer-Übersicht</h2>
+            <div class="stats">
+              <div class="stat">
+                <h3>${data.taxReport.summary?.totalTransactions || 0}</h3>
+                <p>Gesamt Transaktionen</p>
+              </div>
+              <div class="stat">
+                <h3>${data.taxReport.summary?.pulsechainCount || 0}</h3>
+                <p>PulseChain</p>
+              </div>
+              <div class="stat">
+                <h3>${data.taxReport.summary?.ethereumCount || 0}</h3>
+                <p>Ethereum</p>
+              </div>
+              <div class="stat">
+                <h3>${data.taxReport.summary?.roiCount || 0}</h3>
+                <p>Steuer-Events</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <h2>📋 Transaktionen (${data.taxReport.transactions.length})</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Datum</th>
+                  <th>Chain</th>
+                  <th>Token</th>
+                  <th>Typ</th>
+                  <th>Richtung</th>
+                  <th>Wert</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.taxReport.transactions.map((tx, index) => {
+                  const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
+                  const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
+                  const token = tx.tokenSymbol || 'N/A';
+                  const direction = tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT');
+                  const value = tx.formattedValue || (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0');
+                  return `
+                    <tr>
+                      <td>${date}</td>
+                      <td>${chain}</td>
+                      <td>${token}</td>
+                      <td>${tx.taxCategory || 'N/A'}</td>
+                      <td>${direction}</td>
+                      <td>${value}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="legal">
+            <h3>⚖️ Rechtlicher Hinweis</h3>
+            <p>Dieser Steuerreport dient nur zu Informationszwecken und stellt keine Steuerberatung dar.</p>
+            <p>Für Ihre finale Steuererklärung müssen Sie einen qualifizierten Steuerberater konsultieren.</p>
+            <p>Wir übernehmen keine Verantwortung für steuerliche Entscheidungen.</p>
+            <p><strong>Generiert von PulseManager</strong></p>
+          </div>
+        </body>
+        </html>
+      `;
+
       const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Steuerreport_${selectedYear}_${walletAddress.substring(0, 8)}.html`;
+      a.download = `PulseManager_Steuerreport_${selectedYear}_${walletShort}_${dateStr}.html`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -240,11 +240,13 @@ export default async function handler(req, res) {
 
     // Extract parameters
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { address, limit = 300000, requestToken } = params; // 🔥 REQUEST TOKEN FÜR DEDUPLICATION
+    const { address, limit = 300000, requestToken, format = 'json', year, taxpayer } = params; // 🔥 FORMAT PARAMETER
 
     console.log('🇩🇪 TAX PARAMS:', { 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
       limit: `${limit.toLocaleString()} Transaktionen`,
+      format: format,
+      year: year,
       requestToken: requestToken ? requestToken.toString().slice(-6) : 'NONE'
     });
 
@@ -443,11 +445,26 @@ export default async function handler(req, res) {
       debug: debugInfo
     });
 
-    return res.status(200).json({
-      success: true,
-      taxReport,
-      debug: debugInfo
-    });
+    // 🔥 FORMAT-BASIERTE RESPONSE
+    switch (format.toLowerCase()) {
+      case 'pdf':
+      case 'csv':
+      case 'elster':
+        // Für Export-Formate: Standard JSON Response (Frontend generiert HTML/CSV)
+        return res.status(200).json({
+          success: true,
+          taxReport,
+          debug: debugInfo
+        });
+
+      default:
+        // Standard JSON Response
+        return res.status(200).json({
+          success: true,
+          taxReport,
+          debug: debugInfo
+        });
+    }
 
   } catch (error) {
     console.error('💥 TAX API ERROR:', error);
@@ -463,4 +480,155 @@ export default async function handler(req, res) {
       error: error.message
     });
   }
+}
+
+// 🔥 HELPER FUNCTIONS FÜR VERSCHIEDENE EXPORT-FORMATE
+function generateHTMLReport(taxReport, year) {
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0];
+  const walletShort = taxReport.walletAddress.slice(0, 8);
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>PulseManager Steuerreport ${year || new Date().getFullYear()}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .section { margin-bottom: 20px; }
+        .stats { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .stat { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .legal { margin-top: 30px; font-size: 12px; color: #666; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>🇩🇪 PulseManager Steuerreport ${year || new Date().getFullYear()}</h1>
+        <p>Wallet: ${taxReport.walletAddress}</p>
+        <p>Generiert am: ${today.toLocaleDateString('de-DE')}</p>
+      </div>
+      
+      <div class="section">
+        <h2>📊 Steuer-Übersicht</h2>
+        <div class="stats">
+          <div class="stat">
+            <h3>${taxReport.summary?.totalTransactions || 0}</h3>
+            <p>Gesamt Transaktionen</p>
+          </div>
+          <div class="stat">
+            <h3>${taxReport.summary?.pulsechainCount || 0}</h3>
+            <p>PulseChain</p>
+          </div>
+          <div class="stat">
+            <h3>${taxReport.summary?.ethereumCount || 0}</h3>
+            <p>Ethereum</p>
+          </div>
+          <div class="stat">
+            <h3>${taxReport.summary?.roiCount || 0}</h3>
+            <p>Steuer-Events</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2>📋 Transaktionen (${taxReport.transactions.length})</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Chain</th>
+              <th>Token</th>
+              <th>Typ</th>
+              <th>Richtung</th>
+              <th>Wert</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${taxReport.transactions.map((tx, index) => {
+              const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
+              const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
+              const token = tx.tokenSymbol || 'N/A';
+              const direction = tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT');
+              const value = tx.formattedValue || (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0');
+              return `
+                <tr>
+                  <td>${date}</td>
+                  <td>${chain}</td>
+                  <td>${token}</td>
+                  <td>${tx.taxCategory || 'N/A'}</td>
+                  <td>${direction}</td>
+                  <td>${value}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="legal">
+        <h3>⚖️ Rechtlicher Hinweis</h3>
+        <p>Dieser Steuerreport dient nur zu Informationszwecken und stellt keine Steuerberatung dar.</p>
+        <p>Für Ihre finale Steuererklärung müssen Sie einen qualifizierten Steuerberater konsultieren.</p>
+        <p>Wir übernehmen keine Verantwortung für steuerliche Entscheidungen.</p>
+        <p><strong>Generiert von PulseManager</strong></p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function generateCSVReport(taxReport, year) {
+  const headers = ['Datum', 'Chain', 'Token', 'Typ', 'Richtung', 'Wert', 'Wallet'];
+  const rows = taxReport.transactions.map(tx => {
+    const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
+    const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
+    const token = tx.tokenSymbol || 'N/A';
+    const direction = tx.direction === 'in' ? 'IN' : 'OUT';
+    const value = tx.formattedValue || '0';
+    return [date, chain, token, tx.taxCategory || 'N/A', direction, value, taxReport.walletAddress];
+  });
+  
+  return [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+}
+
+function generateELSTERReport(taxReport, year, taxpayer) {
+  // Vereinfachtes ELSTER XML Format
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<steuerreport>
+  <header>
+    <jahr>${year || new Date().getFullYear()}</jahr>
+    <generiert>${new Date().toISOString()}</generiert>
+    <wallet>${taxReport.walletAddress}</wallet>
+  </header>
+  <steuerpflichtiger>
+    <name>${taxpayer?.name || 'Nicht angegeben'}</name>
+    <strasse>${taxpayer?.street || 'Nicht angegeben'}</strasse>
+    <plz>${taxpayer?.zipCode || 'Nicht angegeben'}</plz>
+    <ort>${taxpayer?.city || 'Nicht angegeben'}</ort>
+    <steuernummer>${taxpayer?.taxNumber || 'Nicht angegeben'}</steuernummer>
+  </steuerpflichtiger>
+  <transaktionen>
+    ${taxReport.transactions.map(tx => `
+    <transaktion>
+      <datum>${tx.timestamp ? new Date(tx.timestamp).toISOString().split('T')[0] : 'N/A'}</datum>
+      <chain>${tx.sourceChainShort || 'UNK'}</chain>
+      <token>${tx.tokenSymbol || 'N/A'}</token>
+      <typ>${tx.taxCategory || 'N/A'}</typ>
+      <richtung>${tx.direction || 'unknown'}</richtung>
+      <wert>${tx.formattedValue || '0'}</wert>
+    </transaktion>
+    `).join('')}
+  </transaktionen>
+  <zusammenfassung>
+    <gesamt_transaktionen>${taxReport.summary?.totalTransactions || 0}</gesamt_transaktionen>
+    <ethereum_count>${taxReport.summary?.ethereumCount || 0}</ethereum_count>
+    <pulsechain_count>${taxReport.summary?.pulsechainCount || 0}</pulsechain_count>
+    <roi_count>${taxReport.summary?.roiCount || 0}</roi_count>
+  </zusammenfassung>
+</steuerreport>`;
 }
