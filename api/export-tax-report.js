@@ -1,14 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 /**
  * 🎯 STEUERREPORT PDF EXPORT API
  * 
- * Generiert professionelle PDF-Steuerreports aus tax_cache & roi_cache Daten
+ * Generiert professionelle PDF-Steuerreports aus german-tax-report API
  * mit vollständiger Formatierung und steuerlicher Auswertung.
  */
 export default async function handler(req, res) {
@@ -35,63 +28,62 @@ export default async function handler(req, res) {
   try {
     console.log(`📋 Generiere Steuerreport für ${wallet} (${jahr})`);
 
-    // Daten aus Supabase abrufen
-    const [taxResult, roiResult] = await Promise.all([
-      supabase
-        .from('tax_cache')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('wallet_address', wallet)
-        .maybeSingle(),
-      
-      supabase
-        .from('roi_cache')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('wallet_address', wallet)
-        .maybeSingle()
-    ]);
+    // 🔥 VERWENDE GERMAN-TAX-REPORT API STATT SUPABASE CACHE
+    const taxResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/german-tax-report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        address: wallet,
+        chain: 'all',
+        limit: 2000
+      })
+    });
 
-    // Fehler-Handling für Supabase
-    if (taxResult.error && taxResult.error.code !== 'PGRST116') {
-      throw new Error(`Tax Cache Fehler: ${taxResult.error.message}`);
-    }
-    
-    if (roiResult.error && roiResult.error.code !== 'PGRST116') {
-      throw new Error(`ROI Cache Fehler: ${roiResult.error.message}`);
+    if (!taxResponse.ok) {
+      throw new Error(`Tax API Error: ${taxResponse.status} ${taxResponse.statusText}`);
     }
 
-    // Daten extrahieren und filtern
-    const allTaxData = taxResult.data?.data?.transactions || [];
-    const allRoiData = roiResult.data?.data || [];
-
-    // Nach Jahr filtern
-    const verkaeufe = allTaxData.filter(t => 
-      t.date && t.date.startsWith(jahr.toString())
-    );
+    const taxData = await taxResponse.json();
     
-    const roiEinnahmen = allRoiData.filter(r => 
-      r.timestamp && r.timestamp.startsWith(jahr.toString())
-    );
+    if (!taxData.success) {
+      throw new Error(`Tax API Error: ${taxData.error || 'Unknown error'}`);
+    }
+
+    console.log(`✅ Tax API erfolgreich geladen: ${taxData.taxReport.transactions.length} Transaktionen`);
+
+    // Daten extrahieren und nach Jahr filtern
+    const allTransactions = taxData.taxReport.transactions || [];
+    
+    // Nach Jahr filtern (basierend auf block_timestamp)
+    const jahrTransactions = allTransactions.filter(tx => {
+      if (!tx.block_timestamp) return false;
+      const txYear = new Date(tx.block_timestamp * 1000).getFullYear();
+      return txYear === jahr;
+    });
+
+    console.log(`📊 ${jahrTransactions.length} Transaktionen für ${jahr} gefunden`);
 
     // Steuerliche Auswertung
-    const steuerpflichtigeVerkaeufe = verkaeufe.filter(v => v.steuerpflichtig);
-    const gesamtGewinn = steuerpflichtigeVerkaeufe.reduce((sum, v) => sum + (v.gewinn || 0), 0);
+    const steuerpflichtigeVerkaeufe = jahrTransactions.filter(tx => tx.isTaxable && tx.taxCategory === 'sale_income');
+    const roiEinnahmen = jahrTransactions.filter(tx => tx.isTaxable && tx.taxCategory === 'roi_income');
+    
+    const gesamtGewinn = steuerpflichtigeVerkaeufe.reduce((sum, v) => sum + (parseFloat(v.valueEUR) || 0), 0);
     const geschaetzteSteuer = gesamtGewinn * 0.26; // 26% Kapitalertragssteuer (vereinfacht)
     
-    const steuerpflichtigeROI = roiEinnahmen.filter(r => r.steuerpflichtig);
-    const gesamtROI = steuerpflichtigeROI.reduce((sum, r) => sum + (r.usdValue || 0), 0);
+    const gesamtROI = roiEinnahmen.reduce((sum, r) => sum + (parseFloat(r.valueEUR) || 0), 0);
 
     // HTML Content generieren
     const htmlContent = generateTaxReportHTML({
       jahr,
       wallet,
-      verkaeufe,
-      roiEinnahmen,
+      verkaeufe: steuerpflichtigeVerkaeufe,
+      roiEinnahmen: roiEinnahmen,
       steuerpflichtigeVerkaeufe,
       gesamtGewinn,
       geschaetzteSteuer,
-      steuerpflichtigeROI,
+      steuerpflichtigeROI: roiEinnahmen,
       gesamtROI,
       generatedAt: new Date().toLocaleString('de-DE')
     });
