@@ -59,9 +59,20 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   let cursor = null;
   let pageCount = 0;
   const maxPages = Math.ceil(maxTransactions / 100); // 100 pro Seite
+  let debugInfo = {
+    chainName,
+    maxTransactions,
+    maxPages,
+    pagesProcessed: 0,
+    totalTransfers: 0,
+    stopReason: null,
+    cursorHistory: [],
+    errors: []
+  };
   
   while (allTransfers.length < maxTransactions && pageCount < maxPages) {
     pageCount++;
+    debugInfo.pagesProcessed = pageCount;
     
     try {
       const params = {
@@ -71,6 +82,7 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       
       if (cursor) {
         params.cursor = cursor;
+        debugInfo.cursorHistory.push(cursor.slice(0, 20) + '...');
       }
       
       console.log(`📄 Seite ${pageCount}: Lade ${allTransfers.length + 100} von ${maxTransactions}...`);
@@ -81,11 +93,14 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       if (!result || !result.result) {
         console.log(`⚠️ Keine weiteren Daten für ${chainName} - Seite ${pageCount}`);
         console.log(`🔍 DEBUG: Result = ${JSON.stringify(result, null, 2)}`);
+        debugInfo.stopReason = 'No result or result.result';
+        debugInfo.errors.push(`Page ${pageCount}: No result`);
         break;
       }
       
       const transfers = result.result;
       allTransfers.push(...transfers);
+      debugInfo.totalTransfers = allTransfers.length;
       
       console.log(`✅ Seite ${pageCount}: ${transfers.length} Transfers geladen (Total: ${allTransfers.length})`);
       console.log(`🔍 DEBUG: Cursor vorhanden = ${!!result.cursor}, Transfers < 100 = ${transfers.length < 100}`);
@@ -93,7 +108,9 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       // Prüfe ob es weitere Seiten gibt
       if (!result.cursor || transfers.length < 100) {
         console.log(`🏁 Keine weiteren Seiten für ${chainName} - Ende erreicht`);
-        console.log(`🔍 DEBUG: Grund = ${!result.cursor ? 'Kein Cursor' : 'Weniger als 100 Transfers'}`);
+        const reason = !result.cursor ? 'Kein Cursor' : 'Weniger als 100 Transfers';
+        console.log(`🔍 DEBUG: Grund = ${reason}`);
+        debugInfo.stopReason = reason;
         break;
       }
       
@@ -108,13 +125,16 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
     } catch (error) {
       console.error(`❌ Fehler bei Seite ${pageCount} für ${chainName}:`, error.message);
       console.log(`🔍 DEBUG: Error Details = ${JSON.stringify(error, null, 2)}`);
+      debugInfo.stopReason = 'Error';
+      debugInfo.errors.push(`Page ${pageCount}: ${error.message}`);
       break;
     }
   }
   
   console.log(`🎯 ${chainName} PAGINATION COMPLETE: ${allTransfers.length} Transfers in ${pageCount} Seiten`);
   console.log(`🔍 DEBUG: Finale Analyse - Max Pages: ${maxPages}, Geladen: ${allTransfers.length}, Ziel: ${maxTransactions}`);
-  return allTransfers;
+  
+  return { transfers: allTransfers, debugInfo };
 }
 
 export default async function handler(req, res) {
@@ -166,6 +186,7 @@ export default async function handler(req, res) {
 
     let allTransactions = [];
     let chainResults = {};
+    let allDebugInfo = {};
 
     // PARALLEL PROCESSING - AGGRESSIVE PAGINATION
     const chainPromises = chains.map(async (chain) => {
@@ -174,7 +195,7 @@ export default async function handler(req, res) {
       try {
         // 🔥 AGGRESSIVE PAGINATION: Bis zu 300.000 Transfers pro Chain
         // 🔧 FIX: Verwende Chain-ID statt Chain-Name für Moralis API
-        const transfers = await fetchAllTransfers(address, chain.moralisId, limit);
+        const { transfers, debugInfo } = await fetchAllTransfers(address, chain.moralisId, limit);
         
         console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via AGGRESSIVE PAGINATION`);
         
@@ -182,6 +203,8 @@ export default async function handler(req, res) {
           count: transfers.length,
           transactions: transfers
         };
+        
+        allDebugInfo[chain.short] = debugInfo;
         
         // Add chain info to transactions
         const processedTransactions = transfers.map(tx => ({
@@ -208,6 +231,10 @@ export default async function handler(req, res) {
         chainResults[chain.short] = {
           count: 0,
           transactions: [],
+          error: error.message
+        };
+        allDebugInfo[chain.short] = {
+          chainName: chain.moralisId,
           error: error.message
         };
       }
@@ -287,7 +314,8 @@ export default async function handler(req, res) {
           totalLoaded: allTransactions.length,
           ethereumLoaded: chainResults.ETH?.count || 0,
           pulsechainLoaded: chainResults.PLS?.count || 0
-        }
+        },
+        debugInfo: allDebugInfo
       }
     });
 
