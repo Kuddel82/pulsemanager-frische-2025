@@ -1,14 +1,12 @@
 /**
- * 🐛 DEBUG TAX API - Findet heraus warum keine Transaktionen geladen werden
+ * 🔍 DEBUG TAX API - Moralis API Test
+ * Testet alle Moralis Endpunkte für eine Wallet-Adresse
  */
 
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2';
 
-/**
- * Debug Moralis API Call
- */
-async function debugMoralisCall(endpoint, params) {
+async function testMoralisEndpoint(endpoint, params = {}) {
   try {
     const url = new URL(`${MORALIS_BASE_URL}/${endpoint}`);
     Object.entries(params).forEach(([key, val]) => {
@@ -17,7 +15,7 @@ async function debugMoralisCall(endpoint, params) {
       }
     });
 
-    console.log(`🐛 DEBUG MORALIS: ${url.toString()}`);
+    console.log(`🔍 TESTING: ${url.toString()}`);
 
     const res = await fetch(url.toString(), {
       method: 'GET',
@@ -28,31 +26,41 @@ async function debugMoralisCall(endpoint, params) {
       }
     });
 
-    console.log(`🐛 DEBUG RESPONSE STATUS: ${res.status} ${res.statusText}`);
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`🐛 DEBUG ERROR: ${errorText}`);
-      return { error: `${res.status} - ${res.statusText}`, details: errorText };
+    const responseText = await res.text();
+    let jsonData;
+    
+    try {
+      jsonData = JSON.parse(responseText);
+    } catch (e) {
+      return {
+        status: res.status,
+        statusText: res.statusText,
+        error: 'Invalid JSON response',
+        rawResponse: responseText.substring(0, 500)
+      };
     }
 
-    const jsonData = await res.json();
-    console.log(`🐛 DEBUG SUCCESS: ${jsonData?.result?.length || 0} items`);
-    console.log(`🐛 DEBUG CURSOR: ${jsonData?.cursor ? 'Available' : 'None'}`);
-    
-    return { success: true, data: jsonData };
+    return {
+      status: res.status,
+      statusText: res.statusText,
+      success: res.ok,
+      data: jsonData,
+      resultCount: jsonData?.result?.length || 0,
+      hasCursor: !!jsonData?.cursor,
+      url: url.toString()
+    };
 
   } catch (error) {
-    console.error(`🐛 DEBUG EXCEPTION: ${error.message}`);
-    return { error: error.message };
+    return {
+      status: 'ERROR',
+      error: error.message,
+      url: `${MORALIS_BASE_URL}/${endpoint}`
+    };
   }
 }
 
-/**
- * 🐛 DEBUG TAX API
- */
 export default async function handler(req, res) {
-  console.log('🐛 DEBUG TAX API: Starte Debug-Session');
+  console.log('🔍 DEBUG TAX API: Moralis API Test gestartet');
   
   try {
     // CORS Setup
@@ -65,101 +73,91 @@ export default async function handler(req, res) {
     }
 
     // API Key Check
-    if (!MORALIS_API_KEY) {
+    if (!MORALIS_API_KEY || MORALIS_API_KEY === 'YOUR_MORALIS_API_KEY_HERE') {
       return res.status(503).json({ 
-        error: 'Moralis API Key missing',
-        debug: 'Check MORALIS_API_KEY environment variable'
+        error: 'Moralis API Key missing or invalid.',
+        debug: 'API_KEY_MISSING'
       });
     }
 
     // Parameter Extraction
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { address = '0x3f020b8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c' } = params;
+    const { address = '0x3f020b...' } = params;
 
-    console.log(`🐛 DEBUG ADDRESS: ${address}`);
+    console.log('🔍 DEBUG PARAMS:', { address });
 
-    const debugResults = {
-      apiKey: MORALIS_API_KEY ? '✅ Found' : '❌ Missing',
-      address: address,
-      timestamp: new Date().toISOString(),
-      tests: {}
+    if (!address || address.length < 10) {
+      return res.status(400).json({ 
+        error: 'Invalid address parameter.',
+        usage: 'GET /api/debug-tax-api?address=0x...'
+      });
+    }
+
+    // Test Wallet: 0x3f020b... (aus den Logs)
+    const testAddress = address;
+    
+    // Alle Endpunkte testen
+    const endpoints = [
+      // Ethereum
+      { endpoint: `${testAddress}/erc20/transfers`, params: { chain: '0x1', limit: 10 } },
+      { endpoint: `${testAddress}/transactions`, params: { chain: '0x1', limit: 10 } },
+      { endpoint: `${testAddress}/internal-transactions`, params: { chain: '0x1', limit: 10 } },
+      
+      // PulseChain
+      { endpoint: `${testAddress}/erc20/transfers`, params: { chain: '0x171', limit: 10 } },
+      { endpoint: `${testAddress}/transactions`, params: { chain: '0x171', limit: 10 } },
+      { endpoint: `${testAddress}/internal-transactions`, params: { chain: '0x171', limit: 10 } }
+    ];
+
+    const results = {};
+    
+    for (const { endpoint, params } of endpoints) {
+      const chainName = params.chain === '0x1' ? 'Ethereum' : 'PulseChain';
+      const txType = endpoint.includes('erc20') ? 'ERC20' : 
+                    endpoint.includes('internal') ? 'Internal' : 'Native';
+      
+      const key = `${chainName}_${txType}`;
+      
+      console.log(`🔍 Testing ${key}: ${endpoint}`);
+      results[key] = await testMoralisEndpoint(endpoint, params);
+      
+      // Kurze Pause zwischen Requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // API Key Info (ohne den Key selbst zu zeigen)
+    const apiKeyInfo = {
+      exists: !!MORALIS_API_KEY,
+      length: MORALIS_API_KEY ? MORALIS_API_KEY.length : 0,
+      startsWith: MORALIS_API_KEY ? MORALIS_API_KEY.substring(0, 8) + '...' : 'N/A',
+      isValid: MORALIS_API_KEY && MORALIS_API_KEY !== 'YOUR_MORALIS_API_KEY_HERE'
     };
-
-    // 🧪 TEST 1: PulseChain ERC20 Transfers
-    console.log('🐛 TEST 1: PulseChain ERC20 Transfers');
-    const test1 = await debugMoralisCall(`${address}/erc20/transfers`, {
-      chain: '0x171',
-      limit: 10
-    });
-    debugResults.tests.pulsechain_erc20 = test1;
-
-    // 🧪 TEST 2: Ethereum ERC20 Transfers
-    console.log('🐛 TEST 2: Ethereum ERC20 Transfers');
-    const test2 = await debugMoralisCall(`${address}/erc20/transfers`, {
-      chain: '0x1',
-      limit: 10
-    });
-    debugResults.tests.ethereum_erc20 = test2;
-
-    // 🧪 TEST 3: PulseChain Native Transactions
-    console.log('🐛 TEST 3: PulseChain Native Transactions');
-    const test3 = await debugMoralisCall(`${address}`, {
-      chain: '0x171',
-      limit: 10
-    });
-    debugResults.tests.pulsechain_native = test3;
-
-    // 🧪 TEST 4: Ethereum Native Transactions
-    console.log('🐛 TEST 4: Ethereum Native Transactions');
-    const test4 = await debugMoralisCall(`${address}`, {
-      chain: '0x1',
-      limit: 10
-    });
-    debugResults.tests.ethereum_native = test4;
-
-    // 🧪 TEST 5: PulseChain Internal Transactions
-    console.log('🐛 TEST 5: PulseChain Internal Transactions');
-    const test5 = await debugMoralisCall(`${address}/internal-transactions`, {
-      chain: '0x171',
-      limit: 10
-    });
-    debugResults.tests.pulsechain_internal = test5;
-
-    // 🧪 TEST 6: Ethereum Internal Transactions
-    console.log('🐛 TEST 6: Ethereum Internal Transactions');
-    const test6 = await debugMoralisCall(`${address}/internal-transactions`, {
-      chain: '0x1',
-      limit: 10
-    });
-    debugResults.tests.ethereum_internal = test6;
-
-    // 📊 SUMMARY
-    const summary = {
-      totalTests: 6,
-      successfulTests: Object.values(debugResults.tests).filter(t => t.success).length,
-      failedTests: Object.values(debugResults.tests).filter(t => t.error).length,
-      totalTransactions: Object.values(debugResults.tests)
-        .filter(t => t.success && t.data?.result)
-        .reduce((sum, t) => sum + (t.data.result.length || 0), 0)
-    };
-
-    debugResults.summary = summary;
-
-    console.log('🐛 DEBUG SUMMARY:', summary);
 
     return res.status(200).json({
       success: true,
-      debug: debugResults,
-      message: 'Debug-Session abgeschlossen'
+      debug: {
+        timestamp: new Date().toISOString(),
+        address: testAddress,
+        apiKeyInfo,
+        results,
+        summary: {
+          totalEndpoints: Object.keys(results).length,
+          successfulRequests: Object.values(results).filter(r => r.success).length,
+          failedRequests: Object.values(results).filter(r => !r.success).length,
+          totalTransactions: Object.values(results)
+            .filter(r => r.success && r.data?.result)
+            .reduce((sum, r) => sum + (r.data.result.length || 0), 0)
+        }
+      }
     });
 
   } catch (error) {
-    console.error('🐛 DEBUG ERROR:', error);
+    console.error('💥 DEBUG API ERROR:', error);
     
     return res.status(500).json({
       success: false,
-      error: 'Debug API Error',
-      message: error.message,
+      error: 'Internal server error during debug',
+      debug: error.message,
       timestamp: new Date().toISOString()
     });
   }
