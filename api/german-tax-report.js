@@ -158,6 +158,7 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
 
 // 🔥 WGEP STEUER-SUMMARY CALCULATOR
 function calculateWGEPTaxSummary(transactions) {
+  console.log("🔥 HIER BIN ICH!");
   console.log(`🔍 DEBUG: Starting summary calculation for ${transactions.length} transactions`);
   
   // OPTIMIERT: Einmalige Iteration statt mehrfache filter()
