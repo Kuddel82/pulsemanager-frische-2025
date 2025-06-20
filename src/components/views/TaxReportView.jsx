@@ -89,6 +89,9 @@ const SimpleTaxTracker = () => {
   };
 
   const handleGenerateReport = async () => {
+    // 🔥🔥🔥 BUTTON CLICK DEBUG 🔥🔥🔥
+    console.log("🔥🔥🔥 BUTTON CLICKED! 🔥🔥🔥");
+    
     // 🔥 VERHINDERE MEHRFACHE API-CALLS - ERWEITERT
     if (isRequestInProgressRef.current) {
       console.log('🚫 API-Call bereits in Bearbeitung, ignoriere...');
@@ -143,6 +146,11 @@ const SimpleTaxTracker = () => {
       }
 
       const data = await response.json();
+      
+      // 🔥🔥🔥 API RESPONSE DEBUG 🔥🔥🔥
+      console.log("🚨🚨🚨 API RESPONSE RECEIVED:", data);
+      console.log("🚨 ERSTE TRANSAKTION:", data.taxReport?.transactions?.[0]);
+      console.log("🚨 ERSTE VALUE:", data.taxReport?.transactions?.[0]?.valueFormatted);
       
       if (!data.success) {
         throw new Error(data.error || 'Fehler beim Laden der Steuerdaten');
@@ -582,29 +590,39 @@ const SimpleTaxTracker = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {taxData.transactions.map((tx, index) => (
-                      <tr key={index} style={{backgroundColor: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)'}}>
-                        <td className="px-4 py-3 text-sm pulse-text-secondary">
-                          {tx.block_timestamp ? new Date(tx.block_timestamp).toLocaleDateString('de-DE') : 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium pulse-text">
-                          {tx.token_symbol || tx.tokenSymbol || 'UNKNOWN'}
-                        </td>
-                        <td className="px-4 py-3 text-sm pulse-text-secondary">
-                          {tx.taxCategory || 'ERC20_TRANSFER'}
-                        </td>
-                        <td className="px-4 py-3 text-sm pulse-text">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            tx.direction === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold pulse-text-gradient">
-                          {tx.amount ? tx.amount.toFixed(6) : (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)).toFixed(6) : '0')}
-                        </td>
-                      </tr>
-                    ))}
+                    {taxData.transactions.map((tx, index) => {
+                      // 🔥🔥🔥 RENDERING DEBUG 🔥🔥🔥
+                      if (index === 0) {
+                        console.log("🚨 RENDERING ERSTE ZEILE:", tx);
+                        console.log("🚨 VALUE BEIM RENDERN:", tx.valueFormatted);
+                        console.log("🚨 AMOUNT BEIM RENDERN:", tx.amount);
+                        console.log("🚨 VALUE RAW BEIM RENDERN:", tx.value);
+                      }
+                      
+                      return (
+                        <tr key={index} style={{backgroundColor: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)'}}>
+                          <td className="px-4 py-3 text-sm pulse-text-secondary">
+                            {tx.block_timestamp ? new Date(tx.block_timestamp).toLocaleDateString('de-DE') : 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium pulse-text">
+                            {tx.token_symbol || tx.tokenSymbol || 'UNKNOWN'}
+                          </td>
+                          <td className="px-4 py-3 text-sm pulse-text-secondary">
+                            {tx.taxCategory || 'ERC20_TRANSFER'}
+                          </td>
+                          <td className="px-4 py-3 text-sm pulse-text">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              tx.direction === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-bold pulse-text-gradient">
+                            {tx.amount ? tx.amount.toFixed(6) : (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)).toFixed(6) : '0')}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
