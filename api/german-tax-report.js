@@ -160,6 +160,12 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
  * 🔧 KORREKTE TOKEN-EXTRAKTION für Moralis Wallet History API
  */
 function extractTokenDataFromWalletHistory(tx, walletAddress) {
+  console.log(`🔍 DEBUG Chain Data:`, {
+    sourceChain: tx.sourceChain,
+    chain: tx.chain,
+    allKeys: Object.keys(tx)
+  });
+  
   console.log(`🔍 Extracting token data from transaction: ${tx.hash?.substring(0, 10)}...`);
   
   // DEFAULT VALUES
