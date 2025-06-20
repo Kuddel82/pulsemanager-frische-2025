@@ -476,6 +476,7 @@ export default async function handler(req, res) {
       pulsechainCount: chainResults.PLS?.count || 0,
       roiCount: categorizedTransactions.filter(tx => tx.taxCategory.includes('ROI')).length,
       taxableCount: categorizedTransactions.filter(tx => 
+        tx.isTaxable === true || 
         tx.taxCategory === 'Sale Income' || 
         tx.taxCategory === 'ROI Income'
       ).length,
