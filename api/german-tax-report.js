@@ -269,7 +269,7 @@ export default async function handler(req, res) {
           let directionIcon = '❓';
           let taxCategory = 'Sonstige';
           
-          // Native Transfers (ETH/PLS)
+          // Native Transfers (ETH/PLS) - RICHTIGE EXTRACTION
           if (tx.native_transfers && tx.native_transfers.length > 0) {
             const nativeTransfer = tx.native_transfers[0];
             tokenSymbol = nativeTransfer.token_symbol || (chain.moralisId === '0x1' ? 'ETH' : 'PLS');
@@ -280,7 +280,7 @@ export default async function handler(req, res) {
             taxCategory = direction === 'in' ? 'Token Transfer (In)' : 'Token Transfer (Out)';
           }
           
-          // ERC20 Transfers (WGEP, USDC, USDT, etc.)
+          // ERC20 Transfers (WGEP, USDC, USDT, etc.) - RICHTIGE EXTRACTION
           if (tx.erc20_transfer && tx.erc20_transfer.length > 0) {
             const erc20Transfer = tx.erc20_transfer[0];
             tokenSymbol = erc20Transfer.token_symbol || 'UNKNOWN';
@@ -289,9 +289,14 @@ export default async function handler(req, res) {
             direction = erc20Transfer.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out';
             directionIcon = direction === 'in' ? '📥 IN' : '📤 OUT';
             taxCategory = direction === 'in' ? 'Token Transfer (In)' : 'Token Transfer (Out)';
+            
+            // 🔥 DEBUG: Log Token-Details für WGEP, USDC, USDT
+            if (['WGEP', 'USDC', 'USDT'].includes(tokenSymbol)) {
+              console.log(`🔍 TOKEN FOUND: ${tokenSymbol} - Value: ${valueDecimal} - Direction: ${direction}`);
+            }
           }
           
-          // NFT Transfers (falls vorhanden)
+          // NFT Transfers (falls vorhanden) - RICHTIGE EXTRACTION
           if (tx.nft_transfers && tx.nft_transfers.length > 0) {
             const nftTransfer = tx.nft_transfers[0];
             tokenSymbol = nftTransfer.token_symbol || 'NFT';
