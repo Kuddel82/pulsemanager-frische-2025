@@ -195,6 +195,15 @@ const SimpleTaxTracker = () => {
       
       // 🔥🔥🔥 API RESPONSE DEBUG 🔥🔥🔥
       console.log("🚨🚨🚨 API RESPONSE RECEIVED:", data);
+      console.log("🚨 DATA TYPE:", typeof data);
+      console.log("🚨 TAX REPORT TYPE:", typeof data.taxReport);
+      console.log("🚨 TAX REPORT KEYS:", data.taxReport ? Object.keys(data.taxReport) : 'N/A');
+      console.log("🚨 SUMMARY TYPE:", typeof data.taxReport?.summary);
+      console.log("🚨 SUMMARY KEYS:", data.taxReport?.summary ? Object.keys(data.taxReport.summary) : 'N/A');
+      console.log("🚨 SUMMARY VALUES:", data.taxReport?.summary);
+      console.log("🚨 TRANSACTIONS TYPE:", typeof data.taxReport?.transactions);
+      console.log("🚨 TRANSACTIONS LENGTH:", data.taxReport?.transactions?.length);
+      console.log("🚨 FIRST TRANSACTION:", data.taxReport?.transactions?.[0]);
       
       // 🔥 HANDLE NULL RESPONSES - KRITISCHER FIX!
       if (data.taxReport === null) {
@@ -610,6 +619,16 @@ const SimpleTaxTracker = () => {
         {/* Results - PulseChain Style */}
         {taxData && (
           <div className="pulse-card">
+            {/* 🔥🔥🔥 EMERGENCY RENDERING DEBUG 🔥🔥🔥 */}
+            {(() => {
+              console.log("🚨 RENDERING DEBUG - taxData:", taxData);
+              console.log("🚨 RENDERING DEBUG - summary:", taxData.summary);
+              console.log("🚨 RENDERING DEBUG - totalTransactions:", taxData.summary?.totalTransactions);
+              console.log("🚨 RENDERING DEBUG - roiCount:", taxData.summary?.roiCount);
+              console.log("🚨 RENDERING DEBUG - totalROIValueEUR:", taxData.summary?.totalROIValueEUR);
+              return null;
+            })()}
+            
             <h2 className="text-2xl font-bold pulse-text-gradient mb-6 text-center">
               📊 Deine Steuer-Übersicht
             </h2>
