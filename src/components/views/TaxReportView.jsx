@@ -89,6 +89,12 @@ const SimpleTaxTracker = () => {
   };
 
   const handleGenerateReport = async () => {
+    // 🔥🔥�� BUTTON CLICK DEBUG - GANZ OBEN 🔥🔥🔥
+    console.log("🔥🔥🔥 BUTTON CLICKED SOFORT! 🔥🔥🔥");
+    console.log("🔥 Handler gestartet um:", new Date().toISOString());
+    console.log("🔥 Wallet Address:", walletAddress);
+    console.log("🔥 User ID:", user?.id);
+    
     // 🔥🔥🔥 BUTTON CLICK DEBUG 🔥🔥🔥
     console.log("🔥🔥🔥 BUTTON CLICKED! 🔥🔥🔥");
     
