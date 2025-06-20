@@ -92,6 +92,8 @@ const SimpleTaxTracker = () => {
   // 🔥 EMERGENCY CACHE BUSTING - VERHINDERT STATUS 304
   const clearAllCaches = async () => {
     try {
+      console.log('🧹 STARTE CACHE BUSTING...');
+      
       // Browser Cache leeren
       if ('caches' in window) {
         const cacheNames = await caches.keys();
@@ -115,8 +117,60 @@ const SimpleTaxTracker = () => {
       });
       console.log('🧹 Local Storage Tax-Daten geleert');
       
+      // ✅ SUCCESS MESSAGE - BESSER ALS ALERT
+      console.log('✅ Cache erfolgreich geleert!');
+      
+      // Zeige Erfolg in Console und setze einen visuellen Indikator
+      const successDiv = document.createElement('div');
+      successDiv.innerHTML = '✅ Cache erfolgreich geleert!';
+      successDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 9999;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      `;
+      document.body.appendChild(successDiv);
+      
+      // Entferne nach 3 Sekunden
+      setTimeout(() => {
+        if (successDiv.parentNode) {
+          successDiv.parentNode.removeChild(successDiv);
+        }
+      }, 3000);
+      
     } catch (error) {
       console.error('❌ Cache-Busting Fehler:', error);
+      
+      // Zeige Fehler als Toast-Nachricht
+      const errorDiv = document.createElement('div');
+      errorDiv.innerHTML = `❌ Fehler beim Cache leeren: ${error.message}`;
+      errorDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ef4444;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 9999;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        max-width: 300px;
+      `;
+      document.body.appendChild(errorDiv);
+      
+      // Entferne nach 5 Sekunden
+      setTimeout(() => {
+        if (errorDiv.parentNode) {
+          errorDiv.parentNode.removeChild(errorDiv);
+        }
+      }, 5000);
     }
   };
 
@@ -586,8 +640,28 @@ const SimpleTaxTracker = () => {
             
             {/* 🔥 EMERGENCY CACHE CLEAR BUTTON */}
             <Button 
-              onClick={clearAllCaches}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm"
+              onClick={async () => {
+                const button = event.target;
+                const originalText = button.innerHTML;
+                button.innerHTML = '🧹 Leere Cache...';
+                button.disabled = true;
+                
+                try {
+                  await clearAllCaches();
+                  button.innerHTML = '✅ Cache geleert!';
+                  setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                  }, 2000);
+                } catch (error) {
+                  button.innerHTML = '❌ Fehler!';
+                  setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                  }, 2000);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-all"
               title="Cache komplett leeren (Emergency Fix)"
             >
               🧹 Cache leeren
