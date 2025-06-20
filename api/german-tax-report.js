@@ -156,6 +156,163 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   return { transfers: allTransfers, debugInfo };
 }
 
+/**
+ * 🔧 KORREKTE TOKEN-EXTRAKTION für Moralis Wallet History API
+ */
+function extractTokenDataFromWalletHistory(tx, walletAddress) {
+  console.log(`🔍 Extracting token data from transaction: ${tx.hash?.substring(0, 10)}...`);
+  
+  // DEFAULT VALUES
+  let tokenSymbol = 'UNKNOWN';
+  let tokenName = 'Unknown Token';
+  let valueFormatted = '0';
+  let valueRaw = '0';
+  let direction = 'unknown';
+  let directionIcon = '❓';
+  let chainSymbol = 'UNK';
+  
+  // CHAIN DETECTION basierend auf tx oder chain parameter
+  if (tx.sourceChain === 'Ethereum' || tx.chain === '0x1') {
+    chainSymbol = 'ETH';
+  } else if (tx.sourceChain === 'PulseChain' || tx.chain === '0x171') {
+    chainSymbol = 'PLS';
+  }
+  
+  const walletLower = walletAddress.toLowerCase();
+  
+  // 🪙 ERC20 TRANSFERS (WICHTIGSTER TEIL)
+  if (tx.erc20_transfers && tx.erc20_transfers.length > 0) {
+    console.log(`🪙 Found ${tx.erc20_transfers.length} ERC20 transfers`);
+    
+    // Nimm den ersten/hauptsächlichen ERC20 Transfer
+    const transfer = tx.erc20_transfers[0];
+    
+    // KORREKTE FELDNAMEN (aus der Moralis API Dokumentation)
+    tokenSymbol = transfer.token_symbol || 'UNKNOWN';
+    tokenName = transfer.token_name || 'Unknown Token';
+    valueFormatted = transfer.value_formatted || '0';
+    valueRaw = transfer.value || '0';
+    
+    // DIRECTION basierend auf from/to addresses
+    const fromAddress = transfer.from_address?.toLowerCase();
+    const toAddress = transfer.to_address?.toLowerCase();
+    
+    if (toAddress === walletLower && fromAddress !== walletLower) {
+      direction = 'in';
+      directionIcon = '📥';
+    } else if (fromAddress === walletLower && toAddress !== walletLower) {
+      direction = 'out';
+      directionIcon = '📤';
+    } else {
+      direction = 'transfer';
+      directionIcon = '🔄';
+    }
+    
+    console.log(`✅ ERC20: ${tokenSymbol} ${valueFormatted} ${direction}`);
+  }
+  
+  // ⛽ NATIVE TRANSFERS (ETH, PLS)
+  else if (tx.native_transfers && tx.native_transfers.length > 0) {
+    console.log(`⛽ Found ${tx.native_transfers.length} native transfers`);
+    
+    const transfer = tx.native_transfers[0];
+    
+    // Native Token Symbole
+    tokenSymbol = transfer.token_symbol || chainSymbol || 'NATIVE';
+    tokenName = transfer.token_name || (chainSymbol === 'ETH' ? 'Ethereum' : 'PulseChain');
+    valueFormatted = transfer.value_formatted || '0';
+    valueRaw = transfer.value || '0';
+    
+    // DIRECTION für Native Transfers
+    const fromAddress = transfer.from_address?.toLowerCase();
+    const toAddress = transfer.to_address?.toLowerCase();
+    
+    if (toAddress === walletLower && fromAddress !== walletLower) {
+      direction = 'in';
+      directionIcon = '📥';
+    } else if (fromAddress === walletLower && toAddress !== walletLower) {
+      direction = 'out';
+      directionIcon = '📤';
+    } else {
+      direction = 'transfer';
+      directionIcon = '🔄';
+    }
+    
+    console.log(`✅ Native: ${tokenSymbol} ${valueFormatted} ${direction}`);
+  }
+  
+  // 📄 FALLBACK für Transaktionen ohne Transfers
+  else {
+    console.log(`📄 No transfers found, using transaction-level data`);
+    
+    // Transaction-level direction detection
+    const fromAddress = tx.from_address?.toLowerCase();
+    const toAddress = tx.to_address?.toLowerCase();
+    
+    if (toAddress === walletLower && fromAddress !== walletLower) {
+      direction = 'in';
+      directionIcon = '📥';
+    } else if (fromAddress === walletLower && toAddress !== walletLower) {
+      direction = 'out';
+      directionIcon = '📤';
+    } else {
+      direction = 'unknown';
+      directionIcon = '❓';
+    }
+    
+    // Für Contract Interactions oder andere Transaktionen
+    tokenSymbol = chainSymbol;
+    tokenName = chainSymbol === 'ETH' ? 'Ethereum' : 'PulseChain';
+    valueFormatted = tx.value_formatted || '0';
+    valueRaw = tx.value || '0';
+  }
+  
+  // 🏷️ STEUER-KATEGORISIERUNG
+  const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'PLS'];
+  const isROIToken = ROI_TOKENS.includes(tokenSymbol?.toUpperCase());
+  
+  const KNOWN_MINTERS = [
+    '0x0000000000000000000000000000000000000000',
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3'
+  ];
+  const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
+  
+  let taxCategory = 'Sonstige';
+  let isTaxable = false;
+  let isROI = false;
+  
+  if (direction === 'in' && (fromMinter || isROIToken)) {
+    taxCategory = 'ROI Income';
+    isTaxable = true;
+    isROI = true;
+  } else if (direction === 'out') {
+    taxCategory = 'Purchase';
+    isTaxable = false;
+  } else if (direction === 'in') {
+    taxCategory = 'Sale Income';
+    isTaxable = true;
+  } else {
+    taxCategory = 'Transfer';
+    isTaxable = false;
+  }
+  
+  // 📊 RETURN ENRICHED DATA
+  return {
+    ...tx, // Behalte alle originalen Felder
+    tokenSymbol,
+    tokenName,
+    valueFormatted,
+    valueRaw,
+    chainSymbol,
+    direction,
+    directionIcon,
+    taxCategory,
+    isTaxable,
+    isROI
+  };
+}
+
 export default async function handler(req, res) {
   console.log('🔥🔥🔥 TAX REPORT - AGGRESSIVE PAGINATION (300.000+)! 🔥🔥🔥');
   
@@ -261,138 +418,7 @@ export default async function handler(req, res) {
         
         // Add chain info to transactions
         const processedTransactions = transfers.map(tx => {
-          // 🔥 WALLET HISTORY FORMAT: Extrahiere ALLE wichtigen Steuer-Daten
-          let tokenSymbol = 'UNKNOWN';
-          let tokenName = 'Unknown Token';
-          let valueDecimal = '0';
-          let direction = 'unknown';
-          let directionIcon = '❓';
-          let taxCategory = 'Sonstige';
-          let usdPrice = 0;
-          let usdValue = 0;
-          let timestamp = tx.block_timestamp || tx.timestamp || Date.now();
-          let transactionHash = tx.hash || tx.transaction_hash || '';
-          let contractAddress = '';
-          let gasPrice = tx.gas_price || 0;
-          let gasUsed = tx.gas_used || 0;
-          let gasFee = (gasPrice * gasUsed) / 1e18; // Convert to ETH/PLS
-          
-          // 🔥 TIMESTAMP VERARBEITUNG - KORREKTE BEHANDLUNG ALLER FORMATE
-          let processedTimestamp;
-          if (typeof timestamp === 'string') {
-            // ISO String - direkt verwenden
-            processedTimestamp = new Date(timestamp).getTime();
-          } else if (typeof timestamp === 'number') {
-            // Unix Timestamp - prüfen ob Sekunden oder Millisekunden
-            if (timestamp < 10000000000) {
-              // Sekunden - zu Millisekunden konvertieren
-              processedTimestamp = timestamp * 1000;
-            } else {
-              // Bereits Millisekunden
-              processedTimestamp = timestamp;
-            }
-          } else {
-            // Fallback - aktuelle Zeit
-            processedTimestamp = Date.now();
-          }
-          
-          // Native Transfers (ETH/PLS) - RICHTIGE EXTRACTION
-          if (tx.native_transfers && tx.native_transfers.length > 0) {
-            const nativeTransfer = tx.native_transfers[0];
-            tokenSymbol = nativeTransfer.token_symbol || (chain.moralisId === '0x1' ? 'ETH' : 'PLS');
-            tokenName = nativeTransfer.token_name || (chain.moralisId === '0x1' ? 'Ethereum' : 'PulseChain');
-            valueDecimal = nativeTransfer.value_decimal || '0';
-            usdPrice = nativeTransfer.usd_price || 0;
-            usdValue = parseFloat(valueDecimal) * usdPrice;
-            
-            // Direction detection
-            if (nativeTransfer.from_address?.toLowerCase() === address.toLowerCase()) {
-              direction = 'out';
-              directionIcon = '📤';
-            } else if (nativeTransfer.to_address?.toLowerCase() === address.toLowerCase()) {
-              direction = 'in';
-              directionIcon = '📥';
-            }
-          }
-          
-          // ERC20 Transfers (WGEP, USDC, USDT, etc.) - RICHTIGE EXTRACTION
-          if (tx.erc20_transfer && tx.erc20_transfer.length > 0) {
-            const erc20Transfer = tx.erc20_transfer[0];
-            tokenSymbol = erc20Transfer.token_symbol || 'UNKNOWN';
-            tokenName = erc20Transfer.token_name || 'Unknown Token';
-            valueDecimal = erc20Transfer.value_decimal || '0';
-            usdPrice = erc20Transfer.usd_price || 0;
-            usdValue = parseFloat(valueDecimal) * usdPrice;
-            contractAddress = erc20Transfer.contract_address || '';
-            
-            // Direction detection
-            if (erc20Transfer.from_address?.toLowerCase() === address.toLowerCase()) {
-              direction = 'out';
-              directionIcon = '📤';
-            } else if (erc20Transfer.to_address?.toLowerCase() === address.toLowerCase()) {
-              direction = 'in';
-              directionIcon = '📥';
-            }
-          }
-          
-          // NFT Transfers - RICHTIGE EXTRACTION
-          if (tx.nft_transfers && tx.nft_transfers.length > 0) {
-            const nftTransfer = tx.nft_transfers[0];
-            tokenSymbol = nftTransfer.token_symbol || 'NFT';
-            tokenName = nftTransfer.token_name || 'NFT Token';
-            valueDecimal = nftTransfer.amount || '1';
-            usdPrice = nftTransfer.usd_price || 0;
-            usdValue = parseFloat(valueDecimal) * usdPrice;
-            contractAddress = nftTransfer.contract_address || '';
-            
-            // Direction detection
-            if (nftTransfer.from_address?.toLowerCase() === address.toLowerCase()) {
-              direction = 'out';
-              directionIcon = '📤';
-            } else if (nftTransfer.to_address?.toLowerCase() === address.toLowerCase()) {
-              direction = 'in';
-              directionIcon = '📥';
-            }
-          }
-          
-          // 🔥 TOKEN SYMBOL MAPPING - KORREKTE ANZEIGE
-          if (tokenSymbol === 'WPLS') {
-            tokenSymbol = 'PLS'; // Wrapped PLS → PLS
-          } else if (tokenSymbol === 'UNKNOWN' && chain.moralisId === '0x1') {
-            tokenSymbol = 'ETH'; // UNKNOWN auf ETH → ETH
-          } else if (tokenSymbol === 'UNKNOWN' && chain.moralisId === '0x171') {
-            tokenSymbol = 'PLS'; // UNKNOWN auf PulseChain → PLS
-          }
-          
-          // 🔥 ROI-KLASSIFIZIERUNG - §22 EStG
-          const roiTokens = ['WGEP', 'MASKMAN', 'BORK', 'PLS', 'ETH'];
-          if (roiTokens.includes(tokenSymbol.toUpperCase()) && usdValue > 0) {
-            taxCategory = '§22 EStG - Sonstige Einkünfte';
-          }
-          
-          // 🔥 DEBUG: Token-Details loggen
-          if (['WGEP', 'USDC', 'USDT', 'PLS', 'ETH'].includes(tokenSymbol.toUpperCase())) {
-            console.log(`🔍 TOKEN DEBUG: ${tokenSymbol} | ${valueDecimal} | $${usdValue.toFixed(2)} | ${direction} | ${taxCategory}`);
-          }
-          
-          return {
-            ...tx,
-            chain: chain.short,
-            tokenSymbol,
-            tokenName,
-            valueDecimal,
-            direction,
-            directionIcon,
-            taxCategory,
-            usdPrice: usdPrice.toFixed(6),
-            usdValue: usdValue.toFixed(2),
-            timestamp: new Date(processedTimestamp).toISOString(),
-            transactionHash,
-            contractAddress,
-            gasFee: gasFee.toFixed(6),
-            formattedDate: new Date(processedTimestamp).toLocaleDateString('de-DE'),
-            formattedTime: new Date(processedTimestamp).toLocaleTimeString('de-DE')
-          };
+          return extractTokenDataFromWalletHistory(tx, address);
         });
         
         allTransactions.push(...processedTransactions);
