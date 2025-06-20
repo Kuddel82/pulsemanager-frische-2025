@@ -233,8 +233,8 @@ export default async function handler(req, res) {
 
     // KORREKTE CHAIN IDs - EXAKT WIE MORALIS-V2
     const chains = [
-      { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: 'eth', moralisId: 'eth' },
-      { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: 'pulsechain', moralisId: 'pulsechain' }
+      { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: '0x1', moralisId: '0x1' },
+      { id: '0x171', name: 'PulseChain', short: 'PLS', moralisName: '0x171', moralisId: '0x171' }
     ];
 
     let allTransactions = [];
@@ -272,15 +272,15 @@ export default async function handler(req, res) {
           // Native Transfers (ETH/PLS)
           if (tx.native_transfers && tx.native_transfers.length > 0) {
             const nativeTransfer = tx.native_transfers[0];
-            tokenSymbol = nativeTransfer.token_symbol || (chain.moralisId === 'eth' ? 'ETH' : 'PLS');
-            tokenName = nativeTransfer.token_name || (chain.moralisId === 'eth' ? 'Ethereum' : 'PulseChain');
+            tokenSymbol = nativeTransfer.token_symbol || (chain.moralisId === '0x1' ? 'ETH' : 'PLS');
+            tokenName = nativeTransfer.token_name || (chain.moralisId === '0x1' ? 'Ethereum' : 'PulseChain');
             valueDecimal = (parseFloat(nativeTransfer.value) / Math.pow(10, 18)).toString();
             direction = nativeTransfer.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out';
             directionIcon = direction === 'in' ? '📥 IN' : '📤 OUT';
             taxCategory = direction === 'in' ? 'Token Transfer (In)' : 'Token Transfer (Out)';
           }
           
-          // ERC20 Transfers
+          // ERC20 Transfers (WGEP, USDC, USDT, etc.)
           if (tx.erc20_transfer && tx.erc20_transfer.length > 0) {
             const erc20Transfer = tx.erc20_transfer[0];
             tokenSymbol = erc20Transfer.token_symbol || 'UNKNOWN';
@@ -289,6 +289,25 @@ export default async function handler(req, res) {
             direction = erc20Transfer.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out';
             directionIcon = direction === 'in' ? '📥 IN' : '📤 OUT';
             taxCategory = direction === 'in' ? 'Token Transfer (In)' : 'Token Transfer (Out)';
+          }
+          
+          // NFT Transfers (falls vorhanden)
+          if (tx.nft_transfers && tx.nft_transfers.length > 0) {
+            const nftTransfer = tx.nft_transfers[0];
+            tokenSymbol = nftTransfer.token_symbol || 'NFT';
+            tokenName = nftTransfer.token_name || 'NFT Collection';
+            valueDecimal = '1'; // NFTs haben normalerweise Wert 1
+            direction = nftTransfer.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out';
+            directionIcon = direction === 'in' ? '📥 IN' : '📤 OUT';
+            taxCategory = direction === 'in' ? 'NFT Transfer (In)' : 'NFT Transfer (Out)';
+          }
+          
+          // 🔥 ROI DETECTION für bekannte Tokens
+          if (['WGEP', 'MASKMAN', 'BORK'].includes(tokenSymbol)) {
+            if (direction === 'in') {
+              taxCategory = 'ROI Einkommen (§22 EStG)';
+              directionIcon = '💰 ROI';
+            }
           }
           
           return {
