@@ -89,7 +89,7 @@ const SimpleTaxTracker = () => {
   };
 
   const handleGenerateReport = async () => {
-    // 🔥🔥�� BUTTON CLICK DEBUG - GANZ OBEN 🔥🔥🔥
+    // 🔥🔥🔥 BUTTON CLICK DEBUG - GANZ OBEN 🔥🔥🔥
     console.log("🔥🔥🔥 BUTTON CLICKED SOFORT! 🔥🔥🔥");
     console.log("🔥 Handler gestartet um:", new Date().toISOString());
     console.log("🔥 Wallet Address:", walletAddress);
@@ -99,7 +99,7 @@ const SimpleTaxTracker = () => {
     console.log("🔥🔥🔥 BUTTON CLICKED! 🔥🔥🔥");
     
     // 🔥 VERHINDERE MEHRFACHE API-CALLS - ERWEITERT
-    if (isRequestInProgressRef.current) {
+    if (isRequestInProgressRef.current || isLoading) {
       console.log('🚫 API-Call bereits in Bearbeitung, ignoriere...');
       return;
     }
@@ -155,13 +155,21 @@ const SimpleTaxTracker = () => {
       
       // 🔥🔥🔥 API RESPONSE DEBUG 🔥🔥🔥
       console.log("🚨🚨🚨 API RESPONSE RECEIVED:", data);
-      console.log("🚨 ERSTE TRANSAKTION:", data.taxReport?.transactions?.[0]);
-      console.log("🚨 ERSTE VALUE:", data.taxReport?.transactions?.[0]?.valueFormatted);
+      
+      // 🔥 HANDLE NULL RESPONSES - KRITISCHER FIX!
+      if (data.taxReport === null) {
+        console.log("🚨 API returned null - deduplicated request!");
+        setError("API-Request wurde dedupliziert. Bitte warte einen Moment und versuche es erneut.");
+        return;
+      }
       
       if (!data.success) {
         throw new Error(data.error || 'Fehler beim Laden der Steuerdaten');
       }
 
+      console.log("🚨 ERSTE TRANSAKTION:", data.taxReport?.transactions?.[0]);
+      console.log("🚨 ERSTE VALUE:", data.taxReport?.transactions?.[0]?.valueFormatted);
+      
       console.log('✅ Neue Wallet History API erfolgreich geladen:', data.taxReport);
       
       // 🚨 EMERGENCY DEBUG: Was kommt von der API?
