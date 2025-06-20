@@ -13,6 +13,31 @@ const SimpleTaxTracker = () => {
   // 🔥🔥🔥 COMPONENT RENDER TEST 🔥🔥🔥
   console.log("🔥🔥🔥 TAX REPORT COMPONENT RENDERED! 🔥🔥🔥");
   
+  // 🚨 NUCLEAR OPTION: Automatischer Hard-Refresh bei Template-Literalen
+  useEffect(() => {
+    const checkForTemplateLiterals = () => {
+      const elements = document.querySelectorAll('.pulse-stat-value');
+      let hasTemplateLiterals = false;
+      
+      elements.forEach(el => {
+        const text = el.textContent || el.innerText;
+        if (text.includes('{taxData.summary') || text.includes('{formatCurrency')) {
+          hasTemplateLiterals = true;
+          console.log('🚨 TEMPLATE LITERAL ERKANNT:', text);
+        }
+      });
+      
+      if (hasTemplateLiterals) {
+        console.log('🚨 NUCLEAR OPTION: Template-Literale erkannt - Hard-Refresh...');
+        // Hard-Refresh mit Cache-Busting
+        window.location.reload(true);
+      }
+    };
+    
+    // Prüfe nach 2 Sekunden (nach dem Rendering)
+    setTimeout(checkForTemplateLiterals, 2000);
+  }, []);
+  
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [taxData, setTaxData] = useState(null);
