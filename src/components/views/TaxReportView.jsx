@@ -498,7 +498,11 @@ const SimpleTaxTracker = () => {
 
           {/* Generate Button - PulseChain Style */}
           <button
-            onClick={handleGenerateReport}
+            onClick={() => {
+              console.log("🔥🔥🔥 BUTTON CLICKED INLINE! 🔥🔥🔥");
+              console.log("🔥 Inline Click um:", new Date().toISOString());
+              handleGenerateReport();
+            }}
             disabled={isLoading || !walletAddress}
             className={`w-full py-4 px-6 rounded-xl text-lg font-semibold transition-all duration-200 ${
               isLoading || !walletAddress
