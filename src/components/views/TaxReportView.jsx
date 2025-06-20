@@ -67,10 +67,13 @@ const SimpleTaxTracker = () => {
 
   // 🔥🔥🔥 TAX DATA USE EFFECT 🔥🔥🔥
   useEffect(() => {
-    console.log("🔥🔥🔥 TAX DATA USE EFFECT TRIGGERED! 🔥🔥🔥");
+    console.log("🔥 USE EFFECT TRIGGERED! taxReport:", !!taxData);
     if (taxData) {
       console.log("🚨🚨🚨 FRONTEND API RESPONSE:", taxData);
-      console.log("🚨 ERSTE TRANSAKTION VALUE:", taxData.transactions?.[0]?.value);
+      console.log("🚨 ERSTE TRANSAKTION:", taxData.transactions?.[0]);
+      console.log("🚨 ERSTE VALUE:", taxData.transactions?.[0]?.valueFormatted);
+      console.log("🚨 ERSTE VALUE RAW:", taxData.transactions?.[0]?.value);
+      console.log("🚨 ERSTE TOKEN SYMBOL:", taxData.transactions?.[0]?.tokenSymbol);
     }
   }, [taxData]);
 
