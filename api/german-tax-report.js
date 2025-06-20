@@ -298,8 +298,13 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     // Native Token Symbole
     tokenSymbol = transfer.token_symbol || chainSymbol || 'NATIVE';
     tokenName = transfer.token_name || (chainSymbol === 'ETH' ? 'Ethereum' : 'PulseChain');
+    
+    // 🔥 DEBUG: Zeige Moralis Bug auch bei Native Transfers
+    console.log("🔥 NATIVE BEFORE FIX:", transfer.value_formatted);
     const valueInWei = transfer.value || '0';
     valueFormatted = (parseFloat(valueInWei) / 1e18).toFixed(6);
+    console.log("🔥 NATIVE AFTER FIX:", valueFormatted);
+    
     valueRaw = transfer.value || '0';
     
     // DIRECTION für Native Transfers
