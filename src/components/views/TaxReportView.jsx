@@ -626,6 +626,13 @@ const SimpleTaxTracker = () => {
               console.log("🚨 RENDERING DEBUG - totalTransactions:", taxData.summary?.totalTransactions);
               console.log("🚨 RENDERING DEBUG - roiCount:", taxData.summary?.roiCount);
               console.log("🚨 RENDERING DEBUG - totalROIValueEUR:", taxData.summary?.totalROIValueEUR);
+              
+              // 🔥 EMERGENCY DEBUG: Alle verfügbaren Felder
+              console.log("🚨 EMERGENCY DEBUG - ALL SUMMARY FIELDS:", Object.keys(taxData.summary || {}));
+              console.log("🚨 EMERGENCY DEBUG - ALL SUMMARY VALUES:", taxData.summary);
+              console.log("🚨 EMERGENCY DEBUG - TRANSACTIONS LENGTH:", taxData.transactions?.length);
+              console.log("🚨 EMERGENCY DEBUG - FIRST TRANSACTION:", taxData.transactions?.[0]);
+              
               return null;
             })()}
             
@@ -633,32 +640,54 @@ const SimpleTaxTracker = () => {
               📊 Deine Steuer-Übersicht
             </h2>
             
-            {/* Stats Grid - PulseChain Style */}
+            {/* Stats Grid - PulseChain Style - EMERGENCY FIX */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {taxData.summary?.totalTransactions || taxData.transactions?.length || 0}
+                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {(() => {
+                    const total = taxData.summary?.totalTransactions || taxData.transactions?.length || 0;
+                    console.log("🚨 EMERGENCY FIX - totalTransactions:", total);
+                    return total;
+                  })()}
                 </div>
                 <div className="pulse-stat-label">Transaktionen</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {taxData.summary?.roiCount || 0}
+                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {(() => {
+                    const roiCount = taxData.summary?.roiCount || 0;
+                    console.log("🚨 EMERGENCY FIX - roiCount:", roiCount);
+                    return roiCount;
+                  })()}
                 </div>
                 <div className="pulse-stat-label">Steuer-Events</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {formatCurrency(taxData.summary?.totalROIValueEUR || 0)}
+                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {(() => {
+                    const gains = taxData.summary?.totalROIValueEUR || 0;
+                    const formatted = formatCurrency(gains);
+                    console.log("🚨 EMERGENCY FIX - totalROIValueEUR:", gains, "formatted:", formatted);
+                    return formatted;
+                  })()}
                 </div>
                 <div className="pulse-stat-label">Gesamte Gewinne</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {formatCurrency(taxData.summary?.totalTaxEUR || 0)}
+                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {(() => {
+                    const tax = taxData.summary?.totalTaxEUR || 0;
+                    const formatted = formatCurrency(tax);
+                    console.log("🚨 EMERGENCY FIX - totalTaxEUR:", tax, "formatted:", formatted);
+                    return formatted;
+                  })()}
                 </div>
                 <div className="pulse-stat-label">Grobe Steuerlast</div>
               </div>
