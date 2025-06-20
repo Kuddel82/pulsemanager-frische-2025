@@ -693,16 +693,11 @@ const SimpleTaxTracker = () => {
         {/* Results - PulseChain Style */}
         {taxData && (
           <div className="pulse-card">
-            {/* 🔥🔥🔥 EMERGENCY RENDERING DEBUG 🔥🔥🔥 */}
+            {/* 🔥🔥🔥 RENDERING DEBUG 🔥🔥🔥 */}
             {(() => {
-              console.log("🚨 NUCLEAR OPTION - COMPONENT RENDERING!");
-              console.log("🚨 NUCLEAR OPTION - taxData exists:", !!taxData);
-              console.log("🚨 NUCLEAR OPTION - taxData type:", typeof taxData);
-              console.log("🚨 NUCLEAR OPTION - taxData keys:", taxData ? Object.keys(taxData) : 'N/A');
-              console.log("🚨 NUCLEAR OPTION - summary exists:", !!taxData?.summary);
-              console.log("🚨 NUCLEAR OPTION - summary type:", typeof taxData?.summary);
-              console.log("🚨 NUCLEAR OPTION - summary keys:", taxData?.summary ? Object.keys(taxData.summary) : 'N/A');
-              
+              console.log("🚨 TAX REPORT RENDERING - taxData exists:", !!taxData);
+              console.log("🚨 TAX REPORT RENDERING - transactions count:", taxData.transactions?.length);
+              console.log("🚨 TAX REPORT RENDERING - summary exists:", !!taxData.summary);
               return null;
             })()}
             
@@ -714,44 +709,32 @@ const SimpleTaxTracker = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
-                  {(() => {
-                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
-                    return "944"; // Hardcodiert für Test
-                  })()}
+                  {/* ECHTE DATEN STATT TEMPLATE LITERALS */}
+                  {taxData.summary?.totalTransactions || taxData.transactions?.length || 0}
                 </div>
                 <div className="pulse-stat-label">Transaktionen</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
-                  {(() => {
-                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
-                    return "0"; // Hardcodiert für Test
-                  })()}
+                  {/* ECHTE DATEN STATT TEMPLATE LITERALS */}
+                  {taxData.summary?.roiCount || 0}
                 </div>
                 <div className="pulse-stat-label">Steuer-Events</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
-                  {(() => {
-                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
-                    return "0,00 €"; // Hardcodiert für Test
-                  })()}
+                  {/* ECHTE DATEN STATT TEMPLATE LITERALS */}
+                  {formatCurrency(taxData.summary?.totalROIValueEUR || 0)}
                 </div>
                 <div className="pulse-stat-label">Gesamte Gewinne</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
-                  {(() => {
-                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
-                    return "0,00 €"; // Hardcodiert für Test
-                  })()}
+                  {/* ECHTE DATEN STATT TEMPLATE LITERALS */}
+                  {formatCurrency(taxData.summary?.totalTaxEUR || 0)}
                 </div>
                 <div className="pulse-stat-label">Grobe Steuerlast</div>
               </div>
@@ -767,6 +750,7 @@ const SimpleTaxTracker = () => {
                   <thead style={{background: 'var(--pulse-gradient-primary)'}}>
                     <tr>
                       <th className="px-4 py-3 text-left text-black font-semibold">Datum</th>
+                      <th className="px-4 py-3 text-left text-black font-semibold">Chain</th>
                       <th className="px-4 py-3 text-left text-black font-semibold">Token</th>
                       <th className="px-4 py-3 text-left text-black font-semibold">Typ</th>
                       <th className="px-4 py-3 text-left text-black font-semibold">Richtung</th>
@@ -788,21 +772,24 @@ const SimpleTaxTracker = () => {
                           <td className="px-4 py-3 text-sm pulse-text-secondary">
                             {tx.block_timestamp ? new Date(tx.block_timestamp).toLocaleDateString('de-DE') : 'N/A'}
                           </td>
+                          <td className="px-4 py-3 text-sm pulse-text-secondary">
+                            {tx.chain || 'ETH'}
+                          </td>
                           <td className="px-4 py-3 text-sm font-medium pulse-text">
                             {tx.token_symbol || tx.tokenSymbol || 'UNKNOWN'}
                           </td>
                           <td className="px-4 py-3 text-sm pulse-text-secondary">
-                            {tx.taxCategory || 'ERC20_TRANSFER'}
+                            {tx.taxCategory || 'Token Transfer In'}
                           </td>
                           <td className="px-4 py-3 text-sm pulse-text">
                             <span className={`px-2 py-1 rounded text-xs ${
                               tx.direction === 'in' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                             }`}>
-                              {tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT')}
+                              {tx.directionIcon || (tx.direction === 'in' ? '📥' : '📤')}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm font-bold pulse-text-gradient">
-                            {tx.amount ? tx.amount.toFixed(6) : (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)).toFixed(6) : '0')}
+                            {tx.amount ? tx.amount.toFixed(6) : (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)).toFixed(6) : '0.000000')}
                           </td>
                         </tr>
                       );
