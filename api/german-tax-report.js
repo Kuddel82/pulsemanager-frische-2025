@@ -268,12 +268,8 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     tokenSymbol = transfer.token_symbol || 'UNKNOWN';
     tokenName = transfer.token_name || 'Unknown Token';
     
-    // 🔥 DEBUG: Zeige Moralis Bug
-    console.log("🚨 BEFORE VALUE FIX:", transfer.value_formatted);
-    console.log("🚨 RAW VALUE:", transfer.value);
-    const valueInWei = transfer.value || '0';
-    valueFormatted = (parseFloat(valueInWei) / 1e18).toFixed(6);
-    console.log("🚨 AFTER VALUE FIX:", valueFormatted);
+    // ✅ RICHTIG - Moralis vertrauen (liefert bereits korrekte Werte!)
+    valueFormatted = transfer.value_formatted || '0';
     
     valueRaw = transfer.value || '0';
     
@@ -305,12 +301,8 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     tokenSymbol = transfer.token_symbol || chainSymbol || 'NATIVE';
     tokenName = transfer.token_name || (chainSymbol === 'ETH' ? 'Ethereum' : 'PulseChain');
     
-    // 🔥 DEBUG: Zeige Moralis Bug auch bei Native Transfers
-    console.log("🚨 BEFORE VALUE FIX:", transfer.value_formatted);
-    console.log("🚨 RAW VALUE:", transfer.value);
-    const valueInWei = transfer.value || '0';
-    valueFormatted = (parseFloat(valueInWei) / 1e18).toFixed(6);
-    console.log("🚨 AFTER VALUE FIX:", valueFormatted);
+    // ✅ RICHTIG - Moralis vertrauen (liefert bereits korrekte Werte!)
+    valueFormatted = transfer.value_formatted || '0';
     
     valueRaw = transfer.value || '0';
     
