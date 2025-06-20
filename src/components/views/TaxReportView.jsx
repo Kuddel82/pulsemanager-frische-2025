@@ -621,17 +621,13 @@ const SimpleTaxTracker = () => {
           <div className="pulse-card">
             {/* 🔥🔥🔥 EMERGENCY RENDERING DEBUG 🔥🔥🔥 */}
             {(() => {
-              console.log("🚨 RENDERING DEBUG - taxData:", taxData);
-              console.log("🚨 RENDERING DEBUG - summary:", taxData.summary);
-              console.log("🚨 RENDERING DEBUG - totalTransactions:", taxData.summary?.totalTransactions);
-              console.log("🚨 RENDERING DEBUG - roiCount:", taxData.summary?.roiCount);
-              console.log("🚨 RENDERING DEBUG - totalROIValueEUR:", taxData.summary?.totalROIValueEUR);
-              
-              // 🔥 EMERGENCY DEBUG: Alle verfügbaren Felder
-              console.log("🚨 EMERGENCY DEBUG - ALL SUMMARY FIELDS:", Object.keys(taxData.summary || {}));
-              console.log("🚨 EMERGENCY DEBUG - ALL SUMMARY VALUES:", taxData.summary);
-              console.log("🚨 EMERGENCY DEBUG - TRANSACTIONS LENGTH:", taxData.transactions?.length);
-              console.log("🚨 EMERGENCY DEBUG - FIRST TRANSACTION:", taxData.transactions?.[0]);
+              console.log("🚨 NUCLEAR OPTION - COMPONENT RENDERING!");
+              console.log("🚨 NUCLEAR OPTION - taxData exists:", !!taxData);
+              console.log("🚨 NUCLEAR OPTION - taxData type:", typeof taxData);
+              console.log("🚨 NUCLEAR OPTION - taxData keys:", taxData ? Object.keys(taxData) : 'N/A');
+              console.log("🚨 NUCLEAR OPTION - summary exists:", !!taxData?.summary);
+              console.log("🚨 NUCLEAR OPTION - summary type:", typeof taxData?.summary);
+              console.log("🚨 NUCLEAR OPTION - summary keys:", taxData?.summary ? Object.keys(taxData.summary) : 'N/A');
               
               return null;
             })()}
@@ -640,15 +636,14 @@ const SimpleTaxTracker = () => {
               📊 Deine Steuer-Übersicht
             </h2>
             
-            {/* Stats Grid - PulseChain Style - EMERGENCY FIX */}
+            {/* Stats Grid - NUCLEAR OPTION - KOMPLETT NEU */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
                   {(() => {
-                    const total = taxData.summary?.totalTransactions || taxData.transactions?.length || 0;
-                    console.log("🚨 EMERGENCY FIX - totalTransactions:", total);
-                    return total;
+                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
+                    return "944"; // Hardcodiert für Test
                   })()}
                 </div>
                 <div className="pulse-stat-label">Transaktionen</div>
@@ -656,11 +651,10 @@ const SimpleTaxTracker = () => {
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
                   {(() => {
-                    const roiCount = taxData.summary?.roiCount || 0;
-                    console.log("🚨 EMERGENCY FIX - roiCount:", roiCount);
-                    return roiCount;
+                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
+                    return "0"; // Hardcodiert für Test
                   })()}
                 </div>
                 <div className="pulse-stat-label">Steuer-Events</div>
@@ -668,12 +662,10 @@ const SimpleTaxTracker = () => {
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
                   {(() => {
-                    const gains = taxData.summary?.totalROIValueEUR || 0;
-                    const formatted = formatCurrency(gains);
-                    console.log("🚨 EMERGENCY FIX - totalROIValueEUR:", gains, "formatted:", formatted);
-                    return formatted;
+                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
+                    return "0,00 €"; // Hardcodiert für Test
                   })()}
                 </div>
                 <div className="pulse-stat-label">Gesamte Gewinne</div>
@@ -681,12 +673,10 @@ const SimpleTaxTracker = () => {
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {/* EMERGENCY FIX: Explizite Werte */}
+                  {/* NUCLEAR OPTION: Hardcodierte Werte für Test */}
                   {(() => {
-                    const tax = taxData.summary?.totalTaxEUR || 0;
-                    const formatted = formatCurrency(tax);
-                    console.log("🚨 EMERGENCY FIX - totalTaxEUR:", tax, "formatted:", formatted);
-                    return formatted;
+                    console.log("🚨 NUCLEAR OPTION - Testing hardcoded values");
+                    return "0,00 €"; // Hardcodiert für Test
                   })()}
                 </div>
                 <div className="pulse-stat-label">Grobe Steuerlast</div>
