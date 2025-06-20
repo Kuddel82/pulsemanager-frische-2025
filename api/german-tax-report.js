@@ -315,6 +315,15 @@ export default async function handler(req, res) {
             }
           }
           
+          // 🔥 TOKEN SYMBOL MAPPING - KORREKTE ANZEIGE
+          if (tokenSymbol === 'WPLS') {
+            tokenSymbol = 'PLS'; // Wrapped PLS → PLS
+          } else if (tokenSymbol === 'UNKNOWN' && chain.moralisId === '0x1') {
+            tokenSymbol = 'ETH'; // UNKNOWN auf ETH → ETH
+          } else if (tokenSymbol === 'UNKNOWN' && chain.moralisId === '0x171') {
+            tokenSymbol = 'PLS'; // UNKNOWN auf PulseChain → PLS
+          }
+          
           return {
             ...tx,
             sourceChain: chain.name,
