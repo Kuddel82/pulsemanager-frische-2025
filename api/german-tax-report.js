@@ -225,6 +225,11 @@ function calculateWGEPTaxSummary(transactions) {
  * 🔧 KORREKTE TOKEN-EXTRAKTION für Moralis Wallet History API
  */
 function extractTokenDataFromWalletHistory(tx, walletAddress) {
+  // 🚨 EMERGENCY DEBUG: Funktions-Start
+  console.log("🚨🚨🚨 EXTRACT FUNCTION CALLED! 🚨🚨🚨");
+  console.log("🚨 Transaction Hash:", tx.hash?.substring(0, 10) + "...");
+  console.log("🚨 Wallet Address:", walletAddress?.substring(0, 8) + "...");
+  
   // DEBUG Chain Detection:
   console.log(`🔍 Chain Debug:`, {
     sourceChain: tx.sourceChain,
@@ -264,10 +269,11 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     tokenName = transfer.token_name || 'Unknown Token';
     
     // 🔥 DEBUG: Zeige Moralis Bug
-    console.log("🔥 BEFORE FIX:", transfer.value_formatted);
+    console.log("🚨 BEFORE VALUE FIX:", transfer.value_formatted);
+    console.log("🚨 RAW VALUE:", transfer.value);
     const valueInWei = transfer.value || '0';
     valueFormatted = (parseFloat(valueInWei) / 1e18).toFixed(6);
-    console.log("🔥 AFTER FIX:", valueFormatted);
+    console.log("🚨 AFTER VALUE FIX:", valueFormatted);
     
     valueRaw = transfer.value || '0';
     
@@ -300,10 +306,11 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     tokenName = transfer.token_name || (chainSymbol === 'ETH' ? 'Ethereum' : 'PulseChain');
     
     // 🔥 DEBUG: Zeige Moralis Bug auch bei Native Transfers
-    console.log("🔥 NATIVE BEFORE FIX:", transfer.value_formatted);
+    console.log("🚨 BEFORE VALUE FIX:", transfer.value_formatted);
+    console.log("🚨 RAW VALUE:", transfer.value);
     const valueInWei = transfer.value || '0';
     valueFormatted = (parseFloat(valueInWei) / 1e18).toFixed(6);
-    console.log("🔥 NATIVE AFTER FIX:", valueFormatted);
+    console.log("🚨 AFTER VALUE FIX:", valueFormatted);
     
     valueRaw = transfer.value || '0';
     
