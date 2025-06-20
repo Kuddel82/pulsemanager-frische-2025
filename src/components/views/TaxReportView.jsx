@@ -130,6 +130,12 @@ const SimpleTaxTracker = () => {
       }
 
       console.log('✅ Neue Wallet History API erfolgreich geladen:', data.taxReport);
+      
+      // 🔥 FRONTEND DEBUG: Was kommt von der API?
+      console.log("🔥 FRONTEND: taxReport received:", data.taxReport?.summary);
+      console.log("🔥 FRONTEND: transactions count:", data.taxReport?.transactions?.length);
+      console.log("🔥 FRONTEND: first 3 transactions:", data.taxReport?.transactions?.slice(0, 3));
+      
       setTaxData(data.taxReport);
       setReportGenerated(true);
 
