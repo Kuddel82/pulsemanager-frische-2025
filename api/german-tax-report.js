@@ -262,7 +262,13 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     // KORREKTE FELDNAMEN (aus der Moralis API Dokumentation)
     tokenSymbol = transfer.token_symbol || 'UNKNOWN';
     tokenName = transfer.token_name || 'Unknown Token';
-    valueFormatted = transfer.value_formatted || '0';
+    
+    // 🔥 DEBUG: Zeige Moralis Bug
+    console.log("🔥 BEFORE FIX:", transfer.value_formatted);
+    const valueInWei = transfer.value || '0';
+    valueFormatted = (parseFloat(valueInWei) / 1e18).toFixed(6);
+    console.log("🔥 AFTER FIX:", valueFormatted);
+    
     valueRaw = transfer.value || '0';
     
     // DIRECTION basierend auf from/to addresses
