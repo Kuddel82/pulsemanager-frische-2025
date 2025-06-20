@@ -307,29 +307,29 @@ const SimpleTaxTracker = () => {
           <div class="section">
             <h2>📊 Steuer-Übersicht</h2>
             <div class="stats">
-              <div class="stat">
-                <h3>${taxData.summary?.totalTransactions || taxData.transactions?.length || 0}</h3>
-                <p>Gesamt Transaktionen</p>
+              <div className="pulse-stat">
+                <div className="pulse-stat-value">
+                  {taxData.summary?.totalTransactions || taxData.transactions?.length || 0}
+                </div>
+                <div className="pulse-stat-label">Transaktionen</div>
               </div>
-              <div class="stat">
-                <h3>${taxData.summary?.pulsechainCount || 0}</h3>
-                <p>PulseChain</p>
+              <div className="pulse-stat">
+                <div className="pulse-stat-value">
+                  {taxData.summary?.roiCount || 0}
+                </div>
+                <div className="pulse-stat-label">Steuer-Events</div>
               </div>
-              <div class="stat">
-                <h3>${taxData.summary?.ethereumCount || 0}</h3>
-                <p>Ethereum</p>
+              <div className="pulse-stat">
+                <div className="pulse-stat-value">
+                  {formatCurrency(taxData.summary?.totalROIValueEUR || 0)}
+                </div>
+                <div className="pulse-stat-label">Gesamte Gewinne</div>
               </div>
-              <div class="stat">
-                <h3>${taxData.summary?.roiCount || 0}</h3>
-                <p>Steuer-Events</p>
-              </div>
-              <div class="stat">
-                <h3>${formatCurrency(taxData.summary?.totalROIValueEUR || 0)}</h3>
-                <p>Gesamte Gewinne</p>
-              </div>
-              <div class="stat">
-                <h3>${formatCurrency(taxData.summary?.totalTaxEUR || 0)}</h3>
-                <p>Grobe Steuerlast</p>
+              <div className="pulse-stat">
+                <div className="pulse-stat-value">
+                  {formatCurrency(taxData.summary?.totalTaxEUR || 0)}
+                </div>
+                <div className="pulse-stat-label">Grobe Steuerlast</div>
               </div>
             </div>
           </div>
@@ -625,14 +625,14 @@ const SimpleTaxTracker = () => {
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {(taxData.summary?.roiCount || 0) + (taxData.summary?.saleCount || 0)}
+                  {taxData.summary?.roiCount || 0}
                 </div>
                 <div className="pulse-stat-label">Steuer-Events</div>
               </div>
               
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
-                  {formatCurrency(taxData.summary?.totalGainsEUR || 0)}
+                  {formatCurrency(taxData.summary?.totalROIValueEUR || 0)}
                 </div>
                 <div className="pulse-stat-label">Gesamte Gewinne</div>
               </div>

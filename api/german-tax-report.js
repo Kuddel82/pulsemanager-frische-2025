@@ -184,16 +184,20 @@ function calculateWGEPTaxSummary(transactions) {
     if (tx.chainSymbol === 'ETH') summary.ethereumCount++;
     if (tx.chainSymbol === 'PLS') summary.pulsechainCount++;
     
-    // Taxable counting
-    if (tx.taxCategory === 'Sale Income' || 
-        tx.taxCategory === 'ROI Income' ||
-        tx.taxCategory === 'WGEP ROI Income (§22 EStG)') {
+    // Taxable counting - KORRIGIERTE LOGIK
+    if (tx.taxCategory === 'ROI Income' ||
+        tx.taxCategory === 'WGEP ROI Income (§22 EStG)' ||
+        tx.taxCategory === 'Token Sale' ||
+        tx.taxCategory === 'WGEP Sale') {
       summary.taxableCount++;
     }
     
-    // ROI counting
-    if (tx.taxCategory && tx.taxCategory.includes('ROI')) {
+    // ROI counting - KORRIGIERTE LOGIK
+    if (tx.taxCategory && (tx.taxCategory.includes('ROI') || tx.taxCategory === 'Token Sale')) {
       summary.roiCount++;
+      // Gewinn-Berechnung für steuerpflichtige Events
+      const value = parseFloat(tx.valueFormatted || 0);
+      summary.totalROIValueEUR += value;
     }
     
     // WGEP counting
@@ -216,7 +220,11 @@ function calculateWGEPTaxSummary(transactions) {
   summary.totalWGEPROI = summary.totalWGEPROI.toFixed(6);
   summary.totalWGEPCost = summary.totalWGEPCost.toFixed(6);
   
-  console.log(`🔍 DEBUG Summary: total=${summary.totalTransactions}, taxable=${summary.taxableCount}`);
+  // Steuerlast-Berechnung (grobe Schätzung)
+  summary.totalROIValueEUR = summary.totalROIValueEUR.toFixed(2);
+  summary.totalTaxEUR = (summary.totalROIValueEUR * 0.30).toFixed(2); // 30% grobe Schätzung
+  
+  console.log(`🔍 DEBUG Summary: total=${summary.totalTransactions}, taxable=${summary.taxableCount}, roi=${summary.roiCount}, gains=${summary.totalROIValueEUR}€`);
   
   return summary;
 }
@@ -409,19 +417,21 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     console.log(`📤 WGEP Sale detected: ${valueFormatted} WGEP, ${monthsHeld} months held`);
   }
   
-  // 🔄 NORMALE TOKEN-TRANSFERS
+  // 🔄 NORMALE TOKEN-TRANSFERS - KORRIGIERTE LOGIK
   else if (direction === 'in' && (fromMinter || isROIToken)) {
     taxCategory = 'ROI Income';
     isTaxable = true;
     isROI = true;
-  } else if (direction === 'out') {
-    taxCategory = 'Purchase';
-    isTaxable = false;
-    isPurchase = true;
-  } else if (direction === 'in') {
-    taxCategory = 'Sale Income';
+  } else if (direction === 'out' && isROIToken) {
+    taxCategory = 'Token Sale';
     isTaxable = true;
     isSale = true;
+  } else if (direction === 'out') {
+    taxCategory = 'Token Transfer Out';
+    isTaxable = false;
+  } else if (direction === 'in') {
+    taxCategory = 'Token Transfer In';
+    isTaxable = false;
   } else {
     taxCategory = 'Transfer';
     isTaxable = false;
