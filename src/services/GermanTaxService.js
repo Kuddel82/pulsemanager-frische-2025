@@ -761,6 +761,9 @@ class GermanTaxService {
    */
   async calculateTaxWithHistoricalPrices(transactions) {
     console.log(`🧮 Steuerberechnung mit historischen Preisen für ${transactions.length} Transaktionen`);
+    console.log('💰 STEUERBERECHNUNG START');
+    console.log('📊 Anzahl Transaktionen für Steuer:', transactions.length);
+    console.log('🔍 Erste Transaction Details:', transactions[0]);
     
     // PRICESERVICE INITIALISIEREN
     if (!this.priceService) {
@@ -810,9 +813,21 @@ class GermanTaxService {
     
     // NUTZE BESTEHENDE STEUERLOGIK
     // Verwende die bestehende Enterprise-Logik mit angereicherten Transaktionen
+    console.log('🎯 KLASSIFIZIERE TRANSAKTIONEN...');
     const classified = await this.classifyTransactionsEnterprise(enrichedTransactions, enrichedTransactions[0]?.from || '');
+    console.log('📊 Klassifizierung Ergebnisse:', {
+      trades: classified.trades?.length || 0,
+      roi: classified.roi?.length || 0,
+      spam: classified.spam?.length || 0
+    });
+    
+    console.log('🧮 FIFO BERECHNUNG...');
     const fifoResults = await this.calculateFIFOEnterprise(classified.trades);
+    console.log('📊 FIFO Ergebnisse:', fifoResults?.length || 0);
+    
+    console.log('💰 ROI BERECHNUNG...');
     const roiResults = await this.calculateROIIncomeEnterprise(classified.roi);
+    console.log('📊 ROI Ergebnisse:', roiResults?.length || 0);
     
     // Deutsche Steuer-Zusammenfassung mit historischen Preisen
     const speculativeGains = fifoResults
