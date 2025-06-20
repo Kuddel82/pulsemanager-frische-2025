@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FileText, AlertTriangle, Info, Download, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { Button } from '@/components/ui/button';
 
 // 🔥🔥🔥 COMPONENT LOADED TEST 🔥🔥🔥
 console.log("🔥🔥🔥 TAX REPORT COMPONENT LOADED! 🔥🔥🔥");
@@ -88,68 +89,95 @@ const SimpleTaxTracker = () => {
     setError(null);
   };
 
+  // 🔥 EMERGENCY CACHE BUSTING - VERHINDERT STATUS 304
+  const clearAllCaches = async () => {
+    try {
+      // Browser Cache leeren
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        console.log('🧹 Browser Cache geleert:', cacheNames);
+      }
+      
+      // Service Worker Cache leeren
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(reg => reg.unregister()));
+        console.log('🧹 Service Worker Cache geleert');
+      }
+      
+      // Local Storage für Tax-Report leeren
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.includes('tax') || key.includes('report')) {
+          localStorage.removeItem(key);
+        }
+      });
+      console.log('🧹 Local Storage Tax-Daten geleert');
+      
+    } catch (error) {
+      console.error('❌ Cache-Busting Fehler:', error);
+    }
+  };
+
   const handleGenerateReport = async () => {
-    // 🔥🔥🔥 BUTTON CLICK DEBUG - GANZ OBEN 🔥🔥🔥
-    console.log("🔥🔥🔥 BUTTON CLICKED SOFORT! 🔥🔥🔥");
-    console.log("🔥 Handler gestartet um:", new Date().toISOString());
-    console.log("🔥 Wallet Address:", walletAddress);
-    console.log("🔥 User ID:", user?.id);
-    
-    // 🔥🔥🔥 BUTTON CLICK DEBUG 🔥🔥🔥
-    console.log("🔥🔥🔥 BUTTON CLICKED! 🔥🔥🔥");
-    
-    // 🔥 VERHINDERE MEHRFACHE API-CALLS - ERWEITERT
-    if (isRequestInProgressRef.current || isLoading) {
-      console.log('🚫 API-Call bereits in Bearbeitung, ignoriere...');
+    if (!walletAddress.trim()) {
+      setError('Bitte geben Sie eine Wallet-Adresse ein.');
       return;
     }
-
-    if (!walletAddress) {
-      alert('Bitte Wallet-Adresse eingeben oder verbundene Wallet auswählen');
-      return;
-    }
-
-    // 🔥 ABORT VORHERIGE REQUESTS
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // 🔥 NEUER ABORT CONTROLLER UND REQUEST TOKEN
-    abortControllerRef.current = new AbortController();
-    const requestToken = Date.now() + Math.random();
-    currentRequestTokenRef.current = requestToken;
-    isRequestInProgressRef.current = true;
 
     setIsLoading(true);
-    setTaxData(null);
     setError(null);
-    setPdfData(null);
-    setReportGenerated(false);
+    setReportData(null);
 
     try {
+      // 🔥 EMERGENCY CACHE BUSTING VOR API CALL
+      await clearAllCaches();
+      
+      // 🔑 UNIQUE REQUEST TOKEN FÜR CACHE BUSTING
+      const requestToken = `tax_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.log(`🔑 REQUEST TOKEN: ${requestToken}`);
+      
+      // 🚨 ABORT CONTROLLER FÜR TIMEOUT
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+
       console.log('🔥🔥🔥 STEUERREPORT: NEUE WALLET HISTORY API 🔥🔥🔥');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
-      console.log(`🔑 REQUEST TOKEN: ${requestToken}`);
       console.log(`🌐 API ENDPOINT: /api/german-tax-report`);
-      console.log(`📡 REQUEST BODY:`, {
-        address: walletAddress,
-        limit: 300000,
-        requestToken: requestToken
-      });
+      console.log(`🔑 REQUEST TOKEN: ${requestToken}`);
+      console.log(`⏰ TIMESTAMP: ${new Date().toISOString()}`);
+      console.log(`🧹 CACHE STATUS: Browser Cache geleert vor API Call`);
       
       // 🇩🇪 NEUE WALLET HISTORY API - BESSERE PERFORMANCE
       const response = await fetch('/api/german-tax-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
         body: JSON.stringify({
           address: walletAddress,
           limit: 300000, // 🔥 ERHÖHT: 300.000 Transaktionen für große Wallets!
           requestToken: requestToken // 🔑 REQUEST TOKEN FÜR DEDUPLICATION
         }),
-        signal: abortControllerRef.current.signal // 🔥 ABORT SIGNAL
+        signal: abortControllerRef.current.signal, // 🔥 ABORT SIGNAL
+        cache: 'no-cache' // 🔥 VERHINDERE CACHING
       });
+
+      // 🔥 RESPONSE DEBUG - PRÜFE CACHING
+      console.log(`📡 RESPONSE STATUS: ${response.status}`);
+      console.log(`📡 RESPONSE HEADERS:`, Object.fromEntries(response.headers.entries()));
+      console.log(`📡 CACHE STATUS: ${response.headers.get('cache-control') || 'kein cache-control header'}`);
+      
+      if (response.status === 304) {
+        console.error('🚨 STATUS 304 DETECTED - CACHED RESPONSE!');
+        throw new Error('Cached Response - Bitte Cache leeren und erneut versuchen');
+      }
 
       // 🔑 PRÜFE OB DIESER REQUEST NOCH AKTUELL IST
       if (currentRequestTokenRef.current !== requestToken) {
@@ -523,31 +551,33 @@ const SimpleTaxTracker = () => {
           </div>
 
           {/* Generate Button - PulseChain Style */}
-          <button
-            onClick={() => {
-              console.log("🔥🔥🔥 BUTTON CLICKED INLINE! 🔥🔥🔥");
-              console.log("🔥 Inline Click um:", new Date().toISOString());
-              handleGenerateReport();
-            }}
-            disabled={isLoading || !walletAddress}
-            className={`w-full py-4 px-6 rounded-xl text-lg font-semibold transition-all duration-200 ${
-              isLoading || !walletAddress
-                ? 'opacity-50 cursor-not-allowed'
-                : 'pulse-btn hover:scale-[1.02]'
-            }`}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-current mr-3"></div>
-                Lade echte Transaktionen...
-              </div>
-            ) : (
-              <div className="flex items-center justify-center">
-                <FileText className="h-6 w-6 mr-2" />
-                Steuerreport generieren
-              </div>
-            )}
-          </button>
+          <div className="flex gap-4 mb-6">
+            <Button 
+              onClick={handleGenerateReport}
+              disabled={isLoading || !walletAddress.trim()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Lade Steuerdaten...
+                </>
+              ) : (
+                <>
+                  📊 Steuerbericht generieren
+                </>
+              )}
+            </Button>
+            
+            {/* 🔥 EMERGENCY CACHE CLEAR BUTTON */}
+            <Button 
+              onClick={clearAllCaches}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm"
+              title="Cache komplett leeren (Emergency Fix)"
+            >
+              🧹 Cache leeren
+            </Button>
+          </div>
 
           {/* What happens info - PulseChain Style */}
           <div className="mt-4 p-4 rounded-lg" style={{backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)'}}>

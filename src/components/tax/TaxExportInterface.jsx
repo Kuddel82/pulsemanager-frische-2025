@@ -98,14 +98,20 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
         body: JSON.stringify({
           address: singleExport.walletAddress,
           limit: 300000,
           format: singleExport.format,
           year: singleExport.taxYear,
           requestToken: Date.now() + Math.random()
-        })
+        }),
+        cache: 'no-cache'
       });
 
       clearInterval(progressInterval);
@@ -163,14 +169,20 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
       for (const wallet of bulkExport.wallets) {
         const response = await fetch('/api/german-tax-report', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          },
           body: JSON.stringify({
             address: wallet,
             limit: 300000,
             format: bulkExport.format,
             year: bulkExport.taxYear,
-            requestToken: Date.now() + Math.random()
-          })
+            requestToken: Date.now().toString()
+          }),
+          cache: 'no-cache'
         });
         
         if (response.ok) {
@@ -226,15 +238,21 @@ const TaxExportInterface = ({ walletAddress, taxData }) => {
 
       const response = await fetch('/api/german-tax-report', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
         body: JSON.stringify({
           address: elsterExport.walletAddress,
           limit: 300000,
           format: 'elster',
           year: elsterExport.taxYear,
           taxpayer: elsterExport.taxpayer,
-          requestToken: Date.now() + Math.random()
-        })
+          requestToken: Date.now().toString()
+        }),
+        cache: 'no-cache'
       });
 
       clearInterval(progressInterval);
