@@ -156,6 +156,42 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   return { transfers: allTransfers, debugInfo };
 }
 
+// 🔥 WGEP STEUER-SUMMARY CALCULATOR
+function calculateWGEPTaxSummary(transactions) {
+  const wgepPurchases = transactions.filter(tx => tx.taxCategory === 'WGEP Purchase');
+  const wgepROI = transactions.filter(tx => tx.taxCategory === 'WGEP ROI Income (§22 EStG)');
+  const wgepSales = transactions.filter(tx => tx.taxCategory.includes('WGEP Sale'));
+  const taxableSales = transactions.filter(tx => 
+    tx.taxCategory === 'Sale Income' || 
+    tx.taxCategory === 'ROI Income' ||
+    tx.taxCategory === 'WGEP ROI Income (§22 EStG)'
+  );
+  
+  // WGEP-spezifische Berechnungen
+  const totalWGEPPurchased = wgepPurchases.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
+  const totalWGEPROI = wgepROI.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
+  const totalWGEPCost = wgepPurchases.reduce((sum, tx) => sum + parseFloat(tx.costBasis || 0), 0);
+  
+  return {
+    totalTransactions: transactions.length,
+    ethereumCount: transactions.filter(tx => tx.chainSymbol === 'ETH').length,
+    pulsechainCount: transactions.filter(tx => tx.chainSymbol === 'PLS').length,
+    roiCount: transactions.filter(tx => tx.taxCategory.includes('ROI')).length,
+    taxableCount: taxableSales.length,
+    
+    // WGEP-spezifische Metriken
+    wgepPurchases: wgepPurchases.length,
+    wgepROI: wgepROI.length,
+    wgepSales: wgepSales.length,
+    totalWGEPPurchased: totalWGEPPurchased.toFixed(6),
+    totalWGEPROI: totalWGEPROI.toFixed(6),
+    totalWGEPCost: totalWGEPCost.toFixed(6),
+    
+    totalROIValueEUR: 0,
+    totalTaxEUR: 0
+  };
+}
+
 /**
  * 🔧 KORREKTE TOKEN-EXTRAKTION für Moralis Wallet History API
  */
@@ -274,31 +310,78 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     valueRaw = tx.value || '0';
   }
   
-  // 🏷️ STEUER-KATEGORISIERUNG
+  // 🏷️ DEUTSCHE STEUER-KATEGORISIERUNG MIT WGEP-SPEZIFIK
   const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'PLS'];
   const isROIToken = ROI_TOKENS.includes(tokenSymbol?.toUpperCase());
   
-  const KNOWN_MINTERS = [
-    '0x0000000000000000000000000000000000000000',
-    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39',
-    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3'
+  // WGEP-spezifische Minter-Adressen
+  const WGEP_MINTERS = [
+    '0x0000000000000000000000000000000000000000', // Zero Address
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // WGEP Printer
+    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3'  // WGEP Contract
   ];
-  const fromMinter = KNOWN_MINTERS.includes(tx.from_address?.toLowerCase());
+  
+  const fromMinter = WGEP_MINTERS.includes(tx.from_address?.toLowerCase());
+  const toMinter = WGEP_MINTERS.includes(tx.to_address?.toLowerCase());
   
   let taxCategory = 'Sonstige';
   let isTaxable = false;
   let isROI = false;
+  let isPurchase = false;
+  let isSale = false;
+  let costBasis = null;
+  let holdingPeriod = null;
   
-  if (direction === 'in' && (fromMinter || isROIToken)) {
+  // 🛒 WGEP KAUF (Purchase) - Steuerfrei
+  if (direction === 'in' && tokenSymbol?.toUpperCase() === 'WGEP' && !fromMinter) {
+    taxCategory = 'WGEP Purchase';
+    isTaxable = false;
+    isPurchase = true;
+    costBasis = valueFormatted;
+    console.log(`🛒 WGEP Purchase detected: ${valueFormatted} WGEP`);
+  }
+  
+  // 💰 WGEP ROI (ROI Income) - Steuerpflichtig nach §22 EStG
+  else if (direction === 'in' && tokenSymbol?.toUpperCase() === 'ETH' && fromMinter) {
+    taxCategory = 'WGEP ROI Income (§22 EStG)';
+    isTaxable = true;
+    isROI = true;
+    console.log(`💰 WGEP ROI detected: ${valueFormatted} ETH`);
+  }
+  
+  // 📤 WGEP VERKAUF (Sale) - Steuerpflichtig nach Haltefrist
+  else if (direction === 'out' && tokenSymbol?.toUpperCase() === 'WGEP') {
+    taxCategory = 'WGEP Sale';
+    isTaxable = true;
+    isSale = true;
+    
+    // Haltefrist-Berechnung (vereinfacht)
+    const txDate = new Date(tx.block_timestamp || tx.timestamp || Date.now());
+    const now = new Date();
+    const monthsHeld = (now.getFullYear() - txDate.getFullYear()) * 12 + (now.getMonth() - txDate.getMonth());
+    holdingPeriod = monthsHeld;
+    
+    if (monthsHeld >= 12) {
+      taxCategory = 'WGEP Sale (Steuerfrei >1 Jahr)';
+      isTaxable = false;
+    }
+    
+    console.log(`📤 WGEP Sale detected: ${valueFormatted} WGEP, ${monthsHeld} months held`);
+  }
+  
+  // 🔄 NORMALE TOKEN-TRANSFERS
+  else if (direction === 'in' && (fromMinter || isROIToken)) {
     taxCategory = 'ROI Income';
     isTaxable = true;
     isROI = true;
   } else if (direction === 'out') {
     taxCategory = 'Purchase';
     isTaxable = false;
+    isPurchase = true;
   } else if (direction === 'in') {
     taxCategory = 'Sale Income';
     isTaxable = true;
+    isSale = true;
   } else {
     taxCategory = 'Transfer';
     isTaxable = false;
@@ -316,7 +399,11 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     directionIcon,
     taxCategory,
     isTaxable,
-    isROI
+    isROI,
+    isPurchase,
+    isSale,
+    costBasis,
+    holdingPeriod
   };
 }
 
@@ -470,18 +557,7 @@ export default async function handler(req, res) {
     });
 
     // ZUSAMMENFASSUNG
-    const summary = {
-      totalTransactions: categorizedTransactions.length,
-      ethereumCount: chainResults.ETH?.count || 0,
-      pulsechainCount: chainResults.PLS?.count || 0,
-      roiCount: categorizedTransactions.filter(tx => tx.taxCategory.includes('ROI')).length,
-      taxableCount: categorizedTransactions.filter(tx => 
-        tx.taxCategory === 'Sale Income' || 
-        tx.taxCategory === 'ROI Income'
-      ).length,
-      totalROIValueEUR: 0,
-      totalTaxEUR: 0
-    };
+    const summary = calculateWGEPTaxSummary(categorizedTransactions);
 
     const taxReport = {
       walletAddress: address,
