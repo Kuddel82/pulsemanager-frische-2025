@@ -161,11 +161,7 @@ function calculateWGEPTaxSummary(transactions) {
   const wgepPurchases = transactions.filter(tx => tx.taxCategory === 'WGEP Purchase');
   const wgepROI = transactions.filter(tx => tx.taxCategory === 'WGEP ROI Income (§22 EStG)');
   const wgepSales = transactions.filter(tx => tx.taxCategory.includes('WGEP Sale'));
-  const taxableSales = transactions.filter(tx => 
-    tx.taxCategory === 'Sale Income' || 
-    tx.taxCategory === 'ROI Income' ||
-    tx.taxCategory === 'WGEP ROI Income (§22 EStG)'
-  );
+  const taxableSales = transactions.filter(tx => tx.isTaxable === true);
   
   // WGEP-spezifische Berechnungen
   const totalWGEPPurchased = wgepPurchases.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
