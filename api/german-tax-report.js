@@ -161,7 +161,11 @@ function calculateWGEPTaxSummary(transactions) {
   const wgepPurchases = transactions.filter(tx => tx.taxCategory === 'WGEP Purchase');
   const wgepROI = transactions.filter(tx => tx.taxCategory === 'WGEP ROI Income (§22 EStG)');
   const wgepSales = transactions.filter(tx => tx.taxCategory.includes('WGEP Sale'));
-  const taxableSales = transactions.filter(tx => tx.isTaxable === true);
+  const taxableSales = transactions.filter(tx => 
+    tx.taxCategory === 'Sale Income' || 
+    tx.taxCategory === 'ROI Income' ||
+    tx.taxCategory === 'WGEP ROI Income (§22 EStG)'
+  );
   
   // 🔍 DEBUG: Warum ist taxableCount 0?
   console.log(`🔍 DEBUG Summary: total=${transactions.length}, taxable=${taxableSales.length}`);
