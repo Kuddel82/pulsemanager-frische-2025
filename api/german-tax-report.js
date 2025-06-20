@@ -277,6 +277,25 @@ export default async function handler(req, res) {
           let gasUsed = tx.gas_used || 0;
           let gasFee = (gasPrice * gasUsed) / 1e18; // Convert to ETH/PLS
           
+          // 🔥 TIMESTAMP VERARBEITUNG - KORREKTE BEHANDLUNG ALLER FORMATE
+          let processedTimestamp;
+          if (typeof timestamp === 'string') {
+            // ISO String - direkt verwenden
+            processedTimestamp = new Date(timestamp).getTime();
+          } else if (typeof timestamp === 'number') {
+            // Unix Timestamp - prüfen ob Sekunden oder Millisekunden
+            if (timestamp < 10000000000) {
+              // Sekunden - zu Millisekunden konvertieren
+              processedTimestamp = timestamp * 1000;
+            } else {
+              // Bereits Millisekunden
+              processedTimestamp = timestamp;
+            }
+          } else {
+            // Fallback - aktuelle Zeit
+            processedTimestamp = Date.now();
+          }
+          
           // Native Transfers (ETH/PLS) - RICHTIGE EXTRACTION
           if (tx.native_transfers && tx.native_transfers.length > 0) {
             const nativeTransfer = tx.native_transfers[0];
@@ -367,12 +386,12 @@ export default async function handler(req, res) {
             taxCategory,
             usdPrice: usdPrice.toFixed(6),
             usdValue: usdValue.toFixed(2),
-            timestamp: new Date(timestamp * 1000).toISOString(),
+            timestamp: new Date(processedTimestamp).toISOString(),
             transactionHash,
             contractAddress,
             gasFee: gasFee.toFixed(6),
-            formattedDate: new Date(timestamp * 1000).toLocaleDateString('de-DE'),
-            formattedTime: new Date(timestamp * 1000).toLocaleTimeString('de-DE')
+            formattedDate: new Date(processedTimestamp).toLocaleDateString('de-DE'),
+            formattedTime: new Date(processedTimestamp).toLocaleTimeString('de-DE')
           };
         });
         
