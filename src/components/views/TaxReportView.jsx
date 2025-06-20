@@ -3,8 +3,14 @@ import { FileText, AlertTriangle, Info, Download, Wallet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 
+// 🔥🔥🔥 COMPONENT LOADED TEST 🔥🔥🔥
+console.log("🔥🔥🔥 TAX REPORT COMPONENT LOADED! 🔥🔥🔥");
+
 const SimpleTaxTracker = () => {
   const { user } = useAuth();
+  
+  // 🔥🔥🔥 COMPONENT RENDER TEST 🔥🔥🔥
+  console.log("🔥🔥🔥 TAX REPORT COMPONENT RENDERED! 🔥🔥🔥");
   
   const [walletAddress, setWalletAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,10 +59,20 @@ const SimpleTaxTracker = () => {
 
   // Lade Wallets beim Start
   useEffect(() => {
+    console.log("🔥🔥🔥 USE EFFECT TRIGGERED! 🔥🔥🔥");
     if (user?.id) {
       loadWalletsFromDatabase();
     }
   }, [user?.id]);
+
+  // 🔥🔥🔥 TAX DATA USE EFFECT 🔥🔥🔥
+  useEffect(() => {
+    console.log("🔥🔥🔥 TAX DATA USE EFFECT TRIGGERED! 🔥🔥🔥");
+    if (taxData) {
+      console.log("🚨🚨🚨 FRONTEND API RESPONSE:", taxData);
+      console.log("🚨 ERSTE TRANSAKTION VALUE:", taxData.transactions?.[0]?.value);
+    }
+  }, [taxData]);
 
   const hasConnectedWallets = dbWallets.length > 0;
   const connectedWallets = dbWallets.map(w => w.address);
