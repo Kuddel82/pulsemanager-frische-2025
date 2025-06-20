@@ -602,12 +602,41 @@ export default async function handler(req, res) {
     // ZUSAMMENFASSUNG
     const summary = calculateWGEPTaxSummary(categorizedTransactions);
 
+    // 🔥 DEUTSCHE STEUERBERECHNUNG HINZUGEFÜGT!
+    console.log('🧮 STARTE DEUTSCHE STEUERBERECHNUNG...');
+    let germanTaxResults = null;
+    
+    try {
+      // Import GermanTaxService
+      const { default: GermanTaxService } = await import('../src/services/GermanTaxService.js');
+      const germanTaxService = new GermanTaxService();
+      
+      console.log('📊 GermanTaxService geladen, starte Steuerberechnung...');
+      germanTaxResults = await germanTaxService.calculateTaxWithHistoricalPrices(categorizedTransactions);
+      
+      console.log('✅ Deutsche Steuerberechnung abgeschlossen:', {
+        roiEvents: germanTaxResults?.detailedTransactions?.summary?.totalROIEvents || 0,
+        speculativeEvents: germanTaxResults?.detailedTransactions?.summary?.totalSpeculativeEvents || 0,
+        totalROIValue: germanTaxResults?.summary?.roiIncome?.totalEUR || 0,
+        totalTax: germanTaxResults?.summary?.totalTaxEUR || 0
+      });
+      
+    } catch (error) {
+      console.error('❌ Deutsche Steuerberechnung fehlgeschlagen:', error.message);
+      germanTaxResults = {
+        error: error.message,
+        fallback: true
+      };
+    }
+
     const taxReport = {
       walletAddress: address,
       generatedAt: new Date().toISOString(),
       summary,
       transactions: categorizedTransactions,
-      chainResults
+      chainResults,
+      // 🔥 DEUTSCHE STEUERBERECHNUNG HINZUGEFÜGT!
+      germanTaxCalculation: germanTaxResults
     };
 
     console.log(`✅ TAX REPORT GENERATED: ${categorizedTransactions.length.toLocaleString()} transactions`);
