@@ -425,6 +425,8 @@ export default async function handler(req, res) {
         
         // Add chain info to transactions
         const processedTransactions = transfers.map(tx => {
+          tx.sourceChain = chain.name;     // ← Ethereum oder PulseChain
+          tx.chain = chain.id;            // ← 0x1 oder 0x171
           return extractTokenDataFromWalletHistory(tx, address);
         });
         
