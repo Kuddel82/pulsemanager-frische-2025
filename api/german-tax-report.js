@@ -10,7 +10,7 @@
 
 // 🔥 REQUEST DEDUPLICATION CACHE
 const requestCache = new Map();
-const CACHE_DURATION = 30000; // 30 Sekunden
+const CACHE_DURATION = 10000; // 10 Sekunden
 
 // 🔥 DIREKTE MORALIS-API-FUNKTION (exakt wie moralis-v2.js)
 async function moralisFetch(endpoint, params = {}) {
@@ -64,7 +64,7 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   let cursor = null;
   let pageCount = 0;
   const maxPages = Math.ceil(maxTransactions / 100); // 100 pro Seite
-  const maxTimeSeconds = 45; // 🔥 DRAMATISCH ERHÖHT: 45 Sekunden für 300.000 Transaktionen!
+  const maxTimeSeconds = 60; // 🔥 ERHÖHT: 60 Sekunden für 300.000 Transaktionen!
   const startTime = Date.now();
   
   let debugInfo = {
@@ -124,10 +124,10 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       
       console.log(`✅ Seite ${pageCount}: ${transfers.length} ERC20 Transfers geladen (Total: ${allTransfers.length}) in ${timeElapsed.toFixed(1)}s`);
       
-      // Prüfe ob es weitere Seiten gibt
-      if (!result.cursor || transfers.length < 100) {
+      // 🔥 VERBESSERTE CURSOR-LOGIK: Prüfe ob es weitere Seiten gibt
+      if (!result.cursor || result.cursor === cursor || transfers.length < 100) {
         console.log(`🏁 Keine weiteren ERC20 Seiten für ${chainName} - Ende erreicht`);
-        const reason = !result.cursor ? 'Kein Cursor' : 'Weniger als 100 Transfers';
+        const reason = !result.cursor ? 'Kein Cursor' : result.cursor === cursor ? 'Cursor unverändert' : 'Weniger als 100 Transfers';
         debugInfo.stopReason = reason;
         break;
       }
@@ -135,9 +135,9 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       cursor = result.cursor;
       
       // 🔥 AGGRESSIVES RATE LIMITING: Minimale Pausen
-      if (pageCount % 5 === 0) { // Pause nach 5 Seiten
+      if (pageCount % 3 === 0) { // Pause nach 3 Seiten
         console.log(`⏳ Rate Limiting: Pause nach ${pageCount} Seiten...`);
-        await new Promise(resolve => setTimeout(resolve, 100)); // Nur 100ms Pause
+        await new Promise(resolve => setTimeout(resolve, 50)); // Nur 50ms Pause
       }
       
     } catch (error) {
@@ -201,15 +201,16 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       
       console.log(`✅ Native Seite ${nativePageCount}: ${nativeTransfers.length} Native Transfers geladen (Total: ${allTransfers.length}) in ${timeElapsed.toFixed(1)}s`);
       
-      if (!result.cursor || transactions.length < 100) {
+      // 🔥 VERBESSERTE CURSOR-LOGIK FÜR NATIVE
+      if (!result.cursor || result.cursor === nativeCursor || transactions.length < 100) {
         console.log(`🏁 Keine weiteren Native Seiten für ${chainName} - Ende erreicht`);
         break;
       }
       
       nativeCursor = result.cursor;
       
-      if (nativePageCount % 5 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      if (nativePageCount % 3 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
       
     } catch (error) {
