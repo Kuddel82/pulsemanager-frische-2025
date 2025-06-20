@@ -131,10 +131,23 @@ const SimpleTaxTracker = () => {
 
       console.log('✅ Neue Wallet History API erfolgreich geladen:', data.taxReport);
       
-      // 🔥 FRONTEND DEBUG: Was kommt von der API?
-      console.log("🔥 FRONTEND: taxReport received:", data.taxReport?.summary);
-      console.log("🔥 FRONTEND: transactions count:", data.taxReport?.transactions?.length);
-      console.log("🔥 FRONTEND: first 3 transactions:", data.taxReport?.transactions?.slice(0, 3));
+      // 🚨 EMERGENCY DEBUG: Was kommt von der API?
+      console.log("🚨🚨🚨 FRONTEND API RESPONSE DEBUG 🚨🚨🚨");
+      console.log("🚨 Full API Response:", data);
+      console.log("🚨 taxReport received:", data.taxReport?.summary);
+      console.log("🚨 transactions count:", data.taxReport?.transactions?.length);
+      console.log("🚨 first 3 transactions:", data.taxReport?.transactions?.slice(0, 3));
+      
+      // 🚨 SPEZIFISCHER DEBUG: ETH-Werte
+      const ethTransactions = data.taxReport?.transactions?.filter(tx => 
+        tx.tokenSymbol === 'ETH' || tx.tokenSymbol === 'NATIVE'
+      ).slice(0, 5);
+      console.log("🚨 ETH Transactions (first 5):", ethTransactions);
+      
+      // 🚨 GLOBAL DEBUG: Speichere für Browser Console
+      window.lastTaxReport = data.taxReport;
+      window.lastTaxReportRaw = data;
+      console.log("🚨 Tax Report saved to window.lastTaxReport");
       
       setTaxData(data.taxReport);
       setReportGenerated(true);
