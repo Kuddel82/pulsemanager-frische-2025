@@ -128,7 +128,7 @@ const SimpleTaxTracker = () => {
 
     setIsLoading(true);
     setError(null);
-    setReportData(null);
+    setTaxData(null);
 
     try {
       // 🔥 EMERGENCY CACHE BUSTING VOR API CALL
