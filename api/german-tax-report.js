@@ -175,6 +175,10 @@ function calculateWGEPTaxSummary(transactions) {
     taxCategory: tx.taxCategory
   })));
   
+  // 🔍 DEBUG: Alle taxCategory-Werte
+  const allCategories = [...new Set(transactions.map(tx => tx.taxCategory))];
+  console.log(`🔍 DEBUG All taxCategories:`, allCategories);
+  
   // WGEP-spezifische Berechnungen
   const totalWGEPPurchased = wgepPurchases.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
   const totalWGEPROI = wgepROI.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
