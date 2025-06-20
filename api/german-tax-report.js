@@ -163,6 +163,14 @@ function calculateWGEPTaxSummary(transactions) {
   const wgepSales = transactions.filter(tx => tx.taxCategory.includes('WGEP Sale'));
   const taxableSales = transactions.filter(tx => tx.isTaxable === true);
   
+  // 🔍 DEBUG: Warum ist taxableCount 0?
+  console.log(`🔍 DEBUG Summary: total=${transactions.length}, taxable=${taxableSales.length}`);
+  console.log(`🔍 DEBUG Sample taxable:`, taxableSales.slice(0, 3).map(tx => ({
+    hash: tx.hash?.substring(0, 10),
+    isTaxable: tx.isTaxable,
+    taxCategory: tx.taxCategory
+  })));
+  
   // WGEP-spezifische Berechnungen
   const totalWGEPPurchased = wgepPurchases.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
   const totalWGEPROI = wgepROI.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
