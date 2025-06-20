@@ -130,13 +130,19 @@ const SimpleTaxTracker = () => {
     setError(null);
     setTaxData(null);
 
+    // 🔑 UNIQUE REQUEST TOKEN FÜR CACHE BUSTING - AUSSERHALB TRY BLOCK
+    const requestToken = `tax_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`🔑 REQUEST TOKEN: ${requestToken}`);
+    
+    // 🔑 SETZE CURRENT REQUEST TOKEN REF
+    currentRequestTokenRef.current = requestToken;
+    
+    // 🔥 SETZE REQUEST IN PROGRESS
+    isRequestInProgressRef.current = true;
+
     try {
       // 🔥 EMERGENCY CACHE BUSTING VOR API CALL
       await clearAllCaches();
-      
-      // 🔑 UNIQUE REQUEST TOKEN FÜR CACHE BUSTING
-      const requestToken = `tax_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      console.log(`🔑 REQUEST TOKEN: ${requestToken}`);
       
       // 🚨 ABORT CONTROLLER FÜR TIMEOUT
       if (abortControllerRef.current) {
