@@ -179,8 +179,8 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
   let chainSymbol = 'UNK';
   
   // CHAIN DETECTION basierend auf tx oder chain parameter
-  if (tx.sourceChain === 'Ethereum' || tx.chain === '0x1') {
-    chainSymbol = 'ETH';
+  if (tx.sourceChain === 'Ethereum' || tx.chain === '0x1' || !tx.sourceChain) {
+    chainSymbol = 'ETH'; // ← Falls sourceChain undefined ist
   } else if (tx.sourceChain === 'PulseChain' || tx.chain === '0x171') {
     chainSymbol = 'PLS';
   }
@@ -473,6 +473,10 @@ export default async function handler(req, res) {
       ethereumCount: chainResults.ETH?.count || 0,
       pulsechainCount: chainResults.PLS?.count || 0,
       roiCount: categorizedTransactions.filter(tx => tx.taxCategory.includes('ROI')).length,
+      taxableCount: categorizedTransactions.filter(tx => 
+        tx.taxCategory === 'Sale Income' || 
+        tx.taxCategory === 'ROI Income'
+      ).length,
       totalROIValueEUR: 0,
       totalTaxEUR: 0
     };
