@@ -158,50 +158,66 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
 
 // 🔥 WGEP STEUER-SUMMARY CALCULATOR
 function calculateWGEPTaxSummary(transactions) {
-  const wgepPurchases = transactions.filter(tx => tx.taxCategory === 'WGEP Purchase');
-  const wgepROI = transactions.filter(tx => tx.taxCategory === 'WGEP ROI Income (§22 EStG)');
-  const wgepSales = transactions.filter(tx => tx.taxCategory.includes('WGEP Sale'));
-  const taxableSales = transactions.filter(tx => 
-    tx.taxCategory === 'Sale Income' || 
-    tx.taxCategory === 'ROI Income' ||
-    tx.taxCategory === 'WGEP ROI Income (§22 EStG)'
-  );
+  console.log(`🔍 DEBUG: Starting summary calculation for ${transactions.length} transactions`);
   
-  // 🔍 DEBUG: Warum ist taxableCount 0?
-  console.log(`🔍 DEBUG Summary: total=${transactions.length}, taxable=${taxableSales.length}`);
-  console.log(`🔍 DEBUG Sample taxable:`, taxableSales.slice(0, 3).map(tx => ({
-    hash: tx.hash?.substring(0, 10),
-    isTaxable: tx.isTaxable,
-    taxCategory: tx.taxCategory
-  })));
-  
-  // 🔍 DEBUG: Alle taxCategory-Werte
-  const allCategories = [...new Set(transactions.map(tx => tx.taxCategory))];
-  console.log(`🔍 DEBUG All taxCategories:`, allCategories);
-  
-  // WGEP-spezifische Berechnungen
-  const totalWGEPPurchased = wgepPurchases.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
-  const totalWGEPROI = wgepROI.reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0);
-  const totalWGEPCost = wgepPurchases.reduce((sum, tx) => sum + parseFloat(tx.costBasis || 0), 0);
-  
-  return {
+  // OPTIMIERT: Einmalige Iteration statt mehrfache filter()
+  const summary = {
     totalTransactions: transactions.length,
-    ethereumCount: transactions.filter(tx => tx.chainSymbol === 'ETH').length,
-    pulsechainCount: transactions.filter(tx => tx.chainSymbol === 'PLS').length,
-    roiCount: transactions.filter(tx => tx.taxCategory.includes('ROI')).length,
-    taxableCount: taxableSales.length,
-    
-    // WGEP-spezifische Metriken
-    wgepPurchases: wgepPurchases.length,
-    wgepROI: wgepROI.length,
-    wgepSales: wgepSales.length,
-    totalWGEPPurchased: totalWGEPPurchased.toFixed(6),
-    totalWGEPROI: totalWGEPROI.toFixed(6),
-    totalWGEPCost: totalWGEPCost.toFixed(6),
-    
+    ethereumCount: 0,
+    pulsechainCount: 0,
+    roiCount: 0,
+    taxableCount: 0,
+    wgepPurchases: 0,
+    wgepROI: 0,
+    wgepSales: 0,
+    totalWGEPPurchased: 0,
+    totalWGEPROI: 0,
+    totalWGEPCost: 0,
     totalROIValueEUR: 0,
     totalTaxEUR: 0
   };
+  
+  // EINMALIGE ITERATION - viel schneller!
+  for (const tx of transactions) {
+    // Chain counting
+    if (tx.chainSymbol === 'ETH') summary.ethereumCount++;
+    if (tx.chainSymbol === 'PLS') summary.pulsechainCount++;
+    
+    // Taxable counting
+    if (tx.taxCategory === 'Sale Income' || 
+        tx.taxCategory === 'ROI Income' ||
+        tx.taxCategory === 'WGEP ROI Income (§22 EStG)') {
+      summary.taxableCount++;
+    }
+    
+    // ROI counting
+    if (tx.taxCategory && tx.taxCategory.includes('ROI')) {
+      summary.roiCount++;
+    }
+    
+    // WGEP counting
+    if (tx.taxCategory === 'WGEP Purchase') {
+      summary.wgepPurchases++;
+      summary.totalWGEPPurchased += parseFloat(tx.valueFormatted || 0);
+      summary.totalWGEPCost += parseFloat(tx.costBasis || 0);
+    }
+    if (tx.taxCategory === 'WGEP ROI Income (§22 EStG)') {
+      summary.wgepROI++;
+      summary.totalWGEPROI += parseFloat(tx.valueFormatted || 0);
+    }
+    if (tx.taxCategory && tx.taxCategory.includes('WGEP Sale')) {
+      summary.wgepSales++;
+    }
+  }
+  
+  // Format numbers
+  summary.totalWGEPPurchased = summary.totalWGEPPurchased.toFixed(6);
+  summary.totalWGEPROI = summary.totalWGEPROI.toFixed(6);
+  summary.totalWGEPCost = summary.totalWGEPCost.toFixed(6);
+  
+  console.log(`🔍 DEBUG Summary: total=${summary.totalTransactions}, taxable=${summary.taxableCount}`);
+  
+  return summary;
 }
 
 /**
