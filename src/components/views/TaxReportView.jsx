@@ -130,6 +130,7 @@ const SimpleTaxTracker = () => {
       console.log('🔥🔥🔥 STEUERREPORT: NEUE WALLET HISTORY API 🔥🔥🔥');
       console.log(`🔍 DEBUG: Processing wallet address: ${walletAddress}`);
       console.log(`🔑 REQUEST TOKEN: ${requestToken}`);
+      console.log(`🌐 API ENDPOINT: /api/german-tax-report`);
       
       // 🇩🇪 NEUE WALLET HISTORY API - BESSERE PERFORMANCE
       const response = await fetch('/api/german-tax-report', {
