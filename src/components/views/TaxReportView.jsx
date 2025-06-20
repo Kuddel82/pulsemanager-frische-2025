@@ -167,8 +167,20 @@ const SimpleTaxTracker = () => {
         throw new Error(data.error || 'Fehler beim Laden der Steuerdaten');
       }
 
+      // 🔥🔥🔥 DETAILLIERTER API DEBUG 🔥🔥🔥
+      console.log("🚨 API SUCCESS:", data.success);
+      console.log("🚨 TAX REPORT EXISTS:", !!data.taxReport);
+      console.log("🚨 TAX REPORT TYPE:", typeof data.taxReport);
+      console.log("🚨 TAX REPORT KEYS:", data.taxReport ? Object.keys(data.taxReport) : 'N/A');
+      console.log("🚨 TRANSACTIONS EXISTS:", !!data.taxReport?.transactions);
+      console.log("🚨 TRANSACTIONS LENGTH:", data.taxReport?.transactions?.length);
+      console.log("🚨 FIRST TRANSACTION:", data.taxReport?.transactions?.[0]);
+      
       console.log("🚨 ERSTE TRANSAKTION:", data.taxReport?.transactions?.[0]);
       console.log("🚨 ERSTE VALUE:", data.taxReport?.transactions?.[0]?.valueFormatted);
+      console.log("🚨 ERSTE VALUE RAW:", data.taxReport?.transactions?.[0]?.value);
+      console.log("🚨 ERSTE AMOUNT:", data.taxReport?.transactions?.[0]?.amount);
+      console.log("🚨 ERSTE TOKEN:", data.taxReport?.transactions?.[0]?.tokenSymbol);
       
       console.log('✅ Neue Wallet History API erfolgreich geladen:', data.taxReport);
       
