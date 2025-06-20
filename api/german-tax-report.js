@@ -292,7 +292,8 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     // Native Token Symbole
     tokenSymbol = transfer.token_symbol || chainSymbol || 'NATIVE';
     tokenName = transfer.token_name || (chainSymbol === 'ETH' ? 'Ethereum' : 'PulseChain');
-    valueFormatted = transfer.value_formatted || '0';
+    const valueInWei = transfer.value || '0';
+    valueFormatted = (parseFloat(valueInWei) / 1e18).toFixed(6);
     valueRaw = transfer.value || '0';
     
     // DIRECTION für Native Transfers
