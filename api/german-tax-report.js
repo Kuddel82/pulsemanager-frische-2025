@@ -387,6 +387,9 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     isTaxable = false;
   }
   
+  // 🔍 DEBUG: Warum keine WGEP-Kategorisierung?
+  console.log(`🔍 DEBUG WGEP: tokenSymbol="${tokenSymbol}", direction="${direction}", fromMinter=${fromMinter}, toMinter=${toMinter}`);
+  
   // 📊 RETURN ENRICHED DATA
   return {
     ...tx, // Behalte alle originalen Felder
