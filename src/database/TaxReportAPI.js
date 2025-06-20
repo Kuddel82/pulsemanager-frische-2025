@@ -371,8 +371,8 @@ class TaxReportAPI {
      * Express.js API-Endpunkte
      */
     setupExpressRoutes(app) {
-        // Hauptendpunkt für Tax Reports
-        app.post('/api/tax-report', async (req, res) => {
+        // Hauptendpunkt für Tax Reports - AKTUALISIERT AUF NEUE API
+        app.post('/api/german-tax-report', async (req, res) => {
             try {
                 const { userInfo, options } = req.body;
                 
