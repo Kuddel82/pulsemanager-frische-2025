@@ -261,23 +261,39 @@ export default async function handler(req, res) {
         
         // Add chain info to transactions
         const processedTransactions = transfers.map(tx => {
-          // 🔥 WALLET HISTORY FORMAT: Extrahiere Token-Info aus verschiedenen Transfer-Typen
+          // 🔥 WALLET HISTORY FORMAT: Extrahiere ALLE wichtigen Steuer-Daten
           let tokenSymbol = 'UNKNOWN';
           let tokenName = 'Unknown Token';
           let valueDecimal = '0';
           let direction = 'unknown';
           let directionIcon = '❓';
           let taxCategory = 'Sonstige';
+          let usdPrice = 0;
+          let usdValue = 0;
+          let timestamp = tx.block_timestamp || tx.timestamp || Date.now();
+          let transactionHash = tx.hash || tx.transaction_hash || '';
+          let contractAddress = '';
+          let gasPrice = tx.gas_price || 0;
+          let gasUsed = tx.gas_used || 0;
+          let gasFee = (gasPrice * gasUsed) / 1e18; // Convert to ETH/PLS
           
           // Native Transfers (ETH/PLS) - RICHTIGE EXTRACTION
           if (tx.native_transfers && tx.native_transfers.length > 0) {
             const nativeTransfer = tx.native_transfers[0];
             tokenSymbol = nativeTransfer.token_symbol || (chain.moralisId === '0x1' ? 'ETH' : 'PLS');
             tokenName = nativeTransfer.token_name || (chain.moralisId === '0x1' ? 'Ethereum' : 'PulseChain');
-            valueDecimal = (parseFloat(nativeTransfer.value) / Math.pow(10, 18)).toString();
-            direction = nativeTransfer.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out';
-            directionIcon = direction === 'in' ? '📥 IN' : '📤 OUT';
-            taxCategory = direction === 'in' ? 'Token Transfer (In)' : 'Token Transfer (Out)';
+            valueDecimal = nativeTransfer.value_decimal || '0';
+            usdPrice = nativeTransfer.usd_price || 0;
+            usdValue = parseFloat(valueDecimal) * usdPrice;
+            
+            // Direction detection
+            if (nativeTransfer.from_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'out';
+              directionIcon = '📤';
+            } else if (nativeTransfer.to_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'in';
+              directionIcon = '📥';
+            }
           }
           
           // ERC20 Transfers (WGEP, USDC, USDT, etc.) - RICHTIGE EXTRACTION
@@ -286,32 +302,37 @@ export default async function handler(req, res) {
             tokenSymbol = erc20Transfer.token_symbol || 'UNKNOWN';
             tokenName = erc20Transfer.token_name || 'Unknown Token';
             valueDecimal = erc20Transfer.value_decimal || '0';
-            direction = erc20Transfer.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out';
-            directionIcon = direction === 'in' ? '📥 IN' : '📤 OUT';
-            taxCategory = direction === 'in' ? 'Token Transfer (In)' : 'Token Transfer (Out)';
+            usdPrice = erc20Transfer.usd_price || 0;
+            usdValue = parseFloat(valueDecimal) * usdPrice;
+            contractAddress = erc20Transfer.contract_address || '';
             
-            // 🔥 DEBUG: Log Token-Details für WGEP, USDC, USDT
-            if (['WGEP', 'USDC', 'USDT'].includes(tokenSymbol)) {
-              console.log(`🔍 TOKEN FOUND: ${tokenSymbol} - Value: ${valueDecimal} - Direction: ${direction}`);
+            // Direction detection
+            if (erc20Transfer.from_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'out';
+              directionIcon = '📤';
+            } else if (erc20Transfer.to_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'in';
+              directionIcon = '📥';
             }
           }
           
-          // NFT Transfers (falls vorhanden) - RICHTIGE EXTRACTION
+          // NFT Transfers - RICHTIGE EXTRACTION
           if (tx.nft_transfers && tx.nft_transfers.length > 0) {
             const nftTransfer = tx.nft_transfers[0];
             tokenSymbol = nftTransfer.token_symbol || 'NFT';
-            tokenName = nftTransfer.token_name || 'NFT Collection';
-            valueDecimal = '1'; // NFTs haben normalerweise Wert 1
-            direction = nftTransfer.to_address?.toLowerCase() === address.toLowerCase() ? 'in' : 'out';
-            directionIcon = direction === 'in' ? '📥 IN' : '📤 OUT';
-            taxCategory = direction === 'in' ? 'NFT Transfer (In)' : 'NFT Transfer (Out)';
-          }
-          
-          // 🔥 ROI DETECTION für bekannte Tokens
-          if (['WGEP', 'MASKMAN', 'BORK'].includes(tokenSymbol)) {
-            if (direction === 'in') {
-              taxCategory = 'ROI Einkommen (§22 EStG)';
-              directionIcon = '💰 ROI';
+            tokenName = nftTransfer.token_name || 'NFT Token';
+            valueDecimal = nftTransfer.amount || '1';
+            usdPrice = nftTransfer.usd_price || 0;
+            usdValue = parseFloat(valueDecimal) * usdPrice;
+            contractAddress = nftTransfer.contract_address || '';
+            
+            // Direction detection
+            if (nftTransfer.from_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'out';
+              directionIcon = '📤';
+            } else if (nftTransfer.to_address?.toLowerCase() === address.toLowerCase()) {
+              direction = 'in';
+              directionIcon = '📥';
             }
           }
           
@@ -324,18 +345,34 @@ export default async function handler(req, res) {
             tokenSymbol = 'PLS'; // UNKNOWN auf PulseChain → PLS
           }
           
+          // 🔥 ROI-KLASSIFIZIERUNG - §22 EStG
+          const roiTokens = ['WGEP', 'MASKMAN', 'BORK', 'PLS', 'ETH'];
+          if (roiTokens.includes(tokenSymbol.toUpperCase()) && usdValue > 0) {
+            taxCategory = '§22 EStG - Sonstige Einkünfte';
+          }
+          
+          // 🔥 DEBUG: Token-Details loggen
+          if (['WGEP', 'USDC', 'USDT', 'PLS', 'ETH'].includes(tokenSymbol.toUpperCase())) {
+            console.log(`🔍 TOKEN DEBUG: ${tokenSymbol} | ${valueDecimal} | $${usdValue.toFixed(2)} | ${direction} | ${taxCategory}`);
+          }
+          
           return {
             ...tx,
-            sourceChain: chain.name,
-            sourceChainShort: chain.short,
-            sourceChainId: chain.id,
+            chain: chain.short,
+            tokenSymbol,
+            tokenName,
+            valueDecimal,
             direction,
             directionIcon,
             taxCategory,
-            formattedValue: valueDecimal,
-            tokenSymbol,
-            tokenName,
-            timestamp: tx.block_timestamp || tx.timestamp
+            usdPrice: usdPrice.toFixed(6),
+            usdValue: usdValue.toFixed(2),
+            timestamp: new Date(timestamp * 1000).toISOString(),
+            transactionHash,
+            contractAddress,
+            gasFee: gasFee.toFixed(6),
+            formattedDate: new Date(timestamp * 1000).toLocaleDateString('de-DE'),
+            formattedTime: new Date(timestamp * 1000).toLocaleTimeString('de-DE')
           };
         });
         
