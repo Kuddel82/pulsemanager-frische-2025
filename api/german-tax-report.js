@@ -454,29 +454,10 @@ export default async function handler(req, res) {
 
     // DEUTSCHE STEUER-KATEGORISIERUNG
     const categorizedTransactions = allTransactions.map(tx => {
-      let taxCategory = tx.taxCategory || 'Sonstige';
-      let direction = tx.direction || 'unknown';
-      let directionIcon = tx.directionIcon || '❓';
-      let formattedValue = tx.formattedValue || '0';
-      let tokenSymbol = tx.tokenSymbol || 'N/A';
-
-      // ROI DETECTION für bekannte Tokens
-      if (['WGEP', 'MASKMAN', 'BORK'].includes(tokenSymbol)) {
-        if (direction === 'in') {
-          taxCategory = 'ROI Einkommen (§22 EStG)';
-          directionIcon = '💰 ROI';
-        }
-      }
-
-      return {
-        ...tx,
-        taxCategory,
-        direction,
-        directionIcon,
-        formattedValue,
-        tokenSymbol,
-        timestamp: tx.block_timestamp || tx.timestamp
-      };
+      console.log('🚨 DEBUG: Processing transaction:', tx.hash?.substring(0, 10));
+      const result = extractTokenDataFromWalletHistory(tx, address);
+      console.log('🚨 DEBUG: Result:', result.tokenSymbol, result.chainSymbol);
+      return result;
     });
 
     // ZUSAMMENFASSUNG
