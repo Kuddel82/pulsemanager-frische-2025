@@ -100,6 +100,53 @@ const Home = () => {
         <WalletManualInput />
       </div>
 
+      {/* 📋 RECHTLICHE HINWEISE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        
+        {/* Datenschutzbestimmungen */}
+        <div className="pulse-card p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-blue-400 to-indigo-400 rounded flex items-center justify-center text-white font-bold text-sm">
+              DS
+            </div>
+            <h2 className="text-xl font-bold pulse-text">Datenschutzbestimmungen</h2>
+          </div>
+          
+          <p className="pulse-text-secondary mb-4">
+            DSGVO-konforme Datenschutzerklärung für PulseManager
+          </p>
+          
+          <button 
+            onClick={() => navigate('/privacy-policy')}
+            className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+          >
+            📄 Datenschutz lesen
+          </button>
+        </div>
+
+        {/* AGBs */}
+        <div className="pulse-card p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-green-400 to-emerald-400 rounded flex items-center justify-center text-white font-bold text-sm">
+              AG
+            </div>
+            <h2 className="text-xl font-bold pulse-text">Allgemeine Geschäftsbedingungen</h2>
+          </div>
+          
+          <p className="pulse-text-secondary mb-4">
+            Nutzungsbedingungen und rechtliche Hinweise
+          </p>
+          
+          <button 
+            onClick={() => navigate('/terms-of-service')}
+            className="inline-flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+          >
+            📋 AGBs lesen
+          </button>
+        </div>
+        
+      </div>
+
     </div>
   );
 };

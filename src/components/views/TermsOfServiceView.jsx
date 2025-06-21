@@ -1,79 +1,258 @@
-
 import React from 'react';
-import { motion } from 'framer-motion';
-import { useAppContext } from '@/contexts/AppContext';
-import { FEEDBACK_EMAIL_ADDRESS } from '@/config/appConfig';
+import { FileText, AlertTriangle, Shield, Users, DollarSign, Lock, ExternalLink, Scale } from 'lucide-react';
 
 const TermsOfServiceView = () => {
-  const { language, translations } = useAppContext();
-  const t = translations[language];
-  const currentDate = new Date().toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="prose dark:prose-invert max-w-none p-6 bg-background/50 dark:bg-slate-800/50 rounded-lg shadow-lg"
-    >
-      <div className="mb-8 p-4 border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 rounded-md">
-        <h3 className="font-bold text-yellow-700 dark:text-yellow-300">{language === 'de' ? 'WICHTIGER HINWEIS' : 'IMPORTANT NOTICE'}</h3>
-        <p className="text-sm text-yellow-600 dark:text-yellow-200">
-          {t.legalProfessionalDisclaimer}
-        </p>
+    <div className="min-h-screen pulse-text p-6">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <FileText className="h-12 w-12 text-green-400" />
+            <h1 className="text-4xl font-bold pulse-title">Allgemeine Geschäftsbedingungen</h1>
+          </div>
+          <p className="text-lg pulse-text-secondary">
+            Nutzungsbedingungen für PulseManager Community Edition
+          </p>
+          <p className="text-sm pulse-text-secondary mt-2">
+            Stand: {new Date().toLocaleDateString('de-DE')}
+          </p>
+        </div>
+
+        {/* Wichtige Hinweise */}
+        <div className="pulse-card p-6 border-l-4 border-red-400">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-6 w-6 text-red-400 mt-1 flex-shrink-0" />
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">⚠️ Wichtige rechtliche Hinweise</h3>
+              <ul className="space-y-2 text-sm pulse-text-secondary">
+                <li>• <strong>Keine Steuerberatung:</strong> PulseManager bietet keine steuerliche Beratung. Alle Daten müssen von einem Steuerberater geprüft werden.</li>
+                <li>• <strong>Keine Anlageberatung:</strong> Wir sind nicht am Kauf/Verkauf von Tokens beteiligt und geben keine Anlageempfehlungen.</li>
+                <li>• <strong>Keine Haftung für externe Links:</strong> Wir übernehmen keine Verantwortung für externe Dienste (PulseX, Bridge, etc.).</li>
+                <li>• <strong>Wallet-Daten:</strong> Alle ausgelesenen Wallet-Daten sind unverbindlich und müssen verifiziert werden.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 1. Geltungsbereich */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Scale className="h-6 w-6 text-blue-400" />
+            1. Geltungsbereich und Anbieter
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p><strong>Anbieter:</strong> PulseManager Community Edition</p>
+            <p><strong>Dienstleistung:</strong> Portfolio-Tracking und Steuerreport-Generierung für PulseChain-Assets</p>
+            <p><strong>Geltungsbereich:</strong> Diese AGBs gelten für die Nutzung der PulseManager-App und aller damit verbundenen Dienste.</p>
+            <p><strong>Rechtssystem:</strong> Deutsches Recht, soweit nicht zwingendes Recht entgegensteht.</p>
+          </div>
+        </div>
+
+        {/* 2. Leistungsbeschreibung */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <FileText className="h-6 w-6 text-green-400" />
+            2. Leistungsbeschreibung
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">📊 Portfolio-Tracking</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Anzeige von PulseChain-Wallet-Balances</li>
+                <li>• Token-Wert-Berechnungen basierend auf aktuellen Marktpreisen</li>
+                <li>• Transaktionshistorie und ROI-Berechnungen</li>
+                <li>• Portfolio-Performance-Tracking</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">📋 Steuerreport-Generierung</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Automatische Generierung von Steuerreports</li>
+                <li>• FIFO-Berechnungen nach deutschem Steuerrecht</li>
+                <li>• Export-Funktionen (PDF, CSV)</li>
+                <li>• Unterstützung bei der Steuererklärung</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🔗 Externe Dienste</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Links zu PulseX (DEX)</li>
+                <li>• Links zu PulseChain Bridge</li>
+                <li>• Links zu WGEP-Token-Informationen</li>
+                <li>• Weitere PulseChain-Ökosystem-Dienste</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Nutzungsbedingungen */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Users className="h-6 w-6 text-purple-400" />
+            3. Nutzungsbedingungen
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">✅ Erlaubte Nutzung</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Persönliche Portfolio-Verwaltung</li>
+                <li>• Steuerreport-Generierung für eigene Zwecke</li>
+                <li>• Nutzung der App-Features im Rahmen der Bestimmungen</li>
+                <li>• Zugriff auf externe Dienste über bereitgestellte Links</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">❌ Verbotene Nutzung</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Kommerzielle Nutzung ohne Genehmigung</li>
+                <li>• Manipulation der App oder API-Zugriffe</li>
+                <li>• Verbreitung von Schadsoftware oder Spam</li>
+                <li>• Verletzung von geistigen Eigentumsrechten</li>
+                <li>• Nutzung für illegale Aktivitäten</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Haftungsausschlüsse */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Shield className="h-6 w-6 text-red-400" />
+            4. Haftungsausschlüsse und -beschränkungen
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🚫 Keine Steuerberatung</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• PulseManager bietet keine steuerliche Beratung</li>
+                <li>• Alle generierten Daten müssen von einem Steuerberater geprüft werden</li>
+                <li>• Wir übernehmen keine Verantwortung für steuerliche Konsequenzen</li>
+                <li>• Nutzer sind selbst für die korrekte Steuererklärung verantwortlich</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🚫 Keine Anlageberatung</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Wir sind nicht am Kauf/Verkauf von Tokens beteiligt</li>
+                <li>• Keine Anlageempfehlungen oder Investment-Beratung</li>
+                <li>• Alle Investment-Entscheidungen liegen beim Nutzer</li>
+                <li>• Wir übernehmen keine Verantwortung für Investment-Verluste</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🔗 Externe Links</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• PulseX, PulseChain Bridge, WGEP sind externe Dienste</li>
+                <li>• Wir übernehmen keine Verantwortung für deren Funktionalität</li>
+                <li>• Keine Haftung für Schäden durch externe Dienste</li>
+                <li>• Nutzer nutzen externe Dienste auf eigene Gefahr</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">📊 Daten-Genauigkeit</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Wallet-Daten basieren auf öffentlichen Blockchain-Daten</li>
+                <li>• Preis-Daten können verzögert oder ungenau sein</li>
+                <li>• Alle Daten sind unverbindlich und müssen verifiziert werden</li>
+                <li>• Keine Garantie für Vollständigkeit oder Richtigkeit</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Datenschutz */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Lock className="h-6 w-6 text-blue-400" />
+            5. Datenschutz und Datensicherheit
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>• <strong>DSGVO-Konformität:</strong> Alle Datenverarbeitungen erfolgen nach DSGVO-Standards</p>
+            <p>• <strong>Verschlüsselung:</strong> Alle Datenübertragungen sind SSL/TLS-verschlüsselt</p>
+            <p>• <strong>Keine privaten Schlüssel:</strong> Wir speichern niemals private Schlüssel oder Seed-Phrasen</p>
+            <p>• <strong>Minimale Datensammlung:</strong> Nur notwendige Daten werden verarbeitet</p>
+            <p>• <strong>Löschung auf Anfrage:</strong> Nutzer können ihre Daten jederzeit löschen lassen</p>
+          </div>
+        </div>
+
+        {/* 6. Geistiges Eigentum */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <FileText className="h-6 w-6 text-purple-400" />
+            6. Geistiges Eigentum
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>• <strong>Urheberrecht:</strong> PulseManager und alle Inhalte sind urheberrechtlich geschützt</p>
+            <p>• <strong>Lizenz:</strong> Nutzer erhalten eine beschränkte, nicht-exklusive Lizenz zur Nutzung</p>
+            <p>• <strong>Keine Weitergabe:</strong> Code, Design und Inhalte dürfen nicht weitergegeben werden</p>
+            <p>• <strong>Markenrechte:</strong> PulseManager ist eine geschützte Marke</p>
+            <p>• <strong>Externe Inhalte:</strong> Externe Dienste unterliegen deren eigenen Rechten</p>
+          </div>
+        </div>
+
+        {/* 7. Zahlungen und Abonnements */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <DollarSign className="h-6 w-6 text-green-400" />
+            7. Zahlungen und Premium-Features
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">💳 Zahlungsabwicklung</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Zahlungen werden über sichere Drittanbieter abgewickelt</li>
+                <li>• Wir speichern keine Kreditkartendaten</li>
+                <li>• Alle Preise verstehen sich inklusive gesetzlicher Mehrwertsteuer</li>
+                <li>• Abonnements können jederzeit gekündigt werden</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">⭐ Premium-Features</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Erweiterte Steuerreport-Funktionen</li>
+                <li>• Unbegrenzte Portfolio-Tracking</li>
+                <li>• Prioritäts-Support</li>
+                <li>• Erweiterte Export-Optionen</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 8. Kündigung */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Users className="h-6 w-6 text-orange-400" />
+            8. Kündigung und Beendigung
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>• <strong>Kündigung durch Nutzer:</strong> Jederzeit ohne Angabe von Gründen möglich</p>
+            <p>• <strong>Kündigung durch Anbieter:</strong> Bei Verstoß gegen AGBs oder missbräuchlicher Nutzung</p>
+            <p>• <strong>Datenlöschung:</strong> Nach Kündigung werden alle Nutzerdaten gelöscht</p>
+            <p>• <strong>Rückerstattung:</strong> Keine Rückerstattung bei vorzeitiger Kündigung</p>
+            <p>• <strong>Übergangsfrist:</strong> 30 Tage Übergangsfrist bei Anbieter-Kündigung</p>
+          </div>
+        </div>
+
+        {/* 9. Schlussbestimmungen */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Scale className="h-6 w-6 text-indigo-400" />
+            9. Schlussbestimmungen
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>• <strong>Gerichtsstand:</strong> Deutschland, soweit gesetzlich zulässig</p>
+            <p>• <strong>Teilunwirksamkeit:</strong> Unwirksame Klauseln berühren nicht die Gültigkeit der übrigen AGBs</p>
+            <p>• <strong>Änderungen:</strong> AGBs können mit 30-tägiger Frist geändert werden</p>
+            <p>• <strong>Vollständigkeit:</strong> Diese AGBs enthalten alle wesentlichen Vereinbarungen</p>
+            <p>• <strong>Kontakt:</strong> Bei Fragen kontaktieren Sie uns über die App-Funktionen</p>
+            <p><strong>Letzte Aktualisierung:</strong> {new Date().toLocaleDateString('de-DE')}</p>
+          </div>
+        </div>
+
       </div>
-
-              <h1 className="text-3xl font-bold pulse-title mb-6">{t.termsOfServiceTitle}</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        {t.lastUpdated.replace('{date}', currentDate)}
-      </p>
-      
-      <h2 className="text-xl font-semibold mt-6 mb-3">1. {language === 'de' ? 'Annahme der Bedingungen' : 'Acceptance of Terms'}</h2>
-      <p>{language === 'de' ? 'Durch den Zugriff auf oder die Nutzung der PulseManager-Anwendung ("die Anwendung"), bereitgestellt von Kuddel Tech ("wir", "uns", "unser"), erklären Sie sich damit einverstanden, an diese Nutzungsbedingungen ("Bedingungen") und alle geltenden Gesetze und Vorschriften gebunden zu sein. Wenn Sie mit einem Teil dieser Bedingungen nicht einverstanden sind, ist Ihnen die Nutzung oder der Zugriff auf diese Anwendung untersagt. Die in dieser Anwendung enthaltenen Materialien sind durch geltendes Urheber- und Markenrecht geschützt.' : 'By accessing or using the PulseManager application ("the Application"), provided by Kuddel Tech ("we", "us", "our"), you agree to be bound by these Terms of Service ("Terms") and all applicable laws and regulations. If you do not agree with any part of these Terms, you are prohibited from using or accessing this Application. The materials contained in this Application are protected by applicable copyright and trademark law.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">2. {language === 'de' ? 'Beschreibung des Dienstes' : 'Description of Service'}</h2>
-      <p>{language === 'de' ? 'PulseManager ist ein Tool, das Benutzern bei der Verwaltung und Verfolgung ihrer Kryptowährungsbestände, insbesondere im PulseChain-Netzwerk, helfen soll. Die Dienste können unter anderem Portfolioübersicht, Verbindung zu dezentralen Börsen (DEXs) über eingebettete Schnittstellen oder Links (z.B. PulseX, Matcha.xyz), NFT-Tracking, Informationen zum Yield Farming, ROI-Berechnung und die Erstellung von Daten für Steuererklärungszwecke ("Dienste") umfassen. Die Anwendung bietet keine Finanz-, Anlage- oder Steuerberatung. Alle Tools und Informationen dienen ausschließlich Informations- und Bildungszwecken.' : 'PulseManager is a tool designed to assist users in managing and tracking their cryptocurrency assets, particularly those on the PulseChain network. Services may include, but are not limited to, portfolio overview, connection to decentralized exchanges (DEXs) via embedded interfaces or links (e.g., PulseX, Matcha.xyz), NFT tracking, yield farming information, ROI calculation, and generation of data for tax reporting purposes ("Services"). The Application does not provide financial, investment, or tax advice. All tools and information are for informational and educational purposes only.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">3. {language === 'de' ? 'Benutzerverantwortlichkeiten und Verhalten' : 'User Responsibilities and Conduct'}</h2>
-      <p>{language === 'de' ? 'Sie sind allein verantwortlich für Ihr Verhalten und alle Daten, Texte, Informationen und Links, die Sie im PulseManager-Dienst einreichen, posten und anzeigen. Sie dürfen die Anwendung nicht missbrauchen. Sie sind für die Geheimhaltung Ihrer Wallet-Anmeldeinformationen (private Schlüssel, Seed-Phrasen) und für alle Aktivitäten verantwortlich, die unter Ihrer Wallet stattfinden. PulseManager wird Sie niemals nach Ihren privaten Schlüsseln oder Seed-Phrasen fragen. Sie erklären sich damit einverstanden, uns unverzüglich über jede unbefugte Nutzung Ihrer Wallet oder jede andere Sicherheitsverletzung zu informieren. Wir haften nicht für Verluste oder Schäden, die sich aus Ihrer Nichteinhaltung dieser Sicherheitsverpflichtung ergeben.' : 'You are solely responsible for your conduct and any data, text, information, and links that you submit, post, and display on the PulseManager service. You must not misuse the Application. You are responsible for maintaining the confidentiality of your wallet credentials (private keys, seed phrases) and for all activities that occur under your wallet. PulseManager will never ask for your private keys or seed phrases. You agree to immediately notify us of any unauthorized use of your wallet or any other breach of security. We will not be liable for any loss or damage arising from your failure to comply with this security obligation.'}</p>
-      <p>{language === 'de' ? 'Sie erklären sich damit einverstanden, die Dienste nicht für illegale oder unbefugte Zwecke zu nutzen. Internationale Benutzer erklären sich damit einverstanden, alle lokalen Gesetze bezüglich Online-Verhalten und akzeptablem Inhalt einzuhalten.' : 'You agree not to use the Services for any illegal or unauthorized purpose. International users agree to comply with all local laws regarding online conduct and acceptable content.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">4. {language === 'de' ? 'Abonnement und Zahlung (falls zutreffend)' : 'Subscription and Payment (If Applicable)'}</h2>
-      <p>{language === 'de' ? 'Bestimmte Funktionen oder Aspekte der Anwendung können einer Abonnementgebühr unterliegen. Alle Abonnementgebühren sind nicht erstattungsfähig, es sei denn, dies ist in diesen Bedingungen ausdrücklich angegeben oder gesetzlich vorgeschrieben. Gebühren werden Ihnen klar mitgeteilt, bevor Sie ein Abonnement abschließen. Wir verwenden Drittanbieter-Zahlungsabwickler (z.B. Stripe) zur Abwicklung von Zahlungen. Wir speichern Ihre vollständigen Kreditkarteninformationen nicht. Die Abwicklung von Zahlungen unterliegt zusätzlich zu diesen Bedingungen den Geschäftsbedingungen und Datenschutzrichtlinien der Zahlungsabwickler.' : 'Certain features or aspects of the Application may be subject to a subscription fee. All subscription fees are non-refundable except as expressly stated in these Terms or as required by applicable law. Fees will be clearly communicated to you before you commit to a subscription. We use third-party payment processors (e.g., Stripe) to handle payments. We do not store your full credit card information. The processing of payments will be subject to the terms, conditions, and privacy policies of the payment processors in addition to these Terms.'}</p>
-      <p>{language === 'de' ? 'Wir behalten uns das Recht vor, die Abonnementgebühren jederzeit zu ändern. Preisänderungen treten zu Beginn des nächsten Abonnementzeitraums nach dem Datum der Preisänderung in Kraft.' : 'We reserve the right to change subscription fees at any time. Price changes will take effect at the start of the next subscription period following the date of the price change.'}</p>
-      <p>{language === 'de' ? 'Für bestimmte Abonnementpläne kann eine kostenlose Testphase angeboten werden. Wenn Sie nicht vor Ablauf der Testphase kündigen, wird Ihnen automatisch die Abonnementgebühr für den ausgewählten Plan berechnet.' : 'A free trial period may be offered for certain subscription plans. If you do not cancel before the end of the trial period, you will be automatically charged the subscription fee for the selected plan.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">5. {language === 'de' ? 'Dienste und Links von Drittanbietern' : 'Third-Party Services and Links'}</h2>
-      <p>{language === 'de' ? 'Die Anwendung kann Links zu Websites, Diensten oder Ressourcen Dritter integrieren oder bereitstellen (z.B. PulseX, Matcha.xyz, Portal Bridge, DexScreener). Sie erkennen an und stimmen zu, dass Kuddel Tech nicht verantwortlich oder haftbar ist für: (i) die Verfügbarkeit oder Genauigkeit solcher Websites oder Ressourcen; oder (ii) den Inhalt, die Produkte oder Dienstleistungen auf oder verfügbar von solchen Websites oder Ressourcen. Links zu solchen Websites oder Ressourcen implizieren keine Billigung durch Kuddel Tech. Sie erkennen die alleinige Verantwortung für und übernehmen alle Risiken, die sich aus Ihrer Nutzung solcher Websites oder Ressourcen ergeben.' : 'The Application may integrate or provide links to third-party websites, services, or resources (e.g., PulseX, Matcha.xyz, Portal Bridge, DexScreener). You acknowledge and agree that Kuddel Tech is not responsible or liable for: (i) the availability or accuracy of such websites or resources; or (ii) the content, products, or services on or available from such websites or resources. Links to such websites or resources do not imply any endorsement by Kuddel Tech. You acknowledge sole responsibility for and assume all risk arising from your use of any such websites or resources.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">6. {language === 'de' ? 'Gewährleistungsausschluss' : 'Disclaimer of Warranties'}</h2>
-      <p>{language === 'de' ? 'DIE ANWENDUNG UND DIE DIENSTE WERDEN "WIE BESEHEN" UND "WIE VERFÜGBAR" OHNE JEGLICHE AUSDRÜCKLICHE ODER STILLSCHWEIGENDE GEWÄHRLEISTUNGEN BEREITGESTELLT, EINSCHLIESSLICH, ABER NICHT BESCHRÄNKT AUF STILLSCHWEIGENDE GEWÄHRLEISTUNGEN DER MARKTGÄNGIGKEIT, EIGNUNG FÜR EINEN BESTIMMTEN ZWECK, NICHTVERLETZUNG VON RECHTEN DRITTER ODER LEISTUNGSVERLAUF. KUDDEL TECH GEWÄHRLEISTET NICHT, DASS DIE ANWENDUNG UNUNTERBROCHEN, SICHER ODER ZU EINEM BESTIMMTEN ZEITPUNKT ODER AN EINEM BESTIMMTEN ORT VERFÜGBAR SEIN WIRD; DASS FEHLER ODER MÄNGEL BEHOBEN WERDEN; DASS DIE ANWENDUNG FREI VON VIREN ODER ANDEREN SCHÄDLICHEN KOMPONENTEN IST; ODER DASS DIE ERGEBNISSE DER NUTZUNG DES DIENSTES IHREN ANFORDERUNGEN ENTSPRECHEN WERDEN.' : 'THE APPLICATION AND SERVICES ARE PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT ANY WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR COURSE OF PERFORMANCE. KUDDEL TECH DOES NOT WARRANT THAT THE APPLICATION WILL FUNCTION UNINTERRUPTED, SECURE, OR AVAILABLE AT ANY PARTICULAR TIME OR LOCATION; THAT ANY ERRORS OR DEFECTS WILL BE CORRECTED; THAT THE APPLICATION IS FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS; OR THAT THE RESULTS OF USING THE SERVICE WILL MEET YOUR REQUIREMENTS.'}</p>
-      <p>{language === 'de' ? 'KEINE RATSCHLÄGE ODER INFORMATIONEN, OB MÜNDLICH ODER SCHRIFTLICH, DIE SIE VON UNS ODER DURCH DEN DIENST ERHALTEN HABEN, BEGRÜNDEN EINE GEWÄHRLEISTUNG, DIE NICHT AUSDRÜCKLICH IN DIESEN BEDINGUNGEN ANGEGEBEN IST.' : 'NO ADVICE OR INFORMATION, WHETHER ORAL OR WRITTEN, OBTAINED BY YOU FROM US OR THROUGH THE SERVICE SHALL CREATE ANY WARRANTY NOT EXPRESSLY STATED IN THESE TERMS.'}</p>
-
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">7. {language === 'de' ? 'Haftungsbeschränkung' : 'Limitation of Liability'}</h2>
-      <p>{language === 'de' ? 'SOWEIT GESETZLICH ZULÄSSIG, HAFTEN KUDDEL TECH, SEINE VERBUNDENEN UNTERNEHMEN, DIREKTOREN, MITARBEITER ODER LIZENZGEBER IN KEINEM FALL FÜR INDIREKTE, ZUFÄLLIGE, BESONDERE, FOLGE-, EXEMPLARISCHE ODER STRAFENDE SCHÄDEN (EINSCHLIESSLICH, ABER NICHT BESCHRÄNKT AUF SCHÄDEN DURCH GEWINNVERLUST, DATENVERLUST, NUTZUNGSAUSFALL, GOODWILL-VERLUST ODER ANDERE IMMATERIELLE VERLUSTE), DIE SICH AUS ODER IM ZUSAMMENHANG MIT IHREM ZUGRIFF AUF ODER IHRER NUTZUNG VON ODER IHRER UNFÄHIGKEIT ZUM ZUGRIFF AUF ODER ZUR NUTZUNG DER ANWENDUNG ODER JEGLICHER MATERIALIEN ODER INHALTE DER ANWENDUNG ERGEBEN, UNABHÄNGIG DAVON, OB DIESE AUF GEWÄHRLEISTUNG, VERTRAG, UNERLAUBTER HANDLUNG (EINSCHLIESSLICH FAHRLÄSSIGKEIT), GESETZ ODER EINER ANDEREN RECHTSTHEORIE BERUHEN UND OB WIR ÜBER DIE MÖGLICHKEIT SOLCHER SCHÄDEN INFORMIERT WURDEN ODER NICHT.' : 'TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL KUDDEL TECH, ITS AFFILIATES, DIRECTORS, EMPLOYEES, OR LICENSORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES) ARISING OUT OF OR RELATING TO YOUR ACCESS TO OR USE OF, OR YOUR INABILITY TO ACCESS OR USE, THE APPLICATION OR ANY MATERIALS OR CONTENT ON THE APPLICATION, WHETHER BASED ON WARRANTY, CONTRACT, TORT (INCLUDING NEGLIGENCE), STATUTE, OR ANY OTHER LEGAL THEORY, AND WHETHER OR NOT WE HAVE BEEN INFORMED OF THE POSSIBILITY OF SUCH DAMAGE.'}</p>
-      <p>{language === 'de' ? 'IHR EINZIGES UND AUSSCHLIESSLICHES RECHTSMITTEL BEI UNZUFRIEDENHEIT MIT DEM DIENST BESTEHT DARIN, DIE NUTZUNG DES DIENSTES EINZUSTELLEN. EINIGE GERICHTSBARKEITEN ERLAUBEN DEN AUSSCHLUSS ODER DIE BESCHRÄNKUNG DER HAFTUNG FÜR FOLGE- ODER ZUFÄLLIGE SCHÄDEN NICHT, SO DASS DIE OBIGE BESCHRÄNKUNG MÖGLICHERWEISE NICHT AUF SIE ZUTRIFFT.' : 'YOUR SOLE AND EXCLUSIVE REMEDY FOR DISSATISFACTION WITH THE SERVICE IS TO STOP USING THE SERVICE. SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OR LIMITATION OF LIABILITY FOR CONSEQUENTIAL OR INCIDENTAL DAMAGES, SO THE ABOVE LIMITATION MAY NOT APPLY TO YOU.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">8. {language === 'de' ? 'Geistige Eigentumsrechte' : 'Intellectual Property Rights'}</h2>
-      <p>{language === 'de' ? 'Die Anwendung und ihre gesamten Inhalte, Funktionen und Funktionalitäten (einschließlich, aber nicht beschränkt auf alle Informationen, Software, Texte, Anzeigen, Bilder, Videos und Audios sowie deren Design, Auswahl und Anordnung) sind Eigentum von Kuddel Tech, seinen Lizenzgebern oder anderen Anbietern solcher Materialien und sind durch internationale Urheberrechts-, Marken-, Patent-, Geschäftsgeheimnis- und andere Gesetze zum Schutz des geistigen Eigentums oder der Eigentumsrechte geschützt. Diese Bedingungen erlauben Ihnen die Nutzung der Anwendung nur für Ihren persönlichen, nicht kommerziellen Gebrauch. Sie dürfen kein Material unserer Anwendung reproduzieren, verteilen, modifizieren, abgeleitete Werke davon erstellen, öffentlich anzeigen, öffentlich vorführen, erneut veröffentlichen, herunterladen, speichern oder übertragen, außer als zufälliges Ergebnis Ihrer Nutzung der Anwendung.' : 'The Application and its entire contents, features, and functionality (including but not limited to all information, software, text, displays, images, video, and audio, and the design, selection, and arrangement thereof) are owned by Kuddel Tech, its licensors, or other providers of such material and are protected by international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws. These Terms permit you to use the Application for your personal, non-commercial use only. You must not reproduce, distribute, modify, create derivative works of, publicly display, publicly perform, republish, download, store, or transmit any of the material on our Application, except as an incidental result of your use of the Application.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">9. {language === 'de' ? 'Kündigung' : 'Termination'}</h2>
-      <p>{language === 'de' ? 'Wir können Ihren Zugriff auf unsere Anwendung sofort, ohne vorherige Ankündigung oder Haftung, aus beliebigen Gründen kündigen oder aussetzen, einschließlich, aber nicht beschränkt auf, wenn Sie gegen die Bedingungen verstoßen. Mit der Kündigung erlischt Ihr Recht zur Nutzung der Anwendung sofort. Wenn Sie Ihr Konto kündigen möchten, können Sie die Nutzung der Anwendung einfach einstellen.' : 'We may terminate or suspend your access to our Application immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms. Upon termination, your right to use the Application will immediately cease. If you wish to terminate your account, you may simply discontinue using the Application.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">10. {language === 'de' ? 'Geltendes Recht und Gerichtsstand' : 'Governing Law and Jurisdiction'}</h2>
-      <p>{language === 'de' ? 'Diese Bedingungen unterliegen den Gesetzen Deutschlands und werden in Übereinstimmung mit diesen ausgelegt, ohne Berücksichtigung ihrer Kollisionsnormen. Unser Versäumnis, ein Recht oder eine Bestimmung dieser Bedingungen durchzusetzen, gilt nicht als Verzicht auf diese Rechte. Sollte eine Bestimmung dieser Bedingungen von einem Gericht für ungültig oder nicht durchsetzbar befunden werden, bleiben die übrigen Bestimmungen dieser Bedingungen in Kraft. Diese Bedingungen stellen die gesamte Vereinbarung zwischen uns bezüglich unseres Dienstes dar und ersetzen alle früheren Vereinbarungen, die wir möglicherweise bezüglich des Dienstes zwischen uns getroffen haben.' : 'These Terms shall be governed and construed in accordance with the laws of Germany, without regard to its conflict of law provisions. Our failure to enforce any right or provision of these Terms will not be considered a waiver of those rights. If any provision of these Terms is held to be invalid or unenforceable by a court, the remaining provisions of these Terms will remain in effect. These Terms constitute the entire agreement between us regarding our Service and supersede and replace any prior agreements we might have had between us regarding the Service.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">11. {language === 'de' ? 'Änderungen der Bedingungen' : 'Changes to Terms'}</h2>
-      <p>{language === 'de' ? 'Wir behalten uns das Recht vor, diese Bedingungen nach eigenem Ermessen jederzeit zu ändern oder zu ersetzen. Wenn eine Überarbeitung wesentlich ist, werden wir uns bemühen, mindestens 30 Tage vor Inkrafttreten neuer Bedingungen eine Benachrichtigung zukommen zu lassen. Was eine wesentliche Änderung darstellt, wird nach unserem alleinigen Ermessen festgelegt. Indem Sie nach Inkrafttreten dieser Überarbeitungen weiterhin auf unsere Anwendung zugreifen oder diese nutzen, erklären Sie sich damit einverstanden, an die überarbeiteten Bedingungen gebunden zu sein. Wenn Sie den neuen Bedingungen ganz oder teilweise nicht zustimmen, stellen Sie bitte die Nutzung der Website und der Anwendung ein.' : 'We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will make reasonable efforts to provide at least 30 days\' notice prior to any new terms taking effect. What constitutes a material change will be determined at our sole discretion. By continuing to access or use our Application after those revisions become effective, you agree to be bound by the revised terms. If you do not agree to the new terms, in whole or in part, please stop using the website and the Application.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">12. {language === 'de' ? 'Kontaktinformationen' : 'Contact Information'}</h2>
-      <p>{language === 'de' ? `Wenn Sie Fragen zu diesen Bedingungen haben, kontaktieren Sie uns bitte über den in der Anwendung bereitgestellten Feedback-Mechanismus oder unter der für Feedback angegebenen E-Mail-Adresse (${FEEDBACK_EMAIL_ADDRESS}).` : `If you have any questions about these Terms, please contact us via the feedback mechanism provided within the Application or at the email address specified in the Application for feedback (${FEEDBACK_EMAIL_ADDRESS}).`}</p>
-      
-      <p className="mt-8 text-sm text-red-500 dark:text-red-400">
-        <strong>{t.legalProfessionalDisclaimer}</strong>
-      </p>
-    </motion.div>
+    </div>
   );
 };
 

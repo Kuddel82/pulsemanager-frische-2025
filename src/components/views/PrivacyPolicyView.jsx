@@ -1,136 +1,191 @@
-
 import React from 'react';
-import { motion } from 'framer-motion';
-import { useAppContext } from '@/contexts/AppContext';
-import { FEEDBACK_EMAIL_ADDRESS } from '@/config/appConfig';
+import { Shield, Eye, Lock, Database, Users, FileText, AlertTriangle } from 'lucide-react';
 
 const PrivacyPolicyView = () => {
-  const { language, translations } = useAppContext();
-  const t = translations[language];
-  const currentDate = new Date().toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="prose dark:prose-invert max-w-none p-6 bg-background/50 dark:bg-slate-800/50 rounded-lg shadow-lg"
-    >
-      <div className="mb-8 p-4 border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 rounded-md">
-        <h3 className="font-bold text-yellow-700 dark:text-yellow-300">{language === 'de' ? 'WICHTIGER HINWEIS' : 'IMPORTANT NOTICE'}</h3>
-        <p className="text-sm text-yellow-600 dark:text-yellow-200">
-          {t.legalProfessionalDisclaimer}
-        </p>
+    <div className="min-h-screen pulse-text p-6">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Shield className="h-12 w-12 text-blue-400" />
+            <h1 className="text-4xl font-bold pulse-title">Datenschutzbestimmungen</h1>
+          </div>
+          <p className="text-lg pulse-text-secondary">
+            DSGVO-konforme Datenschutzerklärung für PulseManager
+          </p>
+          <p className="text-sm pulse-text-secondary mt-2">
+            Stand: {new Date().toLocaleDateString('de-DE')}
+          </p>
+        </div>
+
+        {/* Wichtige Hinweise */}
+        <div className="pulse-card p-6 border-l-4 border-red-400">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-6 w-6 text-red-400 mt-1 flex-shrink-0" />
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">⚠️ Wichtige Hinweise</h3>
+              <ul className="space-y-2 text-sm pulse-text-secondary">
+                <li>• <strong>Keine Steuerberatung:</strong> PulseManager bietet keine steuerliche Beratung. Alle Daten müssen von einem Steuerberater geprüft werden.</li>
+                <li>• <strong>Keine Haftung für externe Links:</strong> Wir übernehmen keine Verantwortung für externe Dienste (PulseX, Bridge, etc.).</li>
+                <li>• <strong>Keine Anlageberatung:</strong> Wir sind nicht am Kauf/Verkauf von Tokens beteiligt.</li>
+                <li>• <strong>Wallet-Daten:</strong> Alle ausgelesenen Wallet-Daten sind unverbindlich und müssen verifiziert werden.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 1. Verantwortlicher */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Users className="h-6 w-6 text-blue-400" />
+            1. Verantwortlicher für die Datenverarbeitung
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p><strong>Diensteanbieter:</strong> PulseManager Community Edition</p>
+            <p><strong>Kontakt:</strong> Über die App-Funktionen</p>
+            <p><strong>Zweck:</strong> Portfolio-Tracking und Steuerreport-Generierung für PulseChain-Assets</p>
+          </div>
+        </div>
+
+        {/* 2. Erhobene Daten */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Database className="h-6 w-6 text-green-400" />
+            2. Welche Daten erheben wir?
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🔐 Authentifizierung</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• E-Mail-Adresse für Login/Registrierung</li>
+                <li>• Passwort (verschlüsselt gespeichert)</li>
+                <li>• Session-Tokens für App-Zugang</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">💼 Portfolio-Daten</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• Wallet-Adressen (öffentliche Blockchain-Daten)</li>
+                <li>• Token-Balances und Transaktionshistorie</li>
+                <li>• Portfolio-Werte und ROI-Berechnungen</li>
+                <li>• Steuerreport-Daten (freiwillig generiert)</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">📊 Nutzungsdaten</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• App-Nutzung und Feature-Zugriffe</li>
+                <li>• Technische Logs für Stabilität</li>
+                <li>• Performance-Metriken</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Rechtsgrundlagen */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <FileText className="h-6 w-6 text-purple-400" />
+            3. Rechtsgrundlagen der Datenverarbeitung
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p><strong>Art. 6 Abs. 1 lit. a DSGVO:</strong> Einwilligung für Premium-Features</p>
+            <p><strong>Art. 6 Abs. 1 lit. b DSGVO:</strong> Vertragserfüllung für App-Nutzung</p>
+            <p><strong>Art. 6 Abs. 1 lit. f DSGVO:</strong> Berechtigtes Interesse an App-Stabilität</p>
+            <p><strong>Art. 6 Abs. 1 lit. c DSGVO:</strong> Rechtliche Verpflichtungen (Steuerrecht)</p>
+          </div>
+        </div>
+
+        {/* 4. Zweck der Datenverarbeitung */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Eye className="h-6 w-6 text-orange-400" />
+            4. Zweck der Datenverarbeitung
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>• <strong>Portfolio-Tracking:</strong> Anzeige Ihrer PulseChain-Assets</p>
+            <p>• <strong>ROI-Berechnung:</strong> Performance-Tracking Ihrer Investments</p>
+            <p>• <strong>Steuerreport-Generierung:</strong> Unterstützung bei Steuererklärung</p>
+            <p>• <strong>App-Funktionalität:</strong> Bereitstellung der PulseManager-Services</p>
+            <p>• <strong>Technische Stabilität:</strong> Verbesserung der App-Performance</p>
+          </div>
+        </div>
+
+        {/* 5. Datenweitergabe */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Lock className="h-6 w-6 text-red-400" />
+            5. Datenweitergabe und externe Dienste
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🔗 Externe APIs</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• <strong>Moralis API:</strong> Blockchain-Daten und Token-Preise</li>
+                <li>• <strong>Supabase:</strong> Datenbank-Speicherung</li>
+                <li>• <strong>Vercel:</strong> Hosting und CDN</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold pulse-text mb-2">⚠️ Keine Haftung für externe Links</h3>
+              <ul className="space-y-1 pulse-text-secondary">
+                <li>• PulseX, PulseChain Bridge, WGEP sind externe Dienste</li>
+                <li>• Wir übernehmen keine Verantwortung für deren Datenschutz</li>
+                <li>• Bitte prüfen Sie die Datenschutzerklärungen der externen Anbieter</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Ihre Rechte */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Shield className="h-6 w-6 text-green-400" />
+            6. Ihre Rechte nach der DSGVO
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p><strong>Art. 15 DSGVO:</strong> Auskunftsrecht über verarbeitete Daten</p>
+            <p><strong>Art. 16 DSGVO:</strong> Recht auf Berichtigung falscher Daten</p>
+            <p><strong>Art. 17 DSGVO:</strong> Recht auf Löschung ("Recht auf Vergessenwerden")</p>
+            <p><strong>Art. 18 DSGVO:</strong> Recht auf Einschränkung der Verarbeitung</p>
+            <p><strong>Art. 20 DSGVO:</strong> Recht auf Datenübertragbarkeit</p>
+            <p><strong>Art. 21 DSGVO:</strong> Widerspruchsrecht gegen Verarbeitung</p>
+            <p><strong>Art. 22 DSGVO:</strong> Recht auf Entscheidungsfreiheit bei automatisierter Verarbeitung</p>
+          </div>
+        </div>
+
+        {/* 7. Datensicherheit */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Lock className="h-6 w-6 text-blue-400" />
+            7. Datensicherheit
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>• <strong>Verschlüsselung:</strong> Alle Datenübertragungen sind SSL/TLS-verschlüsselt</p>
+            <p>• <strong>Passwort-Sicherheit:</strong> Passwörter werden verschlüsselt gespeichert</p>
+            <p>• <strong>Session-Management:</strong> Sichere Session-Tokens mit Ablaufzeiten</p>
+            <p>• <strong>Regelmäßige Updates:</strong> Sicherheitsupdates und Patches</p>
+            <p>• <strong>Backup-Sicherheit:</strong> Regelmäßige, verschlüsselte Backups</p>
+          </div>
+        </div>
+
+        {/* 8. Kontakt */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Users className="h-6 w-6 text-purple-400" />
+            8. Kontakt und Beschwerderecht
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>Bei Fragen zum Datenschutz kontaktieren Sie uns über die App-Funktionen.</p>
+            <p><strong>Aufsichtsbehörde:</strong> Sie haben das Recht, sich bei der zuständigen Datenschutzaufsichtsbehörde zu beschweren.</p>
+            <p><strong>Letzte Aktualisierung:</strong> {new Date().toLocaleDateString('de-DE')}</p>
+          </div>
+        </div>
+
       </div>
-
-              <h1 className="text-3xl font-bold pulse-title mb-6">{t.privacyPolicyTitle}</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        {t.lastUpdated.replace('{date}', currentDate)}
-      </p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">1. {language === 'de' ? 'Einführung' : 'Introduction'}</h2>
-      <p>{language === 'de' ? `Willkommen bei PulseManager ("die Anwendung", "wir", "uns" oder "unser"), entwickelt von Kuddel Tech. Wir verpflichten uns, Ihre persönlichen Daten und Ihr Recht auf Privatsphäre zu schützen. Wenn Sie Fragen oder Bedenken zu dieser Datenschutzerklärung oder unseren Praktiken in Bezug auf Ihre persönlichen Daten haben, kontaktieren Sie uns bitte unter ${FEEDBACK_EMAIL_ADDRESS}.` : `Welcome to PulseManager ("the Application," "we," "us," or "our"), developed by Kuddel Tech. We are committed to protecting your personal information and your right to privacy. If you have any questions or concerns about this privacy notice, or our practices with regards to your personal information, please contact us at ${FEEDBACK_EMAIL_ADDRESS}.`}</p>
-      <p>{language === 'de' ? 'Diese Datenschutzerklärung beschreibt, wie wir Ihre Informationen verwenden könnten, wenn Sie:' : 'This privacy notice describes how we might use your information if you:'}
-        <ul className="list-disc pl-6 space-y-1 mt-2">
-          <li>{language === 'de' ? 'Unsere Website besuchen oder unsere Anwendung PulseManager nutzen.' : 'Visit our website or use our application PulseManager.'}</li>
-          <li>{language === 'de' ? 'Auf andere verwandte Weise mit uns in Kontakt treten – einschließlich Verkauf, Marketing oder Veranstaltungen.' : 'Engage with us in other related ways ― including any sales, marketing, or events.'}</li>
-        </ul>
-      </p>
-      <p>{language === 'de' ? 'In dieser Datenschutzerklärung, wenn wir uns beziehen auf:' : 'In this privacy notice, if we refer to:'}
-        <ul className="list-disc pl-6 space-y-1 mt-2">
-          <li>{language === 'de' ? '"Anwendung", beziehen wir uns auf PulseManager.' : '"Application," we are referring to PulseManager.'}</li>
-          <li>{language === 'de' ? '"Dienste", beziehen wir uns auf unsere Anwendung und andere verwandte Dienste, einschließlich Verkauf, Marketing oder Veranstaltungen.' : '"Services," we are referring to our Application, and other related services, including any sales, marketing, or events.'}</li>
-        </ul>
-      </p>
-      <p>{language === 'de' ? 'Der Zweck dieser Datenschutzerklärung ist es, Ihnen so klar wie möglich zu erklären, welche Informationen wir sammeln, wie wir sie verwenden und welche Rechte Sie in Bezug darauf haben. Wenn es Bedingungen in dieser Datenschutzerklärung gibt, mit denen Sie nicht einverstanden sind, stellen Sie die Nutzung unserer Dienste bitte sofort ein.' : 'The purpose of this privacy notice is to explain to you in the clearest way possible what information we collect, how we use it, and what rights you have in relation to it. If there are any terms in this privacy notice that you do not agree with, please discontinue use of our Services immediately.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">2. {language === 'de' ? 'Welche Informationen sammeln wir?' : 'What Information Do We Collect?'}</h2>
-      <h3 className="text-lg font-semibold mt-4 mb-2">{language === 'de' ? 'Informationen, die Sie uns offenlegen' : 'Information You Disclose to Us'}</h3>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Wir sammeln persönliche Informationen, die Sie uns zur Verfügung stellen.' : 'In Short: We collect personal information that you provide to us.'}</em></p>
-      <p>{language === 'de' ? 'Wir sammeln persönliche Informationen, die Sie uns freiwillig zur Verfügung stellen, wenn Sie sich für ein Abonnement registrieren (falls zutreffend), Interesse an Informationen über uns oder unsere Produkte und Dienstleistungen bekunden, an Aktivitäten im Rahmen der Dienste teilnehmen (z. B. Feedback senden) oder uns anderweitig kontaktieren.' : 'We collect personal information that you voluntarily provide to us when you register for a subscription (if applicable), express an interest in obtaining information about us or our products and Services, when you participate in activities on the Services (such as sending feedback) or otherwise when you contact us.'}</p>
-      <p>{language === 'de' ? 'Die von uns gesammelten persönlichen Informationen hängen vom Kontext Ihrer Interaktionen mit uns und den Diensten, den von Ihnen getroffenen Entscheidungen und den von Ihnen genutzten Produkten und Funktionen ab. Die von uns gesammelten persönlichen Informationen können Folgendes umfassen:' : 'The personal information that we collect depends on the context of your interactions with us and the Services, the choices you make and the products and features you use. The personal information we collect may include the following:'}</p>
-      <ul className="list-disc pl-6 space-y-1 mt-2">
-        <li><strong>{language === 'de' ? 'E-Mail-Adresse:' : 'Email Address:'}</strong> {language === 'de' ? 'Wir können Ihre E-Mail-Adresse erfassen, wenn Sie unsere Dienste abonnieren oder die Feedback-Funktion nutzen.' : 'We may collect your email address if you subscribe to our services or use the feedback feature.'}</li>
-        <li><strong>{language === 'de' ? 'Zahlungsinformationen:' : 'Payment Information:'}</strong> {language === 'de' ? 'Wenn Sie Premium-Funktionen abonnieren, erfasst unser Drittanbieter-Zahlungsabwickler (z. B. Stripe) die zur Abwicklung Ihrer Transaktion erforderlichen Zahlungsinformationen. Wir speichern Ihre vollständigen Zahlungskartendaten nicht.' : 'If you subscribe to premium features, our third-party payment processor (e.g., Stripe) will collect payment information necessary to process your transaction. We do not store your full payment card details.'}</li>
-      </ul>
-      <p>{language === 'de' ? 'Alle persönlichen Informationen, die Sie uns zur Verfügung stellen, müssen wahr, vollständig und korrekt sein, und Sie müssen uns über Änderungen dieser persönlichen Informationen informieren.' : 'All personal information that you provide to us must be true, complete and accurate, and you must notify us of any changes to such personal information.'}</p>
-
-      <h3 className="text-lg font-semibold mt-4 mb-2">{language === 'de' ? 'Automatisch gesammelte Informationen (lokal)' : 'Information Automatically Collected (Locally)'}</h3>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Einige Informationen – wie Ihre Internetprotokoll-(IP)-Adresse und/oder Browser- und Geräteeigenschaften – werden automatisch erfasst, wenn Sie unsere Dienste besuchen, dies sind jedoch typischerweise Standard-Serverprotokolle und werden von PulseManager nicht aktiv für Tracking über die von unserem Hosting-Dienst bereitgestellten grundlegenden Analysen hinaus verwendet. PulseManager selbst verwendet hauptsächlich lokalen Speicher für Präferenzen.' : 'In Short: Some information – such as your Internet Protocol (IP) address and/or browser and device characteristics – is collected automatically when you visit our Services, but this is typically standard server logs and not actively used for tracking by PulseManager beyond basic analytics provided by our hosting service. PulseManager itself primarily uses local storage for preferences.'}</em></p>
-      <p>{language === 'de' ? 'Wenn Sie die Anwendung verwenden, werden bestimmte Informationen lokal auf Ihrem Gerät mithilfe des Browser-LocalStorage gespeichert. Dies beinhaltet:' : 'When you use the Application, certain information is stored locally on your device using browser localStorage. This includes:'}</p>
-      <ul className="list-disc pl-6 space-y-1 mt-2">
-        <li><strong>{language === 'de' ? 'Anwendungseinstellungen:' : 'Application Preferences:'}</strong> {language === 'de' ? 'Wie Theme (Hell-/Dunkelmodus) und Spracheinstellungen.' : 'Such as theme (light/dark mode) and language settings.'}</li>
-        <li><strong>{language === 'de' ? 'Abonnementstatus:' : 'Subscription Status:'}</strong> {language === 'de' ? 'Informationen zu Ihrer Testphase oder Ihrem aktiven Abonnement.' : 'Information about your trial period or active subscription.'}</li>
-        <li><strong>{language === 'de' ? 'Öffentliche Wallet-Adressen (wenn Sie eine Wallet verbinden):' : 'Public Wallet Addresses (if you connect a wallet):'}</strong> {language === 'de' ? 'Um eine dauerhafte Anzeige und Funktionalität zu gewährleisten, ohne ständig neu verbinden zu müssen. Wir sammeln oder speichern NIEMALS Ihre privaten Schlüssel oder Seed-Phrasen.' : 'To provide persistent display and functionality without needing to reconnect constantly. We NEVER collect or store your private keys or seed phrases.'}</li>
-      </ul>
-      <p>{language === 'de' ? 'Wir übertragen diese lokal gespeicherten Daten nicht an unsere Server, außer wenn dies für einen von Ihnen ausdrücklich genutzten Dienst erforderlich ist (z. B. wenn Feedback zukünftig über Supabase gespeichert würde, würde der Feedback-Inhalt gesendet).' : 'We do not transmit this locally stored data to our servers, except where necessary for a service you explicitly use (e.g., if feedback were to be stored via Supabase in the future, the feedback content would be sent).'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">3. {language === 'de' ? 'Wie verwenden wir Ihre Informationen?' : 'How Do We Use Your Information?'}</h2>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Wir verarbeiten Ihre Informationen für Zwecke, die auf legitimen Geschäftsinteressen, der Erfüllung unseres Vertrags mit Ihnen, der Einhaltung unserer gesetzlichen Verpflichtungen und/oder Ihrer Zustimmung beruhen.' : 'In Short: We process your information for purposes based on legitimate business interests, the fulfillment of our contract with you, compliance with our legal obligations, and/or your consent.'}</em></p>
-      <p>{language === 'de' ? 'Wir verwenden über unsere Dienste gesammelte persönliche Informationen für eine Vielzahl von unten beschriebenen Geschäftszwecken. Wir verarbeiten Ihre persönlichen Informationen für diese Zwecke unter Berufung auf unsere legitimen Geschäftsinteressen, um einen Vertrag mit Ihnen abzuschließen oder zu erfüllen, mit Ihrer Zustimmung und/oder zur Einhaltung unserer gesetzlichen Verpflichtungen. Wir geben die spezifischen Verarbeitungsgrundlagen an, auf die wir uns neben jedem unten aufgeführten Zweck stützen.' : 'We use personal information collected via our Services for a variety of business purposes described below. We process your personal information for these purposes in reliance on our legitimate business interests, in order to enter into or perform a contract with you, with your consent, and/or for compliance with our legal obligations. We indicate the specific processing grounds we rely on next to each purpose listed below.'}</p>
-      <p>{language === 'de' ? 'Wir verwenden die von uns gesammelten oder erhaltenen Informationen:' : 'We use the information we collect or receive:'}</p>
-      <ul className="list-disc pl-6 space-y-1 mt-2">
-        <li><strong>{language === 'de' ? 'Zur Erleichterung der Kontoerstellung und des Anmeldevorgangs (falls zutreffend).' : 'To facilitate account creation and logon process (if applicable).'}</strong></li>
-        <li><strong>{language === 'de' ? 'Zur Verwaltung von Benutzerkonten.' : 'To manage user accounts.'}</strong> {language === 'de' ? 'Wir können Ihre Informationen zum Zwecke der Verwaltung Ihres Kontos und dessen Aufrechterhaltung verwenden.' : 'We may use your information for the purposes of managing your account and keeping it in working order.'}</li>
-        <li><strong>{language === 'de' ? 'Um Ihnen administrative Informationen zuzusenden.' : 'To send administrative information to you.'}</strong> {language === 'de' ? 'Wir können Ihre persönlichen Informationen verwenden, um Ihnen Produkt-, Service- und neue Funktionsinformationen und/oder Informationen über Änderungen unserer Bedingungen und Richtlinien zuzusenden.' : 'We may use your personal information to send you product, service and new feature information and/or information about changes to our terms, conditions, and policies.'}</li>
-        <li><strong>{language === 'de' ? 'Zum Schutz unserer Dienste.' : 'To protect our Services.'}</strong> {language === 'de' ? 'Wir können Ihre Informationen als Teil unserer Bemühungen verwenden, unsere Dienste sicher zu halten (z. B. zur Betrugsüberwachung und -prävention).' : 'We may use your information as part of our efforts to keep our Services safe and secure (for example, for fraud monitoring and prevention).'}</li>
-        <li><strong>{language === 'de' ? 'Zur Durchsetzung unserer Bedingungen und Richtlinien für Geschäftszwecke, zur Einhaltung gesetzlicher und regulatorischer Anforderungen oder im Zusammenhang mit unserem Vertrag.' : 'To enforce our terms, conditions and policies for business purposes, to comply with legal and regulatory requirements or in connection with our contract.'}</strong></li>
-        <li><strong>{language === 'de' ? 'Um auf rechtliche Anfragen zu antworten und Schaden abzuwenden.' : 'To respond to legal requests and prevent harm.'}</strong> {language === 'de' ? 'Wenn wir eine Vorladung oder eine andere rechtliche Anfrage erhalten, müssen wir möglicherweise die von uns gespeicherten Daten überprüfen, um zu bestimmen, wie wir reagieren sollen.' : 'If we receive a subpoena or other legal request, we may need to inspect the data we hold to determine how to respond.'}</li>
-        <li><strong>{language === 'de' ? 'Zur Verwaltung Ihrer Abonnements und zur Bereitstellung von Kundensupport.' : 'To manage your subscriptions and provide customer support.'}</strong></li>
-        <li><strong>{language === 'de' ? 'Um auf Benutzeranfragen zu antworten/Benutzern Support anzubieten.' : 'To respond to user inquiries/offer support to users.'}</strong> {language === 'de' ? 'Wir können Ihre Informationen verwenden, um auf Ihre Anfragen zu antworten und mögliche Probleme zu lösen, die Sie bei der Nutzung unserer Dienste haben könnten.' : 'We may use your information to respond to your inquiries and solve any potential issues you might have with the use of our Services.'}</li>
-        <li><strong>{language === 'de' ? 'Für andere Geschäftszwecke.' : 'For other Business Purposes.'}</strong> {language === 'de' ? 'Wir können Ihre Informationen für andere Geschäftszwecke verwenden, wie z. B. Datenanalyse, Identifizierung von Nutzungstrends, Bestimmung der Wirksamkeit unserer Werbekampagnen und zur Bewertung und Verbesserung unserer Dienste, Produkte, Marketingmaßnahmen und Ihrer Erfahrung. Wir können diese Informationen in aggregierter und anonymisierter Form verwenden und speichern, sodass sie nicht mit einzelnen Endbenutzern in Verbindung gebracht werden und keine persönlichen Informationen enthalten.' : 'We may use your information for other Business Purposes, such as data analysis, identifying usage trends, determining the effectiveness of our promotional campaigns and to evaluate and improve our Services, products, marketing and your experience. We may use and store this information in aggregated and anonymized form so that it is not associated with individual end users and does not include personal information.'}</li>
-      </ul>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">4. {language === 'de' ? 'Wird Ihre Information mit jemandem geteilt?' : 'Will Your Information Be Shared With Anyone?'}</h2>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Wir teilen Informationen nur mit Ihrer Zustimmung, um Gesetze einzuhalten, Ihnen Dienstleistungen zu erbringen, Ihre Rechte zu schützen oder geschäftliche Verpflichtungen zu erfüllen.' : 'In Short: We only share information with your consent, to comply with laws, to provide you with services, to protect your rights, or to fulfill business obligations.'}</em></p>
-      <p>{language === 'de' ? 'Wir können Ihre von uns gespeicherten Daten auf folgender Rechtsgrundlage verarbeiten oder weitergeben:' : 'We may process or share your data that we hold based on the following legal basis:'}</p>
-      <ul className="list-disc pl-6 space-y-1 mt-2">
-        <li><strong>{language === 'de' ? 'Zustimmung:' : 'Consent:'}</strong> {language === 'de' ? 'Wir können Ihre Daten verarbeiten, wenn Sie uns eine spezifische Zustimmung zur Verwendung Ihrer persönlichen Informationen für einen bestimmten Zweck gegeben haben.' : 'We may process your data if you have given us specific consent to use your personal information for a specific purpose.'}</li>
-        <li><strong>{language === 'de' ? 'Legitime Interessen:' : 'Legitimate Interests:'}</strong> {language === 'de' ? 'Wir können Ihre Daten verarbeiten, wenn dies vernünftigerweise notwendig ist, um unsere legitimen Geschäftsinteressen zu erreichen.' : 'We may process your data when it is reasonably necessary to achieve our legitimate business interests.'}</li>
-        <li><strong>{language === 'de' ? 'Vertragserfüllung:' : 'Performance of a Contract:'}</strong> {language === 'de' ? 'Wenn wir einen Vertrag mit Ihnen geschlossen haben, können wir Ihre persönlichen Informationen verarbeiten, um die Bedingungen unseres Vertrags zu erfüllen.' : 'Where we have entered into a contract with you, we may process your personal information to fulfill the terms of our contract.'}</li>
-        <li><strong>{language === 'de' ? 'Gesetzliche Verpflichtungen:' : 'Legal Obligations:'}</strong> {language === 'de' ? 'Wir können Ihre Informationen offenlegen, wenn wir gesetzlich dazu verpflichtet sind, um geltendes Recht, behördliche Anfragen, ein Gerichtsverfahren, einen Gerichtsbeschluss oder ein rechtliches Verfahren einzuhalten, wie z. B. als Reaktion auf einen Gerichtsbeschluss oder eine Vorladung (einschließlich als Reaktion auf öffentliche Behörden zur Erfüllung nationaler Sicherheits- oder Strafverfolgungsanforderungen).' : 'We may disclose your information where we are legally required to do so in order to comply with applicable law, governmental requests, a judicial proceeding, court order, or legal process, such as in response to a court order or a subpoena (including in response to public authorities to meet national security or law enforcement requirements).'}</li>
-        <li><strong>{language === 'de' ? 'Wichtige Interessen:' : 'Vital Interests:'}</strong> {language === 'de' ? 'Wir können Ihre Informationen offenlegen, wenn wir der Ansicht sind, dass dies notwendig ist, um potenzielle Verstöße gegen unsere Richtlinien, mutmaßlichen Betrug, Situationen mit potenziellen Bedrohungen für die Sicherheit einer Person und illegale Aktivitäten zu untersuchen, zu verhindern oder Maßnahmen zu ergreifen, oder als Beweismittel in Rechtsstreitigkeiten, an denen wir beteiligt sind.' : 'We may disclose your information where we believe it is necessary to investigate, prevent, or take action regarding potential violations of our policies, suspected fraud, situations involving potential threats to the safety of any person and illegal activities, or as evidence in litigation in which we are involved.'}</li>
-      </ul>
-      <p>{language === 'de' ? 'Genauer gesagt müssen wir Ihre Daten möglicherweise in folgenden Situationen verarbeiten oder Ihre persönlichen Informationen weitergeben:' : 'More specifically, we may need to process your data or share your personal information in the following situations:'}</p>
-      <ul className="list-disc pl-6 space-y-1 mt-2">
-        <li><strong>{language === 'de' ? 'Geschäftsübertragungen.' : 'Business Transfers.'}</strong> {language === 'de' ? 'Wir können Ihre Informationen im Zusammenhang mit oder während der Verhandlungen über eine Fusion, den Verkauf von Unternehmensvermögen, eine Finanzierung oder den Erwerb unseres gesamten oder eines Teils unseres Geschäfts an ein anderes Unternehmen weitergeben oder übertragen.' : 'We may share or transfer your information in connection with, or during negotiations of, any merger, sale of company assets, financing, or acquisition of all or a portion of our business to another company.'}</li>
-        <li><strong>{language === 'de' ? 'Drittanbieter-Dienstleister.' : 'Third-Party Service Providers.'}</strong> {language === 'de' ? 'Wir können Ihre Daten an Drittanbieter, Dienstleister, Auftragnehmer oder Agenten weitergeben, die Dienstleistungen für uns oder in unserem Namen erbringen und Zugriff auf solche Informationen benötigen, um diese Arbeit auszuführen. Beispiele hierfür sind: Zahlungsabwicklung (z. B. Stripe), Datenanalyse, E-Mail-Zustellung, Hosting-Dienste, Kundenservice und Marketingmaßnahmen. Wir können ausgewählten Dritten gestatten, Tracking-Technologie in den Diensten zu verwenden, die es ihnen ermöglicht, in unserem Namen Daten darüber zu sammeln, wie Sie im Laufe der Zeit mit unseren Diensten interagieren. Diese Informationen können unter anderem dazu verwendet werden, Daten zu analysieren und zu verfolgen, die Popularität bestimmter Inhalte, Seiten oder Funktionen zu bestimmen und Online-Aktivitäten besser zu verstehen. Sofern in dieser Mitteilung nicht anders beschrieben, geben wir keine Ihrer Informationen zu Werbezwecken an Dritte weiter, verkaufen, vermieten oder handeln sie nicht.' : 'We may share your data with third-party vendors, service providers, contractors or agents who perform services for us or on our behalf and require access to such information to do that work. Examples include: payment processing (e.g., Stripe), data analysis, email delivery, hosting services, customer service and marketing efforts. We may allow selected third parties to use tracking technology on the Services, which will enable them to collect data on our behalf about how you interact with our Services over time. This information may be used to, among other things, analyze and track data, determine the popularity of certain content, pages or features, and better understand online activity. Unless described in this notice, we do not share, sell, rent or trade any of your information with third parties for their promotional purposes.'}</li>
-      </ul>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">5. {language === 'de' ? 'Wie lange bewahren wir Ihre Informationen auf?' : 'How Long Do We Keep Your Information?'}</h2>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Wir bewahren Ihre Informationen so lange auf, wie es zur Erfüllung der in dieser Datenschutzerklärung dargelegten Zwecke erforderlich ist, es sei denn, eine längere Aufbewahrungsfrist ist gesetzlich vorgeschrieben oder zulässig.' : 'In Short: We keep your information for as long as necessary to fulfill the purposes outlined in this privacy notice unless otherwise required by law.'}</em></p>
-      <p>{language === 'de' ? 'Wir bewahren Ihre persönlichen Informationen nur so lange auf, wie es für die in dieser Datenschutzerklärung dargelegten Zwecke erforderlich ist, es sei denn, eine längere Aufbewahrungsfrist ist gesetzlich vorgeschrieben oder zulässig (z. B. Steuer-, Buchhaltungs- oder andere gesetzliche Anforderungen). Kein Zweck in dieser Mitteilung erfordert, dass wir Ihre persönlichen Informationen länger aufbewahren als den Zeitraum, in dem Benutzer ein Konto oder ein aktives Abonnement bei uns haben (falls zutreffend) zuzüglich eines angemessenen Zeitraums für die Kontowiederherstellung oder Streitbeilegung.' : 'We will only keep your personal information for as long as it is necessary for the purposes set out in this privacy notice, unless a longer retention period is required or permitted by law (such as tax, accounting or other legal requirements). No purpose in this notice will require us keeping your personal information for longer than the period of time in which users have an account or active subscription with us (if applicable) plus a reasonable period for account recovery or dispute resolution.'}</p>
-      <p>{language === 'de' ? 'Wenn wir keinen laufenden legitimen Geschäftszweck mehr haben, Ihre persönlichen Informationen zu verarbeiten, werden wir diese Informationen entweder löschen oder anonymisieren, oder, falls dies nicht möglich ist (z. B. weil Ihre persönlichen Informationen in Backup-Archiven gespeichert wurden), werden wir Ihre persönlichen Informationen sicher speichern und von jeder weiteren Verarbeitung isolieren, bis eine Löschung möglich ist.' : 'When we have no ongoing legitimate business need to process your personal information, we will either delete or anonymize such information, or, if this is not possible (for example, because your personal information has been stored in backup archives), then we will securely store your personal information and isolate it from any further processing until deletion is possible.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">6. {language === 'de' ? 'Wie schützen wir Ihre Informationen?' : 'How Do We Keep Your Information Safe?'}</h2>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Wir zielen darauf ab, Ihre persönlichen Informationen durch ein System organisatorischer und technischer Sicherheitsmaßnahmen zu schützen.' : 'In Short: We aim to protect your personal information through a system of organizational and technical security measures.'}</em></p>
-      <p>{language === 'de' ? 'Wir haben geeignete technische und organisatorische Sicherheitsmaßnahmen implementiert, die darauf ausgelegt sind, die Sicherheit aller von uns verarbeiteten persönlichen Informationen zu schützen. Trotz unserer Schutzmaßnahmen und Bemühungen, Ihre Informationen zu sichern, kann jedoch keine elektronische Übertragung über das Internet oder Informationsspeichertechnologie zu 100 % sicher garantiert werden, sodass wir nicht versprechen oder garantieren können, dass Hacker, Cyberkriminelle oder andere unbefugte Dritte unsere Sicherheit nicht überwinden und Ihre Informationen unsachgemäß sammeln, darauf zugreifen, stehlen oder ändern können. Obwohl wir unser Bestes tun werden, um Ihre persönlichen Informationen zu schützen, erfolgt die Übertragung persönlicher Informationen zu und von unseren Diensten auf Ihr eigenes Risiko. Sie sollten nur innerhalb einer sicheren Umgebung auf die Dienste zugreifen.' : 'We have implemented appropriate technical and organizational security measures designed to protect the security of any personal information we process. However, despite our safeguards and efforts to secure your information, no electronic transmission over the Internet or information storage technology can be guaranteed to be 100% secure, so we cannot promise or guarantee that hackers, cybercriminals, or other unauthorized third parties will not be able to defeat our security and improperly collect, access, steal, or modify your information. Although we will do our best to protect your personal information, transmission of personal information to and from our Services is at your own risk. You should only access the Services within a secure environment.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">7. {language === 'de' ? 'Sammeln wir Informationen von Minderjährigen?' : 'Do We Collect Information From Minors?'}</h2>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Wir sammeln nicht wissentlich Daten von Kindern unter 18 Jahren oder vermarkten an diese.' : 'In Short: We do not knowingly collect data from or market to children under 18 years of age.'}</em></p>
-      <p>{language === 'de' ? 'Wir fordern nicht wissentlich Daten von Kindern unter 18 Jahren an oder vermarkten an diese. Durch die Nutzung der Dienste erklären Sie, dass Sie mindestens 18 Jahre alt sind oder dass Sie der Elternteil oder Erziehungsberechtigte eines solchen Minderjährigen sind und der Nutzung der Dienste durch diesen minderjährigen Abhängigen zustimmen. Wenn wir erfahren, dass persönliche Informationen von Benutzern unter 18 Jahren gesammelt wurden, werden wir das Konto (falls vorhanden) deaktivieren und angemessene Maßnahmen ergreifen, um solche Daten unverzüglich aus unseren Aufzeichnungen zu löschen. Wenn Sie Kenntnis von Daten erhalten, die wir möglicherweise von Kindern unter 18 Jahren gesammelt haben, kontaktieren Sie uns bitte unter ' + FEEDBACK_EMAIL_ADDRESS + '.' : 'We do not knowingly solicit data from or market to children under 18 years of age. By using the Services, you represent that you are at least 18 or that you are the parent or guardian of such a minor and consent to such minor dependent’s use of the Services. If we learn that personal information from users less than 18 years of age has been collected, we will deactivate the account (if any) and take reasonable measures to promptly delete such data from our records. If you become aware of any data we may have collected from children under age 18, please contact us at ' + FEEDBACK_EMAIL_ADDRESS + '.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">8. {language === 'de' ? 'Was sind Ihre Datenschutzrechte?' : 'What Are Your Privacy Rights?'}</h2>
-      <p><em>{language === 'de' ? 'Kurz gesagt: In einigen Regionen, wie dem Europäischen Wirtschaftsraum (EWR) und dem Vereinigten Königreich (UK), haben Sie Rechte, die Ihnen einen größeren Zugang zu und eine bessere Kontrolle über Ihre persönlichen Informationen ermöglichen. Sie können Ihr Konto jederzeit überprüfen, ändern oder kündigen (falls zutreffend).' : 'In Short: In some regions, such as the European Economic Area (EEA) and United Kingdom (UK), you have rights that allow you greater access to and control over your personal information. You may review, change, or terminate your account at any time (if applicable).'}</em></p>
-      <p>{language === 'de' ? 'In einigen Regionen (wie dem EWR und dem UK) haben Sie bestimmte Rechte gemäß den geltenden Datenschutzgesetzen. Diese können das Recht umfassen, (i) Zugang zu Ihren persönlichen Informationen anzufordern und eine Kopie davon zu erhalten, (ii) Berichtigung oder Löschung zu verlangen; (iii) die Verarbeitung Ihrer persönlichen Informationen einzuschränken; und (iv) gegebenenfalls auf Datenübertragbarkeit. Unter bestimmten Umständen haben Sie möglicherweise auch das Recht, der Verarbeitung Ihrer persönlichen Informationen zu widersprechen. Um eine solche Anfrage zu stellen, verwenden Sie bitte die unten angegebenen Kontaktdaten. Wir werden jede Anfrage gemäß den geltenden Datenschutzgesetzen prüfen und bearbeiten.' : 'In some regions (like the EEA and UK), you have certain rights under applicable data protection laws. These may include the right (i) to request access and obtain a copy of your personal information, (ii) to request rectification or erasure; (iii) to restrict the processing of your personal information; and (iv) if applicable, to data portability. In certain circumstances, you may also have the right to object to the processing of your personal information. To make such a request, please use the contact details provided below. We will consider and act upon any request in accordance with applicable data protection laws.'}</p>
-      <p>{language === 'de' ? 'Wenn wir uns auf Ihre Zustimmung zur Verarbeitung Ihrer persönlichen Informationen verlassen, haben Sie das Recht, Ihre Zustimmung jederzeit zu widerrufen. Bitte beachten Sie jedoch, dass dies die Rechtmäßigkeit der Verarbeitung vor ihrem Widerruf nicht berührt, noch die Verarbeitung Ihrer persönlichen Informationen, die auf anderen rechtmäßigen Verarbeitungsgrundlagen als der Zustimmung beruht.' : 'If we are relying on your consent to process your personal information, you have the right to withdraw your consent at any time. Please note however that this will not affect the lawfulness of the processing before its withdrawal, nor will it affect the processing of your personal information conducted in reliance on lawful processing grounds other than consent.'}</p>
-      <p>{language === 'de' ? 'Wenn Sie im EWR oder im UK ansässig sind und glauben, dass wir Ihre persönlichen Informationen unrechtmäßig verarbeiten, haben Sie auch das Recht, sich bei Ihrer lokalen Datenschutzaufsichtsbehörde zu beschweren. Deren Kontaktdaten finden Sie hier: ' : 'If you are a resident in the EEA or UK and you believe we are unlawfully processing your personal information, you also have the right to complain to your local data protection supervisory authority. You can find their contact details here: '}<a href="https://edpb.europa.eu/about-edpb/board/members_en" target="_blank" rel="noopener noreferrer">https://edpb.europa.eu/about-edpb/board/members_en</a>.</p>
-      <p>{language === 'de' ? 'Wenn Sie in der Schweiz ansässig sind, finden Sie die Kontaktdaten der Datenschutzbehörden hier: ' : 'If you are a resident in Switzerland, the contact details for the data protection authorities are available here: '}<a href="https://www.edoeb.admin.ch/edoeb/en/home.html" target="_blank" rel="noopener noreferrer">https://www.edoeb.admin.ch/edoeb/en/home.html</a>.</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">9. {language === 'de' ? 'Kontrollen für Do-Not-Track-Funktionen' : 'Controls for Do-Not-Track Features'}</h2>
-      <p>{language === 'de' ? 'Die meisten Webbrowser und einige mobile Betriebssysteme und mobile Anwendungen enthalten eine Do-Not-Track ("DNT")-Funktion oder -Einstellung, die Sie aktivieren können, um Ihre Datenschutzpräferenz zu signalisieren, dass Daten über Ihre Online-Browsing-Aktivitäten nicht überwacht und gesammelt werden sollen. Derzeit ist noch kein einheitlicher Technologiestandard für die Erkennung und Implementierung von DNT-Signalen festgelegt. Daher reagieren wir derzeit nicht auf DNT-Browsersignale oder andere Mechanismen, die Ihre Wahl, nicht online verfolgt zu werden, automatisch kommunizieren. Wenn in Zukunft ein Standard für Online-Tracking verabschiedet wird, dem wir folgen müssen, werden wir Sie in einer überarbeiteten Version dieser Datenschutzerklärung über diese Praxis informieren.' : 'Most web browsers and some mobile operating systems and mobile applications include a Do-Not-Track ("DNT") feature or setting you can activate to signal your privacy preference not to have data about your online browsing activities monitored and collected. At this stage no uniform technology standard for recognizing and implementing DNT signals has been finalized. As such, we do not currently respond to DNT browser signals or any other mechanism that automatically communicates your choice not to be tracked online. If a standard for online tracking is adopted that we must follow in the future, we will inform you about that practice in a revised version of this privacy notice.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">10. {language === 'de' ? 'Aktualisieren wir diese Mitteilung?' : 'Do We Make Updates to This Notice?'}</h2>
-      <p><em>{language === 'de' ? 'Kurz gesagt: Ja, wir werden diese Mitteilung bei Bedarf aktualisieren, um mit den relevanten Gesetzen konform zu bleiben.' : 'In Short: Yes, we will update this notice as necessary to stay compliant with relevant laws.'}</em></p>
-      <p>{language === 'de' ? 'Wir können diese Datenschutzerklärung von Zeit zu Zeit aktualisieren. Die aktualisierte Version wird durch ein aktualisiertes "Zuletzt aktualisiert"-Datum gekennzeichnet und die aktualisierte Version tritt in Kraft, sobald sie zugänglich ist. Wenn wir wesentliche Änderungen an dieser Datenschutzerklärung vornehmen, können wir Sie entweder durch eine gut sichtbare Veröffentlichung einer Mitteilung über solche Änderungen oder durch direkte Zusendung einer Benachrichtigung informieren. Wir empfehlen Ihnen, diese Datenschutzerklärung regelmäßig zu überprüfen, um darüber informiert zu sein, wie wir Ihre Informationen schützen.' : 'We may update this privacy notice from time to time. The updated version will be indicated by an updated "Last Updated" date and the updated version will be effective as soon as it is accessible. If we make material changes to this privacy notice, we may notify you either by prominently posting a notice of such changes or by directly sending you a notification. We encourage you to review this privacy notice frequently to be informed of how we are protecting your information.'}</p>
-
-      <h2 className="text-xl font-semibold mt-6 mb-3">11. {language === 'de' ? 'Wie können Sie uns bezüglich dieser Mitteilung kontaktieren?' : 'How Can You Contact Us About This Notice?'}</h2>
-      <p>{language === 'de' ? `Wenn Sie Fragen oder Kommentare zu dieser Mitteilung haben, können Sie uns eine E-Mail an ${FEEDBACK_EMAIL_ADDRESS} senden oder per Post an: [Kuddel Tech - Bitte physische Adresse einfügen, falls zutreffend - Rechtsberatung einholen].` : `If you have any questions or comments about this notice, you may email us at ${FEEDBACK_EMAIL_ADDRESS} or by post to: [Kuddel Tech - Please Insert Physical Address if Applicable - Consult Legal Advice].`}</p>
-      
-      <p className="mt-8 text-sm text-red-500 dark:text-red-400">
-        <strong>{t.legalProfessionalDisclaimer}</strong>
-      </p>
-    </motion.div>
+    </div>
   );
 };
 
