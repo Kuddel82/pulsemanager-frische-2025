@@ -81,7 +81,7 @@ const MainLayout = () => {
       id: 'pulsechain-bridge',
       label: 'PulseChain Bridge',
       icon: Network,
-      href: 'https://bridge.pulsechain.com',
+      href: 'https://bridge.mypinata.cloud/ipfs/bafybeif242ld54nzjg2aqxvfse23wpbkqbyqasj3usgslccuajnykonzo4/#/bridge',
       external: true,
       description: 'Tokens zwischen Chains'
     },
