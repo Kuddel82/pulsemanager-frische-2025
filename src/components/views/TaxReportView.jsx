@@ -4,6 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 
+// 🔥 NEU: SICHERER TAX ADVISOR EXPORT
+import TaxAdvisorExportView from '../tax/TaxAdvisorExportView';
+
 // 🔥🔥🔥 COMPONENT LOADED TEST 🔥🔥🔥
 console.log("🔥🔥🔥 TAX REPORT COMPONENT LOADED! 🔥🔥🔥");
 
@@ -1068,6 +1071,29 @@ const SimpleTaxTracker = () => {
                 )}
               </div>
             )}
+
+            {/* 🔥 NEU: SICHERER TAX ADVISOR EXPORT */}
+            <div className="mb-8 p-6 rounded-lg border-l-4" style={{backgroundColor: 'var(--bg-secondary)', borderLeftColor: 'var(--accent-green)'}}>
+              <div className="flex items-center mb-4">
+                <span className="text-2xl mr-3">🔒</span>
+                <h3 className="text-xl font-bold pulse-text-gradient">
+                  SICHERER TAX ADVISOR EXPORT - KEINE STEUERBERECHNUNGEN
+                </h3>
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+                <h4 className="font-semibold text-yellow-800 mb-2">⚠️ WICHTIGER HINWEIS</h4>
+                <div className="text-sm text-yellow-700 space-y-1">
+                  <div>• <strong>KEINE STEUERBERECHNUNGEN</strong> - Nur Datensammlung für Steuerberater</div>
+                  <div>• <strong>DSGVO-konform</strong> - Keine steuerliche Beratung</div>
+                  <div>• <strong>Professionelle Grundlage</strong> - Für qualifizierte Steuerberater</div>
+                  <div>• <strong>Export-Formate:</strong> Excel, CSV, HTML</div>
+                </div>
+              </div>
+
+              {/* Tax Advisor Export Component */}
+              <TaxAdvisorExportView walletAddress={walletAddress} />
+            </div>
 
             {/* Events Table - PulseChain Style */}
             {taxData.transactions && taxData.transactions.length > 0 && (

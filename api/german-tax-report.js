@@ -12,6 +12,9 @@
 // 🇩🇪 GERMAN TAX SYSTEM INTEGRATION
 const { GermanTaxCalculator, integrateGermanTaxSystem } = require('../src/services/GermanTaxCalculator');
 
+// 🔥 NEU: SICHERER TAX DATA EXPORTER (OHNE STEUERBERECHNUNGEN)
+const { GermanTaxDataExporter, integrateTaxAdvisorExport } = require('../src/services/GermanTaxDataExporter');
+
 // 🚨 MORALIS IMPORT FIX - BACKEND CRASH RESOLVED!
 // Problem: ReferenceError: Moralis ist nicht definiert
 // Solution: Proper Moralis SDK Import + Alternative API approach
@@ -1091,41 +1094,47 @@ module.exports = async function handler(req, res) {
     // Store for emergency access
     global.lastApiResponse = finalResponse;
 
-    // 🇩🇪 GERMAN TAX SYSTEM INTEGRATION - ERWEITERTE STEUERBERECHNUNG
+    // 🇩🇪 SICHERER TAX DATA EXPORTER - OHNE STEUERBERECHNUNGEN
     try {
-      console.log('🇩🇪 Starting German Tax System integration...');
+      console.log('🇩🇪 Starting Safe Tax Data Export (NO TAX CALCULATIONS)...');
       
-      // German Tax Report mit den verarbeiteten Transaktionen berechnen
-      const germanTaxResult = integrateGermanTaxSystem(processedTransactions);
+      // Sicheren Tax Advisor Export erstellen (nur Daten sammeln, nicht interpretieren)
+      const taxAdvisorExport = integrateTaxAdvisorExport(processedTransactions);
       
-      // Erweiterte Response mit German Tax System
+      // Erweiterte Response mit sicherem Tax Data Export
       const enhancedResponse = {
         ...finalResponse,
-        germanTaxReport: germanTaxResult.germanTaxReport,
-        taxAdvisorExport: germanTaxResult.taxAdvisorExport,
-        germanTaxSystem: {
+        taxAdvisorExport: taxAdvisorExport.data,
+        safeTaxSystem: {
           integrated: true,
           transactionCount: processedTransactions.length,
-          fifoMethodUsed: true,
-          compliance: 'Deutsches Steuerrecht 2025',
+          approach: 'DATA_COLLECTION_ONLY',
+          compliance: 'DSGVO-konform - Keine Steuerberatung',
+          disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für Steuerberater',
           features: [
-            'FIFO Cost Basis',
-            '365-Tage Haltefrist',
-            '§23 vs §22 EStG Kategorisierung',
-            '€600 Freigrenze pro Jahr',
-            'Jährliche Steuerberechnung'
+            'FIFO Haltefrist-Berechnung (informativ)',
+            'Transaktions-Kategorisierung',
+            'ROI Event Markierung',
+            'Export-Formate: Excel, CSV, HTML',
+            'Professionelle Steuerberater-Grundlage'
+          ],
+          limitations: [
+            'Nur eine Wallet analysiert',
+            'Keine finalen Steuerberechnungen',
+            'Andere Trades/Wallets nicht berücksichtigt',
+            'Professionelle Steuerberatung empfohlen'
           ]
         }
       };
 
-      console.log('✅ German Tax System successfully integrated');
+      console.log('✅ Safe Tax Data Export successfully integrated');
       return res.status(200).json(enhancedResponse);
       
-    } catch (germanTaxError) {
-      console.error('⚠️ German Tax System integration failed:', germanTaxError);
+    } catch (taxExportError) {
+      console.error('⚠️ Safe Tax Data Export failed:', taxExportError);
       
-      // Fallback: Return original response if German Tax System fails
-      console.log('🔄 Returning original response without German Tax System');
+      // Fallback: Return original response if Tax Export fails
+      console.log('🔄 Returning original response without Tax Export');
       return res.status(200).json(finalResponse);
     }
     
