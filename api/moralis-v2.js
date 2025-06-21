@@ -139,13 +139,14 @@ export default async function handler(req, res) {
   console.log(`🔵 MAPPED CHAIN: ${chainId}`);
 
   // 🚨 NOTFALL-FALLBACK für Portfolio
-  if (chain === 'pulsechain' && endpoint === 'erc20') {
-    console.log(`🚨 NOTFALL-FALLBACK: Portfolio pulsechain erc20 - returning empty array`);
+  if (chain === 'pulsechain') {
+    console.log(`🚨 NOTFALL-FALLBACK: Portfolio pulsechain ${endpoint} - returning empty result`);
     return res.status(200).json({
       result: [],
       _source: 'moralis_v2_portfolio_fallback',
       _reason: 'Portfolio pulsechain fallback',
-      _chain: chain
+      _chain: chain,
+      _endpoint: endpoint
     });
   }
 
