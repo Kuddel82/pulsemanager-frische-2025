@@ -7,7 +7,7 @@ const GermanTaxDisplay = ({ taxData }) => {
   
   return (
     <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-      <h3 className="text-lg font-semibold mb-4">🇩🇪 Deutsches Steuerrecht - Fallback Processing</h3>
+      <h3 className="text-lg font-semibold mb-4">🇩🇪 Deutsches Steuerrecht - Automatische Kategorisierung</h3>
       
       {/* GEKAUFTE COINS */}
       <div className="mb-6">
@@ -40,7 +40,7 @@ const GermanTaxDisplay = ({ taxData }) => {
             </thead>
             <tbody>
               {gekaufteCoins.slice(0, 10).map((coin, idx) => (
-                <tr key={coin.id || idx} className="border-b">
+                <tr key={idx} className="border-b">
                   <td className="p-2">{coin.token_symbol}</td>
                   <td className="p-2">€{coin.kaufpreis?.toFixed(2)}</td>
                   <td className="p-2">{new Date(coin.kaufdatum).toLocaleDateString('de-DE')}</td>
@@ -88,7 +88,7 @@ const GermanTaxDisplay = ({ taxData }) => {
             </thead>
             <tbody>
               {roiEvents.slice(0, 10).map((roi, idx) => (
-                <tr key={roi.id || idx} className="border-b">
+                <tr key={idx} className="border-b">
                   <td className="p-2">{roi.token_symbol}</td>
                   <td className="p-2">€{roi.roiWert?.toFixed(2)}</td>
                   <td className="p-2">{new Date(roi.roiDatum).toLocaleDateString('de-DE')}</td>
@@ -107,7 +107,7 @@ const GermanTaxDisplay = ({ taxData }) => {
       
       <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mt-4">
         <p className="text-sm text-yellow-700">
-          <strong>⚠️ Fallback Processing:</strong> Verwendet bestehende Transaktionsdaten statt Moralis API. 
+          <strong>⚠️ Automatische Kategorisierung:</strong> Basiert auf Moralis Contract Detection. 
           Für finale Steuerberechnung wenden Sie sich an einen qualifizierten Steuerberater.
         </p>
       </div>

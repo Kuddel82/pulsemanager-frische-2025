@@ -728,32 +728,26 @@ const SimpleTaxTracker = () => {
     setError(null);
     
     try {
-      console.log('🚀 Loading Fallback German Tax Data for:', walletAddress);
-      
-      // Use existing transactions from main tax report
-      const existingTransactions = taxData?.transactions || [];
+      console.log('🚀 Loading Moralis German Tax Data for:', walletAddress);
       
       const response = await fetch('/api/moralis-german-tax', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          walletAddress,
-          existingTransactions: existingTransactions
-        })
+        body: JSON.stringify({ walletAddress })
       });
       
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ Fallback Tax Data loaded:', data);
-        setMoralisTaxData(data);
+        console.log('✅ Moralis Tax Data loaded:', data);
+        setMoralisTaxData(data.taxData);
       } else {
-        throw new Error(data.error || 'Fallback Tax failed');
+        throw new Error(data.error || 'Moralis Tax failed');
       }
     } catch (err) {
-      console.error('❌ Fallback Tax Error:', err);
+      console.error('❌ Moralis Tax Error:', err);
       setError(err.message);
     } finally {
       setMoralisLoading(false);
