@@ -50,7 +50,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
     console.log('🔄 Loading native transactions via HTTP with pagination...');
     let nativeCursor = null;
     let nativePage = 0;
-    const maxNativePages = 100; // Bis zu 100 Seiten = 10.000 Transaktionen
+    const maxNativePages = 3000; // 🚨 3000 Seiten = 300.000 Transaktionen (100 pro Seite)
 
     do {
       const nativeParams = new URLSearchParams({
@@ -88,8 +88,8 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
       }
 
       // Break if we have enough data
-      if (results.nativeTransactions.length >= 10000) {
-        console.log(`✅ Reached 10k native transactions, sufficient`);
+      if (results.nativeTransactions.length >= 300000) {
+        console.log(`✅ Reached 300k native transactions, sufficient`);
         break;
       }
 
@@ -101,7 +101,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
     console.log('🔄 Loading ERC20 transfers via HTTP with pagination...');
     let transferCursor = null;
     let transferPage = 0;
-    const maxTransferPages = 100; // Bis zu 100 Seiten = 10.000 Transfers
+    const maxTransferPages = 3000; // 🚨 3000 Seiten = 300.000 Transfers (100 pro Seite)
 
     do {
       const transferParams = new URLSearchParams({
@@ -139,8 +139,8 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
       }
 
       // Break if we have enough data
-      if (results.erc20Transfers.length >= 10000) {
-        console.log(`✅ Reached 10k ERC20 transfers, sufficient`);
+      if (results.erc20Transfers.length >= 300000) {
+        console.log(`✅ Reached 300k ERC20 transfers, sufficient`);
         break;
       }
 
