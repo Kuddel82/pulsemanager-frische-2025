@@ -715,7 +715,7 @@ const SimpleTaxTracker = () => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  // 🔥��🔥 NEU: MORALIS TAX STATE
+  // 🔥🔥 NEU: MORALIS TAX STATE
   const [moralisTaxData, setMoralisTaxData] = useState(null);
   const [moralisLoading, setMoralisLoading] = useState(false);
   const [showMoralisTax, setShowMoralisTax] = useState(false);
@@ -728,26 +728,32 @@ const SimpleTaxTracker = () => {
     setError(null);
     
     try {
-      console.log('🚀 Loading Moralis German Tax Data for:', walletAddress);
+      console.log('🚀 Loading Fallback German Tax Data for:', walletAddress);
+      
+      // Use existing transactions from main tax report
+      const existingTransactions = taxData?.transactions || [];
       
       const response = await fetch('/api/moralis-german-tax', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ walletAddress })
+        body: JSON.stringify({ 
+          walletAddress,
+          existingTransactions: existingTransactions
+        })
       });
       
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ Moralis Tax Data loaded:', data);
-        setMoralisTaxData(data.taxData);
+        console.log('✅ Fallback Tax Data loaded:', data);
+        setMoralisTaxData(data);
       } else {
-        throw new Error(data.error || 'Moralis Tax failed');
+        throw new Error(data.error || 'Fallback Tax failed');
       }
     } catch (err) {
-      console.error('❌ Moralis Tax Error:', err);
+      console.error('❌ Fallback Tax Error:', err);
       setError(err.message);
     } finally {
       setMoralisLoading(false);
@@ -987,7 +993,7 @@ const SimpleTaxTracker = () => {
           </div>
         )}
 
-        {/* 🔥��🔥 NEU: MORALIS TAX DISPLAY */}
+        {/* 🔥🔥 NEU: MORALIS TAX DISPLAY */}
         {showMoralisTax && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">

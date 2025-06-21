@@ -7,9 +7,12 @@
  * ✅ FIFO-Berechnung mit Haltefrist
  */
 
-const { MoralisGermanTaxSystem, implementMoralisGermanTax } = require('../src/services/MoralisGermanTaxSystem');
+import { implementFallbackGermanTax } from '../src/services/MoralisGermanTaxSystem.js';
 
-module.exports = async function handler(req, res) {
+/**
+ * UPDATE für /api/moralis-german-tax.js
+ */
+export default async function handler(req, res) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -21,68 +24,28 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      success: false, 
-      error: 'Method not allowed. Use POST.' 
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { walletAddress } = req.body;
-
+    const { walletAddress, existingTransactions } = req.body;
+    
     if (!walletAddress) {
-      return res.status(400).json({
-        success: false,
-        error: 'Wallet address is required'
-      });
+      return res.status(400).json({ error: 'Wallet address required' });
     }
 
-    console.log('🚀 Moralis German Tax Request:', { walletAddress });
-
-    // Implementiere Moralis-basiertes German Tax System
-    const taxData = await implementMoralisGermanTax(walletAddress);
+    console.log('🇩🇪 German Tax API called with fallback processing');
     
-    if (!taxData.success) {
-      return res.status(500).json({
-        success: false,
-        error: taxData.error,
-        disclaimer: 'Automatische Kategorisierung - Steuerberater empfohlen'
-      });
-    }
-
-    // Success Response
-    return res.status(200).json({
-      success: true,
-      disclaimer: 'Automatische Kategorisierung - Steuerberater empfohlen',
-      taxData,
-      moralisSystem: {
-        integrated: true,
-        approach: 'MORALIS_CONTRACT_DETECTION',
-        compliance: 'Deutsches Steuerrecht - §22 & §23 EStG',
-        features: [
-          'Automatische Kategorisierung via Moralis',
-          'Contract Detection für ROI Events',
-          'FIFO-Berechnung mit Haltefrist',
-          'Deutsche Steuerkonformität',
-          'PulseChain Contract Support'
-        ],
-        categories: {
-          gekaufteCoins: 'Mit Kaufpreis und Haltefrist',
-          roiEvents: 'Immer steuerpflichtig',
-          verkaufteCoins: 'Mit FIFO-Berechnung',
-          transfers: 'Reine Transfers'
-        }
-      }
-    });
-
+    // Use fallback processing with existing transactions
+    const result = await implementFallbackGermanTax(walletAddress, existingTransactions);
+    
+    return res.status(200).json(result);
+    
   } catch (error) {
-    console.error('🚨 Moralis German Tax Error:', error);
-    
-    return res.status(500).json({
-      success: false,
-      error: 'Moralis German Tax System failed',
-      details: error.message,
-      disclaimer: 'Automatische Kategorisierung - Steuerberater empfohlen'
+    console.error('API Error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
     });
   }
-}; 
+} 

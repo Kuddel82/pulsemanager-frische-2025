@@ -1,183 +1,157 @@
 // ===================================
-// COMPLETE MORALIS-BASED TAX SOLUTION
-// Deutsches Steuerrecht: Gekaufte Coins vs ROI Events
-// Basiert auf Moralis Wallet History API
+// MORALIS FALLBACK FIX
+// Nutzt bestehende Transaction-Daten statt Moralis API
 // ===================================
 
 /**
- * MORALIS WALLET HISTORY API INTEGRATION
- * Nutzt automatische Kategorisierung und Contract Detection
+ * FALLBACK GERMAN TAX SYSTEM
+ * Verwendet die bereits geladenen 10k+ Transaktionen
  */
-class MoralisGermanTaxSystem {
+class FallbackGermanTaxSystem {
   constructor() {
-    this.MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-    this.MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2.2';
-    
-    // PulseChain bekannte Contract Addresses
-    this.KNOWN_CONTRACTS = {
-      // PulseX Contracts
-      PULSEX_ROUTER: '0x165C3410fC91EF562C50559f7d2267586ca22dc',
-      PULSEX_TOKEN: '0x95B303987A60C71504D99Aa1b13B4DA07b0790ab',
-      
-      // HEX Contract (PulseChain fork)
-      HEX_CONTRACT: '0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39',
-      
-      // Common Liquidity/Farming Contracts (werden automatisch erkannt)
-      FARMING_PATTERNS: [
-        /farm/i, /stake/i, /pool/i, /liquidity/i, /reward/i, /yield/i
-      ]
-    };
+    // Keine Moralis API - nutzt bestehende Daten
   }
 
   /**
-   * HAUPTFUNKTION: Wallet History mit Moralis laden
+   * HAUPTFUNKTION: Nutzt bestehende Transaction-Daten
    */
-  async getWalletTaxHistory(walletAddress) {
+  async processExistingTransactions(existingTransactions) {
     try {
-      console.log('🔍 Loading wallet history with Moralis...');
-      
-      // Moralis Wallet History API Call
-      const response = await this.callMoralisWalletHistory(walletAddress);
+      console.log('🇩🇪 Processing existing transactions for German Tax...', { 
+        count: existingTransactions.length 
+      });
       
       // Process transactions für deutsches Steuerrecht
-      const processedData = this.processForGermanTax(response.result);
+      const processedData = this.processForGermanTax(existingTransactions);
       
       return {
         success: true,
-        walletAddress,
-        totalTransactions: response.result.length,
+        totalTransactions: existingTransactions.length,
         processedData,
-        moralisCategories: this.extractCategories(response.result),
-        summary: this.generateTaxSummary(processedData)
+        summary: this.generateTaxSummary(processedData),
+        method: 'FALLBACK_PROCESSING'
       };
       
     } catch (error) {
-      console.error('❌ Moralis API Error:', error);
+      console.error('❌ Fallback Tax Processing Error:', error);
       throw error;
     }
   }
 
   /**
-   * MORALIS WALLET HISTORY API CALL
-   */
-  async callMoralisWalletHistory(walletAddress) {
-    const url = `${this.MORALIS_BASE_URL}/wallets/${walletAddress}/history`;
-    
-    const params = new URLSearchParams({
-      chain: 'pls', // PulseChain
-      order: 'DESC',
-      limit: '100', // Max pro Call
-      // from_date: '2023-01-01', // Optional: Start date
-    });
-    
-    const response = await fetch(`${url}?${params}`, {
-      headers: {
-        'X-API-Key': this.MORALIS_API_KEY,
-        'accept': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Moralis API Error: ${response.status}`);
-    }
-    
-    return await response.json();
-  }
-
-  /**
    * DEUTSCHE STEUER-KATEGORISIERUNG
-   * Basiert auf Moralis automatischen Categories
+   * Basiert auf bestehenden Transaction-Feldern
    */
   processForGermanTax(transactions) {
     const germanTaxData = {
-      gekaufteCoins: [],    // Coins mit Kaufpreis + Haltefrist
-      roiEvents: [],        // ROI Events - immer steuerpflichtig
-      verkaufteCoins: [],   // Verkäufe mit Haltefrist-Berechnung
-      transfers: []         // Reine Transfers
+      gekaufteCoins: [],    
+      roiEvents: [],        
+      verkaufteCoins: [],   
+      transfers: []         
     };
 
-    transactions.forEach(tx => {
-      const taxCategory = this.determineGermanTaxCategory(tx);
-      
-      switch(taxCategory.type) {
-        case 'GEKAUFTER_COIN':
-          germanTaxData.gekaufteCoins.push({
-            ...tx,
-            kaufpreis: taxCategory.kaufpreis,
-            kaufdatum: tx.block_timestamp,
-            haltefristStart: new Date(tx.block_timestamp),
-            haltefristTage: this.calculateHoldingDays(tx.block_timestamp),
-            steuerfreiAb: this.calculateTaxFreeDate(tx.block_timestamp),
-            taxInfo: taxCategory
-          });
-          break;
-          
-        case 'ROI_EVENT':
-          germanTaxData.roiEvents.push({
-            ...tx,
-            roiWert: parseFloat(tx.value_formatted || 0),
-            roiDatum: tx.block_timestamp,
-            steuerpflichtig: true, // ROI immer steuerpflichtig
-            printerContract: taxCategory.printerContract,
-            taxInfo: taxCategory
-          });
-          break;
-          
-        case 'VERKAUF':
-          germanTaxData.verkaufteCoins.push({
-            ...tx,
-            verkaufspreis: parseFloat(tx.value_formatted || 0),
-            verkaufsdatum: tx.block_timestamp,
-            taxInfo: taxCategory
-          });
-          break;
-          
-        default:
-          germanTaxData.transfers.push(tx);
+    transactions.forEach((tx, index) => {
+      try {
+        const taxCategory = this.determineGermanTaxCategory(tx);
+        
+        switch(taxCategory.type) {
+          case 'GEKAUFTER_COIN':
+            germanTaxData.gekaufteCoins.push({
+              ...tx,
+              kaufpreis: taxCategory.kaufpreis || 0,
+              kaufdatum: tx.block_timestamp || tx.timestamp,
+              haltefristStart: new Date(tx.block_timestamp || tx.timestamp),
+              haltefristTage: this.calculateHoldingDays(tx.block_timestamp || tx.timestamp),
+              steuerfreiAb: this.calculateTaxFreeDate(tx.block_timestamp || tx.timestamp),
+              taxInfo: taxCategory,
+              id: `kauf_${index}`
+            });
+            break;
+            
+          case 'ROI_EVENT':
+            germanTaxData.roiEvents.push({
+              ...tx,
+              roiWert: this.getSafeValue(tx),
+              roiDatum: tx.block_timestamp || tx.timestamp,
+              steuerpflichtig: true,
+              printerContract: tx.from_address || 'Unknown',
+              printerName: taxCategory.printerName || 'Unknown Printer',
+              taxInfo: taxCategory,
+              id: `roi_${index}`
+            });
+            break;
+            
+          case 'VERKAUF':
+            germanTaxData.verkaufteCoins.push({
+              ...tx,
+              verkaufspreis: this.getSafeValue(tx),
+              verkaufsdatum: tx.block_timestamp || tx.timestamp,
+              taxInfo: taxCategory,
+              id: `verkauf_${index}`
+            });
+            break;
+            
+          default:
+            germanTaxData.transfers.push({
+              ...tx,
+              id: `transfer_${index}`
+            });
+        }
+      } catch (error) {
+        console.warn('Transaction processing error:', error, tx);
+        germanTaxData.transfers.push({
+          ...tx,
+          id: `error_${index}`,
+          error: error.message
+        });
       }
+    });
+
+    console.log('📊 German Tax Processing Results:', {
+      gekaufteCoins: germanTaxData.gekaufteCoins.length,
+      roiEvents: germanTaxData.roiEvents.length,
+      verkaufteCoins: germanTaxData.verkaufteCoins.length,
+      transfers: germanTaxData.transfers.length
     });
 
     return germanTaxData;
   }
 
   /**
-   * DEUTSCHE STEUER-KATEGORISIERUNG
-   * Nutzt Moralis Categories + Contract Detection
+   * VERBESSERTE DEUTSCHE STEUER-KATEGORISIERUNG
    */
   determineGermanTaxCategory(tx) {
-    const moralisCategory = tx.category;
-    const summary = tx.summary || '';
+    // Sichere Wert-Extraktion
+    const value = this.getSafeValue(tx);
+    const direction = tx.direction || 'unknown';
     const fromAddress = tx.from_address;
-    const toAddress = tx.to_address;
+    const tokenSymbol = tx.token_symbol || tx.tokenSymbol || tx.symbol || 'UNKNOWN';
     
-    // 1. ROI EVENT DETECTION
+    // 1. ROI EVENT DETECTION - Erweiterte Patterns
     if (this.isROIEvent(tx)) {
       return {
         type: 'ROI_EVENT',
-        reason: 'Contract reward/farming',
-        printerContract: fromAddress,
-        moralisCategory,
+        reason: this.getROIReason(tx),
+        printerName: this.getPrinterName(tx),
         confidence: 'HIGH'
       };
     }
     
     // 2. KAUF DETECTION
-    if (this.isPurchase(tx)) {
+    if (direction === 'in' && value > 0 && !this.isROIEvent(tx)) {
       return {
         type: 'GEKAUFTER_COIN',
-        reason: 'Token purchase/swap',
-        kaufpreis: parseFloat(tx.value_formatted || 0),
-        moralisCategory,
+        reason: 'Token incoming with value',
+        kaufpreis: value,
         confidence: 'HIGH'
       };
     }
     
     // 3. VERKAUF DETECTION  
-    if (this.isSale(tx)) {
+    if (direction === 'out' && value > 0) {
       return {
         type: 'VERKAUF',
-        reason: 'Token sale/swap out',
-        moralisCategory,
+        reason: 'Token outgoing with value',
         confidence: 'HIGH'
       };
     }
@@ -185,69 +159,57 @@ class MoralisGermanTaxSystem {
     // 4. DEFAULT: TRANSFER
     return {
       type: 'TRANSFER',
-      reason: 'Simple transfer',
-      moralisCategory,
-      confidence: 'MEDIUM'
+      reason: 'No clear buy/sell/roi pattern',
+      confidence: 'LOW'
     };
   }
 
   /**
-   * ROI EVENT DETECTION
-   * Basiert auf Moralis Contract Detection
+   * ERWEITERTE ROI EVENT DETECTION
    */
   isROIEvent(tx) {
-    const category = tx.category?.toLowerCase() || '';
-    const summary = tx.summary?.toLowerCase() || '';
-    const fromAddress = tx.from_address;
-    
-    // Moralis Categories für ROI
-    const roiCategories = [
-      'airdrop', 'mint', 'contract interaction', 
-      'deposit', 'withdraw'
-    ];
-    
-    if (roiCategories.includes(category)) {
+    // 1. Direkte ROI Flags (vom bestehenden System)
+    if (tx.isPrinter || tx.printerProject || 
+        (tx.direction === 'in' && tx.isTaxable)) {
       return true;
     }
     
-    // Contract Address Pattern (wenn von Contract kommt)
-    if (fromAddress && fromAddress !== tx.to_address) {
-      // Check if it's a known contract interaction
-      if (this.isKnownFarmingContract(fromAddress) ||
-          this.hasContractPattern(summary)) {
+    // 2. From-Address Patterns (Contract Interactions)
+    if (tx.from_address && tx.direction === 'in') {
+      const fromAddr = tx.from_address.toLowerCase();
+      
+      // Bekannte Printer/Farming Contract Patterns
+      const contractPatterns = [
+        // PulseChain bekannte Contracts
+        '0x5f', '0xe9', // Aus deinen PulseWatch Daten
+        
+        // General Contract Patterns
+        'farm', 'stake', 'pool', 'liquidity', 'reward'
+      ];
+      
+      if (contractPatterns.some(pattern => fromAddr.includes(pattern))) {
         return true;
       }
     }
     
-    // Summary Pattern Detection
-    const roiPatterns = [
-      /farm/i, /stake/i, /reward/i, /yield/i, /liquidity/i,
-      /printer/i, /mining/i, /airdrop/i
+    // 3. Token Patterns (ROI Token Types)
+    const token = (tx.token_symbol || tx.tokenSymbol || '').toUpperCase();
+    const roiTokens = [
+      'WPLS', 'PLSX', 'DAI', 'FINVESTA', 'TREASURY'
     ];
     
-    return roiPatterns.some(pattern => 
-      pattern.test(summary) || pattern.test(category)
-    );
-  }
-
-  /**
-   * PURCHASE DETECTION
-   */
-  isPurchase(tx) {
-    const category = tx.category?.toLowerCase() || '';
-    const summary = tx.summary?.toLowerCase() || '';
-    
-    // Moralis Categories für Käufe
-    const purchaseCategories = [
-      'token swap', 'receive', 'token receive'
-    ];
-    
-    if (purchaseCategories.includes(category)) {
-      return true;
+    if (tx.direction === 'in' && roiTokens.includes(token)) {
+      // Zusätzliche Checks um echte Käufe auszuschließen
+      if (!tx.from_address || tx.from_address.length < 10) {
+        return true; // Wahrscheinlich ROI
+      }
     }
     
-    // DEX Swap Detection
-    if (summary.includes('swap') || summary.includes('exchange')) {
+    // 4. Summary/Description Patterns
+    const summary = (tx.summary || tx.description || '').toLowerCase();
+    const roiKeywords = ['reward', 'farm', 'stake', 'print', 'yield', 'airdrop'];
+    
+    if (roiKeywords.some(keyword => summary.includes(keyword))) {
       return true;
     }
     
@@ -255,79 +217,81 @@ class MoralisGermanTaxSystem {
   }
 
   /**
-   * SALE DETECTION
+   * ROI REASON BESTIMMUNG
    */
-  isSale(tx) {
-    const category = tx.category?.toLowerCase() || '';
-    const summary = tx.summary?.toLowerCase() || '';
+  getROIReason(tx) {
+    if (tx.isPrinter) return 'Printer Event';
+    if (tx.printerProject) return `Printer: ${tx.printerProject}`;
+    if (tx.from_address) return 'Contract Interaction';
+    return 'ROI Pattern Detected';
+  }
+
+  /**
+   * PRINTER NAME EXTRAKTION
+   */
+  getPrinterName(tx) {
+    if (tx.printerProject) return tx.printerProject;
     
-    // Moralis Categories für Verkäufe
-    const saleCategories = [
-      'send', 'token send', 'token swap'
+    const token = tx.token_symbol || tx.tokenSymbol || '';
+    const fromAddr = tx.from_address || '';
+    
+    // Pattern-basierte Namen
+    if (token === 'DAI' && fromAddr.includes('5f')) return 'PDAI Printer';
+    if (token === 'WPLS' && fromAddr.includes('e9')) return 'WPLS Printer';
+    if (token === 'PLSX') return 'PLSX Printer';
+    
+    return `${token} Printer`;
+  }
+
+  /**
+   * SICHERE WERT-EXTRAKTION
+   */
+  getSafeValue(tx) {
+    const valueFields = [
+      tx.valueEUR,
+      tx.displayValueEUR,
+      tx.value_eur,
+      tx.totalValueEUR
     ];
     
-    if (saleCategories.includes(category)) {
-      return true;
+    for (const field of valueFields) {
+      if (field !== null && field !== undefined && field !== '') {
+        const parsed = parseFloat(field);
+        if (!isNaN(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
     }
     
-    return false;
-  }
-
-  /**
-   * FARMING CONTRACT DETECTION
-   */
-  isKnownFarmingContract(contractAddress) {
-    // Check gegen bekannte Contract Addresses
-    const known = Object.values(this.KNOWN_CONTRACTS);
-    return known.includes(contractAddress);
-  }
-
-  /**
-   * CONTRACT PATTERN DETECTION
-   */
-  hasContractPattern(summary) {
-    return this.KNOWN_CONTRACTS.FARMING_PATTERNS
-      .some(pattern => pattern.test(summary));
+    return 0;
   }
 
   /**
    * HALTEFRIST BERECHNUNG
    */
-  calculateHoldingDays(purchaseDate) {
+  calculateHoldingDays(date) {
+    if (!date) return 0;
     const now = new Date();
-    const purchase = new Date(purchaseDate);
-    const diffTime = Math.abs(now - purchase);
+    const transactionDate = new Date(date);
+    const diffTime = Math.abs(now - transactionDate);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
   /**
-   * STEUERFREIES DATUM BERECHNUNG (1 Jahr)
+   * STEUERFREIES DATUM BERECHNUNG
    */
-  calculateTaxFreeDate(purchaseDate) {
-    const purchase = new Date(purchaseDate);
-    const taxFreeDate = new Date(purchase);
+  calculateTaxFreeDate(date) {
+    if (!date) return new Date();
+    const transactionDate = new Date(date);
+    const taxFreeDate = new Date(transactionDate);
     taxFreeDate.setFullYear(taxFreeDate.getFullYear() + 1);
     return taxFreeDate;
-  }
-
-  /**
-   * CATEGORIES EXTRAHIEREN
-   */
-  extractCategories(transactions) {
-    const categories = {};
-    transactions.forEach(tx => {
-      const cat = tx.category || 'unknown';
-      categories[cat] = (categories[cat] || 0) + 1;
-    });
-    return categories;
   }
 
   /**
    * TAX SUMMARY GENERIEREN
    */
   generateTaxSummary(processedData) {
-    const now = new Date();
-    
     return {
       gekaufteCoins: {
         anzahl: processedData.gekaufteCoins.length,
@@ -342,7 +306,7 @@ class MoralisGermanTaxSystem {
         gesamtwert: processedData.roiEvents
           .reduce((sum, roi) => sum + (roi.roiWert || 0), 0),
         steuerpflichtigerWert: processedData.roiEvents
-          .reduce((sum, roi) => sum + (roi.roiWert || 0), 0) // Alles steuerpflichtig
+          .reduce((sum, roi) => sum + (roi.roiWert || 0), 0)
       },
       
       verkaufteCoins: {
@@ -351,66 +315,29 @@ class MoralisGermanTaxSystem {
           .reduce((sum, sale) => sum + (sale.verkaufspreis || 0), 0)
       },
       
-      steuerJahr: now.getFullYear(),
-      analyseDatum: now.toISOString()
+      steuerJahr: new Date().getFullYear(),
+      analyseDatum: new Date().toISOString(),
+      verarbeitungsMethode: 'FALLBACK_PROCESSING'
     };
-  }
-
-  /**
-   * FIFO CALCULATION FÜR VERKÄUFE
-   */
-  calculateFIFOGains(verkaufteCoins, gekaufteCoins) {
-    const fifoResults = [];
-    
-    // Sortiere Käufe nach Datum (FIFO)
-    const sortedPurchases = gekaufteCoins
-      .sort((a, b) => new Date(a.kaufdatum) - new Date(b.kaufdatum));
-    
-    verkaufteCoins.forEach(sale => {
-      const token = sale.token_symbol;
-      
-      // Finde ältesten Kauf für diesen Token
-      const matchingPurchase = sortedPurchases
-        .find(p => p.token_symbol === token && p.remaining > 0);
-      
-      if (matchingPurchase) {
-        const holdingDays = this.calculateHoldingDays(matchingPurchase.kaufdatum);
-        const gainLoss = sale.verkaufspreis - matchingPurchase.kaufpreis;
-        
-        fifoResults.push({
-          sale,
-          purchase: matchingPurchase,
-          holdingDays,
-          isSteuerfrei: holdingDays >= 365,
-          gainLoss,
-          steuerpflichtigerGewinn: holdingDays >= 365 ? 0 : Math.max(0, gainLoss)
-        });
-      }
-    });
-    
-    return fifoResults;
   }
 }
 
 // ===================================
-// CURSOR INTEGRATION
+// BACKEND INTEGRATION UPDATE
 // ===================================
 
 /**
- * BACKEND INTEGRATION FÜR CURSOR
+ * UPDATED BACKEND FUNCTION
+ * Verwendet Fallback statt Moralis API
  */
-async function implementMoralisGermanTax(walletAddress) {
-  const taxSystem = new MoralisGermanTaxSystem();
+async function implementFallbackGermanTax(walletAddress, existingTransactions) {
+  const taxSystem = new FallbackGermanTaxSystem();
   
   try {
-    // Lade Wallet History mit Moralis
-    const taxData = await taxSystem.getWalletTaxHistory(walletAddress);
+    console.log('🇩🇪 Starting Fallback German Tax Processing...');
     
-    // FIFO Calculation
-    const fifoResults = taxSystem.calculateFIFOGains(
-      taxData.processedData.verkaufteCoins,
-      taxData.processedData.gekaufteCoins
-    );
+    // Use existing transactions instead of Moralis API
+    const taxData = await taxSystem.processExistingTransactions(existingTransactions);
     
     return {
       success: true,
@@ -418,26 +345,30 @@ async function implementMoralisGermanTax(walletAddress) {
         gekaufteCoins: taxData.processedData.gekaufteCoins,
         roiEvents: taxData.processedData.roiEvents,
         verkaufteCoins: taxData.processedData.verkaufteCoins,
-        fifoResults,
         summary: taxData.summary
       },
-      moralisData: {
+      processingInfo: {
         totalTransactions: taxData.totalTransactions,
-        categories: taxData.moralisCategories
+        method: 'FALLBACK_PROCESSING',
+        note: 'Using existing transaction data instead of Moralis API'
       },
-      disclaimer: 'Automatische Kategorisierung - Steuerberater empfohlen'
+      disclaimer: 'Fallback processing - Steuerberater empfohlen'
     };
     
   } catch (error) {
-    console.error('Moralis German Tax Error:', error);
+    console.error('Fallback German Tax Error:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
+      fallback: true
     };
   }
 }
 
+// ===================================
+// EXPORT
+// ===================================
 export {
-  MoralisGermanTaxSystem,
-  implementMoralisGermanTax
+  FallbackGermanTaxSystem,
+  implementFallbackGermanTax
 }; 
