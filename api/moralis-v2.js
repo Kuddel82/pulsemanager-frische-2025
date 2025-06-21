@@ -14,29 +14,18 @@ async function moralisFetch(endpoint, params = {}) {
   const url = new URL(`${MORALIS_BASE_URL}/${endpoint}`);
   Object.entries(params).forEach(([key, val]) => url.searchParams.append(key, val));
 
-  console.log(`🔍 MORALIS FETCH: ${url.toString()}`);
-  console.log(`🔍 PARAMS:`, params);
-
   const res = await fetch(url.toString(), {
     headers: {
-      'X-API-Key': MORALIS_API_KEY,
-      'accept': 'application/json'
+      'X-API-Key': MORALIS_API_KEY
     }
   });
 
-  console.log(`🔍 RESPONSE STATUS: ${res.status} ${res.statusText}`);
-
   if (!res.ok) {
-    const errorText = await res.text();
-    console.error(`🚨 MORALIS ERROR: ${res.status} - ${res.statusText}`);
-    console.error(`🚨 ERROR DETAILS: ${errorText}`);
-    console.error(`🚨 REQUEST URL: ${url.toString()}`);
+    console.error(`Moralis Error: ${res.status} - ${res.statusText}`);
     return null;
   }
 
-  const data = await res.json();
-  console.log(`✅ MORALIS SUCCESS: ${data.result?.length || data.length || 0} items`);
-  return data;
+  return await res.json();
 }
 
 /**
@@ -65,29 +54,17 @@ export default async function handler(req, res) {
     console.error('Environment variables:', {
       hasKey: !!MORALIS_API_KEY,
       keyLength: MORALIS_API_KEY?.length || 0,
-      keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing',
-      nodeEnv: process.env.NODE_ENV
+      keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing'
     });
     return res.status(503).json({ 
       error: 'Moralis API Key missing or invalid.',
       _pro_mode: true,
       debug: {
         hasKey: !!MORALIS_API_KEY,
-        keyLength: MORALIS_API_KEY?.length || 0,
-        keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing'
+        keyLength: MORALIS_API_KEY?.length || 0
       }
     });
   }
-
-  // 🔍 API KEY VALIDATION
-  console.log('🔍 API KEY CHECK:', {
-    hasKey: !!MORALIS_API_KEY,
-    keyLength: MORALIS_API_KEY?.length || 0,
-    keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing',
-    keyValid: MORALIS_API_KEY?.length > 20,
-    keyType: MORALIS_API_KEY?.startsWith('eyJ') ? 'JWT' : 'UNKNOWN',
-    supportsPulseChain: true // Echter Key unterstützt PulseChain
-  });
 
   if (!address || !endpoint) {
     return res.status(400).json({ 
@@ -96,59 +73,23 @@ export default async function handler(req, res) {
     });
   }
 
-  // 🚨 VALIDATE ADDRESS FORMAT
-  if (address === '0x0000000000000000000000000000000000000000' || address === '0x0') {
-    console.log(`⚠️ INVALID ADDRESS: ${address} - returning empty result`);
-    return res.status(200).json({
-      result: [],
-      _source: 'moralis_v2_invalid_address',
-      _reason: 'Zero address provided',
-      _address: address
-    });
-  }
-
-  // 🚨 VALIDATE ADDRESS LENGTH
-  if (address.length !== 42 || !address.startsWith('0x')) {
-    console.log(`⚠️ INVALID ADDRESS FORMAT: ${address} - returning empty result`);
-    return res.status(200).json({
-      result: [],
-      _source: 'moralis_v2_invalid_address_format',
-      _reason: 'Invalid address format',
-      _address: address
-    });
-  }
-
-  // Convert chain names to Moralis format
+  // Convert chain names to Moralis format - ORIGINAL PORTFOLIO MAPPING
   const chainMap = {
-    ethereum: 'eth',
-    eth: 'eth',
-    '1': 'eth',
-    '0x1': 'eth',
-    pulsechain: 'pls',
-    pls: 'pls',
-    '369': 'pls',
-    '0x171': 'pls',
-    bsc: 'bsc',
-    polygon: 'polygon',
-    arbitrum: 'arbitrum'
+    ethereum: '0x1',
+    eth: '0x1',
+    '1': '0x1',
+    '0x1': '0x1',
+    pulsechain: '0x171',
+    pls: '0x171',
+    '369': '0x171',
+    '0x171': '0x171',
+    bsc: '0x38',
+    polygon: '0x89',
+    arbitrum: '0xa4b1'
   };
   const chainId = chainMap[chain.toLowerCase()] || chain;
 
   console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
-  console.log(`🔵 ORIGINAL CHAIN: ${chain}`);
-  console.log(`🔵 MAPPED CHAIN: ${chainId}`);
-
-  // 🚨 NOTFALL-FALLBACK für Portfolio
-  if (chain === 'pulsechain') {
-    console.log(`🚨 NOTFALL-FALLBACK: Portfolio pulsechain ${endpoint} - returning empty result`);
-    return res.status(200).json({
-      result: [],
-      _source: 'moralis_v2_portfolio_fallback',
-      _reason: 'Portfolio pulsechain fallback',
-      _chain: chain,
-      _endpoint: endpoint
-    });
-  }
 
   try {
     // ❌ REMOVED: wallet-tokens-prices (Enterprise feature - not available in Pro Plan)
