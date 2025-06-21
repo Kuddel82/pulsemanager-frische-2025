@@ -3,7 +3,7 @@ import { FileText, AlertTriangle, Shield, Users, DollarSign, Lock, ExternalLink,
 
 const TermsOfServiceView = () => {
   return (
-    <div className="min-h-screen pulse-text bg-black">
+    <div className="min-h-screen pulse-text bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="p-6">
         <div className="max-w-4xl mx-auto space-y-8">
         
