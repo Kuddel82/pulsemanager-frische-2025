@@ -42,42 +42,115 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
     errors: []
   };
 
-  try {
-    // 1. NATIVE TRANSACTIONS via HTTP
-    console.log('🔄 Loading native transactions via HTTP...');
-    const nativeUrl = `${baseURL}/${walletAddress}?chain=${chainId}&limit=100`;
-    const nativeResponse = await fetch(nativeUrl, {
-      headers: {
-        'X-API-Key': MORALIS_API_KEY,
-        'accept': 'application/json'
-      }
-    });
-    
-    if (nativeResponse.ok) {
-      const nativeData = await nativeResponse.json();
-      results.nativeTransactions = nativeData.result || [];
-      console.log(`✅ Native Transactions: ${results.nativeTransactions.length}`);
-    }
+  const startTime = Date.now();
+  const maxTimeSeconds = 60; // 🚨 60 SEKUNDEN TIMEOUT
 
-    // 2. ERC20 TRANSFERS via HTTP
-    console.log('🔄 Loading ERC20 transfers via HTTP...');
-    const transferUrl = `${baseURL}/${walletAddress}/erc20/transfers?chain=${chainId}&limit=100`;
-    const transferResponse = await fetch(transferUrl, {
-      headers: {
-        'X-API-Key': MORALIS_API_KEY,
-        'accept': 'application/json'
+  try {
+    // 1. NATIVE TRANSACTIONS via HTTP - MIT PAGINATION
+    console.log('🔄 Loading native transactions via HTTP with pagination...');
+    let nativeCursor = null;
+    let nativePage = 0;
+    const maxNativePages = 100; // Bis zu 100 Seiten = 10.000 Transaktionen
+
+    do {
+      const nativeParams = new URLSearchParams({
+        chain: chainId,
+        limit: '100', // 100 pro Seite
+        ...(nativeCursor && { cursor: nativeCursor })
+      });
+      
+      const nativeUrl = `${baseURL}/${walletAddress}?${nativeParams}`;
+      const nativeResponse = await fetch(nativeUrl, {
+        headers: {
+          'X-API-Key': MORALIS_API_KEY,
+          'accept': 'application/json'
+        }
+      });
+      
+      if (nativeResponse.ok) {
+        const nativeData = await nativeResponse.json();
+        if (nativeData.result && nativeData.result.length > 0) {
+          results.nativeTransactions.push(...nativeData.result);
+          console.log(`📦 Native Page ${nativePage + 1}: +${nativeData.result.length} (Total: ${results.nativeTransactions.length})`);
+        }
+        nativeCursor = nativeData.cursor;
+      } else {
+        console.error(`❌ Native transactions error: ${nativeResponse.status}`);
+        break;
       }
-    });
-    
-    if (transferResponse.ok) {
-      const transferData = await transferResponse.json();
-      results.erc20Transfers = transferData.result || [];
-      console.log(`✅ ERC20 Transfers: ${results.erc20Transfers.length}`);
-    }
+
+      nativePage++;
+      
+      // Timeout check
+      if ((Date.now() - startTime) / 1000 > maxTimeSeconds) {
+        console.log(`⚠️ 60s timeout reached for native transactions`);
+        break;
+      }
+
+      // Break if we have enough data
+      if (results.nativeTransactions.length >= 10000) {
+        console.log(`✅ Reached 10k native transactions, sufficient`);
+        break;
+      }
+
+    } while (nativeCursor && nativePage < maxNativePages);
+
+    console.log(`✅ Native Transactions: ${results.nativeTransactions.length}`);
+
+    // 2. ERC20 TRANSFERS via HTTP - MIT PAGINATION
+    console.log('🔄 Loading ERC20 transfers via HTTP with pagination...');
+    let transferCursor = null;
+    let transferPage = 0;
+    const maxTransferPages = 100; // Bis zu 100 Seiten = 10.000 Transfers
+
+    do {
+      const transferParams = new URLSearchParams({
+        chain: chainId,
+        limit: '100', // 100 pro Seite
+        ...(transferCursor && { cursor: transferCursor })
+      });
+      
+      const transferUrl = `${baseURL}/${walletAddress}/erc20/transfers?${transferParams}`;
+      const transferResponse = await fetch(transferUrl, {
+        headers: {
+          'X-API-Key': MORALIS_API_KEY,
+          'accept': 'application/json'
+        }
+      });
+      
+      if (transferResponse.ok) {
+        const transferData = await transferResponse.json();
+        if (transferData.result && transferData.result.length > 0) {
+          results.erc20Transfers.push(...transferData.result);
+          console.log(`📦 Transfer Page ${transferPage + 1}: +${transferData.result.length} (Total: ${results.erc20Transfers.length})`);
+        }
+        transferCursor = transferData.cursor;
+      } else {
+        console.error(`❌ ERC20 transfers error: ${transferResponse.status}`);
+        break;
+      }
+
+      transferPage++;
+      
+      // Timeout check
+      if ((Date.now() - startTime) / 1000 > maxTimeSeconds) {
+        console.log(`⚠️ 60s timeout reached for ERC20 transfers`);
+        break;
+      }
+
+      // Break if we have enough data
+      if (results.erc20Transfers.length >= 10000) {
+        console.log(`✅ Reached 10k ERC20 transfers, sufficient`);
+        break;
+      }
+
+    } while (transferCursor && transferPage < maxTransferPages);
+
+    console.log(`✅ ERC20 Transfers: ${results.erc20Transfers.length}`);
 
     // 3. TOKEN BALANCES via HTTP
     console.log('🔄 Loading token balances via HTTP...');
-    const balanceUrl = `${baseURL}/${walletAddress}/erc20?chain=${chainId}`;
+    const balanceUrl = `${baseURL}/${walletAddress}/erc20?chain=${chainId}&limit=300000`;
     const balanceResponse = await fetch(balanceUrl, {
       headers: {
         'X-API-Key': MORALIS_API_KEY,
@@ -97,7 +170,8 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
       results.erc20Transfers.length + 
       results.erc20Balances.length;
 
-    console.log(`🎯 TOTAL PROCESSED: ${results.totalProcessed}`);
+    const loadTime = (Date.now() - startTime) / 1000;
+    console.log(`🎯 TOTAL PROCESSED: ${results.totalProcessed} in ${loadTime.toFixed(1)}s`);
     
     return results;
 
