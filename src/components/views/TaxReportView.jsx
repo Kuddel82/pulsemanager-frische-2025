@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 // 🔥 NEU: SICHERER TAX ADVISOR EXPORT
 import TaxAdvisorExportView from '../tax/TaxAdvisorExportView';
 
+// 🔥🔥🔥 NEU: MORALIS GERMAN TAX SYSTEM
+import GermanTaxDisplay from '../tax/GermanTaxDisplay';
+
 // 🔥🔥🔥 COMPONENT LOADED TEST 🔥🔥🔥
 console.log("🔥🔥🔥 TAX REPORT COMPONENT LOADED! 🔥🔥🔥");
 
@@ -712,6 +715,45 @@ const SimpleTaxTracker = () => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
+  // 🔥��🔥 NEU: MORALIS TAX STATE
+  const [moralisTaxData, setMoralisTaxData] = useState(null);
+  const [moralisLoading, setMoralisLoading] = useState(false);
+  const [showMoralisTax, setShowMoralisTax] = useState(false);
+
+  // 🔥🔥🔥 NEU: MORALIS TAX LOAD FUNCTION
+  const loadMoralisTaxData = async () => {
+    if (!walletAddress) return;
+    
+    setMoralisLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🚀 Loading Moralis German Tax Data for:', walletAddress);
+      
+      const response = await fetch('/api/moralis-german-tax', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ walletAddress })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Moralis Tax Data loaded:', data);
+        setMoralisTaxData(data.taxData);
+      } else {
+        throw new Error(data.error || 'Moralis Tax failed');
+      }
+    } catch (err) {
+      console.error('❌ Moralis Tax Error:', err);
+      setError(err.message);
+    } finally {
+      setMoralisLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen pulse-bg p-6">
       <div className="max-w-4xl mx-auto">
@@ -870,6 +912,29 @@ const SimpleTaxTracker = () => {
               )}
             </Button>
             
+            {/* 🔥🔥🔥 NEU: MORALIS TAX BUTTON */}
+            <Button 
+              onClick={() => {
+                setShowMoralisTax(!showMoralisTax);
+                if (!showMoralisTax && !moralisTaxData) {
+                  loadMoralisTaxData();
+                }
+              }}
+              disabled={moralisLoading || !walletAddress.trim()}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
+            >
+              {moralisLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Lade Moralis Tax...
+                </>
+              ) : (
+                <>
+                  🇩🇪 Moralis Tax
+                </>
+              )}
+            </Button>
+            
             {/* 🔥 EMERGENCY CACHE CLEAR BUTTON */}
             <Button 
               onClick={async () => {
@@ -919,6 +984,38 @@ const SimpleTaxTracker = () => {
               <div style={{color: 'var(--accent-pink)'}}>❌</div>
               <div className="ml-3 pulse-text">{error}</div>
             </div>
+          </div>
+        )}
+
+        {/* 🔥��🔥 NEU: MORALIS TAX DISPLAY */}
+        {showMoralisTax && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold pulse-text-gradient">
+                🇩🇪 Moralis-basiertes Deutsches Steuerrecht
+              </h2>
+              <button
+                onClick={loadMoralisTaxData}
+                disabled={moralisLoading}
+                className="pulse-btn bg-blue-600 hover:bg-blue-700"
+              >
+                {moralisLoading ? <RefreshCw className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+                {moralisLoading ? 'Lade...' : 'Neu laden'}
+              </button>
+            </div>
+            
+            {moralisLoading ? (
+              <div className="text-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <p className="pulse-text">Lade Moralis Tax Daten...</p>
+              </div>
+            ) : moralisTaxData ? (
+              <GermanTaxDisplay taxData={moralisTaxData} />
+            ) : (
+              <div className="text-center py-8">
+                <p className="pulse-text-secondary">Klicke "🇩🇪 Moralis Tax" um die automatische Kategorisierung zu starten</p>
+              </div>
+            )}
           </div>
         )}
 
