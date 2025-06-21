@@ -284,17 +284,69 @@ module.exports = async function handler(req, res) {
         tokenName = 'PulseChain';
       }
       
-      // VALUE CALCULATION
-      if (isERC20Balance && tx.balance && tx.token_decimals) {
+      // 🎯 ENHANCED VALUE CALCULATION WITH MULTIPLE FALLBACKS
+      let valueRaw = '0';
+      let valueUSD = '0.00';
+      let valueEUR = '0.00';
+      
+      // Value extraction with priority order
+      if (isERC20Balance && tx.balance) {
+        valueRaw = tx.balance;
         const decimals = parseInt(tx.token_decimals) || 18;
-        valueFormatted = (parseFloat(tx.balance) / Math.pow(10, decimals)).toFixed(6);
-      } else if (tx.value && tx.token_decimals) {
-        const decimals = parseInt(tx.token_decimals) || 18;
-        valueFormatted = (parseFloat(tx.value) / Math.pow(10, decimals)).toFixed(6);
+        const balanceNum = parseFloat(tx.balance);
+        if (balanceNum > 0) {
+          valueFormatted = (balanceNum / Math.pow(10, decimals)).toFixed(6);
+        }
       } else if (tx.value) {
-        valueFormatted = (parseFloat(tx.value) / Math.pow(10, 18)).toFixed(6);
+        valueRaw = tx.value;
+        const decimals = parseInt(tx.token_decimals) || 18;
+        const valueNum = parseFloat(tx.value);
+        if (valueNum > 0) {
+          valueFormatted = (valueNum / Math.pow(10, decimals)).toFixed(6);
+        }
       } else if (tx.amount) {
-        valueFormatted = parseFloat(tx.amount).toFixed(6);
+        valueRaw = tx.amount.toString();
+        const amountNum = parseFloat(tx.amount);
+        if (amountNum > 0) {
+          valueFormatted = amountNum.toFixed(6);
+        }
+      }
+      
+      // 🎯 VALUE VALIDATION & FORMATTING
+      const finalValue = parseFloat(valueFormatted);
+      if (finalValue > 0) {
+        // Format based on value size
+        if (finalValue >= 1000000) {
+          valueFormatted = (finalValue / 1000000).toFixed(2) + 'M';
+        } else if (finalValue >= 1000) {
+          valueFormatted = (finalValue / 1000).toFixed(2) + 'K';
+        } else if (finalValue >= 1) {
+          valueFormatted = finalValue.toFixed(2);
+        } else if (finalValue >= 0.01) {
+          valueFormatted = finalValue.toFixed(4);
+        } else {
+          valueFormatted = finalValue.toFixed(6);
+        }
+      } else {
+        valueFormatted = '0.000000';
+      }
+      
+      // 🎯 SIMPLE USD/EUR ESTIMATION (can be enhanced with price APIs)
+      if (finalValue > 0) {
+        // Simple price estimation for major tokens
+        let estimatedPrice = 0;
+        if (tokenSymbol === 'ETH') estimatedPrice = 3000; // ~$3000
+        else if (tokenSymbol === 'PLS') estimatedPrice = 0.0001; // ~$0.0001
+        else if (tokenSymbol === 'HEX') estimatedPrice = 0.01; // ~$0.01
+        else if (tokenSymbol === 'PLSX') estimatedPrice = 0.00001; // ~$0.00001
+        else if (tokenSymbol === 'USDC' || tokenSymbol === 'USDT') estimatedPrice = 1;
+        else if (tokenSymbol === 'WBTC') estimatedPrice = 60000; // ~$60000
+        
+        if (estimatedPrice > 0) {
+          const usdValue = finalValue * estimatedPrice;
+          valueUSD = usdValue.toFixed(2);
+          valueEUR = (usdValue * 0.92).toFixed(2); // EUR = USD * 0.92
+        }
       }
       
       // TIMESTAMP
@@ -332,6 +384,11 @@ module.exports = async function handler(req, res) {
         tokenSymbol,
         tokenName,
         valueFormatted,
+        valueRaw,
+        valueUSD,
+        valueEUR,
+        value: valueFormatted, // Frontend compatibility
+        amount: valueFormatted, // Frontend compatibility
         timestamp,
         direction,
         directionIcon,
@@ -340,7 +397,20 @@ module.exports = async function handler(req, res) {
         isERC20Transfer,
         isERC20Balance,
         ...printerInfo,
-        processedAt: new Date().toISOString()
+        processedAt: new Date().toISOString(),
+        
+        // 🎯 FRONTEND DISPLAY FIELDS
+        displayValue: valueFormatted,
+        displayValueUSD: valueUSD,
+        displayValueEUR: valueEUR,
+        hasValue: parseFloat(valueFormatted.replace(/[KM]$/, '')) > 0,
+        
+        // Enhanced metadata for debugging
+        calculationMethod: isERC20Balance ? 'balance' : 'value',
+        originalBalance: tx.balance,
+        originalValue: tx.value,
+        originalAmount: tx.amount,
+        decimals: tx.token_decimals
       };
     });
 
@@ -380,18 +450,48 @@ module.exports = async function handler(req, res) {
       // WORKING ENDPOINTS STATUS  
       workingEndpoints: apiResults,
       
-      // FINANCIAL TOTALS
-      totalWGEPPurchased: '0.000000',
+      // FINANCIAL TOTALS WITH ENHANCED VALUE CALCULATION
+      totalPortfolioValueUSD: processedTransactions
+        .filter(tx => tx.hasValue && tx.isERC20Balance)
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0)
+        .toFixed(2),
+        
+      totalROIValueUSD: processedTransactions
+        .filter(tx => tx.isTaxable && tx.hasValue)
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0)
+        .toFixed(2),
+        
+      totalWGEPValue: processedTransactions
+        .filter(tx => tx.tokenSymbol === 'WGEP' && tx.hasValue)
+        .reduce((sum, tx) => {
+          const value = parseFloat(tx.valueFormatted.replace(/[KM]$/, ''));
+          return sum + value;
+        }, 0),
+
+      totalWGEPPurchased: processedTransactions
+        .filter(tx => tx.tokenSymbol === 'WGEP' && tx.hasValue)
+        .reduce((sum, tx) => {
+          const value = parseFloat(tx.valueFormatted.replace(/[KM]$/, ''));
+          return sum + value;
+        }, 0)
+        .toFixed(6),
       totalWGEPROI: processedTransactions
-        .filter(tx => tx.tokenSymbol === 'WGEP' && tx.isPrinter)
-        .reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0)
+        .filter(tx => tx.tokenSymbol === 'WGEP' && tx.isPrinter && tx.hasValue)
+        .reduce((sum, tx) => {
+          const value = parseFloat(tx.valueFormatted.replace(/[KM]$/, ''));
+          return sum + value;
+        }, 0)
         .toFixed(6),
       totalWGEPCost: '0.000000',
-      totalROIValueEUR: processedTransactions
-        .filter(tx => tx.isTaxable)
-        .reduce((sum, tx) => sum + parseFloat(tx.valueFormatted || 0), 0)
-        .toFixed(2),
-      totalTaxEUR: '0.00'
+      totalROIValueEUR: (processedTransactions
+        .filter(tx => tx.isTaxable && tx.hasValue)
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92).toFixed(2),
+      totalPortfolioValueEUR: (processedTransactions
+        .filter(tx => tx.hasValue && tx.isERC20Balance)
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92).toFixed(2),
+      totalTaxEUR: (processedTransactions
+        .filter(tx => tx.isTaxable && tx.hasValue)
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.25 * 0.92).toFixed(2), // 25% tax rate
     };
 
     console.log('✅ HIGH VOLUME processing complete:', {
@@ -401,7 +501,21 @@ module.exports = async function handler(req, res) {
       roiCount: summary.roiCount,
       loadTime: `${loadTime.toFixed(1)}s`,
       transactionTypes: summary.transactionTypes,
-      target: `${limit} transactions`
+      target: `${limit} transactions`,
+      
+      // 🎯 VALUE DEBUG INFO
+      valueDebug: {
+        transactionsWithValues: processedTransactions.filter(tx => tx.hasValue).length,
+        sampleValues: processedTransactions.slice(0, 3).map(tx => ({
+          symbol: tx.tokenSymbol,
+          valueFormatted: tx.valueFormatted,
+          valueUSD: tx.valueUSD,
+          hasValue: tx.hasValue,
+          originalBalance: tx.originalBalance
+        })),
+        totalPortfolioUSD: summary.totalPortfolioValueUSD,
+        totalROIUSD: summary.totalROIValueEUR
+      }
     });
 
     return res.status(200).json({
