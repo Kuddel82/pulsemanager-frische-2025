@@ -1,11 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, AlertTriangle, Info, Download, Wallet } from 'lucide-react';
+import { FileText, AlertTriangle, Info, Download, Wallet, RefreshCw, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 
 // 🔥🔥🔥 COMPONENT LOADED TEST 🔥🔥🔥
 console.log("🔥🔥🔥 TAX REPORT COMPONENT LOADED! 🔥🔥🔥");
+
+// 🧪 EMERGENCY TEST FUNCTION
+const testDirectAPI = async () => {
+  console.log('🧪 Testing german-tax-report API directly...');
+  
+  try {
+    const response = await fetch('/api/german-tax-report?address=0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a');
+    const data = await response.json();
+    
+    console.log('🎯 Direct API Response:', {
+      success: data.success,
+      transactionCount: data.taxReport?.transactions?.length || 0,
+      summary: data.taxReport?.summary,
+      debug: data.debug
+    });
+    
+    return data;
+  } catch (error) {
+    console.error('❌ Direct API Test failed:', error);
+  }
+};
+
+// 🧪 AUTO-TEST BEIM LOAD
+if (typeof window !== 'undefined') {
+  window.testDirectAPI = testDirectAPI;
+  console.log('🧪 Emergency test function loaded. Call: testDirectAPI()');
+}
 
 const SimpleTaxTracker = () => {
   const { user } = useAuth();
