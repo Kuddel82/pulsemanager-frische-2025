@@ -48,6 +48,7 @@ const PortfolioView = () => {
   const { user } = useAuth();
   const isPro = user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de';
 
+  // 🔧 VERSTECKTER ENTWICKLER-MODUS (nur für Entwickler sichtbar)
   const [showDebug, setShowDebug] = useState(false);
   
   // 👁️ TOKEN VISIBILITY STATE - User kann Shit Coins ausblenden
@@ -55,6 +56,19 @@ const PortfolioView = () => {
   
   // 💎 DEFI DATA STATE - Für ROI Berechnungen
   const [defiData, setDefiData] = useState(null);
+
+  // 🔧 VERSTECKTER ENTWICKLER-MODUS: Tastenkombination Ctrl+Shift+D
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+        setShowDebug(prev => !prev);
+        console.log('🔧 Entwickler-Modus:', !showDebug ? 'AKTIVIERT' : 'DEAKTIVIERT');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showDebug]);
   
   // Toggle Token Visibility
   const toggleTokenVisibility = (tokenAddress) => {
@@ -79,21 +93,23 @@ const PortfolioView = () => {
   const showErrorState = false; // DEAKTIVIERT: Keine blockierenden Error-States mehr
   const showContent = hasPortfolioData || hasCacheData || hasAnyData;
 
-  // 🔍 DEBUG: Detaillierte State-Ausgabe
-  console.log('🔍 PORTFOLIO VIEW STATES:', {
-    loading,
-    hasData,
-    portfolioData: !!portfolioData,
-    tokensExists: !!(portfolioData?.tokens),
-    tokensCount: portfolioData?.tokens?.length || 0,
-    totalValue: portfolioData?.totalValue || 0,
-    hasPortfolioData,
-    showEmptyState,
-    showErrorState,
-    showContent,
-    isCached,
-    lastUpdate
-  });
+  // 🔍 DEBUG: Detaillierte State-Ausgabe (nur im Entwickler-Modus)
+  if (showDebug) {
+    console.log('🔍 PORTFOLIO VIEW STATES:', {
+      loading,
+      hasData,
+      portfolioData: !!portfolioData,
+      tokensExists: !!(portfolioData?.tokens),
+      tokensCount: portfolioData?.tokens?.length || 0,
+      totalValue: portfolioData?.totalValue || 0,
+      hasPortfolioData,
+      showEmptyState,
+      showErrorState,
+      showContent,
+      isCached,
+      lastUpdate
+    });
+  }
 
   // 🛡️ SAFE STATS - Verhindere Crashes bei fehlenden Daten
   const portfolioStats = portfolioData ? [
@@ -227,14 +243,18 @@ const PortfolioView = () => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDebug(!showDebug)}
-            >
-              {showDebug ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              Debug
-            </Button>
+            {/* 🔧 VERSTECKTER ENTWICKLER-MODUS: Debug-Button nur im Entwickler-Modus sichtbar */}
+            {showDebug && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDebug(false)}
+                title="Entwickler-Modus: Ctrl+Shift+D"
+              >
+                <EyeOff className="h-4 w-4" />
+                Debug
+              </Button>
+            )}
             
             {/* 🚀 NEW: Smart Load Button with Rate Limiting */}
             <SmartLoadButton
@@ -269,7 +289,7 @@ const PortfolioView = () => {
           </div>
         )}
 
-        {/* 🔍 PRO PLAN DEBUG INFORMATION */}
+        {/* 🔍 PRO PLAN DEBUG INFORMATION - NUR IM ENTWICKLER-MODUS SICHTBAR */}
         {showDebug && (
           <div className="pulse-card p-6 mb-6 border-l-4 border-blue-500">
             <h3 className="flex items-center text-lg font-bold pulse-text mb-4">
@@ -616,32 +636,34 @@ const PortfolioView = () => {
 
       </div>
 
-      {/* CU Monitor */}
-      <CUMonitor 
-        viewName="Portfolio"
-        apiCalls={[
-          // Echte API-Calls tracking
-          ...(portfolioData ? [{
-            endpoint: portfolioData.dataSource || 'portfolio-load',
-            responseCount: portfolioData.tokenCount || 0,
-            estimatedCUs: portfolioData.apiCalls || portfolioData.debug?.apiCalls || 0
-          }] : []),
-          // Error calls auch tracken
-          ...(error ? [{
-            endpoint: 'portfolio-error',
-            responseCount: 0,
-            estimatedCUs: 1
-          }] : []),
-          // Loading calls
-          ...(loading ? [{
-            endpoint: 'portfolio-loading',
-            responseCount: 0,
-            estimatedCUs: 0
-          }] : [])
-        ]}
-        totalCUs={(portfolioData?.apiCalls || portfolioData?.debug?.apiCalls || 0) + (error ? 1 : 0)}
-        showByDefault={showDebug}
-      />
+      {/* CU Monitor - NUR IM ENTWICKLER-MODUS SICHTBAR */}
+      {showDebug && (
+        <CUMonitor 
+          viewName="Portfolio"
+          apiCalls={[
+            // Echte API-Calls tracking
+            ...(portfolioData ? [{
+              endpoint: portfolioData.dataSource || 'portfolio-load',
+              responseCount: portfolioData.tokenCount || 0,
+              estimatedCUs: portfolioData.apiCalls || portfolioData.debug?.apiCalls || 0
+            }] : []),
+            // Error calls auch tracken
+            ...(error ? [{
+              endpoint: 'portfolio-error',
+              responseCount: 0,
+              estimatedCUs: 1
+            }] : []),
+            // Loading calls
+            ...(loading ? [{
+              endpoint: 'portfolio-loading',
+              responseCount: 0,
+              estimatedCUs: 0
+            }] : [])
+          ]}
+          totalCUs={(portfolioData?.apiCalls || portfolioData?.debug?.apiCalls || 0) + (error ? 1 : 0)}
+          showByDefault={true}
+        />
+      )}
     </div>
   );
 };
