@@ -100,57 +100,6 @@ const Home = () => {
         <WalletManualInput />
       </div>
 
-      {/* 📋 DASHBOARD OBJEKTE (READ-ONLY VIEW + LINK) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        
-        {/* PulseX */}
-        <div className="pulse-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-8 w-8 bg-gradient-to-r from-purple-400 to-pink-400 rounded flex items-center justify-center text-white font-bold text-sm">
-              PX
-            </div>
-            <h2 className="text-xl font-bold pulse-text">PulseX</h2>
-          </div>
-          
-          <p className="pulse-text-secondary mb-4">
-            Hier kannst du Token kaufen & tauschen
-          </p>
-          
-          <a 
-            href="https://app.pulsex.com" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
-          >
-            🚀 PulseX öffnen
-          </a>
-        </div>
-
-        {/* Bridge */}
-        <div className="pulse-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-8 w-8 bg-gradient-to-r from-cyan-400 to-blue-400 rounded flex items-center justify-center text-white font-bold text-sm">
-              BR
-            </div>
-            <h2 className="text-xl font-bold pulse-text">PulseChain Bridge</h2>
-          </div>
-          
-          <p className="pulse-text-secondary mb-4">
-            Hier kannst du Tokens z.B. von Ethereum zur PulseChain senden
-          </p>
-          
-          <a 
-            href="https://bridge.pulsechain.com" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
-          >
-            🌉 Bridge öffnen
-          </a>
-        </div>
-        
-      </div>
-
     </div>
   );
 };
