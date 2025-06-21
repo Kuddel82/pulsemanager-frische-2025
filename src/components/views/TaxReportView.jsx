@@ -903,7 +903,7 @@ const SimpleTaxTracker = () => {
               <Info className="h-5 w-5 mr-2 mt-0.5" style={{color: 'var(--accent-green)'}} />
               <div className="text-sm pulse-text-secondary">
                 <strong>Was passiert:</strong> Wir laden alle deine Transaktionen von Moralis & anderen APIs, 
-                berechnen grob die steuerlichen Auswirkungen nach deutschem Recht und erstellen einen PDF-Report.
+                analysieren deine Wallet-Aktivitäten und erstellen einen detaillierten Report.
               </div>
             </div>
           </div>
