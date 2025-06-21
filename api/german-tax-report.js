@@ -9,6 +9,58 @@
  * ✅ Production-ready Error Handling
  */
 
+// 🚨 AMOUNT BUG FIX - CURSOR READY 
+// Problem: P.amount.toFixed is not a function
+// Lösung: Sichere Number Konvertierung vor .toFixed()
+
+// ✅ SAFE AMOUNT FORMATTER FUNCTION
+const safeFormatAmount = (amount, decimals = 4) => {
+  // Handle undefined, null, empty string
+  if (amount === undefined || amount === null || amount === '') {
+    return '0.0000';
+  }
+  
+  // Convert to number safely
+  const numAmount = typeof amount === 'number' ? amount : parseFloat(amount);
+  
+  // Check if conversion successful
+  if (isNaN(numAmount)) {
+    console.warn('🚨 Invalid amount value:', amount);
+    return '0.0000';
+  }
+  
+  return numAmount.toFixed(decimals);
+};
+
+// ✅ TRANSACTION AMOUNT PROCESSOR
+const processTransactionAmount = (transaction) => {
+  return {
+    ...transaction,
+    amount: typeof transaction.amount === 'number' 
+      ? transaction.amount 
+      : parseFloat(transaction.amount || 0),
+    formattedAmount: safeFormatAmount(transaction.amount)
+  };
+};
+
+// ✅ BATCH TRANSACTION PROCESSOR
+const processAllTransactions = (transactions) => {
+  return transactions.map(processTransactionAmount);
+};
+
+// 🔍 DEBUG HELPER
+const debugTransactionAmounts = (transactions) => {
+  console.log('🔍 DEBUGGING TRANSACTION AMOUNTS:');
+  transactions.forEach((tx, i) => {
+    console.log(`TX ${i}:`, {
+      amount: tx.amount,
+      type: typeof tx.amount,
+      isValid: !isNaN(parseFloat(tx.amount)),
+      formatted: safeFormatAmount(tx.amount)
+    });
+  });
+};
+
 // 🎯 BASIC PRINTER DETECTION (enhanced)
 const enhancedPrinterDetection = (tx, address) => {
   let isPrinter = false;
@@ -295,20 +347,20 @@ module.exports = async function handler(req, res) {
         const decimals = parseInt(tx.token_decimals) || 18;
         const balanceNum = parseFloat(tx.balance);
         if (balanceNum > 0) {
-          valueFormatted = (balanceNum / Math.pow(10, decimals)).toFixed(6);
+          valueFormatted = safeFormatAmount(balanceNum / Math.pow(10, decimals), 6);
         }
       } else if (tx.value) {
         valueRaw = tx.value;
         const decimals = parseInt(tx.token_decimals) || 18;
         const valueNum = parseFloat(tx.value);
         if (valueNum > 0) {
-          valueFormatted = (valueNum / Math.pow(10, decimals)).toFixed(6);
+          valueFormatted = safeFormatAmount(valueNum / Math.pow(10, decimals), 6);
         }
       } else if (tx.amount) {
         valueRaw = tx.amount.toString();
         const amountNum = parseFloat(tx.amount);
         if (amountNum > 0) {
-          valueFormatted = amountNum.toFixed(6);
+          valueFormatted = safeFormatAmount(amountNum, 6);
         }
       }
       
@@ -317,15 +369,15 @@ module.exports = async function handler(req, res) {
       if (finalValue > 0) {
         // Format based on value size
         if (finalValue >= 1000000) {
-          valueFormatted = (finalValue / 1000000).toFixed(2) + 'M';
+          valueFormatted = safeFormatAmount(finalValue / 1000000, 2) + 'M';
         } else if (finalValue >= 1000) {
-          valueFormatted = (finalValue / 1000).toFixed(2) + 'K';
+          valueFormatted = safeFormatAmount(finalValue / 1000, 2) + 'K';
         } else if (finalValue >= 1) {
-          valueFormatted = finalValue.toFixed(2);
+          valueFormatted = safeFormatAmount(finalValue, 2);
         } else if (finalValue >= 0.01) {
-          valueFormatted = finalValue.toFixed(4);
+          valueFormatted = safeFormatAmount(finalValue, 4);
         } else {
-          valueFormatted = finalValue.toFixed(6);
+          valueFormatted = safeFormatAmount(finalValue, 6);
         }
       } else {
         valueFormatted = '0.000000';
@@ -344,8 +396,8 @@ module.exports = async function handler(req, res) {
         
         if (estimatedPrice > 0) {
           const usdValue = finalValue * estimatedPrice;
-          valueUSD = usdValue.toFixed(2);
-          valueEUR = (usdValue * 0.92).toFixed(2); // EUR = USD * 0.92
+          valueUSD = safeFormatAmount(usdValue, 2);
+          valueEUR = safeFormatAmount(usdValue * 0.92, 2); // EUR = USD * 0.92
         }
       }
       
@@ -451,15 +503,13 @@ module.exports = async function handler(req, res) {
       workingEndpoints: apiResults,
       
       // FINANCIAL TOTALS WITH ENHANCED VALUE CALCULATION
-      totalPortfolioValueUSD: processedTransactions
+      totalPortfolioValueUSD: safeFormatAmount(processedTransactions
         .filter(tx => tx.hasValue && tx.isERC20Balance)
-        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0)
-        .toFixed(2),
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0), 2),
         
-      totalROIValueUSD: processedTransactions
+      totalROIValueUSD: safeFormatAmount(processedTransactions
         .filter(tx => tx.isTaxable && tx.hasValue)
-        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0)
-        .toFixed(2),
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0), 2),
         
       totalWGEPValue: processedTransactions
         .filter(tx => tx.tokenSymbol === 'WGEP' && tx.hasValue)
@@ -468,30 +518,28 @@ module.exports = async function handler(req, res) {
           return sum + value;
         }, 0),
 
-      totalWGEPPurchased: processedTransactions
+      totalWGEPPurchased: safeFormatAmount(processedTransactions
         .filter(tx => tx.tokenSymbol === 'WGEP' && tx.hasValue)
         .reduce((sum, tx) => {
           const value = parseFloat(tx.valueFormatted.replace(/[KM]$/, ''));
           return sum + value;
-        }, 0)
-        .toFixed(6),
-      totalWGEPROI: processedTransactions
+        }, 0), 6),
+      totalWGEPROI: safeFormatAmount(processedTransactions
         .filter(tx => tx.tokenSymbol === 'WGEP' && tx.isPrinter && tx.hasValue)
         .reduce((sum, tx) => {
           const value = parseFloat(tx.valueFormatted.replace(/[KM]$/, ''));
           return sum + value;
-        }, 0)
-        .toFixed(6),
+        }, 0), 6),
       totalWGEPCost: '0.000000',
-      totalROIValueEUR: (processedTransactions
+      totalROIValueEUR: safeFormatAmount(processedTransactions
         .filter(tx => tx.isTaxable && tx.hasValue)
-        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92).toFixed(2),
-      totalPortfolioValueEUR: (processedTransactions
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92, 2),
+      totalPortfolioValueEUR: safeFormatAmount(processedTransactions
         .filter(tx => tx.hasValue && tx.isERC20Balance)
-        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92).toFixed(2),
-      totalTaxEUR: (processedTransactions
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92, 2),
+      totalTaxEUR: safeFormatAmount(processedTransactions
         .filter(tx => tx.isTaxable && tx.hasValue)
-        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.25 * 0.92).toFixed(2), // 25% tax rate
+        .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.25 * 0.92, 2), // 25% tax rate
     };
 
     console.log('✅ HIGH VOLUME processing complete:', {
