@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle, Eye, EyeOff, Printer } from 'lucide-react';
+import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle, Eye, EyeOff, Printer, Zap } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/contexts/AuthContext';
@@ -214,6 +214,15 @@ const Sidebar = () => {
     isSidebarLink: true
   };
 
+  // 🌟 PULSECHAIN INFO ITEM
+  const PULSECHAIN_INFO_ITEM = {
+    id: 'pulsechain-info',
+    icon: Zap,
+    translationKey: 'pulsechainInfoTitle',
+    name: 'PulseChain Infos',
+    isSidebarLink: true
+  };
+
   // 🎯 SIMPLIFIED: Main menu items in correct order - KORRIGIERT FÜR NEUES BUSINESS MODEL + EMERGENCY WGEP
   const mainMenuItems = [
     'dashboard',     // Portfolio - 3-TAGE TRIAL → Premium
@@ -221,6 +230,7 @@ const Sidebar = () => {
     'roiTracker',    // ROI Tracker - PREMIUM ONLY
     'taxReport',     // Tax Report - PREMIUM ONLY
     'taxExport',     // Tax Export - PREMIUM ONLY
+    'pulsechain-info', // PulseChain Infos - 3-TAGE TRIAL → Premium
     'tokenTrade',    // Token Trade - 3-TAGE TRIAL → Premium
     'bridge',        // Bridge - 3-TAGE TRIAL → Premium
     'wgep',          // WGEP - 3-TAGE TRIAL → Premium ⚠️ PROBLEM HIER!
@@ -252,6 +262,12 @@ const Sidebar = () => {
         if (id === 'taxExport') {
           console.log('🇩🇪 EMERGENCY: Adding Tax Export manually');
           return TAX_EXPORT_ITEM;
+        }
+        
+        // 🌟 EMERGENCY: PulseChain Info manuell hinzufügen
+        if (id === 'pulsechain-info') {
+          console.log('🌟 EMERGENCY: Adding PulseChain Info manually');
+          return PULSECHAIN_INFO_ITEM;
         }
         
         return null;

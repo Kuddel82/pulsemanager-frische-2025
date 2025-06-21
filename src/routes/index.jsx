@@ -20,6 +20,7 @@ import ROITrackerView from '@/views/ROITrackerView_Simple';
 import TaxReportView from '@/components/views/TaxReportView';
 import TaxExportView from '@/views/TaxExportView';
 import WgepView from '@/views/WGEPView';
+import PulseChainInfoView from '@/views/PulseChainInfoView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
 import DebugView from '@/views/DebugView'; // Debug Monitor für PHASE 3
@@ -95,6 +96,7 @@ const AppRoutes = () => {
         <Route path="/tax-report" element={<TaxReportView />} />
         <Route path="/tax-export" element={<TaxExportView />} />
         <Route path="/wgep" element={<WgepView />} />
+        <Route path="/pulsechain-info" element={<PulseChainInfoView />} />
         
         {/* 🐛 DEBUG MONITOR - PHASE 3 */}
         <Route path="/debug" element={<DebugView />} />

@@ -70,6 +70,7 @@ export const translationsDe = {
   yieldOptimizer: "Yield Optimizer",
   nftPortfolio: "NFT Portfolio",
   taxReport: "Steuer-Report",
+  pulsechainInfoTitle: "PulseChain Infos",
   learningAcademy: "Lernakademie",
   pulseChainInfo: "PulseChain Info",
   settings: "Einstellungen",
