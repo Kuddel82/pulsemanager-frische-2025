@@ -11,7 +11,10 @@ import {
   Crown,
   Settings,
   Menu,
-  X
+  X,
+  Zap,
+  Repeat,
+  Printer
 } from 'lucide-react';
 
 const MainLayout = () => {
@@ -49,6 +52,48 @@ const MainLayout = () => {
       icon: FileText,
       path: '/tax-report',
       description: 'Deutsches Steuerrecht & PDF'
+    },
+    {
+      id: 'pulsechain-info',
+      label: 'PulseChain Infos',
+      icon: Zap,
+      path: '/pulsechain-info',
+      description: 'Über PulseChain & Richard Heart'
+    },
+    {
+      id: 'tax-export',
+      label: 'Tax Export',
+      icon: FileText,
+      path: '/tax-export',
+      description: 'Export & Download'
+    },
+    {
+      id: 'token-trade',
+      label: 'Token-Handel (Swap)',
+      icon: Repeat,
+      path: '/token-trade',
+      description: 'Token kaufen & tauschen'
+    },
+    {
+      id: 'bridge',
+      label: 'Bridge',
+      icon: Zap,
+      path: '/bridge',
+      description: 'Tokens zwischen Chains'
+    },
+    {
+      id: 'wgep',
+      label: 'WGEP',
+      icon: Printer,
+      path: '/wgep',
+      description: 'WGEP Token Tracking'
+    },
+    {
+      id: 'settings',
+      label: 'Einstellungen',
+      icon: Settings,
+      path: '/settings',
+      description: 'App-Einstellungen'
     }
   ];
 
