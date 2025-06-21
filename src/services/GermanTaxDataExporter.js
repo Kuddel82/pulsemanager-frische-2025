@@ -131,7 +131,7 @@ class GermanTaxDataExporter {
   }
 
   /**
-   * Steuer-Kategorie bestimmen (OHNE Steuerberechnung)
+   * 🔥 FIXED: Use EXACT same logic as working upper report
    */
   determineTaxCategory(tx) {
     console.log('🔍 Debug TX:', {
@@ -144,7 +144,7 @@ class GermanTaxDataExporter {
       isTaxable: tx.isTaxable
     });
 
-    // ROI/Printer Events - MEHRERE CHECKS
+    // 🔥 FIXED: Use EXACT same ROI detection as working report
     if (tx.isPrinter || 
         tx.printerProject || 
         tx.taxCategory === 'ROI' ||
@@ -152,25 +152,10 @@ class GermanTaxDataExporter {
       return 'roiEvents';
     }
     
-    // Value-basierte Kategorisierung - MEHRERE VALUE FIELDS
-    const valueEUR = parseFloat(
-      tx.valueEUR || 
-      tx.displayValueEUR || 
-      tx.totalValueEUR ||
-      tx.value_eur ||
-      0
-    );
+    // 🔥 FIXED: Use EXACT same value detection as working report  
+    const valueEUR = parseFloat(tx.valueEUR || tx.displayValueEUR || 0);
     
-    const valueUSD = parseFloat(
-      tx.valueUSD || 
-      tx.displayValueUSD || 
-      tx.totalValueUSD ||
-      tx.value_usd ||
-      0
-    );
-    
-    // Wenn irgendein Value > 0
-    if (valueEUR > 0 || valueUSD > 0) {
+    if (valueEUR > 0) {
       if (tx.direction === 'in') {
         return 'purchases';
       } else if (tx.direction === 'out') {

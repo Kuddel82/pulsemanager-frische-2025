@@ -7,6 +7,29 @@
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 const MORALIS_BASE_URL = 'https://deep-index.moralis.io/api/v2.2';
 
+// 🔥 FIXED CHAIN DETECTION MAPPING
+const CHAIN_DETECTION = {
+  // Ethereum
+  '0x1': 'Ethereum',
+  'eth': 'Ethereum', 
+  '1': 'Ethereum',
+  'ethereum': 'Ethereum',
+  
+  // PulseChain  
+  '0x171': 'PulseChain',
+  'pls': 'PulseChain',
+  '369': 'PulseChain',
+  'pulsechain': 'PulseChain',
+  
+  // Other chains
+  '0x38': 'BSC',
+  'bsc': 'BSC',
+  '0x89': 'Polygon',
+  'polygon': 'Polygon',
+  '0xa4b1': 'Arbitrum',
+  'arbitrum': 'Arbitrum'
+};
+
 /**
  * Helper to fetch data from Moralis REST API
  */
@@ -26,6 +49,21 @@ async function moralisFetch(endpoint, params = {}) {
   }
 
   return await res.json();
+}
+
+/**
+ * 🔥 FIXED: Add chain detection to transactions
+ */
+function addChainDetection(transactions, chainId) {
+  const sourceChain = CHAIN_DETECTION[chainId] || 'Unknown';
+  const chainSymbol = chainId === '0x171' ? 'PLS' : 'ETH';
+  
+  return transactions.map(transaction => ({
+    ...transaction,
+    sourceChain: sourceChain,
+    chainSymbol: chainSymbol,
+    chainId: chainId
+  }));
 }
 
 /**
@@ -127,7 +165,7 @@ export default async function handler(req, res) {
       // für TaxService und andere interne Anwendungen
       if (endpoint === 'erc20_transfers') {
         return res.status(200).json({
-          transfers: result.result || [],
+          transfers: addChainDetection(result.result || [], chainId),
           cursor: result.cursor,
           page_size: result.result?.length || 0,
           _source: 'moralis_v2_pro_erc20_transfers'
@@ -137,6 +175,7 @@ export default async function handler(req, res) {
       // Standard-Antwort für den wallet-token-transfers Endpoint
       return res.status(200).json({
         ...result,
+        result: addChainDetection(result.result || [], chainId),
         _source: 'moralis_v2_pro_transfers'
       });
     }
@@ -161,7 +200,7 @@ export default async function handler(req, res) {
       console.log(`✅ PRO NATIVE TX: ${result.result?.length || 0} transactions loaded`);
 
       return res.status(200).json({
-        transactions: result.result || [],
+        transactions: addChainDetection(result.result || [], chainId),
         cursor: result.cursor,
         page_size: result.result?.length || 0,
         _source: 'moralis_v2_pro_native_transactions'
