@@ -7,6 +7,7 @@
 class GermanTaxDataExporter {
   constructor() {
     this.currentYear = new Date().getFullYear();
+    this.walletAddress = null; // Wird beim ersten Call gesetzt
     // KEINE Steuerberechnungen - nur Datenstrukturierung!
   }
 
@@ -18,11 +19,34 @@ class GermanTaxDataExporter {
   createTaxAdvisorDataExport(transactions) {
     console.log('🇩🇪 Creating Tax Advisor Data Export...', { count: transactions.length });
     
+    // Wallet Address bestimmen
+    this.walletAddress = transactions[0]?.walletAddress || 
+                        transactions[0]?.to_address || 
+                        transactions[0]?.from_address ||
+                        'UNKNOWN';
+    
+    console.log('📍 Detected Wallet:', this.walletAddress);
+    
+    // Debug: Sample Transaction analysieren
+    if (transactions.length > 0) {
+      console.log('�� Sample Transaction:', transactions[0]);
+      console.log('🔍 Available Fields:', Object.keys(transactions[0]));
+    }
+    
     // 1. Transaktionen nach Datum sortieren
     const sortedTransactions = this.sortTransactionsByDate(transactions);
     
     // 2. Transaktionen kategorisieren (OHNE Steuerberechnung)
     const categorized = this.categorizeForTaxAdvisor(sortedTransactions);
+    
+    // Debug Kategorisierung
+    console.log('📊 Categorization Results:', {
+      purchases: categorized.purchases.length,
+      sales: categorized.sales.length,
+      transfers: categorized.transfers.length,
+      roiEvents: categorized.roiEvents.length,
+      unknown: categorized.unknown.length
+    });
     
     // 3. Haltefrist-Informationen hinzufügen (OHNE Interpretation)
     const withHoldingPeriods = this.addHoldingPeriodInfo(categorized);
@@ -52,16 +76,28 @@ class GermanTaxDataExporter {
    * Robustes Date Parsing
    */
   parseTransactionDate(tx) {
-    const dateStr = tx.block_timestamp || tx.timestamp || tx.block_time;
-    let parsedDate = new Date(dateStr);
+    // Alle möglichen Date Fields
+    const dateFields = [
+      tx.block_timestamp,
+      tx.timestamp, 
+      tx.block_time,
+      tx.time,
+      tx.date,
+      tx.created_at
+    ];
     
-    // Fallback für Invalid Dates
-    if (isNaN(parsedDate)) {
-      console.warn('Invalid date found:', dateStr, 'Using current date as fallback');
-      parsedDate = new Date();
+    for (const dateField of dateFields) {
+      if (dateField) {
+        const parsedDate = new Date(dateField);
+        if (!isNaN(parsedDate)) {
+          return parsedDate;
+        }
+      }
     }
     
-    return parsedDate;
+    // Fallback
+    console.warn('No valid date found for transaction:', tx);
+    return new Date(); // Current date as fallback
   }
 
   /**
@@ -98,15 +134,43 @@ class GermanTaxDataExporter {
    * Steuer-Kategorie bestimmen (OHNE Steuerberechnung)
    */
   determineTaxCategory(tx) {
-    // ROI/Printer Events identifizieren
-    if (tx.isPrinter || tx.printerProject) {
+    console.log('🔍 Debug TX:', {
+      isPrinter: tx.isPrinter,
+      printerProject: tx.printerProject,
+      direction: tx.direction,
+      valueEUR: tx.valueEUR,
+      displayValueEUR: tx.displayValueEUR,
+      taxCategory: tx.taxCategory,
+      isTaxable: tx.isTaxable
+    });
+
+    // ROI/Printer Events - MEHRERE CHECKS
+    if (tx.isPrinter || 
+        tx.printerProject || 
+        tx.taxCategory === 'ROI' ||
+        (tx.direction === 'in' && tx.isTaxable)) {
       return 'roiEvents';
     }
     
-    // Value-basierte Kategorisierung
-    const valueEUR = parseFloat(tx.valueEUR || tx.displayValueEUR || 0);
+    // Value-basierte Kategorisierung - MEHRERE VALUE FIELDS
+    const valueEUR = parseFloat(
+      tx.valueEUR || 
+      tx.displayValueEUR || 
+      tx.totalValueEUR ||
+      tx.value_eur ||
+      0
+    );
     
-    if (valueEUR > 0) {
+    const valueUSD = parseFloat(
+      tx.valueUSD || 
+      tx.displayValueUSD || 
+      tx.totalValueUSD ||
+      tx.value_usd ||
+      0
+    );
+    
+    // Wenn irgendein Value > 0
+    if (valueEUR > 0 || valueUSD > 0) {
       if (tx.direction === 'in') {
         return 'purchases';
       } else if (tx.direction === 'out') {
@@ -114,7 +178,7 @@ class GermanTaxDataExporter {
       }
     }
     
-    // Transfers ohne Wert
+    // Transfers ohne Wert aber mit Direction
     if (tx.direction === 'in' || tx.direction === 'out') {
       return 'transfers';
     }
@@ -126,37 +190,93 @@ class GermanTaxDataExporter {
    * Transaction Data anreichern
    */
   enrichTransactionData(tx) {
-    return {
+    // Alle möglichen Value Fields checken
+    const valueEUR = parseFloat(
+      tx.valueEUR || 
+      tx.displayValueEUR || 
+      tx.totalValueEUR ||
+      tx.value_eur ||
+      0
+    );
+    
+    const valueUSD = parseFloat(
+      tx.valueUSD || 
+      tx.displayValueUSD || 
+      tx.totalValueUSD ||
+      tx.value_usd ||
+      0
+    );
+    
+    const amount = parseFloat(
+      tx.value_decimal || 
+      tx.amount || 
+      tx.displayValue ||
+      tx.valueFormatted ||
+      0
+    );
+    
+    // ROI Detection - erweitert
+    const isROIEvent = !!(
+      tx.isPrinter || 
+      tx.printerProject || 
+      tx.taxCategory === 'ROI' ||
+      (tx.direction === 'in' && tx.isTaxable) ||
+      (tx.direction === 'in' && valueEUR > 0 && !tx.from_address)
+    );
+    
+    const enriched = {
       // Original Data
       ...tx,
       
       // Enriched Data für Steuerberater
       taxCategory: this.determineTaxCategory(tx),
       
-      // Formatierte Werte
-      valueEUR: parseFloat(tx.valueEUR || tx.displayValueEUR || 0),
-      valueUSD: parseFloat(tx.valueUSD || tx.displayValueUSD || 0),
-      amount: parseFloat(tx.value_decimal || tx.amount || 0),
+      // Formatierte Werte - ROBUST
+      valueEUR: valueEUR,
+      valueUSD: valueUSD, 
+      amount: amount,
       
-      // Date Formatting
-      germanDate: this.formatGermanDate(tx.parsedDate),
-      year: tx.yearOfTransaction,
+      // Date Formatting - ROBUST
+      germanDate: this.parseTransactionDate(tx) ? 
+        this.formatGermanDate(this.parseTransactionDate(tx)) : 'Invalid Date',
+      year: this.parseTransactionDate(tx) ? 
+        this.parseTransactionDate(tx).getFullYear() : new Date().getFullYear(),
       
-      // Token Info
-      token: tx.token_symbol || tx.tokenSymbol || 'UNKNOWN',
-      tokenName: tx.token_name || tx.tokenName || 'Unknown Token',
+      // Token Info - ROBUST
+      token: tx.token_symbol || tx.tokenSymbol || tx.symbol || 'UNKNOWN',
+      tokenName: tx.token_name || tx.tokenName || tx.name || 'Unknown Token',
       
-      // Chain Info
-      blockchain: tx.sourceChain || tx.chainSymbol || 'UNKNOWN',
+      // Chain Info - ROBUST  
+      blockchain: tx.sourceChain || tx.chainSymbol || tx.chain || 'UNKNOWN',
       
-      // Transaction Info
-      hash: tx.transaction_hash || tx.transactionHash || tx.hash || 'N/A',
-      direction: tx.direction || 'unknown',
+      // Transaction Info - ROBUST
+      hash: tx.transaction_hash || tx.transactionHash || tx.hash || tx.tx_hash || 'N/A',
+      direction: tx.direction || (tx.to_address === this.walletAddress ? 'in' : 'out'),
       
-      // ROI Info
-      isROIEvent: tx.isPrinter || !!tx.printerProject,
-      roiProject: tx.printerProject || null
+      // ROI Info - ERWEITERT
+      isROIEvent: isROIEvent,
+      roiProject: tx.printerProject || (isROIEvent ? 'Unknown ROI' : null),
+      
+      // Debug Info
+      debugInfo: {
+        originalValueEUR: tx.valueEUR,
+        originalValueUSD: tx.valueUSD,
+        originalAmount: tx.amount,
+        hasValue: valueEUR > 0 || valueUSD > 0,
+        originalTaxCategory: tx.taxCategory,
+        originalIsTaxable: tx.isTaxable
+      }
     };
+    
+    console.log('✅ Enriched TX:', {
+      token: enriched.token,
+      category: enriched.taxCategory,
+      valueEUR: enriched.valueEUR,
+      isROI: enriched.isROIEvent,
+      direction: enriched.direction
+    });
+    
+    return enriched;
   }
 
   /**
