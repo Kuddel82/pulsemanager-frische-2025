@@ -6,6 +6,19 @@ import { Crown } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import WalletReader from '@/components/WalletReader';
 import WalletManualInput from '@/components/WalletManualInput';
+import PrivacyPolicyView from './PrivacyPolicyView';
+import TermsOfServiceView from './TermsOfServiceView';
+import { motion } from 'framer-motion';
+import { 
+  Wallet, 
+  TrendingUp, 
+  FileText, 
+  Calculator, 
+  Info, 
+  ExternalLink,
+  Shield,
+  Scale
+} from 'lucide-react';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -14,6 +27,8 @@ const Home = () => {
   
   // 🔥 DIREKTE PREMIUM-ERKENNUNG OHNE PROVIDER
   const [isPremium, setIsPremium] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   
   useEffect(() => {
     if (user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de') {
@@ -49,6 +64,27 @@ const Home = () => {
       
     }
   };
+
+  // ESC-Taste-Funktionalität für Modals
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key === 'Escape') {
+        setIsPrivacyModalOpen(false);
+        setIsTermsModalOpen(false);
+      }
+    };
+
+    if (isPrivacyModalOpen || isTermsModalOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      // Verhindere Scroll auf dem Hintergrund
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isPrivacyModalOpen, isTermsModalOpen]);
 
   if (authLoading) {
     return (
@@ -117,7 +153,7 @@ const Home = () => {
           </p>
           
           <button 
-            onClick={() => navigate('/privacy-policy')}
+            onClick={() => setIsPrivacyModalOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
           >
             📄 Datenschutz lesen
@@ -138,7 +174,7 @@ const Home = () => {
           </p>
           
           <button 
-            onClick={() => navigate('/terms-of-service')}
+            onClick={() => setIsTermsModalOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
           >
             📋 AGBs lesen
@@ -146,6 +182,72 @@ const Home = () => {
         </div>
         
       </div>
+
+      {/* Privacy Policy Modal */}
+      {isPrivacyModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setIsPrivacyModalOpen(false)}
+        >
+          <div 
+            className="relative w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-lg shadow-2xl border border-white/10">
+              <div className="sticky top-0 bg-gradient-to-r from-slate-900 to-purple-900 px-6 py-4 rounded-t-lg border-b border-white/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Shield className="h-6 w-6 text-blue-400" />
+                    <h2 className="text-2xl font-bold text-white">Datenschutzbestimmungen</h2>
+                  </div>
+                  <button 
+                    onClick={() => setIsPrivacyModalOpen(false)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <span className="text-2xl text-gray-400 hover:text-white">×</span>
+                  </button>
+                </div>
+              </div>
+              <div className="p-6">
+                <PrivacyPolicyView />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Terms of Service Modal */}
+      {isTermsModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setIsTermsModalOpen(false)}
+        >
+          <div 
+            className="relative w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-lg shadow-2xl border border-white/10">
+              <div className="sticky top-0 bg-gradient-to-r from-slate-900 to-purple-900 px-6 py-4 rounded-t-lg border-b border-white/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Scale className="h-6 w-6 text-green-400" />
+                    <h2 className="text-2xl font-bold text-white">Allgemeine Geschäftsbedingungen</h2>
+                  </div>
+                  <button 
+                    onClick={() => setIsTermsModalOpen(false)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <span className="text-2xl text-gray-400 hover:text-white">×</span>
+                  </button>
+                </div>
+              </div>
+              <div className="p-6">
+                <TermsOfServiceView />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
