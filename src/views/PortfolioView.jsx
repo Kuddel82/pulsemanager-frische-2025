@@ -546,7 +546,7 @@ const PortfolioView = () => {
                     </td>
                     <td className="py-3 px-2 text-right">
                       <div className="text-sm pulse-text">
-                        {token.isIncludedInPortfolio ? formatPercentage(token.percentageOfPortfolio) : '-'}
+                        {token.percentageOfPortfolio ? formatPercentage(token.percentageOfPortfolio) : '-'}
                       </div>
                     </td>
                     <td className="py-3 px-2 text-center">
