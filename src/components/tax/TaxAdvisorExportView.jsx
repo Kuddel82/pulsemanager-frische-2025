@@ -40,65 +40,137 @@ const TaxAdvisorExportView = ({ walletAddress }) => {
     }
   };
 
-  const downloadCSV = () => {
-    if (!exportData?.taxAdvisorExport?.exports?.csv) return;
-    
-    const csvContent = exportData.taxAdvisorExport.exports.csv;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `tax-advisor-export-${walletAddress}-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadCSV = (exportData) => {
+    try {
+      const csvData = exportData.exports.csv;
+      if (!csvData) {
+        alert('CSV Daten nicht verfügbar');
+        return;
+      }
+      
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `tax_advisor_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('✅ CSV Download erfolgreich');
+    } catch (error) {
+      console.error('❌ CSV Download Fehler:', error);
+      alert('CSV Download fehlgeschlagen: ' + error.message);
+    }
   };
 
-  const downloadHTML = () => {
-    if (!exportData?.taxAdvisorExport?.exports?.html) return;
-    
-    const htmlContent = exportData.taxAdvisorExport.exports.html;
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `tax-advisor-report-${walletAddress}-${new Date().toISOString().split('T')[0]}.html`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadExcel = (exportData) => {
+    try {
+      const excelData = exportData.exports.excel;
+      if (!excelData) {
+        alert('Excel Daten nicht verfügbar');
+        return;
+      }
+      
+      // Convert to CSV format (simple Excel alternative)
+      let csvContent = '';
+      
+      // Add each category
+      Object.entries(excelData).forEach(([category, data]) => {
+        if (data && data.length > 0) {
+          csvContent += `\n${category.toUpperCase()}\n`;
+          
+          // Headers
+          const headers = Object.keys(data[0]);
+          csvContent += headers.join(',') + '\n';
+          
+          // Data rows
+          data.forEach(row => {
+            const values = headers.map(header => {
+              const value = row[header] || '';
+              return `"${value.toString().replace(/"/g, '""')}"`;
+            });
+            csvContent += values.join(',') + '\n';
+          });
+          
+          csvContent += '\n';
+        }
+      });
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `tax_advisor_excel_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('✅ Excel (CSV) Download erfolgreich');
+    } catch (error) {
+      console.error('❌ Excel Download Fehler:', error);
+      alert('Excel Download fehlgeschlagen: ' + error.message);
+    }
   };
 
-  const downloadExcel = () => {
-    if (!exportData?.taxAdvisorExport?.exports?.excel) return;
-    
-    // Convert Excel data to CSV format for download
-    const excelData = exportData.taxAdvisorExport.exports.excel;
-    const allData = [
-      ...excelData.purchases,
-      ...excelData.sales,
-      ...excelData.roiEvents,
-      ...excelData.transfers
-    ];
-    
-    if (allData.length === 0) return;
-    
-    const headers = Object.keys(allData[0]);
-    const csvContent = [
-      headers.join(','),
-      ...allData.map(row => headers.map(header => JSON.stringify(row[header] || '')).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `tax-advisor-excel-${walletAddress}-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadHTML = (exportData) => {
+    try {
+      const htmlData = exportData.exports.html;
+      if (!htmlData) {
+        alert('HTML Daten nicht verfügbar');
+        return;
+      }
+      
+      const blob = new Blob([htmlData], { type: 'text/html;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `tax_advisor_report_${new Date().toISOString().split('T')[0]}.html`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('✅ HTML Download erfolgreich');
+    } catch (error) {
+      console.error('❌ HTML Download Fehler:', error);
+      alert('HTML Download fehlgeschlagen: ' + error.message);
+    }
+  };
+
+  const DownloadButtons = ({ exportData }) => {
+    return (
+      <div className="flex gap-4 mt-4">
+        <button 
+          onClick={() => downloadCSV(exportData)}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+        >
+          📊 CSV Download
+        </button>
+        
+        <button 
+          onClick={() => downloadExcel(exportData)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+        >
+          📈 Excel Download
+        </button>
+        
+        <button 
+          onClick={() => downloadHTML(exportData)}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
+        >
+          🌐 HTML Report
+        </button>
+      </div>
+    );
   };
 
   useEffect(() => {
@@ -235,34 +307,7 @@ const TaxAdvisorExportView = ({ walletAddress }) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button 
-                onClick={downloadCSV} 
-                className="flex items-center gap-2"
-                variant="outline"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                CSV Export
-              </Button>
-              
-              <Button 
-                onClick={downloadExcel} 
-                className="flex items-center gap-2"
-                variant="outline"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                Excel Export
-              </Button>
-              
-              <Button 
-                onClick={downloadHTML} 
-                className="flex items-center gap-2"
-                variant="outline"
-              >
-                <FileCode className="h-4 w-4" />
-                HTML Report
-              </Button>
-            </div>
+            <DownloadButtons exportData={exportData.taxAdvisorExport} />
             
             <div className="mt-4 text-sm text-muted-foreground">
               Alle Exporte enthalten strukturierte Daten für Ihren Steuerberater. 

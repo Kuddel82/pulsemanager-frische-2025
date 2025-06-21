@@ -441,29 +441,104 @@ class GermanTaxDataExporter {
   }
 
   /**
-   * Excel Export Data
+   * VERBESSERTE CSV GENERATION
+   */
+  convertToCSV(data) {
+    if (!data || data.length === 0) {
+      return 'Keine Daten verfügbar';
+    }
+    
+    try {
+      // Headers aus erstem Objekt extrahieren
+      const headers = Object.keys(data[0]);
+      
+      // CSV Header Zeile
+      const csvHeaders = headers.map(header => `"${header}"`).join(',');
+      
+      // CSV Data Zeilen
+      const csvRows = data.map(row => {
+        return headers.map(header => {
+          const value = row[header] || '';
+          // Escape quotes und wrap in quotes
+          return `"${value.toString().replace(/"/g, '""')}"`;
+        }).join(',');
+      });
+      
+      // Kombinieren
+      return [csvHeaders, ...csvRows].join('\n');
+      
+    } catch (error) {
+      console.error('CSV Generation Error:', error);
+      return 'CSV Generation fehlgeschlagen';
+    }
+  }
+
+  /**
+   * VERBESSERTE EXCEL DATA GENERATION
    */
   generateExcelData(categorized) {
+    const formatForExcel = (transactions, category) => {
+      if (!transactions || transactions.length === 0) {
+        return [];
+      }
+      
+      return transactions.map(tx => ({
+        'Kategorie': category,
+        'Datum': tx.germanDate || 'Invalid Date',
+        'Token': tx.token || 'UNKNOWN',
+        'Menge': tx.amount || 0,
+        'Wert (EUR)': tx.valueEUR || 0,
+        'Wert (USD)': tx.valueUSD || 0,
+        'Blockchain': tx.blockchain || 'UNKNOWN',
+        'Direction': tx.direction || 'unknown',
+        'Transaction Hash': tx.hash || 'N/A',
+        'Haltefrist (Tage)': tx.holdingPeriod?.days || '',
+        'ROI Projekt': tx.roiProject || '',
+        'Ist ROI Event': tx.isROIEvent ? 'Ja' : 'Nein'
+      }));
+    };
+    
     return {
-      purchases: this.formatForExcel(categorized.purchases, 'Käufe'),
-      sales: this.formatForExcel(categorized.sales, 'Verkäufe'),
-      roiEvents: this.formatForExcel(categorized.roiEvents, 'ROI Events'),
-      transfers: this.formatForExcel(categorized.transfers, 'Transfers')
+      purchases: formatForExcel(categorized.purchases, 'Käufe'),
+      sales: formatForExcel(categorized.sales, 'Verkäufe'),
+      roiEvents: formatForExcel(categorized.roiEvents, 'ROI Events'),
+      transfers: formatForExcel(categorized.transfers, 'Transfers')
     };
   }
 
   /**
-   * CSV Export Data
+   * VERBESSERTE CSV DATA GENERATION
    */
   generateCSVData(categorized) {
-    const allForCSV = [
-      ...categorized.purchases.map(tx => ({ ...tx, category: 'Kauf' })),
-      ...categorized.sales.map(tx => ({ ...tx, category: 'Verkauf' })),
-      ...categorized.roiEvents.map(tx => ({ ...tx, category: 'ROI Event' })),
-      ...categorized.transfers.map(tx => ({ ...tx, category: 'Transfer' }))
+    // Alle Kategorien zusammenfassen
+    const allTransactions = [
+      ...(categorized.purchases || []).map(tx => ({ ...tx, category: 'Kauf' })),
+      ...(categorized.sales || []).map(tx => ({ ...tx, category: 'Verkauf' })),
+      ...(categorized.roiEvents || []).map(tx => ({ ...tx, category: 'ROI Event' })),
+      ...(categorized.transfers || []).map(tx => ({ ...tx, category: 'Transfer' }))
     ];
     
-    return this.convertToCSV(allForCSV);
+    if (allTransactions.length === 0) {
+      return 'Kategorie,Datum,Token,Menge,Wert (EUR),Message\n"Keine Daten","N/A","N/A","0","0","Keine Transaktionen gefunden"';
+    }
+    
+    // Format für CSV
+    const csvData = allTransactions.map(tx => ({
+      'Kategorie': tx.category || 'Unknown',
+      'Datum': tx.germanDate || 'Invalid Date',
+      'Token': tx.token || 'UNKNOWN',
+      'Menge': tx.amount || 0,
+      'Wert (EUR)': tx.valueEUR || 0,
+      'Wert (USD)': tx.valueUSD || 0,
+      'Blockchain': tx.blockchain || 'UNKNOWN',
+      'Direction': tx.direction || 'unknown',
+      'Transaction Hash': tx.hash || 'N/A',
+      'Haltefrist (Tage)': tx.holdingPeriod?.days || '',
+      'ROI Projekt': tx.roiProject || '',
+      'Ist ROI Event': tx.isROIEvent ? 'Ja' : 'Nein'
+    }));
+    
+    return this.convertToCSV(csvData);
   }
 
   /**
@@ -595,32 +670,6 @@ class GermanTaxDataExporter {
    */
   formatGermanDate(date) {
     return new Date(date).toLocaleDateString('de-DE');
-  }
-
-  formatForExcel(transactions, category) {
-    return transactions.map(tx => ({
-      'Kategorie': category,
-      'Datum': tx.germanDate,
-      'Token': tx.token,
-      'Menge': tx.amount,
-      'Wert (EUR)': tx.valueEUR,
-      'Blockchain': tx.blockchain,
-      'Transaction Hash': tx.hash,
-      'Haltefrist (Tage)': tx.holdingPeriod?.days || '',
-      'ROI Projekt': tx.roiProject || ''
-    }));
-  }
-
-  convertToCSV(data) {
-    if (data.length === 0) return '';
-    
-    const headers = Object.keys(data[0]);
-    const csvRows = [
-      headers.join(','),
-      ...data.map(row => headers.map(header => JSON.stringify(row[header] || '')).join(','))
-    ];
-    
-    return csvRows.join('\n');
   }
 }
 
