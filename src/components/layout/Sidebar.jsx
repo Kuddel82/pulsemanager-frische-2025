@@ -82,13 +82,13 @@ const Sidebar = () => {
       isLocked: false
     },
     {
-      id: 'roiTracker',
+      id: 'roi-tracker',
       icon: TrendingUp,
       label: 'ROI Tracker',
       isLocked: false
     },
     {
-      id: 'taxReport',
+      id: 'tax-report',
       icon: FileText,
       label: '🔥 STEUERREPORT',
       isLocked: effectiveSubscriptionStatus !== 'active'
@@ -100,7 +100,7 @@ const Sidebar = () => {
       isLocked: false
     },
     {
-      id: 'taxExport',
+      id: 'tax-export',
       icon: FileText,
       label: 'Tax Export',
       isLocked: false
@@ -139,7 +139,23 @@ const Sidebar = () => {
       setShowSubscriptionModal(true);
     } else {
       console.log('✅ NAVIGATION ALLOWED:', viewId);
-      setActiveView(viewId);
+      
+      // 🎯 KORREKTE URL-NAVIGATION
+      const urlMap = {
+        'dashboard': '/dashboard',
+        'portfolio': '/portfolio',
+        'roi-tracker': '/roi-tracker',
+        'tax-report': '/tax-report',
+        'pulsechain-info': '/pulsechain-info',
+        'tax-export': '/tax-export',
+        'tokenTrade': '/token-trade',
+        'bridge': '/bridge',
+        'wgep': '/wgep',
+        'settings': '/settings'
+      };
+      
+      const targetUrl = urlMap[viewId] || `/${viewId}`;
+      window.location.href = targetUrl;
     }
   };
 
