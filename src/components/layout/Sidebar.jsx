@@ -2,23 +2,13 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle, Eye, EyeOff, Printer, Zap } from 'lucide-react';
+import { Lock, LayoutDashboard, TrendingUp, FileText, Settings, LogOut, Bug, Crown, Timer, CheckCircle, Eye, EyeOff, Printer, Zap, Wallet, BarChartHorizontalBig, Repeat } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  getFeatureAccess, 
-  BUSINESS_MODEL,
-  PROTECTED_VIEWS_CONFIG as protectedViewsConfig,
-  PUBLIC_VIEWS_CONFIG as publicViewsConfig,
-  TRIAL_VIEWS_OBJECT,
-  PREMIUM_VIEWS_OBJECT,
-  FOOTER_VIEWS
-} from '@/config/appConfig';
 
-const NavItem = ({ icon, label, viewId, isActive, onClick, accessResult, isSidebarOpen }) => {
+const NavItem = ({ icon, label, viewId, isActive, onClick, isLocked, isSidebarOpen }) => {
   const IconComponent = icon;
-  const isLocked = !accessResult.access;
   
   return (
     <motion.div
@@ -33,7 +23,7 @@ const NavItem = ({ icon, label, viewId, isActive, onClick, accessResult, isSideb
           isLocked ? 'opacity-60' : ''
         }`}
         onClick={onClick}
-        disabled={isLocked && accessResult.reason === 'registration_required'}
+        disabled={isLocked}
       >
         <IconComponent size={20} />
         
@@ -54,17 +44,6 @@ const NavItem = ({ icon, label, viewId, isActive, onClick, accessResult, isSideb
         {/* 🔒 LOCK ICON für gesperrte Features */}
         {isLocked && (
           <Lock size={16} className="ml-auto text-red-400" />
-        )}
-        
-        {/* 🎯 STATUS BADGES */}
-        {!isLocked && accessResult.reason === 'trial' && (
-          <Badge variant="warning" className="ml-auto bg-yellow-100 text-yellow-800 text-xs">
-            {accessResult.daysLeft}d
-          </Badge>
-        )}
-        
-        {!isLocked && accessResult.reason === 'premium' && (
-          <Crown size={16} className="ml-auto text-yellow-500" />
         )}
       </Button>
     </motion.div>
@@ -87,137 +66,82 @@ const Sidebar = () => {
   const isEmergencyPremiumUser = user?.email === 'dkuddel@web.de' || user?.email === 'phi_bel@yahoo.de';
   const effectiveSubscriptionStatus = isEmergencyPremiumUser ? 'active' : subscriptionStatus;
   const effectiveDaysRemaining = isEmergencyPremiumUser ? 999 : daysRemaining;
-  
-  console.log('🚨 EMERGENCY OVERRIDE ACTIVE:', {
-    userEmail: user?.email,
-    isEmergencyPremiumUser,
-    originalStatus: subscriptionStatus,
-    effectiveStatus: effectiveSubscriptionStatus,
-    originalDays: daysRemaining,
-    effectiveDays: effectiveDaysRemaining,
-    forceWGEP: isEmergencyPremiumUser
-  });
 
-  // 🎯 KORRIGIERTE FEATURE ACCESS CHECK - EMERGENCY OVERRIDE FIRST!
-  const getFeatureStatus = (viewId) => {
-    // 🚨 EMERGENCY OVERRIDE - BYPASSES ALL CHECKS
-    if (isEmergencyPremiumUser) {
-      console.log(`🚨 EMERGENCY ACCESS GRANTED for ${viewId} to ${user.email}`);
-      return {
-        access: true,
-        reason: 'emergency_premium',
-        message: `🚨 Emergency Premium Access`,
-        disabled: false,
-        iconClass: 'text-green-500',
-        badge: '🚨 Emergency Premium'
-      };
+  // 🎯 EXAKTE URSPRÜNGLICHE REIHENFOLGE - Hardcodiert für 100% Zuverlässigkeit
+  const menuItems = [
+    {
+      id: 'dashboard',
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+      isLocked: false
+    },
+    {
+      id: 'portfolio',
+      icon: BarChartHorizontalBig,
+      label: 'Portfolio',
+      isLocked: false
+    },
+    {
+      id: 'roiTracker',
+      icon: TrendingUp,
+      label: 'ROI Tracker',
+      isLocked: false
+    },
+    {
+      id: 'taxReport',
+      icon: FileText,
+      label: '🔥 STEUERREPORT',
+      isLocked: effectiveSubscriptionStatus !== 'active'
+    },
+    {
+      id: 'pulsechain-info',
+      icon: Zap,
+      label: 'PulseChain Infos',
+      isLocked: false
+    },
+    {
+      id: 'taxExport',
+      icon: FileText,
+      label: 'Tax Export',
+      isLocked: false
+    },
+    {
+      id: 'tokenTrade',
+      icon: Repeat,
+      label: 'Token-Handel (Swap)',
+      isLocked: false
+    },
+    {
+      id: 'bridge',
+      icon: Zap,
+      label: 'Bridge',
+      isLocked: false
+    },
+    {
+      id: 'wgep',
+      icon: Printer,
+      label: 'WGEP',
+      isLocked: false
+    },
+    {
+      id: 'settings',
+      icon: Settings,
+      label: 'Einstellungen',
+      isLocked: false
     }
-    
-    const access = getFeatureAccess(viewId, user, effectiveSubscriptionStatus, effectiveDaysRemaining);
-    
-    if (!user) {
-      return {
-        ...access,
-        iconClass: 'text-red-500',
-        badge: '🔐 Registrierung',
-        disabled: true
-      };
-    }
-
-    if (access.access) {
-      if (access.reason === 'premium') {
-        return {
-          ...access,
-          iconClass: 'text-green-500',
-          badge: '👑 Premium',
-          disabled: false
-        };
-      } else if (access.reason === 'trial') {
-        return {
-          ...access,
-          iconClass: 'text-blue-500',
-          badge: `⏰ ${access.daysLeft} Tag${access.daysLeft !== 1 ? 'e' : ''} verbleibend`,
-          disabled: false
-        };
-      }
-    } else {
-      if (access.reason === 'premium_required') {
-        return {
-          ...access,
-          iconClass: 'text-red-500',
-          badge: '🔒 Premium Only',
-          disabled: true
-        };
-      } else if (access.reason === 'trial_expired') {
-        return {
-          ...access,
-          iconClass: 'text-red-500',
-          badge: '🔒 Trial abgelaufen',
-          disabled: true
-        };
-      }
-    }
-
-    return {
-      ...access,
-      iconClass: 'text-gray-500',
-      badge: '🔒 Gesperrt',
-      disabled: true
-    };
-  };
+  ];
 
   const handleNavClick = (viewId) => {
-    const accessResult = getFeatureStatus(viewId);
+    const menuItem = menuItems.find(item => item.id === viewId);
     
-    if (accessResult.disabled) {
-      // Show appropriate modal/message based on reason
-      if (accessResult.reason === 'registration_required') {
-        // Redirect to registration or show message
-        console.log('❌ NAVIGATION BLOCKED: Registration required for', viewId);
-        alert('Registrierung erforderlich für dieses Feature');
-      } else if (accessResult.reason === 'trial_expired' || accessResult.reason === 'premium_required') {
-        console.log('❌ NAVIGATION BLOCKED: Premium required for', viewId);
-        setShowSubscriptionModal(true);
-      }
+    if (menuItem && menuItem.isLocked) {
+      console.log('❌ NAVIGATION BLOCKED: Premium required for', viewId);
+      setShowSubscriptionModal(true);
     } else {
-      console.log('✅ NAVIGATION ALLOWED:', viewId, accessResult.reason);
+      console.log('✅ NAVIGATION ALLOWED:', viewId);
       setActiveView(viewId);
     }
   };
-
-  // 🎯 KORRIGIERTE SIDEBAR LOGIK - Verwendet appConfig.js direkt
-  const allViewsMap = new Map();
-  
-  // Füge alle Trial Views hinzu
-  TRIAL_VIEWS_OBJECT.forEach(v => allViewsMap.set(v.id, v));
-  
-  // Füge alle Premium Views hinzu
-  PREMIUM_VIEWS_OBJECT.forEach(v => allViewsMap.set(v.id, v));
-  
-  // Füge Footer Views hinzu
-  FOOTER_VIEWS.forEach(v => allViewsMap.set(v.id, v));
-
-  console.log('🔍 SIDEBAR DEBUG:', {
-    user: user?.email,
-    subscriptionStatus,
-    daysRemaining,
-    totalViews: allViewsMap.size,
-    trialViews: TRIAL_VIEWS_OBJECT.length,
-    premiumViews: PREMIUM_VIEWS_OBJECT.length
-  });
-
-  // 🎯 KORREKTE REIHENFOLGE: Alle Sidebar-Links aus appConfig
-  const sidebarViewConfigs = [
-    ...TRIAL_VIEWS_OBJECT.filter(v => v.isSidebarLink),
-    ...PREMIUM_VIEWS_OBJECT.filter(v => v.isSidebarLink)
-  ];
-
-  console.log('✅ SIDEBAR: Final sidebar views:', sidebarViewConfigs.map(v => ({ id: v.id, translationKey: v.translationKey, name: v.name })));
-
-  const displayableSidebarItems = sidebarViewConfigs;
-
-  console.log('🚨 FINAL SIDEBAR ITEMS:', displayableSidebarItems.map(v => v.id));
-  console.log('🚨 WGEP IN FINAL LIST:', displayableSidebarItems.some(v => v.id === 'wgep'));
 
   return (
     <div className="flex">
@@ -227,73 +151,19 @@ const Sidebar = () => {
         transition={{ duration: 0.3, ease: "easeInOut" }}
         className="fixed inset-y-0 left-0 z-40 bg-background/70 backdrop-blur-sm border-r border-border/20 p-4 space-y-2 overflow-y-auto shadow-md pt-20"
       >
-        {displayableSidebarItems.map(view => {
-          if (!view || !view.id || !view.icon || !view.translationKey) {
-              console.warn("Sidebar: Skipping invalid view config:", view);
-              return null;
-          }
-          
-          // 🎯 BUSINESS LOGIC CHECK
-          const accessResult = getFeatureStatus(view.id);
-          
-          let labelText = view.translationKey;
-          if (t && t[view.translationKey]) {
-            labelText = t[view.translationKey];
-          } else {
-            console.warn(`Sidebar: Missing translation for key '${view.translationKey}'. Using key as fallback.`);
-          }
-
-          return (
-            <div key={view.id} className="space-y-1">
-              <NavItem
-                icon={view.icon}
-                label={labelText}
-                viewId={view.id}
-                isActive={activeView === view.id}
-                onClick={() => handleNavClick(view.id)}
-                accessResult={accessResult}
-                isSidebarOpen={isSidebarOpen}
-              />
-              
-              {/* 🎯 FEATURE STATUS ANZEIGE - KORRIGIERT */}
-              {isSidebarOpen && (
-                <div className="px-3 pb-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500">
-                      {BUSINESS_MODEL.getAccessDescription(view.id)}
-                    </p>
-                  </div>
-                  
-                  {/* 🔴 LOCKED MESSAGE */}
-                  {accessResult.disabled && (
-                    <p className="text-xs text-red-500 mt-1 flex items-center">
-                      <Lock className="h-3 w-3 mr-1" />
-                      {accessResult.message}
-                    </p>
-                  )}
-                  
-                  {/* 🟡 TRIAL MESSAGE */}
-                  {accessResult.access && accessResult.reason === 'trial' && (
-                    <p className="text-xs text-yellow-600 mt-1 flex items-center">
-                      <Timer className="h-3 w-3 mr-1" />
-                      {accessResult.message}
-                    </p>
-                  )}
-                  
-                  {/* 🚫 FREE MESSAGE - ENTFERNT! Keine kostenlosen Features mehr! */}
-                  
-                  {/* 👑 PREMIUM MESSAGE */}
-                  {accessResult.access && accessResult.reason === 'premium' && (
-                    <p className="text-xs text-blue-600 mt-1 flex items-center">
-                      <Crown className="h-3 w-3 mr-1" />
-                      Premium aktiv
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {menuItems.map(item => (
+          <div key={item.id} className="space-y-1">
+            <NavItem
+              icon={item.icon}
+              label={item.label}
+              viewId={item.id}
+              isActive={activeView === item.id}
+              onClick={() => handleNavClick(item.id)}
+              isLocked={item.isLocked}
+              isSidebarOpen={isSidebarOpen}
+            />
+          </div>
+        ))}
 
         {/* 🚀 USER STATUS PANEL */}
         {isSidebarOpen && (
@@ -305,7 +175,7 @@ const Sidebar = () => {
               </span>
             </div>
             
-            {/* 🎯 STATUS ANZEIGE - KORRIGIERT FÜR NEUES MODEL */}
+            {/* 🎯 STATUS ANZEIGE */}
             <div className="text-xs space-y-1">
               {!user && (
                 <p className="text-gray-600">
