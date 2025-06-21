@@ -135,6 +135,8 @@ export default async function handler(req, res) {
   const chainId = chainMap[chain.toLowerCase()] || chain;
 
   console.log(`🔵 CHAIN MAPPING: ${chain} -> ${chainId}`);
+  console.log(`🔵 ORIGINAL CHAIN: ${chain}`);
+  console.log(`🔵 MAPPED CHAIN: ${chainId}`);
 
   try {
     // ❌ REMOVED: wallet-tokens-prices (Enterprise feature - not available in Pro Plan)
