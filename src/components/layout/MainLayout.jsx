@@ -73,7 +73,7 @@ const MainLayout = () => {
       id: 'pulsex',
       label: 'PulseX',
       icon: BarChart3,
-      href: 'https://app.pulsex.com',
+      href: 'https://pulsex.mypinata.cloud/ipfs/bafybeiajyhfbf6evh4mdabassmbtsy73ci2gmcgh4ffmjkrgsea35vqxba/',
       external: true,
       description: 'Token kaufen & tauschen'
     },
