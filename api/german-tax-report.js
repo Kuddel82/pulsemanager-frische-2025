@@ -18,6 +18,22 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
   const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
   const baseURL = 'https://deep-index.moralis.io/api/v2.2';
   
+  // 🚨 CHAIN MAPPING FIX - RICHTIGE CHAIN IDs
+  const chainMap = {
+    ethereum: '0x1',
+    eth: '0x1',
+    '1': '0x1',
+    '0x1': '0x1',
+    pulsechain: '0x171',
+    pls: '0x171',
+    '369': '0x171',
+    '0x171': '0x171',
+    bsc: '0x38',
+    polygon: '0x89',
+    arbitrum: '0xa4b1'
+  };
+  const chainId = chainMap[chain.toLowerCase()] || chain;
+  
   const results = {
     nativeTransactions: [],
     erc20Transfers: [],
@@ -29,7 +45,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
   try {
     // 1. NATIVE TRANSACTIONS via HTTP
     console.log('🔄 Loading native transactions via HTTP...');
-    const nativeUrl = `${baseURL}/${walletAddress}?chain=${chain}&limit=100`;
+    const nativeUrl = `${baseURL}/${walletAddress}?chain=${chainId}&limit=100`;
     const nativeResponse = await fetch(nativeUrl, {
       headers: {
         'X-API-Key': MORALIS_API_KEY,
@@ -45,7 +61,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
 
     // 2. ERC20 TRANSFERS via HTTP
     console.log('🔄 Loading ERC20 transfers via HTTP...');
-    const transferUrl = `${baseURL}/${walletAddress}/erc20/transfers?chain=${chain}&limit=100`;
+    const transferUrl = `${baseURL}/${walletAddress}/erc20/transfers?chain=${chainId}&limit=100`;
     const transferResponse = await fetch(transferUrl, {
       headers: {
         'X-API-Key': MORALIS_API_KEY,
@@ -61,7 +77,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
 
     // 3. TOKEN BALANCES via HTTP
     console.log('🔄 Loading token balances via HTTP...');
-    const balanceUrl = `${baseURL}/${walletAddress}/erc20?chain=${chain}`;
+    const balanceUrl = `${baseURL}/${walletAddress}/erc20?chain=${chainId}`;
     const balanceResponse = await fetch(balanceUrl, {
       headers: {
         'X-API-Key': MORALIS_API_KEY,
@@ -95,17 +111,12 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
 // ✅ OPTION 3: FALLBACK TO EXISTING CODE (SAFE WRAPPER)
 const getWalletTransactionHistorySafe = async (walletAddress, chain = 'eth') => {
   try {
-    // Try new method first
-    if (typeof Moralis !== 'undefined' && Moralis.EvmApi) {
-      return await getWalletTransactionHistory(walletAddress, chain);
-    }
-    
-    // Fallback to HTTP method
-    console.log('⚠️ Moralis SDK not available, using HTTP API...');
+    // 🚨 IMMER HTTP METHOD VERWENDEN - KEIN MORALIS SDK
+    console.log('🔄 Using HTTP API for Steuerreport...');
     return await getWalletTransactionHistoryHTTP(walletAddress, chain);
     
   } catch (error) {
-    console.error('🚨 All methods failed, using existing balances:', error);
+    console.error('🚨 HTTP method failed, using empty arrays:', error);
     
     // Ultimate fallback - return existing structure with empty arrays
     return {
@@ -120,124 +131,28 @@ const getWalletTransactionHistorySafe = async (walletAddress, chain = 'eth') => 
 
 // ✅ MORALIS SDK INITIALIZATION (IF NEEDED)
 const initializeMoralis = async () => {
-  if (typeof Moralis !== 'undefined' && !Moralis.Core.isStarted) {
-    await Moralis.start({
-      apiKey: process.env.MORALIS_API_KEY
-    });
-    console.log('✅ Moralis SDK initialized');
-  }
+  console.log('✅ HTTP API mode - no SDK needed');
 };
 
 // 🔧 BACKEND ENVIRONMENT CHECK
 const checkEnvironment = () => {
   console.log('🔍 Environment Check:', {
-    moralisAvailable: typeof Moralis !== 'undefined',
+    moralisAvailable: false, // HTTP mode only
     apiKeyExists: !!process.env.MORALIS_API_KEY,
-    nodeEnv: process.env.NODE_ENV
+    nodeEnv: process.env.NODE_ENV,
+    mode: 'HTTP_API_ONLY'
   });
 };
 
 // 🚀 HIGH VOLUME BACKEND FIX - ECHTE TRANSAKTIONEN LADEN!
 // Problem: Backend lädt nur Token Balances (44), keine echte Transaction History
-// Lösung: Moralis getWalletTokenTransfers() + getWalletTransactions() mit Pagination
+// Lösung: HTTP API Calls mit richtigen Chain IDs
 
-// ✅ NEUE MORALIS API CALLS FÜR ECHTE TRANSAKTIONEN
+// ✅ HTTP API CALLS FÜR ECHTE TRANSAKTIONEN
 const getWalletTransactionHistory = async (walletAddress, chain = 'eth') => {
-  const results = {
-    nativeTransactions: [],
-    erc20Transfers: [],
-    erc20Balances: [], // Keep for current holdings
-    totalProcessed: 0,
-    errors: []
-  };
-
-  try {
-    // Check if Moralis is available
-    if (typeof Moralis === 'undefined' || !Moralis.EvmApi) {
-      console.log('⚠️ Moralis SDK not available, using HTTP fallback...');
-      return await getWalletTransactionHistoryHTTP(walletAddress, chain);
-    }
-
-    // 1. NATIVE TRANSACTIONS (ETH/PLS transfers)
-    console.log('🔄 Loading native transactions...');
-    const nativeResponse = await Moralis.EvmApi.transaction.getWalletTransactions({
-      address: walletAddress,
-      chain: chain,
-      limit: 100, // Start with 100, can increase
-      include: 'internal_transactions'
-    });
-    
-    results.nativeTransactions = nativeResponse.toJSON().result || [];
-    console.log(`✅ Native Transactions: ${results.nativeTransactions.length}`);
-
-    // 2. ERC20 TOKEN TRANSFERS (The missing piece!)
-    console.log('🔄 Loading ERC20 transfers...');
-    let cursor = null;
-    let totalTransfers = 0;
-    const maxPages = 50; // Prevent infinite loops
-    let currentPage = 0;
-
-    do {
-      const transferParams = {
-        address: walletAddress,
-        chain: chain,
-        limit: 100,
-        ...(cursor && { cursor })
-      };
-
-      const transferResponse = await Moralis.EvmApi.token.getWalletTokenTransfers(transferParams);
-      const transfers = transferResponse.toJSON();
-      
-      if (transfers.result && transfers.result.length > 0) {
-        results.erc20Transfers.push(...transfers.result);
-        totalTransfers += transfers.result.length;
-        console.log(`📦 Page ${currentPage + 1}: +${transfers.result.length} transfers (Total: ${totalTransfers})`);
-      }
-
-      cursor = transfers.cursor;
-      currentPage++;
-      
-      // Break if we hit limits
-      if (currentPage >= maxPages) {
-        console.log(`⚠️ Reached max pages limit (${maxPages}), stopping...`);
-        break;
-      }
-      
-      // Break if we have enough data for testing
-      if (totalTransfers >= 1000) {
-        console.log(`✅ Reached 1000+ transfers, sufficient for testing`);
-        break;
-      }
-
-    } while (cursor && currentPage < maxPages);
-
-    console.log(`✅ ERC20 Transfers: ${results.erc20Transfers.length}`);
-
-    // 3. CURRENT TOKEN BALANCES (for portfolio value)
-    console.log('🔄 Loading current balances...');
-    const balanceResponse = await Moralis.EvmApi.token.getWalletTokenBalances({
-      address: walletAddress,
-      chain: chain
-    });
-    
-    results.erc20Balances = balanceResponse.toJSON().result || [];
-    console.log(`✅ Current Holdings: ${results.erc20Balances.length}`);
-
-    // 4. CALCULATE TOTALS
-    results.totalProcessed = 
-      results.nativeTransactions.length + 
-      results.erc20Transfers.length + 
-      results.erc20Balances.length;
-
-    console.log(`🎯 TOTAL PROCESSED: ${results.totalProcessed}`);
-    
-    return results;
-
-  } catch (error) {
-    console.error('🚨 Moralis API Error:', error);
-    results.errors.push(error.message);
-    return results;
-  }
+  // 🚨 IMMER HTTP METHOD VERWENDEN
+  console.log('🔄 Using HTTP API for transaction history...');
+  return await getWalletTransactionHistoryHTTP(walletAddress, chain);
 };
 
 // ✅ TRANSACTION TYPE DETECTION (für German Tax)
