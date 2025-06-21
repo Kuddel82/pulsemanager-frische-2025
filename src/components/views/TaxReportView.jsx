@@ -447,7 +447,13 @@ const SimpleTaxTracker = () => {
                       <td>${date}</td>
                       <td>${chain}</td>
                       <td>${token}</td>
-                      <td>${tx.taxCategory || 'N/A'}</td>
+                      <td>${tx.isPrinter ? (
+                        <span className="text-green-400 font-bold">
+                          🎯 {tx.taxCategory}
+                        </span>
+                      ) : (
+                        tx.taxCategory || 'N/A'
+                      )}</td>
                       <td>${direction}</td>
                       <td>${value}</td>
                     </tr>
@@ -731,7 +737,7 @@ const SimpleTaxTracker = () => {
             </h2>
             
             {/* Stats Grid - NUCLEAR OPTION - KOMPLETT NEU */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
                   {/* ECHTE DATEN STATT TEMPLATE LITERALS */}
@@ -762,6 +768,13 @@ const SimpleTaxTracker = () => {
                   {formatCurrency(taxData.summary?.totalTaxEUR || 0)}
                 </div>
                 <div className="pulse-stat-label">Grobe Steuerlast</div>
+              </div>
+              
+              <div className="pulse-stat">
+                <div className="pulse-stat-value">
+                  {taxData.transactions?.filter(tx => tx.isPrinter).length || 0}
+                </div>
+                <div className="pulse-stat-label">🎯 Printer ROI</div>
               </div>
             </div>
 
@@ -804,7 +817,13 @@ const SimpleTaxTracker = () => {
                             {tx.token_symbol || tx.tokenSymbol || 'UNKNOWN'}
                           </td>
                           <td className="px-4 py-3 text-sm pulse-text-secondary">
-                            {tx.taxCategory || 'Token Transfer In'}
+                            {tx.isPrinter ? (
+                              <span className="text-green-400 font-bold">
+                                🎯 {tx.taxCategory}
+                              </span>
+                            ) : (
+                              tx.taxCategory || 'N/A'
+                            )}
                           </td>
                           <td className="px-4 py-3 text-sm pulse-text">
                             <span className={`px-2 py-1 rounded text-xs ${

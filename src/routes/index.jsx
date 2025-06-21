@@ -18,7 +18,6 @@ import Home from '@/components/views/Home';
 import PortfolioView from '@/views/PortfolioView';
 import ROITrackerView from '@/views/ROITrackerView_Simple';
 import TaxReportView from '@/components/views/TaxReportView';
-import TaxExportView from '@/views/TaxExportView';
 import PulseChainInfoView from '@/views/PulseChainInfoView';
 import AcademyView from '@/components/views/AcademyView';
 import SettingsView from '@/components/views/SettingsView';
@@ -93,7 +92,6 @@ const AppRoutes = () => {
         <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/roi-tracker" element={<ROITrackerView />} />
         <Route path="/tax-report" element={<TaxReportView />} />
-        <Route path="/tax-export" element={<TaxExportView />} />
         <Route path="/pulsechain-info" element={<PulseChainInfoView />} />
         
         {/* 🐛 DEBUG MONITOR - PHASE 3 */}

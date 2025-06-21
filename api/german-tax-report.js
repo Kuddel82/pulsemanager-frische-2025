@@ -8,6 +8,9 @@
  * 🚀 VERCEL SERVERLESS FUNCTION - Kompatibel mit Vercel Deployment
  */
 
+// 🎯 PULSECHAIN PRINTER DETECTION SYSTEM
+import { categorizePulseChainTransactionComplete } from './pulsechain-printer-master.js';
+
 // 🔥 REQUEST DEDUPLICATION CACHE
 const requestCache = new Map();
 const CACHE_DURATION = 10000; // 10 Sekunden
@@ -204,10 +207,8 @@ function calculateWGEPTaxSummary(transactions) {
   return summary;
 }
 
-/**
- * 🔧 KORREKTE TOKEN-EXTRAKTION für Moralis Wallet History API
- */
-function extractTokenDataFromWalletHistory(tx, walletAddress) {
+// 🔥 TOKEN DATA EXTRACTION (ENRICHED)
+async function extractTokenDataFromWalletHistory(tx, walletAddress) {
   // DEFAULT VALUES
   let tokenSymbol = 'UNKNOWN';
   let tokenName = 'Unknown Token';
@@ -311,7 +312,6 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
   
   // 🏷️ DEUTSCHE STEUER-KATEGORISIERUNG MIT WGEP-SPEZIFIK
   const ROI_TOKENS = ['HEX', 'INC', 'PLSX', 'LOAN', 'FLEX', 'WGEP', 'MISOR', 'PLS'];
-  const isROIToken = ROI_TOKENS.includes(tokenSymbol?.toUpperCase());
   
   // WGEP-spezifische Minter-Adressen
   const WGEP_MINTERS = [
@@ -323,6 +323,13 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
   const fromMinter = WGEP_MINTERS.includes(tx.from_address?.toLowerCase());
   const toMinter = WGEP_MINTERS.includes(tx.to_address?.toLowerCase());
   
+  // 🔥 ROI TOKEN DETECTION
+  const isROIToken = fromMinter || 
+                     tokenSymbol === 'HEX' || 
+                     tokenSymbol === 'PLSX' || 
+                     tokenSymbol === 'PLS' ||
+                     (direction === 'in' && fromAddress === '0x0000000000000000000000000000000000000000');
+  
   let taxCategory = 'Sonstige';
   let isTaxable = false;
   let isROI = false;
@@ -330,6 +337,55 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
   let isSale = false;
   let costBasis = null;
   let holdingPeriod = null;
+  let germanTaxNote = null;
+  
+  // 🎯 PULSECHAIN PRINTER DETECTION
+  if (chainSymbol === 'PLS' || tx.sourceChain === 'PulseChain') {
+    console.log('🔍 Checking PulseChain transaction:', {
+      tokenSymbol,
+      fromAddress,
+      contractAddress: tx.contractAddress || tx.token_address,
+      direction,
+      valueFormatted
+    });
+    
+    try {
+      const printerResult = await categorizePulseChainTransactionComplete({
+        direction: direction,
+        chainSymbol: 'PLS',
+        tokenSymbol: tokenSymbol,
+        from_address: fromAddress,
+        contractAddress: tx.contractAddress || tx.token_address,
+        valueFormatted: valueFormatted,
+        transactionType: 'transfer'
+      });
+      
+      console.log('🎯 Printer Detection Result:', printerResult);
+      
+      if (printerResult.isPrinter) {
+        console.log(`🎯 PRINTER ROI DETECTED: ${printerResult.printerProject}`);
+        taxCategory = printerResult.taxCategory;
+        isTaxable = printerResult.isTaxable;
+        germanTaxNote = printerResult.germanTaxNote;
+        
+        // Zusätzliche Printer-Infos für Frontend
+        tx.isPrinter = true;
+        tx.printerProject = printerResult.printerProject;
+        tx.printerType = printerResult.printerType;
+        tx.confidence = printerResult.confidence;
+      } else if (printerResult.isBridgeSwap) {
+        console.log(`🌉 BRIDGE/SWAP DETECTED: ${printerResult.type}`);
+        taxCategory = printerResult.taxCategory;
+        isTaxable = printerResult.isTaxable;
+        germanTaxNote = printerResult.germanTaxNote;
+      } else {
+        console.log('❌ No printer/bridge detected for this PLS transaction');
+      }
+    } catch (error) {
+      console.error('❌ PulseChain Printer Detection Error:', error);
+      // Fallback zur normalen Kategorisierung
+    }
+  }
   
   // 🛒 WGEP KAUF (Purchase) - Steuerfrei
   if (direction === 'in' && tokenSymbol?.toUpperCase() === 'WGEP' && !fromMinter) {
@@ -400,7 +456,8 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     isPurchase,
     isSale,
     costBasis,
-    holdingPeriod
+    holdingPeriod,
+    germanTaxNote
   };
 }
 
@@ -462,11 +519,11 @@ module.exports = async function handler(req, res) {
         allDebugInfo[chain.short] = debugInfo;
         
         // Add chain info to transactions
-        const processedTransactions = transfers.map(tx => {
+        const processedTransactions = await Promise.all(transfers.map(async tx => {
           tx.sourceChain = chain.name;
           tx.chain = chain.id;
-          return extractTokenDataFromWalletHistory(tx, address);
-        });
+          return await extractTokenDataFromWalletHistory(tx, address);
+        }));
         
         allTransactions.push(...processedTransactions);
         
@@ -494,10 +551,10 @@ module.exports = async function handler(req, res) {
     });
 
     // DEUTSCHE STEUER-KATEGORISIERUNG
-    const categorizedTransactions = allTransactions.map((tx, index) => {
-      const result = extractTokenDataFromWalletHistory(tx, address);
+    const categorizedTransactions = await Promise.all(allTransactions.map(async (tx, index) => {
+      const result = await extractTokenDataFromWalletHistory(tx, address);
       return result;
-    });
+    }));
 
     // ZUSAMMENFASSUNG
     const summary = calculateWGEPTaxSummary(categorizedTransactions);

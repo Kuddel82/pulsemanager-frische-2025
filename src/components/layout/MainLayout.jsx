@@ -63,13 +63,6 @@ const MainLayout = () => {
       description: 'Über PulseChain & Richard Heart'
     },
     {
-      id: 'tax-export',
-      label: 'Tax Export',
-      icon: FileText,
-      path: '/tax-export',
-      description: 'Export & Download'
-    },
-    {
       id: 'pulsex',
       label: 'PulseX',
       icon: BarChart3,
