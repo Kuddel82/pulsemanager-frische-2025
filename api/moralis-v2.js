@@ -117,10 +117,10 @@ export default async function handler(req, res) {
     eth: '0x1',
     '1': '0x1',
     '0x1': '0x1',
-    pulsechain: '0x171',
-    pls: '0x171',
-    '369': '0x171',
-    '0x171': '0x171',
+    pulsechain: 'eth',
+    pls: 'eth',
+    '369': 'eth',
+    '0x171': 'eth',
     bsc: '0x38',
     polygon: '0x89',
     arbitrum: '0xa4b1'
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
       
       const result = await moralisFetch(`${address}/erc20/transfers`, { 
         chain: chainId,
-        limit: Math.min(limit, 100),
+        limit: Math.min(limit, 300000),
         cursor: cursor
       });
       
@@ -186,7 +186,7 @@ export default async function handler(req, res) {
       
       const result = await moralisFetch(`${address}`, { 
         chain: chainId,
-        limit: Math.min(limit, 100),
+        limit: Math.min(limit, 300000),
         cursor: cursor
       });
       
@@ -242,7 +242,7 @@ export default async function handler(req, res) {
       
       const result = await moralisFetch(`${address}/nft`, { 
         chain: chainId,
-        limit: Math.min(limit, 100),
+        limit: Math.min(limit, 300000),
         cursor: cursor
       });
       
@@ -267,7 +267,7 @@ export default async function handler(req, res) {
       
       const result = await moralisFetch(`${address}/erc20`, { 
         chain: chainId,
-        limit: Math.min(limit, 100),
+        limit: Math.min(limit, 300000),
         cursor: cursor
       });
       

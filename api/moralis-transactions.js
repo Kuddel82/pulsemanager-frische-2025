@@ -111,7 +111,7 @@ export default async function handler(req, res) {
       eth: '0x1', 
       '1': '0x1',
       '0x1': '0x1',
-      pulsechain: '0x171',
+      pulsechain: 'eth',
       pls: '0x171',
       '369': '0x171',
       '0x171': '0x171',
