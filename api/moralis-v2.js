@@ -96,6 +96,28 @@ export default async function handler(req, res) {
     });
   }
 
+  // 🚨 VALIDATE ADDRESS FORMAT
+  if (address === '0x0000000000000000000000000000000000000000' || address === '0x0') {
+    console.log(`⚠️ INVALID ADDRESS: ${address} - returning empty result`);
+    return res.status(200).json({
+      result: [],
+      _source: 'moralis_v2_invalid_address',
+      _reason: 'Zero address provided',
+      _address: address
+    });
+  }
+
+  // 🚨 VALIDATE ADDRESS LENGTH
+  if (address.length !== 42 || !address.startsWith('0x')) {
+    console.log(`⚠️ INVALID ADDRESS FORMAT: ${address} - returning empty result`);
+    return res.status(200).json({
+      result: [],
+      _source: 'moralis_v2_invalid_address_format',
+      _reason: 'Invalid address format',
+      _address: address
+    });
+  }
+
   // Convert chain names to Moralis format
   const chainMap = {
     ethereum: 'eth',
