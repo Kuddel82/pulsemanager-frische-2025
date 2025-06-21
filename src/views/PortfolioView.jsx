@@ -197,6 +197,20 @@ const PortfolioView = () => {
     return result;
   }, [calculateROI]);
 
+  // 📊 CALCULATE PORTFOLIO PERCENTAGES
+  const tokensWithPercentages = useMemo(() => {
+    if (!portfolioData?.tokens || !portfolioData.totalValue) {
+      return portfolioData?.tokens || [];
+    }
+
+    return portfolioData.tokens.map(token => ({
+      ...token,
+      percentageOfPortfolio: token.value && portfolioData.totalValue > 0 
+        ? (token.value / portfolioData.totalValue) * 100 
+        : 0
+    }));
+  }, [portfolioData?.tokens, portfolioData?.totalValue]);
+
   return (
     <div className="min-h-screen bg-black p-6">
       <div className="max-w-7xl mx-auto">
@@ -465,7 +479,7 @@ const PortfolioView = () => {
         <div className="pulse-card p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold pulse-text">
-              Token Holdings ({(portfolioData?.tokens || []).filter(token => !hiddenTokens.has(token.contractAddress)).length}/{portfolioData?.tokens?.length || 0})
+              Token Holdings ({tokensWithPercentages.filter(token => !hiddenTokens.has(token.contractAddress)).length}/{tokensWithPercentages.length})
             </h3>
             {hiddenTokens.size > 0 && (
               <Button
@@ -495,7 +509,7 @@ const PortfolioView = () => {
                 </tr>
               </thead>
               <tbody>
-                {(portfolioData?.tokens || [])
+                {tokensWithPercentages
                   .filter(token => !hiddenTokens.has(token.contractAddress))
                   .map((token, index) => (
                   <tr key={index} className={`border-b border-white/5 hover:bg-white/5 ${!token.hasReliablePrice ? 'opacity-60' : ''}`}>
@@ -594,11 +608,11 @@ const PortfolioView = () => {
         </div>
 
         {/* Portfolio Distribution */}
-        {(portfolioData?.tokens || []).filter(t => t.isIncludedInPortfolio && !hiddenTokens.has(t.contractAddress)).length > 0 && (
+        {tokensWithPercentages.filter(t => t.isIncludedInPortfolio && !hiddenTokens.has(t.contractAddress)).length > 0 && (
           <div className="pulse-card p-6 mt-6">
             <h3 className="text-lg font-bold pulse-text mb-4">Portfolio Verteilung (nur sichtbare Tokens mit verlässlichen Preisen)</h3>
             <div className="space-y-3">
-              {(portfolioData?.tokens || [])
+              {tokensWithPercentages
                 .filter(t => t.isIncludedInPortfolio && !hiddenTokens.has(t.contractAddress))
                 .slice(0, 10)
                 .map((token, index) => (
