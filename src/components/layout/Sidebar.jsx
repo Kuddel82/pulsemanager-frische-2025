@@ -10,7 +10,10 @@ import {
   getFeatureAccess, 
   BUSINESS_MODEL,
   PROTECTED_VIEWS_CONFIG as protectedViewsConfig,
-  PUBLIC_VIEWS_CONFIG as publicViewsConfig
+  PUBLIC_VIEWS_CONFIG as publicViewsConfig,
+  TRIAL_VIEWS_OBJECT,
+  PREMIUM_VIEWS_OBJECT,
+  FOOTER_VIEWS
 } from '@/config/appConfig';
 
 const NavItem = ({ icon, label, viewId, isActive, onClick, accessResult, isSidebarOpen }) => {
@@ -182,114 +185,34 @@ const Sidebar = () => {
     }
   };
 
+  // 🎯 KORRIGIERTE SIDEBAR LOGIK - Verwendet appConfig.js direkt
   const allViewsMap = new Map();
-  publicViewsConfig.forEach(v => allViewsMap.set(v.id, v));
-  protectedViewsConfig.forEach(v => allViewsMap.set(v.id, v));
-
-  // 🚨 EMERGENCY FIX: WGEP BUTTON EXPLIZIT HINZUFÜGEN
-  // Da die View-Config Logic eventuell Probleme macht, fügen wir WGEP direkt hinzu
-  const EMERGENCY_WGEP_ITEM = {
-    id: 'wgep',
-    icon: Printer,
-    translationKey: 'wgepViewTitle',
-    name: 'WGEP',
-    isSidebarLink: true
-  };
-
-  // 🚨 STEUERREPORT ITEM (TRIAL-SAFE BUG-FIXES)
-  const STEUERREPORT_ITEM = {
-    id: 'tax-report',
-    icon: FileText,
-    translationKey: 'steuerreportTitle',
-    name: '🚨 STEUERREPORT',
-    isSidebarLink: true
-  };
-
-  // 🇩🇪 TAX EXPORT ITEM
-  const TAX_EXPORT_ITEM = {
-    id: 'taxExport',
-    icon: FileText,
-    translationKey: 'taxExportTitle',
-    name: 'Tax Export',
-    isSidebarLink: true
-  };
-
-  // 🌟 PULSECHAIN INFO ITEM
-  const PULSECHAIN_INFO_ITEM = {
-    id: 'pulsechain-info',
-    icon: Zap,
-    translationKey: 'pulsechainInfoTitle',
-    name: 'PulseChain Infos',
-    isSidebarLink: true
-  };
-
-  // 🎯 SIMPLIFIED: Main menu items in correct order - KORRIGIERT FÜR NEUES BUSINESS MODEL + EMERGENCY WGEP
-  const mainMenuItems = [
-    'dashboard',     // Portfolio - 3-TAGE TRIAL → Premium
-    'wallets',       // Wallets - 3-TAGE TRIAL → Premium
-    'roiTracker',    // ROI Tracker - PREMIUM ONLY
-    'taxReport',     // Tax Report - PREMIUM ONLY
-    'pulsechain-info', // PulseChain Infos - 3-TAGE TRIAL → Premium
-    'taxExport',     // Tax Export - PREMIUM ONLY
-    'tokenTrade',    // Token Trade - 3-TAGE TRIAL → Premium
-    'bridge',        // Bridge - 3-TAGE TRIAL → Premium
-    'wgep',          // WGEP - 3-TAGE TRIAL → Premium ⚠️ PROBLEM HIER!
-    'settings'       // Settings - 3-TAGE TRIAL → Premium
-  ];
+  
+  // Füge alle Trial Views hinzu
+  TRIAL_VIEWS_OBJECT.forEach(v => allViewsMap.set(v.id, v));
+  
+  // Füge alle Premium Views hinzu
+  PREMIUM_VIEWS_OBJECT.forEach(v => allViewsMap.set(v.id, v));
+  
+  // Füge Footer Views hinzu
+  FOOTER_VIEWS.forEach(v => allViewsMap.set(v.id, v));
 
   console.log('🔍 SIDEBAR DEBUG:', {
     user: user?.email,
     subscriptionStatus,
     daysRemaining,
     totalViews: allViewsMap.size,
-    wgepInMap: allViewsMap.has('wgep'),
-    wgepView: allViewsMap.get('wgep')
+    trialViews: TRIAL_VIEWS_OBJECT.length,
+    premiumViews: PREMIUM_VIEWS_OBJECT.length
   });
 
-  const sidebarViewConfigs = mainMenuItems
-    .map(id => {
-      const view = allViewsMap.get(id);
-      if (!view) {
-        console.warn(`⚠️ SIDEBAR: View '${id}' not found in config`);
-        
-        // 🚨 EMERGENCY: Wenn WGEP nicht gefunden wird, füge es manuell hinzu
-        if (id === 'wgep') {
-          console.log('🚨 EMERGENCY: Adding WGEP manually');
-          return EMERGENCY_WGEP_ITEM;
-        }
-        
-        // 🇩🇪 EMERGENCY: Tax Export manuell hinzufügen
-        if (id === 'taxExport') {
-          console.log('🇩🇪 EMERGENCY: Adding Tax Export manually');
-          return TAX_EXPORT_ITEM;
-        }
-        
-        // 🌟 EMERGENCY: PulseChain Info manuell hinzufügen
-        if (id === 'pulsechain-info') {
-          console.log('🌟 EMERGENCY: Adding PulseChain Info manually');
-          return PULSECHAIN_INFO_ITEM;
-        }
-        
-        return null;
-      }
-      return view;
-    })
-    .filter(Boolean);
+  // 🎯 KORREKTE REIHENFOLGE: Alle Sidebar-Links aus appConfig
+  const sidebarViewConfigs = [
+    ...TRIAL_VIEWS_OBJECT.filter(v => v.isSidebarLink),
+    ...PREMIUM_VIEWS_OBJECT.filter(v => v.isSidebarLink)
+  ];
 
   console.log('✅ SIDEBAR: Final sidebar views:', sidebarViewConfigs.map(v => ({ id: v.id, translationKey: v.translationKey, name: v.name })));
-
-  // 🚨 EMERGENCY CHECK: Stelle sicher dass WGEP in der Liste ist
-  const hasWGEP = sidebarViewConfigs.some(v => v.id === 'wgep');
-  if (!hasWGEP) {
-    console.error('🚨 CRITICAL: WGEP still missing, adding manually!');
-    sidebarViewConfigs.splice(6, 0, EMERGENCY_WGEP_ITEM); // Füge an Position 6 ein
-  }
-
-  // 🚨 FORCE WGEP for Emergency Users
-  if (isEmergencyPremiumUser && !hasWGEP) {
-            console.error('🚨 EMERGENCY USER: Force-adding WGEP for premium user');
-    sidebarViewConfigs.push(EMERGENCY_WGEP_ITEM);
-  }
 
   const displayableSidebarItems = sidebarViewConfigs;
 
