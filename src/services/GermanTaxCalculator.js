@@ -44,14 +44,36 @@ class GermanTaxCalculator {
   }
 
   /**
+   * Transaction Date sicher parsen mit Fallbacks
+   */
+  parseTransactionDate(tx) {
+    // 🚀 QUICK FIX: Sichere Date Parsing
+    let date = new Date(tx.block_timestamp || tx.timestamp || tx.block_time);
+    
+    // Fallback für Invalid Dates
+    if (isNaN(date.getTime())) {
+      console.warn(`⚠️ Invalid date for transaction: ${tx.transaction_hash || tx.hash}, using current date`);
+      date = new Date();
+    }
+    
+    return date;
+  }
+
+  /**
    * Transaktionen nach Datum sortieren (FIFO Requirement)
    */
   sortTransactionsByDate(transactions) {
     return transactions
-      .filter(tx => tx.block_timestamp || tx.timestamp)
+      .filter(tx => tx.block_timestamp || tx.timestamp || tx.block_time)
       .sort((a, b) => {
-        const dateA = new Date(a.block_timestamp || a.timestamp);
-        const dateB = new Date(b.block_timestamp || b.timestamp);
+        // 🚀 QUICK FIX: Verbesserte Date Parsing mit Fallbacks
+        let dateA = new Date(a.block_timestamp || a.timestamp || a.block_time);
+        let dateB = new Date(b.block_timestamp || b.timestamp || b.block_time);
+        
+        // Fallback für Invalid Dates
+        if (isNaN(dateA.getTime())) dateA = new Date();
+        if (isNaN(dateB.getTime())) dateB = new Date();
+        
         return dateA - dateB;
       });
   }
@@ -60,12 +82,19 @@ class GermanTaxCalculator {
    * Transaktionen kategorisieren für German Tax Law
    */
   categorizeTransactions(transactions) {
+    // 🚀 QUICK FIX: Nur Transaktionen mit echten Werten
+    const validTransactions = transactions.filter(tx => 
+      parseFloat(tx.valueEUR || tx.displayValueEUR || tx.value || 0) > 0
+    );
+    
+    console.log(`🇩🇪 Filtered ${validTransactions.length} valid transactions from ${transactions.length} total`);
+    
     const purchases = [];
     const sales = [];
     const transfers = [];
     const mining = [];
 
-    transactions.forEach(tx => {
+    validTransactions.forEach(tx => {
       const txType = this.determineTaxTransactionType(tx);
       
       switch(txType) {
@@ -74,8 +103,8 @@ class GermanTaxCalculator {
             ...tx,
             taxType: 'PURCHASE',
             amount: parseFloat(tx.value_decimal || tx.amount || 0),
-            priceEUR: parseFloat(tx.valueEUR || 0),
-            costBasisEUR: parseFloat(tx.valueEUR || 0)
+            priceEUR: parseFloat(tx.valueEUR || tx.displayValueEUR || 0),
+            costBasisEUR: parseFloat(tx.valueEUR || tx.displayValueEUR || 0)
           });
           break;
           
@@ -84,7 +113,7 @@ class GermanTaxCalculator {
             ...tx,
             taxType: 'SALE',
             amount: parseFloat(tx.value_decimal || tx.amount || 0),
-            proceedsEUR: parseFloat(tx.valueEUR || 0)
+            proceedsEUR: parseFloat(tx.valueEUR || tx.displayValueEUR || 0)
           });
           break;
           
@@ -99,7 +128,7 @@ class GermanTaxCalculator {
           mining.push({
             ...tx,
             taxType: 'MINING',
-            incomeEUR: parseFloat(tx.valueEUR || 0)
+            incomeEUR: parseFloat(tx.valueEUR || tx.displayValueEUR || 0)
           });
           break;
       }
@@ -112,18 +141,21 @@ class GermanTaxCalculator {
    * Transaction Type für German Tax bestimmen
    */
   determineTaxTransactionType(tx) {
+    // 🚀 QUICK FIX: Verbesserte Value-Checks
+    const hasValue = parseFloat(tx.valueEUR || tx.displayValueEUR || tx.value || 0) > 0;
+    
     // Printer Rewards = Mining/Staking Income
     if (tx.isPrinter || tx.printerProject) {
       return 'MINING';
     }
     
     // Incoming = Purchase (wenn value > 0)
-    if (tx.direction === 'in' && parseFloat(tx.valueEUR || 0) > 0) {
+    if (tx.direction === 'in' && hasValue) {
       return 'PURCHASE';
     }
     
     // Outgoing = Sale (wenn value > 0)
-    if (tx.direction === 'out' && parseFloat(tx.valueEUR || 0) > 0) {
+    if (tx.direction === 'out' && hasValue) {
       return 'SALE';
     }
     
@@ -150,7 +182,7 @@ class GermanTaxCalculator {
       }
       
       tokenQueues[token].push({
-        date: new Date(purchase.block_timestamp || purchase.timestamp),
+        date: this.parseTransactionDate(purchase),
         amount: purchase.amount,
         costBasisEUR: purchase.costBasisEUR,
         pricePerUnit: purchase.costBasisEUR / purchase.amount,
@@ -162,7 +194,7 @@ class GermanTaxCalculator {
     // 2. Verkäufe gegen FIFO Queue abarbeiten
     sales.forEach(sale => {
       const token = sale.token_symbol || sale.tokenSymbol || 'UNKNOWN';
-      const saleDate = new Date(sale.block_timestamp || sale.timestamp);
+      const saleDate = this.parseTransactionDate(sale);
       
       if (!tokenQueues[token] || tokenQueues[token].length === 0) {
         // Verkauf ohne vorherigen Kauf = Problem
