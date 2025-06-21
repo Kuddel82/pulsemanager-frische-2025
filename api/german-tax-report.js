@@ -528,13 +528,13 @@ module.exports = async function handler(req, res) {
       errors: plsHistory.errors.length
     });
 
-    // 🚨 PULSECHAIN DIAGNOSE
-    console.log('🚨 PULSECHAIN STATUS:', {
+    // ✅ PULSECHAIN STATUS - ECHTER API KEY
+    console.log('✅ PULSECHAIN STATUS:', {
       plsNativeWorking: plsHistory.nativeTransactions.length > 0,
       plsTransfersWorking: plsHistory.erc20Transfers.length > 0,
       plsBalancesWorking: plsHistory.erc20Balances.length > 0,
       plsErrors: plsHistory.errors.length,
-      note: 'PLS endpoints may return 500 errors in Moralis API'
+      note: 'Echter Moralis API Key unterstützt PulseChain'
     });
 
     // 🔥 HIGH VOLUME ENDPOINTS WITH MULTIPLE DATA SOURCES (FALLBACK)
