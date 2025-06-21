@@ -1,138 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Badge } from '../ui/badge';
-import { Progress } from '../ui/progress';
-import { Download, FileText, FileSpreadsheet, FileCode, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import GermanTaxDataExporter from '../../services/GermanTaxDataExporter';
 
-const TaxAdvisorExportView = ({ walletAddress }) => {
+const TaxAdvisorExportView = ({ taxData }) => {
   const [exportData, setExportData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [downloadProgress, setDownloadProgress] = useState(0);
 
-  const loadTaxAdvisorExport = async () => {
-    if (!walletAddress) return;
-    
-    setLoading(true);
-    setError(null);
-    setDownloadProgress(0);
-    
+  // WORKING DOWNLOAD FUNCTIONS
+  const downloadCSV = (csvData) => {
     try {
-      console.log('🔄 Loading Tax Advisor Export for:', walletAddress);
-      
-      const response = await fetch('/api/german-tax-report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          address: walletAddress,
-          limit: 300000 
-        })
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log('✅ Tax Advisor Export loaded:', data);
-        
-        const transactions = data.taxReport?.transactions || [];
-        console.log('📊 Extracted transactions:', transactions.length);
-        
-        const taxAdvisorExport = {
-          success: true,
-          disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für professionelle Steuerberatung',
-          taxAdvisorExport: {
-            summary: {
-              totalTransactions: transactions.length,
-              categories: {
-                purchases: transactions.filter(tx => tx.direction === 'in' && !tx.isPrinter).length,
-                sales: transactions.filter(tx => tx.direction === 'out').length,
-                roiEvents: transactions.filter(tx => tx.isPrinter || tx.isTaxable).length,
-                transfers: transactions.filter(tx => !tx.valueEUR && (tx.direction === 'in' || tx.direction === 'out')).length,
-                unknown: 0
-              },
-              totalValues: {
-                purchaseValueEUR: transactions.filter(tx => tx.direction === 'in' && !tx.isPrinter).reduce((sum, tx) => sum + parseFloat(tx.valueEUR || 0), 0),
-                salesValueEUR: transactions.filter(tx => tx.direction === 'out').reduce((sum, tx) => sum + parseFloat(tx.valueEUR || 0), 0),
-                roiValueEUR: transactions.filter(tx => tx.isPrinter || tx.isTaxable).reduce((sum, tx) => sum + parseFloat(tx.valueEUR || 0), 0)
-              }
-            },
-            data: {
-              purchases: transactions.filter(tx => tx.direction === 'in' && !tx.isPrinter),
-              sales: transactions.filter(tx => tx.direction === 'out'),
-              roiEvents: transactions.filter(tx => tx.isPrinter || tx.isTaxable),
-              transfers: transactions.filter(tx => !tx.valueEUR && (tx.direction === 'in' || tx.direction === 'out')),
-              unknown: []
-            },
-            exports: {
-              csv: 'CSV Export Data',
-              excel: {
-                purchases: transactions.filter(tx => tx.direction === 'in' && !tx.isPrinter).map(tx => ({
-                  'Kategorie': 'Kauf',
-                  'Datum': new Date(tx.block_timestamp).toLocaleDateString('de-DE'),
-                  'Token': tx.token_symbol || 'UNKNOWN',
-                  'Menge': tx.amount || 0,
-                  'Wert (EUR)': tx.valueEUR || 0,
-                  'Blockchain': tx.sourceChain || 'UNKNOWN'
-                })),
-                sales: transactions.filter(tx => tx.direction === 'out').map(tx => ({
-                  'Kategorie': 'Verkauf',
-                  'Datum': new Date(tx.block_timestamp).toLocaleDateString('de-DE'),
-                  'Token': tx.token_symbol || 'UNKNOWN',
-                  'Menge': tx.amount || 0,
-                  'Wert (EUR)': tx.valueEUR || 0,
-                  'Blockchain': tx.sourceChain || 'UNKNOWN'
-                })),
-                roiEvents: transactions.filter(tx => tx.isPrinter || tx.isTaxable).map(tx => ({
-                  'Kategorie': 'ROI Event',
-                  'Datum': new Date(tx.block_timestamp).toLocaleDateString('de-DE'),
-                  'Token': tx.token_symbol || 'UNKNOWN',
-                  'Menge': tx.amount || 0,
-                  'Wert (EUR)': tx.valueEUR || 0,
-                  'Blockchain': tx.sourceChain || 'UNKNOWN'
-                })),
-                transfers: []
-              },
-              html: '<html>Tax Advisor HTML Report</html>'
-            }
-          },
-          safeTaxSystem: {
-            integrated: true,
-            transactionCount: transactions.length,
-            approach: 'DATA_COLLECTION_ONLY',
-            compliance: 'DSGVO-konform - Keine Steuerberatung',
-            features: [
-              'FIFO Haltefrist-Berechnung (informativ)',
-              'Transaktions-Kategorisierung',
-              'ROI Event Markierung',
-              'Export-Formate: Excel, CSV, HTML',
-              'Professionelle Steuerberater-Grundlage'
-            ],
-            limitations: [
-              'Nur eine Wallet analysiert',
-              'Keine finalen Steuerberechnungen',
-              'Andere Trades/Wallets nicht berücksichtigt',
-              'Professionelle Steuerberatung empfohlen'
-            ]
-          }
-        };
-        
-        setExportData(taxAdvisorExport);
-        setDownloadProgress(100);
-      } else {
-        throw new Error(data.error || 'Export failed');
-      }
-    } catch (err) {
-      console.error('❌ Tax Advisor Export error:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const downloadCSV = (exportData) => {
-    try {
-      const csvData = exportData.exports.csv;
       if (!csvData) {
         alert('CSV Daten nicht verfügbar');
         return;
@@ -142,76 +17,24 @@ const TaxAdvisorExportView = ({ walletAddress }) => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       
-      link.setAttribute('href', url);
-      link.setAttribute('download', `tax_advisor_export_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
+      link.href = url;
+      link.download = `tax_advisor_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.style.display = 'none';
       
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       console.log('✅ CSV Download erfolgreich');
     } catch (error) {
       console.error('❌ CSV Download Fehler:', error);
-      alert('CSV Download fehlgeschlagen: ' + error.message);
+      alert('CSV Download fehlgeschlagen');
     }
   };
 
-  const downloadExcel = (exportData) => {
+  const downloadHTML = (htmlData) => {
     try {
-      const excelData = exportData.exports.excel;
-      if (!excelData) {
-        alert('Excel Daten nicht verfügbar');
-        return;
-      }
-      
-      // Convert to CSV format (simple Excel alternative)
-      let csvContent = '';
-      
-      // Add each category
-      Object.entries(excelData).forEach(([category, data]) => {
-        if (data && data.length > 0) {
-          csvContent += `\n${category.toUpperCase()}\n`;
-          
-          // Headers
-          const headers = Object.keys(data[0]);
-          csvContent += headers.join(',') + '\n';
-          
-          // Data rows
-          data.forEach(row => {
-            const values = headers.map(header => {
-              const value = row[header] || '';
-              return `"${value.toString().replace(/"/g, '""')}"`;
-            });
-            csvContent += values.join(',') + '\n';
-          });
-          
-          csvContent += '\n';
-        }
-      });
-      
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', `tax_advisor_excel_export_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      console.log('✅ Excel (CSV) Download erfolgreich');
-    } catch (error) {
-      console.error('❌ Excel Download Fehler:', error);
-      alert('Excel Download fehlgeschlagen: ' + error.message);
-    }
-  };
-
-  const downloadHTML = (exportData) => {
-    try {
-      const htmlData = exportData.exports.html;
       if (!htmlData) {
         alert('HTML Daten nicht verfügbar');
         return;
@@ -221,247 +44,167 @@ const TaxAdvisorExportView = ({ walletAddress }) => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       
-      link.setAttribute('href', url);
-      link.setAttribute('download', `tax_advisor_report_${new Date().toISOString().split('T')[0]}.html`);
-      link.style.visibility = 'hidden';
+      link.href = url;
+      link.download = `tax_advisor_report_${new Date().toISOString().split('T')[0]}.html`;
+      link.style.display = 'none';
       
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       console.log('✅ HTML Download erfolgreich');
     } catch (error) {
       console.error('❌ HTML Download Fehler:', error);
-      alert('HTML Download fehlgeschlagen: ' + error.message);
+      alert('HTML Download fehlgeschlagen');
     }
   };
 
-  const DownloadButtons = ({ exportData }) => {
-    return (
-      <div className="flex gap-4 mt-4">
-        <button 
-          onClick={() => downloadCSV(exportData)}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-        >
-          📊 CSV Download
-        </button>
-        
-        <button 
-          onClick={() => downloadExcel(exportData)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-        >
-          📈 Excel Download
-        </button>
-        
-        <button 
-          onClick={() => downloadHTML(exportData)}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
-        >
-          🌐 HTML Report
-        </button>
-      </div>
-    );
+  // LOAD EXPORT DATA
+  const loadExportData = async () => {
+    if (!taxData?.transactions?.length) return;
+    
+    setLoading(true);
+    try {
+      // Use SAME transactions as main report to avoid data discrepancies
+      const exporter = new GermanTaxDataExporter();
+      const result = exporter.createTaxAdvisorDataExport(taxData.transactions);
+      setExportData(result);
+    } catch (error) {
+      console.error('Export generation failed:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // AUTO-LOAD on mount
   useEffect(() => {
-    if (walletAddress) {
-      loadTaxAdvisorExport();
-    }
-  }, [walletAddress]);
+    loadExportData();
+  }, [taxData]);
 
-  if (!walletAddress) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center text-muted-foreground">
-            Bitte geben Sie eine Wallet-Adresse ein, um den Tax Advisor Export zu starten.
-          </div>
-        </CardContent>
-      </Card>
-    );
+  if (loading) {
+    return <div className="text-center py-8">Lade Export-Daten...</div>;
+  }
+
+  if (!exportData) {
+    return <div className="text-center py-8">Export-Daten nicht verfügbar</div>;
   }
 
   return (
-    <div className="space-y-6">
-      {/* 🔥 KRITISCHER DISCLAIMER */}
-      <Alert className="border-yellow-200 bg-yellow-50">
-        <AlertTriangle className="h-4 w-4 text-yellow-600" />
-        <AlertDescription className="text-yellow-800">
-          <strong>⚠️ WICHTIGER HINWEIS:</strong> Dies ist KEINE Steuerberatung! 
-          Diese Datensammlung dient nur als Grundlage für Ihren Steuerberater. 
-          Für finale Steuerberechnungen wenden Sie sich an einen qualifizierten Steuerberater.
-        </AlertDescription>
-      </Alert>
+    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mt-6">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold mb-2">🔒 SICHERER TAX ADVISOR EXPORT - KEINE STEUERBERECHNUNGEN</h3>
+        
+        <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-4 mb-4">
+          <h4 className="font-semibold text-yellow-800 mb-2">⚠️ WICHTIGER HINWEIS</h4>
+          <ul className="text-sm text-yellow-700 space-y-1">
+            <li>• <strong>KEINE STEUERBERECHNUNGEN</strong> - Nur Datensammlung für Steuerberater</li>
+            <li>• <strong>DSGVO-konform</strong> - Keine steuerliche Beratung</li>
+            <li>• <strong>Professionelle Grundlage</strong> - Für qualifizierte Steuerberater</li>
+            <li>• <strong>Export-Formate:</strong> CSV, HTML</li>
+          </ul>
+        </div>
 
-      {/* 📊 EXPORT STATUS */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Tax Advisor Export Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 animate-spin" />
-                <span>Lade Transaktionsdaten...</span>
-              </div>
-              <Progress value={downloadProgress} className="w-full" />
+        <div className="bg-red-100 border border-red-300 rounded-lg p-4 mb-6">
+          <p className="text-sm text-red-700">
+            <strong>⚠️ WICHTIGER HINWEIS:</strong> Dies ist KEINE Steuerberatung! 
+            Diese Datensammlung dient nur als Grundlage für Ihren Steuerberater. 
+            Für finale Steuerberechnungen wenden Sie sich an einen qualifizierten Steuerberater.
+          </p>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <h4 className="font-semibold text-green-800 mb-3">Tax Advisor Export Status</h4>
+          <p className="text-green-700 mb-4">Export erfolgreich erstellt!</p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{exportData.summary.totalTransactions}</div>
+              <div className="text-sm text-gray-600">Transaktionen</div>
             </div>
-          )}
-
-          {error && (
-            <Alert className="border-red-200 bg-red-50">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                Fehler beim Laden: {error}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {exportData && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <span className="text-green-800">Export erfolgreich erstellt!</span>
-              </div>
-
-              {/* 📈 SUMMARY */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {exportData.taxAdvisorExport?.summary?.totalTransactions || 0}
-                  </div>
-                  <div className="text-sm text-blue-800">Transaktionen</div>
-                </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
-                    {exportData.taxAdvisorExport?.summary?.categories?.purchases || 0}
-                  </div>
-                  <div className="text-sm text-green-800">Käufe</div>
-                </div>
-                
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">
-                    {exportData.taxAdvisorExport?.summary?.categories?.sales || 0}
-                  </div>
-                  <div className="text-sm text-red-800">Verkäufe</div>
-                </div>
-                
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {exportData.taxAdvisorExport?.summary?.categories?.roiEvents || 0}
-                  </div>
-                  <div className="text-sm text-purple-800">ROI Events</div>
-                </div>
-              </div>
-
-              {/* 💰 VALUE SUMMARY */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-lg font-semibold text-gray-800">
-                    €{exportData.taxAdvisorExport?.summary?.totalValues?.purchaseValueEUR?.toFixed(2) || '0.00'}
-                  </div>
-                  <div className="text-sm text-gray-600">Gesamtwert Käufe</div>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-lg font-semibold text-gray-800">
-                    €{exportData.taxAdvisorExport?.summary?.totalValues?.salesValueEUR?.toFixed(2) || '0.00'}
-                  </div>
-                  <div className="text-sm text-gray-600">Gesamtwert Verkäufe</div>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-lg font-semibold text-gray-800">
-                    €{exportData.taxAdvisorExport?.summary?.totalValues?.roiValueEUR?.toFixed(2) || '0.00'}
-                  </div>
-                  <div className="text-sm text-gray-600">Gesamtwert ROI Events</div>
-                </div>
-              </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{exportData.summary.categories.purchases}</div>
+              <div className="text-sm text-gray-600">Käufe</div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{exportData.summary.categories.sales}</div>
+              <div className="text-sm text-gray-600">Verkäufe</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">{exportData.summary.categories.roiEvents}</div>
+              <div className="text-sm text-gray-600">ROI Events</div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-lg font-bold text-green-600">€{exportData.summary.totalValues.purchaseValueEUR.toFixed(2)}</div>
+              <div className="text-sm text-gray-600">Gesamtwert Käufe</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-red-600">€{exportData.summary.totalValues.salesValueEUR.toFixed(2)}</div>
+              <div className="text-sm text-gray-600">Gesamtwert Verkäufe</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-purple-600">€{exportData.summary.totalValues.roiValueEUR.toFixed(2)}</div>
+              <div className="text-sm text-gray-600">Gesamtwert ROI Events</div>
+            </div>
+          </div>
+        </div>
 
-      {/* 📥 DOWNLOAD OPTIONS */}
-      {exportData && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5" />
-              Export Downloads
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DownloadButtons exportData={exportData.taxAdvisorExport} />
+        <div className="mb-6">
+          <h4 className="font-semibold mb-3">Export Downloads</h4>
+          <div className="flex gap-4 mb-4">
+            <button 
+              onClick={() => downloadCSV(exportData.exports.csv)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              📊 CSV Download
+            </button>
             
-            <div className="mt-4 text-sm text-muted-foreground">
-              Alle Exporte enthalten strukturierte Daten für Ihren Steuerberater. 
-              Keine Steuerberechnungen enthalten.
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <button 
+              onClick={() => downloadHTML(exportData.exports.html)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              🌐 HTML Report
+            </button>
+          </div>
+          <p className="text-sm text-gray-600">
+            Alle Exporte enthalten strukturierte Daten für Ihren Steuerberater. Keine Steuerberechnungen enthalten.
+          </p>
+        </div>
 
-      {/* 📋 FEATURES & LIMITATIONS */}
-      {exportData && (
-        <Card>
-          <CardHeader>
-            <CardTitle>System Features & Limitations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-2 text-green-700">✅ Features</h4>
-                <ul className="space-y-1 text-sm">
-                  {exportData.safeTaxSystem?.features?.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <CheckCircle className="h-3 w-3 text-green-600" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="font-semibold mb-2 text-orange-700">⚠️ Limitations</h4>
-                <ul className="space-y-1 text-sm">
-                  {exportData.safeTaxSystem?.limitations?.map((limitation, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <AlertTriangle className="h-3 w-3 text-orange-600" />
-                      {limitation}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-semibold text-green-800 mb-2">✅ Features</h4>
+            <ul className="text-sm text-green-700 space-y-1">
+              <li>• FIFO Haltefrist-Berechnung (informativ)</li>
+              <li>• Transaktions-Kategorisierung</li>
+              <li>• ROI Event Markierung</li>
+              <li>• Export-Formate: CSV, HTML</li>
+              <li>• Professionelle Steuerberater-Grundlage</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Limitations</h4>
+            <ul className="text-sm text-yellow-700 space-y-1">
+              <li>• Nur eine Wallet analysiert</li>
+              <li>• Keine finalen Steuerberechnungen</li>
+              <li>• Andere Trades/Wallets nicht berücksichtigt</li>
+              <li>• Professionelle Steuerberatung empfohlen</li>
+            </ul>
+          </div>
+        </div>
 
-      {/* 🔄 RELOAD BUTTON */}
-      <div className="flex justify-center">
-        <Button 
-          onClick={loadTaxAdvisorExport} 
-          disabled={loading}
-          className="flex items-center gap-2"
-        >
-          {loading ? (
-            <>
-              <Clock className="h-4 w-4 animate-spin" />
-              Lade...
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4" />
-              Export neu laden
-            </>
-          )}
-        </Button>
+        <div className="mt-6 text-center">
+          <button 
+            onClick={loadExportData}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Export neu laden
+          </button>
+        </div>
       </div>
     </div>
   );

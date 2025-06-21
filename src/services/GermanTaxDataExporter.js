@@ -1,45 +1,31 @@
 // ===================================
-// GERMAN TAX DATA EXPORT - STEUERBERATER READY
-// Saubere Datenaufbereitung OHNE Steuerberechnung
-// Perfekte Grundlage für professionelle Steuerberatung
+// COMPLETE CURSOR FIX - TAX EXPORT SYSTEM
+// Repariert: Downloads, Preisberechnung, Kategorisierung
+// NUR CSV + HTML Downloads - Excel entfernt
 // ===================================
 
 class GermanTaxDataExporter {
   constructor() {
     this.currentYear = new Date().getFullYear();
-    this.walletAddress = null; // Wird beim ersten Call gesetzt
-    // KEINE Steuerberechnungen - nur Datenstrukturierung!
+    this.walletAddress = null;
   }
 
   /**
-   * Hauptfunktion für Steuerberater-Export
-   * @param {Array} transactions - Alle Wallet Transaktionen (10k+)
-   * @returns {Object} Strukturierte Daten für Steuerberater
+   * MAIN FUNCTION - Fixed Value Calculation
    */
   createTaxAdvisorDataExport(transactions) {
     console.log('🇩🇪 Creating Tax Advisor Data Export...', { count: transactions.length });
     
-    // Wallet Address bestimmen
     this.walletAddress = transactions[0]?.walletAddress || 
                         transactions[0]?.to_address || 
                         transactions[0]?.from_address ||
                         'UNKNOWN';
     
-    console.log('📍 Detected Wallet:', this.walletAddress);
-    
-    // Debug: Sample Transaction analysieren
-    if (transactions.length > 0) {
-      console.log('�� Sample Transaction:', transactions[0]);
-      console.log('🔍 Available Fields:', Object.keys(transactions[0]));
-    }
-    
-    // 1. Transaktionen nach Datum sortieren
+    // 1. Sort and categorize
     const sortedTransactions = this.sortTransactionsByDate(transactions);
-    
-    // 2. Transaktionen kategorisieren (OHNE Steuerberechnung)
     const categorized = this.categorizeForTaxAdvisor(sortedTransactions);
     
-    // Debug Kategorisierung
+    // DEBUG - Check categorization
     console.log('📊 Categorization Results:', {
       purchases: categorized.purchases.length,
       sales: categorized.sales.length,
@@ -48,82 +34,51 @@ class GermanTaxDataExporter {
       unknown: categorized.unknown.length
     });
     
-    // 3. Haltefrist-Informationen hinzufügen (OHNE Interpretation)
     const withHoldingPeriods = this.addHoldingPeriodInfo(categorized);
-    
-    // 4. ROI Events highlighten
     const roiHighlighted = this.highlightROIEvents(withHoldingPeriods);
     
-    // 5. Export-Ready Data strukturieren
     return this.generateExportData(roiHighlighted, sortedTransactions);
   }
 
   /**
-   * Transaktionen nach Datum sortieren
+   * FIXED VALUE EXTRACTION - Prevents €546k Bug
    */
-  sortTransactionsByDate(transactions) {
-    return transactions
-      .filter(tx => tx.block_timestamp || tx.timestamp)
-      .map(tx => ({
-        ...tx,
-        parsedDate: this.parseTransactionDate(tx),
-        yearOfTransaction: this.getTransactionYear(tx)
-      }))
-      .sort((a, b) => a.parsedDate - b.parsedDate);
-  }
-
-  /**
-   * Robustes Date Parsing
-   */
-  parseTransactionDate(tx) {
-    // Alle möglichen Date Fields
-    const dateFields = [
-      tx.block_timestamp,
-      tx.timestamp, 
-      tx.block_time,
-      tx.time,
-      tx.date,
-      tx.created_at
+  getSafeValue(tx) {
+    // Try multiple value fields
+    const valueFields = [
+      tx.valueEUR,
+      tx.displayValueEUR,
+      tx.value_eur,
+      tx.eur_value
     ];
     
-    for (const dateField of dateFields) {
-      if (dateField) {
-        const parsedDate = new Date(dateField);
-        if (!isNaN(parsedDate)) {
-          return parsedDate;
+    for (const field of valueFields) {
+      if (field !== null && field !== undefined && field !== '') {
+        const parsed = parseFloat(field);
+        if (!isNaN(parsed) && parsed > 0) {
+          return parsed;
         }
       }
     }
     
-    // Fallback
-    console.warn('No valid date found for transaction:', tx);
-    return new Date(); // Current date as fallback
+    return 0;
   }
 
   /**
-   * Jahr der Transaktion bestimmen
-   */
-  getTransactionYear(tx) {
-    const date = this.parseTransactionDate(tx);
-    return date.getFullYear();
-  }
-
-  /**
-   * Transaktionen für Steuerberater kategorisieren
+   * FIXED CATEGORIZATION
    */
   categorizeForTaxAdvisor(transactions) {
     const categories = {
-      purchases: [],      // Käufe/Eingänge
-      sales: [],         // Verkäufe/Ausgänge  
-      transfers: [],     // Reine Transfers
-      roiEvents: [],     // ROI/Printer Events
-      unknown: []        // Unklar kategorisierte
+      purchases: [],
+      sales: [],
+      transfers: [],
+      roiEvents: [],
+      unknown: []
     };
 
     transactions.forEach(tx => {
-      const category = this.determineTaxCategory(tx);
       const enrichedTx = this.enrichTransactionData(tx);
-      
+      const category = this.determineTaxCategory(enrichedTx);
       categories[category].push(enrichedTx);
     });
 
@@ -131,20 +86,10 @@ class GermanTaxDataExporter {
   }
 
   /**
-   * 🔥 FIXED: Use EXACT same logic as working upper report
+   * FIXED TRANSACTION CATEGORIZATION
    */
   determineTaxCategory(tx) {
-    console.log('🔍 Debug TX:', {
-      isPrinter: tx.isPrinter,
-      printerProject: tx.printerProject,
-      direction: tx.direction,
-      valueEUR: tx.valueEUR,
-      displayValueEUR: tx.displayValueEUR,
-      taxCategory: tx.taxCategory,
-      isTaxable: tx.isTaxable
-    });
-
-    // 🔥 FIXED: Use EXACT same ROI detection as working report
+    // ROI Detection - Multiple patterns
     if (tx.isPrinter || 
         tx.printerProject || 
         tx.taxCategory === 'ROI' ||
@@ -152,10 +97,10 @@ class GermanTaxDataExporter {
       return 'roiEvents';
     }
     
-    // 🔥 FIXED: Use EXACT same value detection as working report  
-    const valueEUR = parseFloat(tx.valueEUR || tx.displayValueEUR || 0);
+    // Value-based categorization with SAFE value extraction
+    const value = this.getSafeValue(tx);
     
-    if (valueEUR > 0) {
+    if (value > 0) {
       if (tx.direction === 'in') {
         return 'purchases';
       } else if (tx.direction === 'out') {
@@ -163,7 +108,7 @@ class GermanTaxDataExporter {
       }
     }
     
-    // Transfers ohne Wert aber mit Direction
+    // Transfers without value
     if (tx.direction === 'in' || tx.direction === 'out') {
       return 'transfers';
     }
@@ -172,106 +117,93 @@ class GermanTaxDataExporter {
   }
 
   /**
-   * Transaction Data anreichern
+   * ENRICHED TRANSACTION DATA
    */
   enrichTransactionData(tx) {
-    // Alle möglichen Value Fields checken
-    const valueEUR = parseFloat(
-      tx.valueEUR || 
-      tx.displayValueEUR || 
-      tx.totalValueEUR ||
-      tx.value_eur ||
-      0
-    );
+    const safeValue = this.getSafeValue(tx);
     
-    const valueUSD = parseFloat(
-      tx.valueUSD || 
-      tx.displayValueUSD || 
-      tx.totalValueUSD ||
-      tx.value_usd ||
-      0
-    );
-    
-    const amount = parseFloat(
-      tx.value_decimal || 
-      tx.amount || 
-      tx.displayValue ||
-      tx.valueFormatted ||
-      0
-    );
-    
-    // ROI Detection - erweitert
-    const isROIEvent = !!(
-      tx.isPrinter || 
-      tx.printerProject || 
-      tx.taxCategory === 'ROI' ||
-      (tx.direction === 'in' && tx.isTaxable) ||
-      (tx.direction === 'in' && valueEUR > 0 && !tx.from_address)
-    );
-    
-    const enriched = {
-      // Original Data
+    return {
       ...tx,
-      
-      // Enriched Data für Steuerberater
+      // Tax categorization
       taxCategory: this.determineTaxCategory(tx),
       
-      // Formatierte Werte - ROBUST
-      valueEUR: valueEUR,
-      valueUSD: valueUSD, 
-      amount: amount,
+      // SAFE VALUES - Prevents €546k bug
+      valueEUR: safeValue,
+      valueUSD: parseFloat(tx.valueUSD || tx.displayValueUSD || 0) || 0,
+      amount: parseFloat(tx.amount || tx.value_decimal || 0) || 0,
       
-      // Date Formatting - ROBUST
-      germanDate: this.parseTransactionDate(tx) ? 
-        this.formatGermanDate(this.parseTransactionDate(tx)) : 'Invalid Date',
-      year: this.parseTransactionDate(tx) ? 
-        this.parseTransactionDate(tx).getFullYear() : new Date().getFullYear(),
+      // Date formatting
+      germanDate: this.formatGermanDate(this.parseTransactionDate(tx)),
+      year: this.parseTransactionDate(tx).getFullYear(),
       
-      // Token Info - ROBUST
-      token: tx.token_symbol || tx.tokenSymbol || tx.symbol || 'UNKNOWN',
-      tokenName: tx.token_name || tx.tokenName || tx.name || 'Unknown Token',
+      // Token info
+      token: tx.token_symbol || tx.tokenSymbol || 'UNKNOWN',
+      tokenName: tx.token_name || tx.tokenName || 'Unknown Token',
       
-      // Chain Info - ROBUST  
-      blockchain: tx.sourceChain || tx.chainSymbol || tx.chain || 'UNKNOWN',
+      // Chain info - FIXED
+      blockchain: this.getBlockchain(tx),
       
-      // Transaction Info - ROBUST
-      hash: tx.transaction_hash || tx.transactionHash || tx.hash || tx.tx_hash || 'N/A',
-      direction: tx.direction || (tx.to_address === this.walletAddress ? 'in' : 'out'),
+      // Transaction info
+      hash: tx.transaction_hash || tx.transactionHash || tx.hash || 'N/A',
+      direction: tx.direction || 'unknown',
       
-      // ROI Info - ERWEITERT
-      isROIEvent: isROIEvent,
-      roiProject: tx.printerProject || (isROIEvent ? 'Unknown ROI' : null),
-      
-      // Debug Info
-      debugInfo: {
-        originalValueEUR: tx.valueEUR,
-        originalValueUSD: tx.valueUSD,
-        originalAmount: tx.amount,
-        hasValue: valueEUR > 0 || valueUSD > 0,
-        originalTaxCategory: tx.taxCategory,
-        originalIsTaxable: tx.isTaxable
-      }
+      // ROI info
+      isROIEvent: tx.isPrinter || !!tx.printerProject || (tx.direction === 'in' && tx.isTaxable),
+      roiProject: tx.printerProject || null
     };
-    
-    console.log('✅ Enriched TX:', {
-      token: enriched.token,
-      category: enriched.taxCategory,
-      valueEUR: enriched.valueEUR,
-      isROI: enriched.isROIEvent,
-      direction: enriched.direction
-    });
-    
-    return enriched;
   }
 
   /**
-   * Haltefrist-Informationen hinzufügen (OHNE Interpretation)
+   * FIXED BLOCKCHAIN DETECTION
+   */
+  getBlockchain(tx) {
+    if (tx.sourceChain) return tx.sourceChain;
+    if (tx.chainSymbol === 'PLS' || tx.chain === 'pls') return 'PulseChain';
+    if (tx.chainSymbol === 'ETH' || tx.chain === 'eth') return 'Ethereum';
+    return 'Unknown';
+  }
+
+  /**
+   * ROBUST DATE PARSING
+   */
+  parseTransactionDate(tx) {
+    const dateFields = [
+      tx.block_timestamp,
+      tx.timestamp,
+      tx.block_time,
+      tx.date
+    ];
+    
+    for (const field of dateFields) {
+      if (field) {
+        const date = new Date(field);
+        if (!isNaN(date)) return date;
+      }
+    }
+    
+    return new Date(); // Fallback
+  }
+
+  /**
+   * DATE SORTING
+   */
+  sortTransactionsByDate(transactions) {
+    return transactions
+      .filter(tx => tx.block_timestamp || tx.timestamp)
+      .sort((a, b) => {
+        const dateA = this.parseTransactionDate(a);
+        const dateB = this.parseTransactionDate(b);
+        return dateA - dateB;
+      });
+  }
+
+  /**
+   * HOLDING PERIOD INFO
    */
   addHoldingPeriodInfo(categorized) {
-    // Für jeden Token Kauf-Historie tracken
     const tokenPurchases = {};
     
-    // Käufe sammeln
+    // Collect purchases
     categorized.purchases.forEach(purchase => {
       const token = purchase.token;
       if (!tokenPurchases[token]) {
@@ -280,49 +212,41 @@ class GermanTaxDataExporter {
       tokenPurchases[token].push(purchase);
     });
     
-    // Verkäufe mit Haltefrist-Info anreichern
+    // Add holding periods to sales
     categorized.sales = categorized.sales.map(sale => {
       const token = sale.token;
       const purchases = tokenPurchases[token] || [];
       
-      // Ältesten Kauf finden (FIFO)
       const oldestPurchase = purchases
-        .filter(p => p.parsedDate <= sale.parsedDate)
-        .sort((a, b) => a.parsedDate - b.parsedDate)[0];
+        .filter(p => this.parseTransactionDate(p) <= this.parseTransactionDate(sale))
+        .sort((a, b) => this.parseTransactionDate(a) - this.parseTransactionDate(b))[0];
       
       if (oldestPurchase) {
-        const holdingDays = Math.floor((sale.parsedDate - oldestPurchase.parsedDate) / (1000 * 60 * 60 * 24));
-        const holdingYears = (holdingDays / 365).toFixed(2);
+        const holdingDays = Math.floor(
+          (this.parseTransactionDate(sale) - this.parseTransactionDate(oldestPurchase)) / (1000 * 60 * 60 * 24)
+        );
         
         return {
           ...sale,
           holdingPeriod: {
             days: holdingDays,
-            years: holdingYears,
-            oldestPurchaseDate: this.formatGermanDate(oldestPurchase.parsedDate),
+            years: (holdingDays / 365).toFixed(2),
+            oldestPurchaseDate: this.formatGermanDate(this.parseTransactionDate(oldestPurchase)),
             note: holdingDays >= 365 ? 'Potentiell steuerfrei (>1 Jahr)' : 'Spekulationsgeschäft (<1 Jahr)'
           }
         };
       }
       
-      return {
-        ...sale,
-        holdingPeriod: {
-          days: null,
-          years: null,
-          note: 'Kein entsprechender Kauf gefunden'
-        }
-      };
+      return { ...sale, holdingPeriod: { days: null, note: 'Kein Kauf gefunden' } };
     });
     
     return categorized;
   }
 
   /**
-   * ROI Events hervorheben
+   * ROI HIGHLIGHTING
    */
   highlightROIEvents(categorized) {
-    // ROI Events nach Projekt gruppieren
     const roiByProject = {};
     
     categorized.roiEvents.forEach(roi => {
@@ -333,74 +257,39 @@ class GermanTaxDataExporter {
       roiByProject[project].push(roi);
     });
     
-    // ROI Summary erstellen
     const roiSummary = Object.entries(roiByProject).map(([project, events]) => ({
       project,
       eventCount: events.length,
-      totalValueEUR: events.reduce((sum, e) => sum + e.valueEUR, 0),
-      firstEvent: events.sort((a, b) => a.parsedDate - b.parsedDate)[0]?.germanDate,
-      lastEvent: events.sort((a, b) => b.parsedDate - a.parsedDate)[0]?.germanDate
+      totalValueEUR: events.reduce((sum, e) => sum + (e.valueEUR || 0), 0),
+      firstEvent: events.sort((a, b) => this.parseTransactionDate(a) - this.parseTransactionDate(b))[0]?.germanDate,
+      lastEvent: events.sort((a, b) => this.parseTransactionDate(b) - this.parseTransactionDate(a))[0]?.germanDate
     }));
     
-    return {
-      ...categorized,
-      roiSummary
-    };
+    return { ...categorized, roiSummary };
   }
 
   /**
-   * Export-Ready Data generieren
+   * EXPORT DATA GENERATION - FIXED VALUE CALCULATION
    */
   generateExportData(categorized, allTransactions) {
-    const summary = this.createSummary(categorized, allTransactions);
-    
-    return {
-      exportType: 'GERMAN_TAX_ADVISOR_DATA',
-      disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für professionelle Steuerberatung',
-      generatedAt: new Date().toISOString(),
-      
-      summary,
-      
-      // Kategorisierte Daten
-      data: {
-        purchases: categorized.purchases,
-        sales: categorized.sales,
-        transfers: categorized.transfers,
-        roiEvents: categorized.roiEvents,
-        roiSummary: categorized.roiSummary,
-        unknown: categorized.unknown
-      },
-      
-      // Export Optionen
-      exports: {
-        excel: this.generateExcelData(categorized),
-        csv: this.generateCSVData(categorized),
-        html: this.generateHTMLReport(categorized, summary)
-      },
-      
-      // Steuerberater Notes
-      taxAdvisorNotes: {
-        methodology: 'FIFO-Prinzip für Haltefrist-Berechnung',
-        holdingPeriod: 'Deutsche Haltefrist: 1 Jahr für Steuerfreiheit',
-        roiTreatment: 'ROI/Printer Events als potentielle Einkünfte markiert',
-        recommendation: 'Professionelle Steuerberatung für finale Berechnung empfohlen',
-        limitations: [
-          'Nur eine Wallet analysiert',
-          'Andere Trades/Wallets nicht berücksichtigt',
-          'Keine finalen Steuerberechnungen',
-          'Haltefrist nur informativ berechnet'
-        ]
-      }
+    // SAFE VALUE SUMMATION - Prevents €546k bug
+    const totalValues = {
+      purchaseValueEUR: categorized.purchases.reduce((sum, p) => sum + (p.valueEUR || 0), 0),
+      salesValueEUR: categorized.sales.reduce((sum, s) => sum + (s.valueEUR || 0), 0),
+      roiValueEUR: categorized.roiEvents.reduce((sum, r) => sum + (r.valueEUR || 0), 0)
     };
-  }
 
-  /**
-   * Summary erstellen
-   */
-  createSummary(categorized, allTransactions) {
-    return {
+    console.log('💰 Value Calculation Debug:', {
+      purchases: categorized.purchases.length,
+      purchaseValue: totalValues.purchaseValueEUR,
+      sales: categorized.sales.length,
+      salesValue: totalValues.salesValueEUR,
+      roiEvents: categorized.roiEvents.length,
+      roiValue: totalValues.roiValueEUR
+    });
+
+    const summary = {
       totalTransactions: allTransactions.length,
-      
       categories: {
         purchases: categorized.purchases.length,
         sales: categorized.sales.length,
@@ -408,94 +297,32 @@ class GermanTaxDataExporter {
         roiEvents: categorized.roiEvents.length,
         unknown: categorized.unknown.length
       },
-      
-      totalValues: {
-        purchaseValueEUR: categorized.purchases.reduce((sum, p) => sum + p.valueEUR, 0),
-        salesValueEUR: categorized.sales.reduce((sum, s) => sum + s.valueEUR, 0),
-        roiValueEUR: categorized.roiEvents.reduce((sum, r) => sum + r.valueEUR, 0)
-      },
-      
+      totalValues,
       dateRange: {
         firstTransaction: allTransactions[0]?.germanDate,
         lastTransaction: allTransactions[allTransactions.length - 1]?.germanDate
       },
-      
       uniqueTokens: [...new Set(allTransactions.map(tx => tx.token || 'UNKNOWN'))].length,
       uniqueChains: [...new Set(allTransactions.map(tx => tx.blockchain || 'UNKNOWN'))].length
     };
-  }
 
-  /**
-   * VERBESSERTE CSV GENERATION
-   */
-  convertToCSV(data) {
-    if (!data || data.length === 0) {
-      return 'Keine Daten verfügbar';
-    }
-    
-    try {
-      // Headers aus erstem Objekt extrahieren
-      const headers = Object.keys(data[0]);
-      
-      // CSV Header Zeile
-      const csvHeaders = headers.map(header => `"${header}"`).join(',');
-      
-      // CSV Data Zeilen
-      const csvRows = data.map(row => {
-        return headers.map(header => {
-          const value = row[header] || '';
-          // Escape quotes und wrap in quotes
-          return `"${value.toString().replace(/"/g, '""')}"`;
-        }).join(',');
-      });
-      
-      // Kombinieren
-      return [csvHeaders, ...csvRows].join('\n');
-      
-    } catch (error) {
-      console.error('CSV Generation Error:', error);
-      return 'CSV Generation fehlgeschlagen';
-    }
-  }
-
-  /**
-   * VERBESSERTE EXCEL DATA GENERATION
-   */
-  generateExcelData(categorized) {
-    const formatForExcel = (transactions, category) => {
-      if (!transactions || transactions.length === 0) {
-        return [];
-      }
-      
-      return transactions.map(tx => ({
-        'Kategorie': category,
-        'Datum': tx.germanDate || 'Invalid Date',
-        'Token': tx.token || 'UNKNOWN',
-        'Menge': tx.amount || 0,
-        'Wert (EUR)': tx.valueEUR || 0,
-        'Wert (USD)': tx.valueUSD || 0,
-        'Blockchain': tx.blockchain || 'UNKNOWN',
-        'Direction': tx.direction || 'unknown',
-        'Transaction Hash': tx.hash || 'N/A',
-        'Haltefrist (Tage)': tx.holdingPeriod?.days || '',
-        'ROI Projekt': tx.roiProject || '',
-        'Ist ROI Event': tx.isROIEvent ? 'Ja' : 'Nein'
-      }));
-    };
-    
     return {
-      purchases: formatForExcel(categorized.purchases, 'Käufe'),
-      sales: formatForExcel(categorized.sales, 'Verkäufe'),
-      roiEvents: formatForExcel(categorized.roiEvents, 'ROI Events'),
-      transfers: formatForExcel(categorized.transfers, 'Transfers')
+      exportType: 'GERMAN_TAX_ADVISOR_DATA',
+      disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für professionelle Steuerberatung',
+      generatedAt: new Date().toISOString(),
+      summary,
+      data: categorized,
+      exports: {
+        csv: this.generateCSVData(categorized),
+        html: this.generateHTMLReport(categorized, summary)
+      }
     };
   }
 
   /**
-   * VERBESSERTE CSV DATA GENERATION
+   * WORKING CSV GENERATION
    */
   generateCSVData(categorized) {
-    // Alle Kategorien zusammenfassen
     const allTransactions = [
       ...(categorized.purchases || []).map(tx => ({ ...tx, category: 'Kauf' })),
       ...(categorized.sales || []).map(tx => ({ ...tx, category: 'Verkauf' })),
@@ -504,59 +331,64 @@ class GermanTaxDataExporter {
     ];
     
     if (allTransactions.length === 0) {
-      return 'Kategorie,Datum,Token,Menge,Wert (EUR),Message\n"Keine Daten","N/A","N/A","0","0","Keine Transaktionen gefunden"';
+      return 'Kategorie,Datum,Token,Menge,Wert (EUR),Blockchain,Hash\n"Keine Daten","N/A","N/A","0","0","N/A","N/A"';
     }
     
-    // Format für CSV
-    const csvData = allTransactions.map(tx => ({
-      'Kategorie': tx.category || 'Unknown',
-      'Datum': tx.germanDate || 'Invalid Date',
-      'Token': tx.token || 'UNKNOWN',
-      'Menge': tx.amount || 0,
-      'Wert (EUR)': tx.valueEUR || 0,
-      'Wert (USD)': tx.valueUSD || 0,
-      'Blockchain': tx.blockchain || 'UNKNOWN',
-      'Direction': tx.direction || 'unknown',
-      'Transaction Hash': tx.hash || 'N/A',
-      'Haltefrist (Tage)': tx.holdingPeriod?.days || '',
-      'ROI Projekt': tx.roiProject || '',
-      'Ist ROI Event': tx.isROIEvent ? 'Ja' : 'Nein'
-    }));
+    const csvRows = [
+      'Kategorie,Datum,Token,Menge,Wert (EUR),Blockchain,Direction,Hash,Haltefrist (Tage),ROI Projekt'
+    ];
     
-    return this.convertToCSV(csvData);
+    allTransactions.forEach(tx => {
+      const row = [
+        `"${tx.category || 'Unknown'}"`,
+        `"${tx.germanDate || 'N/A'}"`,
+        `"${tx.token || 'UNKNOWN'}"`,
+        `"${tx.amount || 0}"`,
+        `"${tx.valueEUR || 0}"`,
+        `"${tx.blockchain || 'Unknown'}"`,
+        `"${tx.direction || 'unknown'}"`,
+        `"${(tx.hash || 'N/A').substring(0, 20)}..."`,
+        `"${tx.holdingPeriod?.days || ''}"`,
+        `"${tx.roiProject || ''}"`
+      ].join(',');
+      csvRows.push(row);
+    });
+    
+    return csvRows.join('\n');
   }
 
   /**
-   * HTML Report generieren
+   * WORKING HTML GENERATION
    */
   generateHTMLReport(categorized, summary) {
-    return `
-<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Steuerberater Export - Crypto Transactions</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
         .header { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .summary-card { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+        .summary-card { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
         .disclaimer { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; font-weight: bold; }
         .purchase { background-color: #d4edda; }
         .sale { background-color: #f8d7da; }
         .roi { background-color: #d1ecf1; }
         .transfer { background-color: #e2e3e5; }
+        h1, h2, h3 { color: #333; }
+        .value { font-weight: bold; color: #007bff; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🇩🇪 Crypto Steuerberater Export</h1>
         <p><strong>Generiert am:</strong> ${new Date().toLocaleDateString('de-DE')}</p>
-        <p><strong>Wallet:</strong> ${categorized.purchases[0]?.from_address || 'N/A'}</p>
+        <p><strong>Wallet:</strong> ${this.walletAddress}</p>
     </div>
     
     <div class="disclaimer">
@@ -567,28 +399,28 @@ class GermanTaxDataExporter {
     
     <div class="summary">
         <div class="summary-card">
-            <h3>📊 Gesamt-Übersicht</h3>
+            <h3>📊 Übersicht</h3>
             <p><strong>${summary.totalTransactions}</strong> Transaktionen</p>
-            <p><strong>${summary.uniqueTokens}</strong> verschiedene Token</p>
-            <p><strong>${summary.uniqueChains}</strong> Blockchains</p>
+            <p><strong>${summary.uniqueTokens}</strong> Token</p>
+            <p><strong>${summary.uniqueChains}</strong> Chains</p>
         </div>
         
         <div class="summary-card">
             <h3>💰 Käufe</h3>
             <p><strong>${summary.categories.purchases}</strong> Käufe</p>
-            <p><strong>€${summary.totalValues.purchaseValueEUR.toFixed(2)}</strong> Gesamtwert</p>
+            <p class="value">€${summary.totalValues.purchaseValueEUR.toFixed(2)}</p>
         </div>
         
         <div class="summary-card">
             <h3>💸 Verkäufe</h3>
             <p><strong>${summary.categories.sales}</strong> Verkäufe</p>
-            <p><strong>€${summary.totalValues.salesValueEUR.toFixed(2)}</strong> Gesamtwert</p>
+            <p class="value">€${summary.totalValues.salesValueEUR.toFixed(2)}</p>
         </div>
         
         <div class="summary-card">
             <h3>🎯 ROI Events</h3>
-            <p><strong>${summary.categories.roiEvents}</strong> ROI Events</p>
-            <p><strong>€${summary.totalValues.roiValueEUR.toFixed(2)}</strong> Gesamtwert</p>
+            <p><strong>${summary.categories.roiEvents}</strong> Events</p>
+            <p class="value">€${summary.totalValues.roiValueEUR.toFixed(2)}</p>
         </div>
     </div>
     
@@ -597,13 +429,12 @@ class GermanTaxDataExporter {
     ${this.generateHTMLTable(categorized.roiEvents, 'ROI Events', 'roi')}
     
     <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-        <h3>📋 Empfehlungen für Steuerberater</h3>
+        <h3>📋 Hinweise für Steuerberater</h3>
         <ul>
-            <li>FIFO-Prinzip für Haltefrist-Berechnung verwendet</li>
-            <li>Deutsche Haltefrist: 1 Jahr für potentielle Steuerfreiheit</li>
-            <li>ROI/Printer Events als potentielle Einkünfte markiert</li>
-            <li>Nur eine Wallet analysiert - andere Trades/Wallets nicht berücksichtigt</li>
-            <li>Professionelle Steuerberatung für finale Berechnung empfohlen</li>
+            <li>FIFO-Methode für Haltefrist-Berechnung</li>
+            <li>Deutsche Haltefrist: 1 Jahr für Steuerfreiheit</li>
+            <li>ROI Events als potentielle Einkünfte markiert</li>
+            <li>Nur eine Wallet analysiert - andere nicht berücksichtigt</li>
         </ul>
     </div>
 </body>
@@ -611,10 +442,13 @@ class GermanTaxDataExporter {
   }
 
   /**
-   * HTML Table Helper
+   * HTML TABLE HELPER
    */
   generateHTMLTable(transactions, title, cssClass) {
-    if (transactions.length === 0) return '';
+    if (!transactions || transactions.length === 0) return '';
+    
+    const maxShow = 50; // Limit für Performance
+    const showTransactions = transactions.slice(0, maxShow);
     
     return `
     <h2>${title} (${transactions.length})</h2>
@@ -626,70 +460,37 @@ class GermanTaxDataExporter {
                 <th>Menge</th>
                 <th>Wert (EUR)</th>
                 <th>Blockchain</th>
-                <th>Hash</th>
+                <th>Direction</th>
                 ${title === 'Verkäufe' ? '<th>Haltefrist</th>' : ''}
                 ${title === 'ROI Events' ? '<th>Projekt</th>' : ''}
             </tr>
         </thead>
         <tbody>
-            ${transactions.slice(0, 100).map(tx => `
+            ${showTransactions.map(tx => `
                 <tr class="${cssClass}">
-                    <td>${tx.germanDate}</td>
-                    <td>${tx.token}</td>
-                    <td>${tx.amount.toFixed(6)}</td>
-                    <td>€${tx.valueEUR.toFixed(2)}</td>
-                    <td>${tx.blockchain}</td>
-                    <td style="font-size: 11px;">${tx.hash.substring(0, 20)}...</td>
+                    <td>${tx.germanDate || 'N/A'}</td>
+                    <td>${tx.token || 'UNKNOWN'}</td>
+                    <td>${(tx.amount || 0).toFixed(6)}</td>
+                    <td>€${(tx.valueEUR || 0).toFixed(2)}</td>
+                    <td>${tx.blockchain || 'Unknown'}</td>
+                    <td>${tx.direction || 'unknown'}</td>
                     ${title === 'Verkäufe' ? `<td>${tx.holdingPeriod?.days || 'N/A'} Tage</td>` : ''}
                     ${title === 'ROI Events' ? `<td>${tx.roiProject || 'Unknown'}</td>` : ''}
                 </tr>
             `).join('')}
         </tbody>
     </table>
-    ${transactions.length > 100 ? `<p><em>Erste 100 von ${transactions.length} Transaktionen gezeigt</em></p>` : ''}
+    ${transactions.length > maxShow ? `<p><em>Erste ${maxShow} von ${transactions.length} Transaktionen gezeigt</em></p>` : ''}
     `;
   }
 
   /**
-   * Utility Functions
+   * UTILITY FUNCTIONS
    */
   formatGermanDate(date) {
+    if (!date || isNaN(date)) return 'Invalid Date';
     return new Date(date).toLocaleDateString('de-DE');
   }
 }
 
-// ===================================
-// INTEGRATION FUNCTION
-// ===================================
-
-/**
- * Integration in bestehende API
- */
-function integrateTaxAdvisorExport(transactions) {
-  const exporter = new GermanTaxDataExporter();
-  
-  // Tax Advisor Export erstellen
-  const exportData = exporter.createTaxAdvisorDataExport(transactions);
-  
-  return {
-    success: true,
-    data: exportData,
-    disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für Steuerberater',
-    implementationNotes: {
-      transactionCount: transactions.length,
-      safeApproach: 'Keine Steuerberechnungen - nur Datenstrukturierung',
-      exports: ['Excel', 'CSV', 'HTML'],
-      nextSteps: [
-        'Frontend Integration für Export Downloads',
-        'Disclaimer prominent anzeigen',
-        'Optional: PDF Export hinzufügen'
-      ]
-    }
-  };
-}
-
-// Export für Cursor
-module.exports = {
-  GermanTaxDataExporter,
-  integrateTaxAdvisorExport
-}; 
+export default GermanTaxDataExporter; 

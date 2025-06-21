@@ -3,12 +3,12 @@
  * 
  * ✅ KEINE STEUERBERECHNUNGEN - Nur Datensammlung
  * ✅ DSGVO-konform - Keine Steuerberatung
- * ✅ Export-Formate: Excel, CSV, HTML
+ * ✅ Export-Formate: CSV, HTML (Excel entfernt)
  * ✅ Professionelle Steuerberater-Grundlage
  * ✅ FIFO Haltefrist-Berechnung (informativ)
  */
 
-const { GermanTaxDataExporter, integrateTaxAdvisorExport } = require('../src/services/GermanTaxDataExporter');
+const GermanTaxDataExporter = require('../src/services/GermanTaxDataExporter').default;
 
 // 🚨 MORALIS IMPORT FIX - BACKEND CRASH RESOLVED!
 const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => {
@@ -198,180 +198,103 @@ const checkEnvironment = () => {
 };
 
 module.exports = async function handler(req, res) {
-  console.log('🔥 SICHERER TAX ADVISOR EXPORT API - KEINE STEUERBERECHNUNGEN!');
-  
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ 
+      success: false, 
+      error: 'Method not allowed. Use POST.' 
+    });
+  }
+
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // Environment Check
+    checkEnvironment();
 
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
+    const { address, chain = 'eth' } = req.body;
 
-    const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { address, limit = 300000 } = params;
-    
     if (!address) {
       return res.status(400).json({
         success: false,
-        error: 'Address required',
-        disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für Steuerberater'
+        error: 'Wallet address is required'
       });
     }
 
-    console.log(`🎯 Loading data for Tax Advisor Export: ${address}`);
-    console.log(`📊 Target: ${limit} transactions with 60s timeout`);
+    console.log('🚀 Tax Advisor Export Request:', { address, chain });
 
-    // 🔧 ENVIRONMENT CHECK
-    checkEnvironment();
-
-    // 🚀 LOAD TRANSACTION HISTORY
-    console.log('🔄 Loading transaction history for Tax Advisor Export...');
-    const ethHistory = await getWalletTransactionHistorySafe(address, 'eth');
-    const plsHistory = await getWalletTransactionHistorySafe(address, 'pls');
+    // Get Transaction History
+    const transactionHistory = await getWalletTransactionHistorySafe(address, chain);
     
-    console.log('📊 ETH History:', {
-      native: ethHistory.nativeTransactions.length,
-      transfers: ethHistory.erc20Transfers.length,
-      balances: ethHistory.erc20Balances.length,
-      total: ethHistory.totalProcessed,
-      errors: ethHistory.errors.length
+    if (transactionHistory.errors.length > 0) {
+      console.warn('⚠️ Transaction history errors:', transactionHistory.errors);
+    }
+
+    // Convert to Tax Advisor Format
+    const transactions = [
+      ...transactionHistory.nativeTransactions.map(tx => ({
+        ...tx,
+        type: 'native',
+        direction: tx.from_address?.toLowerCase() === address.toLowerCase() ? 'out' : 'in',
+        token_symbol: 'ETH',
+        token_name: 'Ethereum',
+        sourceChain: chain === 'pls' ? 'PulseChain' : 'Ethereum'
+      })),
+      ...transactionHistory.erc20Transfers.map(tx => ({
+        ...tx,
+        type: 'erc20',
+        direction: tx.from_address?.toLowerCase() === address.toLowerCase() ? 'out' : 'in',
+        sourceChain: chain === 'pls' ? 'PulseChain' : 'Ethereum'
+      }))
+    ];
+
+    console.log(`📊 Processed ${transactions.length} transactions for Tax Advisor Export`);
+
+    // Create Tax Advisor Export
+    const exporter = new GermanTaxDataExporter();
+    const taxAdvisorExport = exporter.createTaxAdvisorDataExport(transactions);
+
+    // Success Response
+    return res.status(200).json({
+      success: true,
+      disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für professionelle Steuerberatung',
+      taxAdvisorExport,
+      safeTaxSystem: {
+        integrated: true,
+        transactionCount: transactions.length,
+        approach: 'DATA_COLLECTION_ONLY',
+        compliance: 'DSGVO-konform - Keine Steuerberatung',
+        features: [
+          'FIFO Haltefrist-Berechnung (informativ)',
+          'Transaktions-Kategorisierung',
+          'ROI Event Markierung',
+          'Export-Formate: CSV, HTML',
+          'Professionelle Steuerberater-Grundlage'
+        ],
+        limitations: [
+          'Nur eine Wallet analysiert',
+          'Keine finalen Steuerberechnungen',
+          'Andere Trades/Wallets nicht berücksichtigt',
+          'Professionelle Steuerberatung empfohlen'
+        ]
+      }
     });
-    
-    console.log('📊 PLS History:', {
-      native: plsHistory.nativeTransactions.length,
-      transfers: plsHistory.erc20Transfers.length,
-      balances: plsHistory.erc20Balances.length,
-      total: plsHistory.totalProcessed,
-      errors: plsHistory.errors.length
-    });
 
-    // 🔥 COMBINE ALL TRANSACTIONS
-    let allTransactions = [];
-    
-    // Add ETH transactions
-    if (ethHistory.nativeTransactions.length > 0) {
-      const ethNative = ethHistory.nativeTransactions.map(tx => ({
-        ...tx,
-        sourceChain: 'Ethereum',
-        chainSymbol: 'ETH',
-        dataSource: 'REAL_HISTORY',
-        dataType: 'native',
-        loadedAt: new Date().toISOString(),
-        uniqueId: `ETH_NATIVE_${tx.hash}`
-      }));
-      allTransactions.push(...ethNative);
-    }
-    
-    if (ethHistory.erc20Transfers.length > 0) {
-      const ethTransfers = ethHistory.erc20Transfers.map(tx => ({
-        ...tx,
-        sourceChain: 'Ethereum',
-        chainSymbol: 'ETH',
-        dataSource: 'REAL_HISTORY',
-        dataType: 'erc20_transfer',
-        loadedAt: new Date().toISOString(),
-        uniqueId: `ETH_TRANSFER_${tx.transaction_hash}`
-      }));
-      allTransactions.push(...ethTransfers);
-    }
-    
-    // Add PLS transactions
-    if (plsHistory.nativeTransactions.length > 0) {
-      const plsNative = plsHistory.nativeTransactions.map(tx => ({
-        ...tx,
-        sourceChain: 'PulseChain',
-        chainSymbol: 'PLS',
-        dataSource: 'REAL_HISTORY',
-        dataType: 'native',
-        loadedAt: new Date().toISOString(),
-        uniqueId: `PLS_NATIVE_${tx.hash}`
-      }));
-      allTransactions.push(...plsNative);
-    }
-    
-    if (plsHistory.erc20Transfers.length > 0) {
-      const plsTransfers = plsHistory.erc20Transfers.map(tx => ({
-        ...tx,
-        sourceChain: 'PulseChain',
-        chainSymbol: 'PLS',
-        dataSource: 'REAL_HISTORY',
-        dataType: 'erc20_transfer',
-        loadedAt: new Date().toISOString(),
-        uniqueId: `PLS_TRANSFER_${tx.transaction_hash}`
-      }));
-      allTransactions.push(...plsTransfers);
-    }
-
-    console.log(`✅ Total transactions loaded: ${allTransactions.length}`);
-
-    // 🔥 SICHERER TAX ADVISOR EXPORT
-    try {
-      console.log('🇩🇪 Starting Safe Tax Data Export (NO TAX CALCULATIONS)...');
-      
-      // Sicheren Tax Advisor Export erstellen
-      const taxAdvisorExport = integrateTaxAdvisorExport(allTransactions);
-      
-      const response = {
-        success: true,
-        disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für professionelle Steuerberatung',
-        taxAdvisorExport: taxAdvisorExport.data,
-        safeTaxSystem: {
-          integrated: true,
-          transactionCount: allTransactions.length,
-          approach: 'DATA_COLLECTION_ONLY',
-          compliance: 'DSGVO-konform - Keine Steuerberatung',
-          features: [
-            'FIFO Haltefrist-Berechnung (informativ)',
-            'Transaktions-Kategorisierung',
-            'ROI Event Markierung',
-            'Export-Formate: Excel, CSV, HTML',
-            'Professionelle Steuerberater-Grundlage'
-          ],
-          limitations: [
-            'Nur eine Wallet analysiert',
-            'Keine finalen Steuerberechnungen',
-            'Andere Trades/Wallets nicht berücksichtigt',
-            'Professionelle Steuerberatung empfohlen'
-          ]
-        },
-        debug: {
-          version: 'safe_tax_advisor_export_v1',
-          targetTransactions: limit,
-          actualTransactions: allTransactions.length,
-          ethTransactions: ethHistory.totalProcessed,
-          plsTransactions: plsHistory.totalProcessed,
-          dataQuality: 'high_volume_production',
-          backendWorking: true,
-          safeApproach: true
-        }
-      };
-
-      console.log('✅ Safe Tax Data Export successfully completed');
-      return res.status(200).json(response);
-      
-    } catch (taxExportError) {
-      console.error('⚠️ Safe Tax Data Export failed:', taxExportError);
-      
-      return res.status(500).json({
-        success: false,
-        error: 'Tax Advisor Export failed',
-        disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für Steuerberater',
-        debug: {
-          error: taxExportError.message,
-          transactionCount: allTransactions.length
-        }
-      });
-    }
-    
   } catch (error) {
-    console.error('❌ Tax Advisor Export API Error:', error);
+    console.error('🚨 Tax Advisor Export Error:', error);
+    
     return res.status(500).json({
       success: false,
-      error: error.message,
-      disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für Steuerberater',
-      stack: error.stack
+      error: 'Tax Advisor Export failed',
+      details: error.message,
+      disclaimer: 'KEINE STEUERBERATUNG - Nur Datensammlung für professionelle Steuerberatung'
     });
   }
 }; 
