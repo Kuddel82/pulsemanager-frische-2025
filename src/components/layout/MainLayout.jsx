@@ -89,8 +89,9 @@ const MainLayout = () => {
       id: 'wgep',
       label: 'WGEP',
       icon: Printer,
-      path: '/wgep',
-      description: 'WGEP Token Tracking'
+      href: 'https://matcha.xyz/tokens/1/0xfca88920ca5639ad5e954ea776e73dec54fdc065',
+      external: true,
+      description: 'WGEP Token auf Matcha'
     }
   ];
 
