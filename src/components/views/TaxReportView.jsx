@@ -7,22 +7,45 @@ import { Button } from '@/components/ui/button';
 // 🔥🔥🔥 COMPONENT LOADED TEST 🔥🔥🔥
 console.log("🔥🔥🔥 TAX REPORT COMPONENT LOADED! 🔥🔥🔥");
 
-// 🧪 EMERGENCY TEST FUNCTION
-const testDirectAPI = async () => {
-  console.log('🧪 Testing german-tax-report API directly...');
+// 🧪 EMERGENCY TEST FUNCTION - ENHANCED
+window.testDirectAPI = async () => {
+  console.log('🧪 Testing german-tax-report API with explicit address...');
+  
+  const address = '0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a';
   
   try {
-    const response = await fetch('/api/german-tax-report?address=0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a');
-    const data = await response.json();
+    // TEST 1: GET Request
+    console.log('🧪 Test 1: GET Request');
+    const getResponse = await fetch(`/api/german-tax-report?address=${address}`);
+    const getData = await getResponse.json();
     
-    console.log('🎯 Direct API Response:', {
-      success: data.success,
-      transactionCount: data.taxReport?.transactions?.length || 0,
-      summary: data.taxReport?.summary,
-      debug: data.debug
+    console.log('📊 GET Response:', {
+      status: getResponse.status,
+      success: getData.success,
+      transactionCount: getData.taxReport?.transactions?.length || 0,
+      error: getData.error
     });
     
-    return data;
+    // TEST 2: POST Request
+    console.log('🧪 Test 2: POST Request');
+    const postResponse = await fetch('/api/german-tax-report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ address })
+    });
+    const postData = await postResponse.json();
+    
+    console.log('📊 POST Response:', {
+      status: postResponse.status,
+      success: postData.success,
+      transactionCount: postData.taxReport?.transactions?.length || 0,
+      error: postData.error
+    });
+    
+    return { getData, postData };
+    
   } catch (error) {
     console.error('❌ Direct API Test failed:', error);
   }
@@ -30,8 +53,35 @@ const testDirectAPI = async () => {
 
 // 🧪 AUTO-TEST BEIM LOAD
 if (typeof window !== 'undefined') {
-  window.testDirectAPI = testDirectAPI;
-  console.log('🧪 Emergency test function loaded. Call: testDirectAPI()');
+  console.log('🧪 Enhanced test function loaded. Call: testDirectAPI()');
+}
+
+// 🔥 FIXED API CALL FUNCTION
+const fixedApiCall = async (address) => {
+  console.log('🔥 Making API call with address:', address);
+  
+  const response = await fetch('/api/german-tax-report', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ 
+      address: address,
+      limit: 300000,
+      format: 'json'
+    })
+  });
+  
+  const data = await response.json();
+  console.log('📊 API Response:', data);
+  
+  return data;
+};
+
+// 🧪 EXPORT FÜR TESTING
+if (typeof window !== 'undefined') {
+  window.fixedApiCall = fixedApiCall;
+  console.log('🔥 Fixed API call function loaded. Call: fixedApiCall("0x...")');
 }
 
 const SimpleTaxTracker = () => {
