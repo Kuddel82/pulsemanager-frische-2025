@@ -573,15 +573,22 @@ module.exports = async function handler(req, res) {
     });
 
     // DEUTSCHE STEUER-KATEGORISIERUNG
-    const categorizedTransactions = allTransactions.map(tx => {
-      console.log('🚨 DEBUG: Processing transaction:', tx.hash?.substring(0, 10));
+    console.log('🔥🔥🔥 STARTE STEUER-KATEGORISIERUNG FÜR', allTransactions.length, 'TRANSAKTIONEN! 🔥🔥🔥');
+    
+    const categorizedTransactions = allTransactions.map((tx, index) => {
+      console.log(`🚨 DEBUG: Processing transaction ${index + 1}/${allTransactions.length}:`, tx.hash?.substring(0, 10));
       const result = extractTokenDataFromWalletHistory(tx, address);
-      console.log('🚨 DEBUG: Result:', result.tokenSymbol, result.chainSymbol);
+      console.log(`🚨 DEBUG: Result ${index + 1}:`, result.tokenSymbol, result.chainSymbol, result.taxCategory);
       return result;
     });
 
+    console.log('🔥🔥🔥 STEUER-KATEGORISIERUNG ABGESCHLOSSEN! 🔥🔥🔥');
+    console.log('📊 KATEGORISIERTE TRANSAKTIONEN:', categorizedTransactions.length);
+
     // ZUSAMMENFASSUNG
+    console.log('🔥🔥🔥 STARTE SUMMARY CALCULATION! 🔥🔥🔥');
     const summary = calculateWGEPTaxSummary(categorizedTransactions);
+    console.log('🔥🔥🔥 SUMMARY CALCULATION ABGESCHLOSSEN! 🔥🔥🔥');
 
     // 🔥 DEUTSCHE STEUERBERECHNUNG HINZUGEFÜGT!
     console.log('🧮 STARTE DEUTSCHE STEUERBERECHNUNG...');
