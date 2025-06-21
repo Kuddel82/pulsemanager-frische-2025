@@ -64,7 +64,7 @@ class MoralisGermanTaxSystem {
     const url = `${this.MORALIS_BASE_URL}/wallets/${walletAddress}/history`;
     
     const params = new URLSearchParams({
-      chain: 'pls', // PulseChain
+      chain: 'eth', // FIX: PulseChain über Ethereum API
       order: 'DESC',
       limit: '100', // Max pro Call
       // from_date: '2023-01-01', // Optional: Start date
