@@ -6,6 +6,7 @@
  * ✅ Automatische Cursor-basierte Requests
  * ✅ Deutsche Steuer-Kategorisierung
  * 🔥 REQUEST DEDUPLICATION - Verhindert mehrfache identische Requests
+ * 🚀 VERCEL SERVERLESS FUNCTION - Kompatibel mit Vercel Deployment
  */
 
 // 🔥 REQUEST DEDUPLICATION CACHE
@@ -460,14 +461,16 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
   };
 }
 
-export default async function handler(req, res) {
+// 🔥 VERCEL SERVERLESS FUNCTION EXPORT
+module.exports = async function handler(req, res) {
   console.log('🔥🔥🔥 TAX REPORT - AGGRESSIVE PAGINATION (300.000+)! 🔥🔥🔥');
   
   try {
-    // CORS Headers
+    // CORS Headers für Vercel
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Max-Age', '86400');
 
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
@@ -475,7 +478,7 @@ export default async function handler(req, res) {
 
     // Extract parameters
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
-    const { address, limit = 300000, requestToken, format = 'json', year, taxpayer } = params; // 🔥 FORMAT PARAMETER
+    const { address, limit = 300000, requestToken, format = 'json', year, taxpayer } = params;
 
     console.log('🇩🇪 TAX PARAMS:', { 
       address: address ? address.slice(0, 8) + '...' : 'MISSING', 
@@ -551,7 +554,6 @@ export default async function handler(req, res) {
       
       try {
         // 🔥 AGGRESSIVE PAGINATION: Bis zu 300.000 Transfers pro Chain
-        // 🔧 FIX: Verwende Chain-ID statt Chain-Name für Moralis API
         const { transfers, debugInfo } = await fetchAllTransfers(address, chain.moralisId, limit);
         
         console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via AGGRESSIVE PAGINATION`);
@@ -565,8 +567,8 @@ export default async function handler(req, res) {
         
         // Add chain info to transactions
         const processedTransactions = transfers.map(tx => {
-          tx.sourceChain = chain.name;     // ← Ethereum oder PulseChain
-          tx.chain = chain.id;            // ← 0x1 oder 0x171
+          tx.sourceChain = chain.name;
+          tx.chain = chain.id;
           return extractTokenDataFromWalletHistory(tx, address);
         });
         
@@ -645,7 +647,6 @@ export default async function handler(req, res) {
       summary,
       transactions: categorizedTransactions,
       chainResults,
-      // 🔥 DEUTSCHE STEUERBERECHNUNG HINZUGEFÜGT!
       germanTaxCalculation: germanTaxResults
     };
 
@@ -679,7 +680,6 @@ export default async function handler(req, res) {
       case 'pdf':
       case 'csv':
       case 'elster':
-        // Für Export-Formate: Standard JSON Response (Frontend generiert HTML/CSV)
         return res.status(200).json({
           success: true,
           taxReport,
@@ -687,7 +687,6 @@ export default async function handler(req, res) {
         });
 
       default:
-        // Standard JSON Response
         return res.status(200).json({
           success: true,
           taxReport,
@@ -699,17 +698,18 @@ export default async function handler(req, res) {
     console.error('💥 TAX API ERROR:', error);
     
     // 🔥 ENTFERNE FEHLERHAFTE REQUESTS AUS DEM CACHE
-    if (requestToken) {
-      const requestKey = `${address}-${limit}-${requestToken}`;
+    if (req.body?.requestToken) {
+      const requestKey = `${req.body.address}-${req.body.limit}-${req.body.requestToken}`;
       requestCache.delete(requestKey);
     }
     
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-}
+};
 
 // 🔥 HELPER FUNCTIONS FÜR VERSCHIEDENE EXPORT-FORMATE
 function generateHTMLReport(taxReport, year) {
