@@ -129,6 +129,19 @@ export default async function handler(req, res) {
     if (endpoint === 'wallet-token-transfers' || endpoint === 'erc20_transfers') {
       console.log(`🚀 PRO TRANSFERS: Loading for ${address} on ${chainId}`);
       
+      // 🚨 PULSECHAIN FALLBACK - PLS gibt 500 Errors
+      if (chainId === 'pls') {
+        console.log(`⚠️ PULSECHAIN FALLBACK: PLS endpoints return 500 errors, using empty result`);
+        return res.status(200).json({
+          result: [],
+          cursor: null,
+          page_size: 0,
+          _source: 'moralis_v2_pro_transfers_pls_fallback',
+          _fallback: true,
+          _reason: 'PulseChain endpoints return 500 errors in Moralis API'
+        });
+      }
+      
       const result = await moralisFetch(`${address}/erc20/transfers`, { 
         chain: chainId,
         limit: Math.min(limit, 100),
@@ -165,6 +178,19 @@ export default async function handler(req, res) {
     // 🔄 NATIVE TRANSACTIONS (Pro-compatible)
     if (endpoint === 'native_transactions') {
       console.log(`🚀 PRO NATIVE TX: Loading for ${address} on ${chainId}`);
+      
+      // 🚨 PULSECHAIN FALLBACK - PLS gibt 500 Errors
+      if (chainId === 'pls') {
+        console.log(`⚠️ PULSECHAIN FALLBACK: PLS native transactions return 500 errors, using empty result`);
+        return res.status(200).json({
+          transactions: [],
+          cursor: null,
+          page_size: 0,
+          _source: 'moralis_v2_pro_native_transactions_pls_fallback',
+          _fallback: true,
+          _reason: 'PulseChain native transactions return 500 errors in Moralis API'
+        });
+      }
       
       const result = await moralisFetch(`${address}`, { 
         chain: chainId,
@@ -246,6 +272,17 @@ export default async function handler(req, res) {
     // 🔄 RAW ERC20 TOKENS (without prices)
     if (endpoint === 'erc20') {
       console.log(`🚀 PRO ERC20: Loading raw tokens for ${address} on ${chainId}`);
+      
+      // 🚨 PULSECHAIN FALLBACK - PLS gibt 500 Errors
+      if (chainId === 'pls') {
+        console.log(`⚠️ PULSECHAIN FALLBACK: PLS ERC20 balances return 500 errors, using empty result`);
+        return res.status(200).json({
+          result: [],
+          _source: 'moralis_v2_pro_erc20_pls_fallback',
+          _fallback: true,
+          _reason: 'PulseChain ERC20 balances return 500 errors in Moralis API'
+        });
+      }
       
       const result = await moralisFetch(`${address}/erc20`, { 
         chain: chainId,
