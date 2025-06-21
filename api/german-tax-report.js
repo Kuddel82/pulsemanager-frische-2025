@@ -366,8 +366,8 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
   // WGEP-spezifische Minter-Adressen
   const WGEP_MINTERS = [
     '0x0000000000000000000000000000000000000000', // Zero Address
-    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39', // WGEP Printer
-    '0x8bd3d1472a656e312e94fb1bbdd599b8c51d18e3'  // WGEP Contract
+    '0xfca88920ca5639ad5e954ea776e73dec54fdc065', // ECHTE WGEP ADRESSE
+    '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39'  // WGEP Printer
   ];
   
   const fromMinter = WGEP_MINTERS.includes(tx.from_address?.toLowerCase());
