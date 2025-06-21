@@ -488,37 +488,6 @@ module.exports = async function handler(req, res) {
       requestToken: requestToken ? requestToken.toString().slice(-6) : 'NONE'
     });
 
-    // 🔥 REQUEST DEDUPLICATION - Verhindert mehrfache identische Requests
-    const requestKey = `${address}-${limit}-${requestToken}`;
-    const now = Date.now();
-    
-    // Prüfe ob identischer Request bereits läuft
-    if (requestCache.has(requestKey)) {
-      const cached = requestCache.get(requestKey);
-      if (now - cached.timestamp < CACHE_DURATION) {
-        console.log(`🚫 REQUEST DEDUPLICATION: Identischer Request bereits in Bearbeitung (${requestKey.slice(0, 20)}...)`);
-        return res.status(200).json({
-          success: true,
-          taxReport: cached.data,
-          debug: {
-            ...cached.debug,
-            deduplicated: true,
-            originalRequestTime: new Date(cached.timestamp).toISOString()
-          }
-        });
-      } else {
-        // Cache abgelaufen, entferne
-        requestCache.delete(requestKey);
-      }
-    }
-
-    // Markiere Request als in Bearbeitung
-    requestCache.set(requestKey, {
-      timestamp: now,
-      data: null,
-      debug: null
-    });
-
     // Validate address
     if (!address) {
       return res.status(400).json({
