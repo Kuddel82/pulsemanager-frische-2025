@@ -1,11 +1,11 @@
 // ===================================
 // COMPLETE MORALIS-BASED TAX SOLUTION
 // Deutsches Steuerrecht: Gekaufte Coins vs ROI Events
-// Basiert auf Moralis Wallet History API
+// Basiert auf funktionierenden Portfolio-APIs
 // ===================================
 
 /**
- * MORALIS WALLET HISTORY API INTEGRATION
+ * MORALIS PORTFOLIO API INTEGRATION
  * Nutzt automatische Kategorisierung und Contract Detection
  */
 class MoralisGermanTaxSystem {
@@ -30,69 +30,65 @@ class MoralisGermanTaxSystem {
   }
 
   /**
-   * HAUPTFUNKTION: Wallet History mit Moralis laden
+   * HAUPTFUNKTION: Wallet History mit funktionierenden APIs laden
    */
   async getWalletTaxHistory(walletAddress) {
     try {
-      console.log('🔍 Loading wallet history with Moralis...');
+      console.log('🔍 Loading wallet history with working APIs...');
       
-      // Moralis Wallet History API Call
-      const response = await this.callMoralisWalletHistory(walletAddress);
+      // Verwende funktionierende Portfolio-APIs statt Wallet History
+      const response = await this.callWorkingPortfolioAPIs(walletAddress);
       
       // Process transactions für deutsches Steuerrecht
-      const processedData = this.processForGermanTax(response.result);
+      const processedData = this.processForGermanTax(response.result || []);
       
       return {
         success: true,
         walletAddress,
-        totalTransactions: response.result.length,
+        totalTransactions: (response.result || []).length,
         processedData,
-        moralisCategories: this.extractCategories(response.result),
+        moralisCategories: this.extractCategories(response.result || []),
         summary: this.generateTaxSummary(processedData)
       };
       
     } catch (error) {
-      console.error('❌ Moralis API Error:', error);
+      console.error('❌ Portfolio API Error:', error);
       throw error;
     }
   }
 
   /**
-   * MORALIS WALLET HISTORY API CALL MIT FALLBACKS
+   * FUNKTIONIERENDE PORTFOLIO-APIS MIT FALLBACKS
+   * NUR PRO-PLAN KOMPATIBLE ENDPOINTS!
    */
-  async callMoralisWalletHistory(walletAddress) {
+  async callWorkingPortfolioAPIs(walletAddress) {
+    // NUR PRO-PLAN ENDPOINTS - KEINE ENTERPRISE FEATURES!
     const endpoints = [
-      `/wallets/${walletAddress}/history`,
-      `/${walletAddress}`,
-      `/wallets/${walletAddress}/transactions`
+      'erc20_transfers',      // ✅ Pro Plan
+      'native_transactions'   // ✅ Pro Plan
     ];
     
-    const chains = ['eth', '0x171', 'polygon'];
+    const chains = ['eth', '0x171'];
     
     for (const chain of chains) {
       for (const endpoint of endpoints) {
         try {
-          const url = `${this.MORALIS_BASE_URL}${endpoint}`;
-          const params = new URLSearchParams({
-            chain: chain,
-            order: 'DESC',
-            limit: '300000'  // FIX: 300k LIMIT
-          });
-          
           console.log(`🔍 Trying: ${endpoint} with chain ${chain}`);
           
-          const response = await fetch(`${url}?${params}`, {
-            headers: {
-              'X-API-Key': this.MORALIS_API_KEY,
-              'accept': 'application/json'
-            }
-          });
+          // Verwende die funktionierende moralis-v2 API (PRO PLAN ONLY!)
+          const response = await fetch(`/api/moralis-v2?endpoint=${endpoint}&address=${walletAddress}&chain=${chain}&limit=100`);
           
           if (response.ok) {
             console.log(`✅ SUCCESS: ${endpoint} with chain ${chain}`);
             const data = await response.json();
-            console.log(`📊 Got ${data.result?.length || 0} transactions`);
-            return data;
+            
+            // Konvertiere zu einheitlichem Format
+            const transactions = endpoint === 'erc20_transfers' ? 
+              (data.transfers || []) : 
+              (data.transactions || []);
+              
+            console.log(`📊 Got ${transactions.length} transactions`);
+            return { result: transactions };
           } else {
             console.log(`❌ FAILED: ${endpoint} with chain ${chain} - ${response.status}`);
           }
@@ -103,7 +99,21 @@ class MoralisGermanTaxSystem {
       }
     }
     
-    throw new Error('All Moralis endpoints failed');
+    // Fallback: Verwende die funktionierende Portfolio-Cache API
+    try {
+      console.log('🔄 FALLBACK: Using portfolio-cache API...');
+      const response = await fetch(`/api/portfolio-cache?userId=temp&walletAddress=${walletAddress}&chainId=0x171&limit=50`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ FALLBACK SUCCESS: Got portfolio data`);
+        return { result: data.data || [] };
+      }
+    } catch (fallbackError) {
+      console.log(`❌ FALLBACK ERROR: ${fallbackError.message}`);
+    }
+    
+    throw new Error('All Pro Plan APIs failed');
   }
 
   /**
