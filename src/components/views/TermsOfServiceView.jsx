@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, AlertTriangle, Shield, Users, DollarSign, Lock, ExternalLink, Scale } from 'lucide-react';
+import { FileText, AlertTriangle, Users, Shield, Lock, Scale, Mail } from 'lucide-react';
 
 const TermsOfServiceView = () => {
   return (
@@ -9,7 +9,7 @@ const TermsOfServiceView = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <FileText className="h-12 w-12 text-green-400" />
+            <FileText className="h-12 w-12 text-blue-400" />
             <h1 className="text-4xl font-bold pulse-title">Allgemeine Geschäftsbedingungen</h1>
           </div>
           <p className="text-lg pulse-text-secondary">
@@ -25,11 +25,11 @@ const TermsOfServiceView = () => {
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-6 w-6 text-red-400 mt-1 flex-shrink-0" />
             <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">⚠️ Wichtige rechtliche Hinweise</h3>
+              <h3 className="text-lg font-semibold pulse-text mb-2">⚠️ Wichtige Hinweise</h3>
               <ul className="space-y-2 text-sm pulse-text-secondary">
                 <li>• <strong>Keine Steuerberatung:</strong> PulseManager bietet keine steuerliche Beratung. Alle Daten müssen von einem Steuerberater geprüft werden.</li>
-                <li>• <strong>Keine Anlageberatung:</strong> Wir sind nicht am Kauf/Verkauf von Tokens beteiligt und geben keine Anlageempfehlungen.</li>
                 <li>• <strong>Keine Haftung für externe Links:</strong> Wir übernehmen keine Verantwortung für externe Dienste (PulseX, Bridge, etc.).</li>
+                <li>• <strong>Keine Anlageberatung:</strong> Wir sind nicht am Kauf/Verkauf von Tokens beteiligt.</li>
                 <li>• <strong>Wallet-Daten:</strong> Alle ausgelesenen Wallet-Daten sind unverbindlich und müssen verifiziert werden.</li>
               </ul>
             </div>
@@ -40,13 +40,12 @@ const TermsOfServiceView = () => {
         <div className="pulse-card p-6">
           <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
             <Scale className="h-6 w-6 text-blue-400" />
-            1. Geltungsbereich und Anbieter
+            1. Geltungsbereich
           </h2>
           <div className="space-y-3 pulse-text-secondary">
+            <p>Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für die Nutzung der PulseManager Community Edition, einer Webanwendung zur Portfolio-Verwaltung und Steuerreport-Generierung für PulseChain-Assets.</p>
             <p><strong>Anbieter:</strong> PulseManager Community Edition</p>
-            <p><strong>Dienstleistung:</strong> Portfolio-Tracking und Steuerreport-Generierung für PulseChain-Assets</p>
-            <p><strong>Geltungsbereich:</strong> Diese AGBs gelten für die Nutzung der PulseManager-App und aller damit verbundenen Dienste.</p>
-            <p><strong>Rechtssystem:</strong> Deutsches Recht, soweit nicht zwingendes Recht entgegensteht.</p>
+            <p><strong>Zweck:</strong> Portfolio-Tracking und Steuerreport-Generierung für PulseChain-Assets</p>
           </div>
         </div>
 
@@ -58,30 +57,30 @@ const TermsOfServiceView = () => {
           </h2>
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">📊 Portfolio-Tracking</h3>
+              <h3 className="text-lg font-semibold pulse-text mb-2">💼 Portfolio-Management</h3>
               <ul className="space-y-1 pulse-text-secondary">
-                <li>• Anzeige von PulseChain-Wallet-Balances</li>
-                <li>• Token-Wert-Berechnungen basierend auf aktuellen Marktpreisen</li>
-                <li>• Transaktionshistorie und ROI-Berechnungen</li>
-                <li>• Portfolio-Performance-Tracking</li>
+                <li>• Anzeige von Wallet-Balances und Token-Holdings</li>
+                <li>• Portfolio-Wertberechnung in Echtzeit</li>
+                <li>• Transaktionshistorie und Performance-Tracking</li>
+                <li>• ROI-Berechnung und Performance-Analyse</li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">📋 Steuerreport-Generierung</h3>
+              <h3 className="text-lg font-semibold pulse-text mb-2">📊 Steuerreport-Generierung</h3>
               <ul className="space-y-1 pulse-text-secondary">
-                <li>• Automatische Generierung von Steuerreports</li>
-                <li>• FIFO-Berechnungen nach deutschem Steuerrecht</li>
-                <li>• Export-Funktionen (PDF, CSV)</li>
-                <li>• Unterstützung bei der Steuererklärung</li>
+                <li>• Automatische Erstellung von Steuerreports</li>
+                <li>• FIFO-Berechnung nach deutschem Steuerrecht</li>
+                <li>• PDF-Export für Steuerberater</li>
+                <li>• DSGVO-konforme Datenverarbeitung</li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">🔗 Externe Dienste</h3>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🔗 Externe Integrationen</h3>
               <ul className="space-y-1 pulse-text-secondary">
-                <li>• Links zu PulseX (DEX)</li>
-                <li>• Links zu PulseChain Bridge</li>
-                <li>• Links zu WGEP-Token-Informationen</li>
-                <li>• Weitere PulseChain-Ökosystem-Dienste</li>
+                <li>• PulseX DEX-Integration</li>
+                <li>• PulseChain Bridge-Verbindung</li>
+                <li>• WGEP Token-Tracking</li>
+                <li>• Moralis API für Blockchain-Daten</li>
               </ul>
             </div>
           </div>
@@ -93,71 +92,45 @@ const TermsOfServiceView = () => {
             <Users className="h-6 w-6 text-purple-400" />
             3. Nutzungsbedingungen
           </h2>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">✅ Erlaubte Nutzung</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• Persönliche Portfolio-Verwaltung</li>
-                <li>• Steuerreport-Generierung für eigene Zwecke</li>
-                <li>• Nutzung der App-Features im Rahmen der Bestimmungen</li>
-                <li>• Zugriff auf externe Dienste über bereitgestellte Links</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">❌ Verbotene Nutzung</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• Kommerzielle Nutzung ohne Genehmigung</li>
-                <li>• Manipulation der App oder API-Zugriffe</li>
-                <li>• Verbreitung von Schadsoftware oder Spam</li>
-                <li>• Verletzung von geistigen Eigentumsrechten</li>
-                <li>• Nutzung für illegale Aktivitäten</li>
-              </ul>
-            </div>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>• <strong>Registrierung:</strong> Nutzung erfordert eine gültige E-Mail-Adresse und ein sicheres Passwort</p>
+            <p>• <strong>Wallet-Adressen:</strong> Nur öffentliche Wallet-Adressen dürfen eingegeben werden</p>
+            <p>• <strong>Verboten:</strong> Eingabe von privaten Schlüsseln oder Seed-Phrasen</p>
+            <p>• <strong>Fair Use:</strong> Keine missbräuchliche Nutzung der API-Limits</p>
+            <p>• <strong>Rechtmäßigkeit:</strong> Nur für legale Zwecke und im Einklang mit geltendem Recht</p>
           </div>
         </div>
 
-        {/* 4. Haftungsausschlüsse */}
-        <div className="pulse-card p-6">
+        {/* 4. Haftungsausschluss */}
+        <div className="pulse-card p-6 border-l-4 border-red-400">
           <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
             <Shield className="h-6 w-6 text-red-400" />
-            4. Haftungsausschlüsse und -beschränkungen
+            4. Haftungsausschluss
           </h2>
           <div className="space-y-4">
             <div>
               <h3 className="text-lg font-semibold pulse-text mb-2">🚫 Keine Steuerberatung</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• PulseManager bietet keine steuerliche Beratung</li>
-                <li>• Alle generierten Daten müssen von einem Steuerberater geprüft werden</li>
-                <li>• Wir übernehmen keine Verantwortung für steuerliche Konsequenzen</li>
-                <li>• Nutzer sind selbst für die korrekte Steuererklärung verantwortlich</li>
-              </ul>
+              <p className="pulse-text-secondary">
+                PulseManager bietet <strong>keine steuerliche Beratung</strong>. Alle generierten Berichte dienen ausschließlich als Hilfsmittel und ersetzen nicht die Konsultation eines qualifizierten Steuerberaters. Die Nutzer sind verpflichtet, alle Daten vor der Verwendung für steuerliche Zwecke von einem Steuerberater prüfen zu lassen.
+              </p>
             </div>
             <div>
               <h3 className="text-lg font-semibold pulse-text mb-2">🚫 Keine Anlageberatung</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• Wir sind nicht am Kauf/Verkauf von Tokens beteiligt</li>
-                <li>• Keine Anlageempfehlungen oder Investment-Beratung</li>
-                <li>• Alle Investment-Entscheidungen liegen beim Nutzer</li>
-                <li>• Wir übernehmen keine Verantwortung für Investment-Verluste</li>
-              </ul>
+              <p className="pulse-text-secondary">
+                Wir sind <strong>nicht am Kauf oder Verkauf von Tokens beteiligt</strong> und bieten keine Anlageberatung. Alle Investment-Entscheidungen liegen ausschließlich in der Verantwortung der Nutzer.
+              </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">🔗 Externe Links</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• PulseX, PulseChain Bridge, WGEP sind externe Dienste</li>
-                <li>• Wir übernehmen keine Verantwortung für deren Funktionalität</li>
-                <li>• Keine Haftung für Schäden durch externe Dienste</li>
-                <li>• Nutzer nutzen externe Dienste auf eigene Gefahr</li>
-              </ul>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🚫 Keine Haftung für externe Dienste</h3>
+              <p className="pulse-text-secondary">
+                Wir übernehmen <strong>keine Verantwortung</strong> für externe Dienste wie PulseX, PulseChain Bridge, WGEP oder andere verlinkte Plattformen. Die Nutzung dieser Dienste erfolgt auf eigene Gefahr.
+              </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">📊 Daten-Genauigkeit</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• Wallet-Daten basieren auf öffentlichen Blockchain-Daten</li>
-                <li>• Preis-Daten können verzögert oder ungenau sein</li>
-                <li>• Alle Daten sind unverbindlich und müssen verifiziert werden</li>
-                <li>• Keine Garantie für Vollständigkeit oder Richtigkeit</li>
-              </ul>
+              <h3 className="text-lg font-semibold pulse-text mb-2">🚫 Keine Garantie für Datenrichtigkeit</h3>
+              <p className="pulse-text-secondary">
+                Wir können <strong>keine Garantie</strong> für die Richtigkeit, Vollständigkeit oder Aktualität der durch externe APIs (Moralis, CoinGecko, etc.) gelieferten Daten geben. Alle Wallet-Daten sind unverbindlich und müssen verifiziert werden.
+              </p>
             </div>
           </div>
         </div>
@@ -166,87 +139,68 @@ const TermsOfServiceView = () => {
         <div className="pulse-card p-6">
           <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
             <Lock className="h-6 w-6 text-blue-400" />
-            5. Datenschutz und Datensicherheit
+            5. Datenschutz
           </h2>
           <div className="space-y-3 pulse-text-secondary">
             <p>• <strong>DSGVO-Konformität:</strong> Alle Datenverarbeitungen erfolgen nach DSGVO-Standards</p>
+            <p>• <strong>Keine Wallet-Speicherung:</strong> Wallet-Adressen werden nicht dauerhaft gespeichert</p>
             <p>• <strong>Verschlüsselung:</strong> Alle Datenübertragungen sind SSL/TLS-verschlüsselt</p>
-            <p>• <strong>Keine privaten Schlüssel:</strong> Wir speichern niemals private Schlüssel oder Seed-Phrasen</p>
-            <p>• <strong>Minimale Datensammlung:</strong> Nur notwendige Daten werden verarbeitet</p>
-            <p>• <strong>Löschung auf Anfrage:</strong> Nutzer können ihre Daten jederzeit löschen lassen</p>
+            <p>• <strong>Minimale Datenerhebung:</strong> Nur notwendige Daten werden verarbeitet</p>
+            <p>• <strong>Benutzerrechte:</strong> Volle DSGVO-Rechte (Auskunft, Löschung, etc.)</p>
           </div>
         </div>
 
         {/* 6. Geistiges Eigentum */}
         <div className="pulse-card p-6">
           <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
-            <FileText className="h-6 w-6 text-purple-400" />
+            <FileText className="h-6 w-6 text-orange-400" />
             6. Geistiges Eigentum
           </h2>
           <div className="space-y-3 pulse-text-secondary">
-            <p>• <strong>Urheberrecht:</strong> PulseManager und alle Inhalte sind urheberrechtlich geschützt</p>
-            <p>• <strong>Lizenz:</strong> Nutzer erhalten eine beschränkte, nicht-exklusive Lizenz zur Nutzung</p>
-            <p>• <strong>Keine Weitergabe:</strong> Code, Design und Inhalte dürfen nicht weitergegeben werden</p>
-            <p>• <strong>Markenrechte:</strong> PulseManager ist eine geschützte Marke</p>
-            <p>• <strong>Externe Inhalte:</strong> Externe Dienste unterliegen deren eigenen Rechten</p>
+            <p>• <strong>Urheberrecht:</strong> Alle Inhalte und Funktionen sind urheberrechtlich geschützt</p>
+            <p>• <strong>Lizenz:</strong> Nutzung nur für persönliche, nicht-kommerzielle Zwecke</p>
+            <p>• <strong>Verboten:</strong> Reverse Engineering, Kopieren oder Weiterverbreitung</p>
+            <p>• <strong>Open Source:</strong> Einige Komponenten basieren auf Open-Source-Lizenzen</p>
           </div>
         </div>
 
-        {/* 7. Zahlungen und Abonnements */}
+        {/* 7. Kündigung */}
         <div className="pulse-card p-6">
           <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
-            <DollarSign className="h-6 w-6 text-green-400" />
-            7. Zahlungen und Premium-Features
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">💳 Zahlungsabwicklung</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• Zahlungen werden über sichere Drittanbieter abgewickelt</li>
-                <li>• Wir speichern keine Kreditkartendaten</li>
-                <li>• Alle Preise verstehen sich inklusive gesetzlicher Mehrwertsteuer</li>
-                <li>• Abonnements können jederzeit gekündigt werden</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold pulse-text mb-2">⭐ Premium-Features</h3>
-              <ul className="space-y-1 pulse-text-secondary">
-                <li>• Erweiterte Steuerreport-Funktionen</li>
-                <li>• Unbegrenzte Portfolio-Tracking</li>
-                <li>• Prioritäts-Support</li>
-                <li>• Erweiterte Export-Optionen</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* 8. Kündigung */}
-        <div className="pulse-card p-6">
-          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
-            <Users className="h-6 w-6 text-orange-400" />
-            8. Kündigung und Beendigung
+            <Users className="h-6 w-6 text-red-400" />
+            7. Kündigung und Beendigung
           </h2>
           <div className="space-y-3 pulse-text-secondary">
-            <p>• <strong>Kündigung durch Nutzer:</strong> Jederzeit ohne Angabe von Gründen möglich</p>
-            <p>• <strong>Kündigung durch Anbieter:</strong> Bei Verstoß gegen AGBs oder missbräuchlicher Nutzung</p>
-            <p>• <strong>Datenlöschung:</strong> Nach Kündigung werden alle Nutzerdaten gelöscht</p>
-            <p>• <strong>Rückerstattung:</strong> Keine Rückerstattung bei vorzeitiger Kündigung</p>
-            <p>• <strong>Übergangsfrist:</strong> 30 Tage Übergangsfrist bei Anbieter-Kündigung</p>
+            <p>• <strong>Jederzeit kündbar:</strong> Nutzer können ihren Account jederzeit löschen</p>
+            <p>• <strong>Verstoß gegen AGB:</strong> Bei Verstoß gegen diese Bedingungen kann der Zugang gesperrt werden</p>
+            <p>• <strong>Datenlöschung:</strong> Bei Kündigung werden alle persönlichen Daten gelöscht</p>
+            <p>• <strong>Keine Rückerstattung:</strong> Bei kostenpflichtigen Features keine Rückerstattung bei Kündigung</p>
           </div>
         </div>
 
-        {/* 9. Schlussbestimmungen */}
+        {/* 8. Schlussbestimmungen */}
         <div className="pulse-card p-6">
           <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
-            <Scale className="h-6 w-6 text-indigo-400" />
-            9. Schlussbestimmungen
+            <Scale className="h-6 w-6 text-purple-400" />
+            8. Schlussbestimmungen
           </h2>
           <div className="space-y-3 pulse-text-secondary">
-            <p>• <strong>Gerichtsstand:</strong> Deutschland, soweit gesetzlich zulässig</p>
-            <p>• <strong>Teilunwirksamkeit:</strong> Unwirksame Klauseln berühren nicht die Gültigkeit der übrigen AGBs</p>
-            <p>• <strong>Änderungen:</strong> AGBs können mit 30-tägiger Frist geändert werden</p>
-            <p>• <strong>Vollständigkeit:</strong> Diese AGBs enthalten alle wesentlichen Vereinbarungen</p>
+            <p>• <strong>Deutsches Recht:</strong> Diese AGB unterliegen deutschem Recht</p>
+            <p>• <strong>Gerichtsstand:</strong> Gerichtsstand ist der Sitz des Anbieters</p>
+            <p>• <strong>Änderungen:</strong> Diese AGB können jederzeit geändert werden</p>
+            <p>• <strong>Teilunwirksamkeit:</strong> Bei Teilunwirksamkeit bleiben andere Teile gültig</p>
             <p>• <strong>Kontakt:</strong> Bei Fragen kontaktieren Sie uns über die App-Funktionen</p>
+          </div>
+        </div>
+
+        {/* Kontakt */}
+        <div className="pulse-card p-6">
+          <h2 className="text-2xl font-bold pulse-title mb-4 flex items-center gap-3">
+            <Mail className="h-6 w-6 text-green-400" />
+            Kontakt
+          </h2>
+          <div className="space-y-3 pulse-text-secondary">
+            <p>Bei Fragen zu diesen AGB kontaktieren Sie uns über die App-Funktionen.</p>
             <p><strong>Letzte Aktualisierung:</strong> {new Date().toLocaleDateString('de-DE')}</p>
           </div>
         </div>
