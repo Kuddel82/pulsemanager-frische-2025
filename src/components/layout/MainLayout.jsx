@@ -50,10 +50,10 @@ const MainLayout = () => {
     },
     {
       id: 'tax',
-      label: '🔥 STEUERREPORT',
+      label: '📊 WalletReport',
       icon: FileText,
       path: '/tax-report',
-      description: 'Deutsches Steuerrecht & PDF'
+      description: 'Wallet-Tracking & Transaktionen'
     },
     {
       id: 'pulsechain-info',

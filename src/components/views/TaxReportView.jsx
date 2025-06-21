@@ -571,7 +571,7 @@ const SimpleTaxTracker = () => {
         <html>
         <head>
           <meta charset="UTF-8">
-          <title>PulseManager Steuerreport</title>
+          <title>PulseManager WalletReport</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
             .header { text-align: center; margin-bottom: 30px; }
@@ -586,13 +586,13 @@ const SimpleTaxTracker = () => {
         </head>
         <body>
           <div class="header">
-            <h1>🇩🇪 PulseManager Steuerreport</h1>
+            <h1>🇩🇪 PulseManager WalletReport</h1>
             <p>Wallet: ${walletAddress}</p>
             <p>Generiert am: ${today.toLocaleDateString('de-DE')}</p>
           </div>
           
           <div class="section">
-            <h2>📊 Steuer-Übersicht</h2>
+            <h2>📊 Wallet-Übersicht</h2>
             <div class="stats">
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
@@ -604,7 +604,7 @@ const SimpleTaxTracker = () => {
                 <div className="pulse-stat-value">
                   {taxData.summary?.roiCount || 0}
                 </div>
-                <div className="pulse-stat-label">Steuer-Events</div>
+                <div className="pulse-stat-label">Wallet-Events</div>
               </div>
               <div className="pulse-stat">
                 <div className="pulse-stat-value">
@@ -616,7 +616,7 @@ const SimpleTaxTracker = () => {
                 <div className="pulse-stat-value">
                   {formatCurrency(taxData.summary?.totalTaxEUR || 0)}
                 </div>
-                <div className="pulse-stat-label">Grobe Steuerlast</div>
+                <div className="pulse-stat-label">Grobe Wertänderung</div>
               </div>
             </div>
           </div>
@@ -664,7 +664,7 @@ const SimpleTaxTracker = () => {
           
           <div class="legal">
             <h3>⚖️ Rechtlicher Hinweis</h3>
-            <p>Dieser Steuerreport dient nur zu Informationszwecken und stellt keine Steuerberatung dar.</p>
+            <p>Dieser WalletReport dient nur zu Informationszwecken und stellt keine Steuerberatung dar.</p>
             <p>Für Ihre finale Steuererklärung müssen Sie einen qualifizierten Steuerberater konsultieren.</p>
             <p>Wir übernehmen keine Verantwortung für steuerliche Entscheidungen.</p>
             <p><strong>Generiert von PulseManager</strong></p>
@@ -678,7 +678,7 @@ const SimpleTaxTracker = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `PulseManager_Steuerreport_${walletShort}_${dateStr}.html`;
+      a.download = `PulseManager_WalletReport_${walletShort}_${dateStr}.html`;
       
       // 🎯 AUTOMATISCH KLICKEN UND SPEICHERN
       a.style.display = 'none';
@@ -688,7 +688,7 @@ const SimpleTaxTracker = () => {
       window.URL.revokeObjectURL(url);
       
       console.log('📄 HTML-Report erfolgreich generiert:', a.download);
-      alert(`✅ Steuerreport erfolgreich heruntergeladen!\n📁 Datei: ${a.download}\n📂 Ort: Downloads-Ordner\n💡 Öffnen Sie die HTML-Datei und drucken Sie sie als PDF!`);
+      alert(`✅ Wallet-Report erfolgreich heruntergeladen!\n📁 Datei: ${a.download}\n📂 Ort: Downloads-Ordner\n💡 Öffnen Sie die HTML-Datei und drucken Sie sie als PDF!`);
       
     } catch (error) {
       console.error('❌ Report-Generierung Fehler:', error);
@@ -716,10 +716,10 @@ const SimpleTaxTracker = () => {
         {/* Header - Richtiges PulseChain Style */}
         <div className="text-center mb-8">
           <h1 className="pulse-title mb-4">
-            🇩🇪 Steuer-Tracker
+            🇩🇪 De Wallet-Tracker Pulsechain
           </h1>
           <p className="pulse-subtitle">
-            Echte Blockchain-Daten für deine Steuererklärung
+            Echte Blockchain-Daten für dein Wallet-Tracking
           </p>
         </div>
 
@@ -733,8 +733,7 @@ const SimpleTaxTracker = () => {
               </h3>
               <p className="pulse-text-secondary">
                 <strong>Diese Berechnung ist nur eine grobe Orientierung!</strong><br/>
-                Für deine finale Steuererklärung MUSST du einen Steuerberater konsultieren. 
-                Wir übernehmen keine Verantwortung für steuerliche Entscheidungen.
+                Wir bieten keine steuerliche Beratung an. Für steuerliche Fragen konsultieren Sie bitte einen qualifizierten Steuerberater.
               </p>
             </div>
           </div>
@@ -859,11 +858,11 @@ const SimpleTaxTracker = () => {
               {isLoading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Lade Steuerdaten...
+                  Lade Wallet-Daten...
                 </>
               ) : (
                 <>
-                  📊 Steuerbericht generieren
+                  📊 Wallet-Report generieren
                 </>
               )}
             </Button>
@@ -932,7 +931,7 @@ const SimpleTaxTracker = () => {
             })()}
             
             <h2 className="text-2xl font-bold pulse-text-gradient mb-6 text-center">
-              📊 Deine Steuer-Übersicht
+              📊 Deine Wallet-Übersicht
             </h2>
             
             {/* Stats Grid - NUCLEAR OPTION - KOMPLETT NEU */}
@@ -950,7 +949,7 @@ const SimpleTaxTracker = () => {
                   {/* ECHTE DATEN STATT TEMPLATE LITERALS */}
                   {taxData.summary?.roiCount || 0}
                 </div>
-                <div className="pulse-stat-label">Steuer-Events</div>
+                <div className="pulse-stat-label">Wallet-Events</div>
               </div>
               
               <div className="pulse-stat">
@@ -966,7 +965,7 @@ const SimpleTaxTracker = () => {
                   {/* ECHTE DATEN STATT TEMPLATE LITERALS */}
                   {formatCurrency(taxData.summary?.totalTaxEUR || 0)}
                 </div>
-                <div className="pulse-stat-label">Grobe Steuerlast</div>
+                <div className="pulse-stat-label">Grobe Wertänderung</div>
               </div>
               
               <div className="pulse-stat">
@@ -983,7 +982,7 @@ const SimpleTaxTracker = () => {
                 <div className="flex items-center mb-4">
                   <span className="text-2xl mr-3">🇩🇪</span>
                   <h3 className="text-xl font-bold pulse-text-gradient">
-                    Deutsches Steuerrecht - FIFO Berechnung
+                    Wallet-Analyse - FIFO Berechnung
                   </h3>
                 </div>
                 
@@ -1020,7 +1019,7 @@ const SimpleTaxTracker = () => {
 
                 {/* German Tax Compliance Info */}
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-                  <h4 className="font-semibold text-blue-800 mb-2">⚖️ Deutsche Steuerkonformität</h4>
+                  <h4 className="font-semibold text-blue-800 mb-2">⚖️ Wallet-Analyse Konformität</h4>
                   <div className="text-sm text-blue-700 space-y-1">
                     <div>• <strong>Methode:</strong> {taxData.germanTaxReport.compliance?.method}</div>
                     <div>• <strong>Haltefrist:</strong> {taxData.germanTaxReport.compliance?.halteFrist}</div>
@@ -1138,7 +1137,7 @@ const SimpleTaxTracker = () => {
             {/* PDF Download Button - Manuell */}
             <div className="mt-6 p-4 rounded-lg text-center border-l-4" style={{backgroundColor: 'var(--bg-secondary)', borderLeftColor: 'var(--accent-green)'}}>
               <div className="pulse-text mb-4">
-                ✅ <strong>Steuerreport erfolgreich erstellt!</strong><br/>
+                ✅ <strong>Wallet-Report erfolgreich erstellt!</strong><br/>
                 📁 Klicke um den HTML-Report in deinen <strong>Downloads-Ordner</strong> zu speichern.
               </div>
               <button
@@ -1150,7 +1149,7 @@ const SimpleTaxTracker = () => {
                 📂 In Downloads-Ordner speichern
               </button>
               <div className="mt-2 text-xs pulse-text-secondary">
-                💡 Dateiname: PulseManager_Steuerreport_{formatAddress(walletAddress)}_{new Date().toISOString().split('T')[0]}.html
+                💡 Dateiname: PulseManager_WalletReport_{formatAddress(walletAddress)}_{new Date().toISOString().split('T')[0]}.html
               </div>
             </div>
           </div>
@@ -1161,7 +1160,7 @@ const SimpleTaxTracker = () => {
           <p>
             🔒 Deine Wallet-Adresse wird nicht gespeichert.<br/>
             📊 Berechnung basiert auf echten Blockchain-Daten von Moralis & Co.<br/>
-            ⚖️ Für finale Steuerberatung konsultiere einen Experten.
+            ⚖️ Für steuerliche Fragen konsultieren Sie bitte einen qualifizierten Steuerberater.
           </p>
         </div>
       </div>
