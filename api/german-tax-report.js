@@ -5,7 +5,6 @@
  * ✅ Bis zu 300.000 Transaktionen pro Wallet
  * ✅ Automatische Cursor-basierte Requests
  * ✅ Deutsche Steuer-Kategorisierung
- * 🔥 REQUEST DEDUPLICATION - Verhindert mehrfache identische Requests
  * 🚀 VERCEL SERVERLESS FUNCTION - Kompatibel mit Vercel Deployment
  */
 
@@ -18,7 +17,6 @@ async function moralisFetch(endpoint, params = {}) {
   const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
   
   if (!MORALIS_API_KEY) {
-    console.error('❌ MORALIS_API_KEY nicht gefunden!');
     return null;
   }
 
@@ -33,8 +31,6 @@ async function moralisFetch(endpoint, params = {}) {
   });
 
   try {
-    console.log(`🚀 MORALIS API CALL: ${url.toString()}`);
-    
     const response = await fetch(url.toString(), {
       headers: {
         'X-API-Key': MORALIS_API_KEY,
@@ -43,24 +39,19 @@ async function moralisFetch(endpoint, params = {}) {
     });
 
     if (!response.ok) {
-      console.error(`❌ MORALIS API ERROR: ${response.status} ${response.statusText}`);
       return null;
     }
 
     const data = await response.json();
-    console.log(`✅ MORALIS API SUCCESS: ${endpoint}`);
     return data;
     
   } catch (error) {
-    console.error(`💥 MORALIS API FETCH ERROR: ${error.message}`);
     return null;
   }
 }
 
 // 🔥 CHUNKED PAGINATION FUNKTION (Serverless-Timeout-Fix) - ERWEITERT FÜR NATIVE + ERC20
 async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
-  console.log(`🔥 CHUNKED PAGINATION: ${address} auf ${chainName} - Ziel: ${maxTransactions} Transaktionen (Wallet History)`);
-  
   let allTransfers = [];
   let cursor = null;
   let pageCount = 0;
@@ -82,14 +73,12 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   };
   
   // 🔥 LADE WALLET HISTORY (RICHTIGER ENDPUNKT)
-  console.log(`📋 Lade Wallet History für ${chainName}...`);
   while (allTransfers.length < maxTransactions && pageCount < maxPages) {
     // 🔥 KRITISCH: Timeout-Check
     const timeElapsed = (Date.now() - startTime) / 1000;
     debugInfo.timeElapsed = timeElapsed;
     
     if (timeElapsed >= maxTimeSeconds) {
-      console.log(`⏰ TIMEOUT REACHED: ${timeElapsed.toFixed(1)}s - Serverless-Limit erreicht`);
       debugInfo.stopReason = `Timeout nach ${timeElapsed.toFixed(1)}s`;
       break;
     }
@@ -108,13 +97,10 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
         debugInfo.cursorHistory.push(cursor.slice(0, 20) + '...');
       }
       
-      console.log(`📄 Seite ${pageCount}: Lade ${allTransfers.length + 100} von ${maxTransactions}... (${timeElapsed.toFixed(1)}s)`);
-      
       // 🔥 RICHTIGER ENDPUNKT: /wallets/{address}/history
       const result = await moralisFetch(`wallets/${address}/history`, params);
       
       if (!result || !result.result) {
-        console.log(`⚠️ Keine weiteren Wallet History Daten für ${chainName} - Seite ${pageCount}`);
         debugInfo.stopReason = 'No result or result.result';
         debugInfo.errors.push(`Page ${pageCount}: No result`);
         break;
@@ -124,11 +110,8 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       allTransfers.push(...transactions);
       debugInfo.totalTransfers = allTransfers.length;
       
-      console.log(`✅ Seite ${pageCount}: ${transactions.length} Wallet History Transaktionen geladen (Total: ${allTransfers.length}) in ${timeElapsed.toFixed(1)}s`);
-      
       // 🔥 VERBESSERTE CURSOR-LOGIK: Prüfe ob es weitere Seiten gibt
       if (!result.cursor || result.cursor === cursor || transactions.length < 100) {
-        console.log(`🏁 Keine weiteren Wallet History Seiten für ${chainName} - Ende erreicht`);
         const reason = !result.cursor ? 'Kein Cursor' : result.cursor === cursor ? 'Cursor unverändert' : 'Weniger als 100 Transfers';
         debugInfo.stopReason = reason;
         break;
@@ -138,12 +121,10 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
       
       // 🔥 AGGRESSIVES RATE LIMITING: Minimale Pausen
       if (pageCount % 3 === 0) { // Pause nach 3 Seiten
-        console.log(`⏳ Rate Limiting: Pause nach ${pageCount} Seiten...`);
         await new Promise(resolve => setTimeout(resolve, 50)); // Nur 50ms Pause
       }
       
     } catch (error) {
-      console.error(`❌ Fehler bei Seite ${pageCount} für ${chainName}:`, error.message);
       debugInfo.stopReason = 'Error';
       debugInfo.errors.push(`Page ${pageCount}: ${error.message}`);
       break;
@@ -151,17 +132,12 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
   }
   
   const finalTime = (Date.now() - startTime) / 1000;
-  console.log(`🎯 ${chainName} CHUNKED PAGINATION COMPLETE: ${allTransfers.length} Transfers (Wallet History) in ${pageCount} Seiten in ${finalTime.toFixed(1)}s`);
-  console.log(`🔍 DEBUG: Finale Analyse - Max Pages: ${maxPages}, Geladen: ${allTransfers.length}, Ziel: ${maxTransactions}, Zeit: ${finalTime.toFixed(1)}s`);
   
   return { transfers: allTransfers, debugInfo };
 }
 
 // 🔥 WGEP STEUER-SUMMARY CALCULATOR
 function calculateWGEPTaxSummary(transactions) {
-  console.log("🔥 HIER BIN ICH!");
-  console.log(`🔍 DEBUG: Starting summary calculation for ${transactions.length} transactions`);
-  
   // OPTIMIERT: Einmalige Iteration statt mehrfache filter()
   const summary = {
     totalTransactions: transactions.length,
@@ -225,8 +201,6 @@ function calculateWGEPTaxSummary(transactions) {
   summary.totalROIValueEUR = summary.totalROIValueEUR.toFixed(2);
   summary.totalTaxEUR = (summary.totalROIValueEUR * 0.30).toFixed(2); // 30% grobe Schätzung
   
-  console.log(`🔍 DEBUG Summary: total=${summary.totalTransactions}, taxable=${summary.taxableCount}, roi=${summary.roiCount}, gains=${summary.totalROIValueEUR}€`);
-  
   return summary;
 }
 
@@ -234,20 +208,6 @@ function calculateWGEPTaxSummary(transactions) {
  * 🔧 KORREKTE TOKEN-EXTRAKTION für Moralis Wallet History API
  */
 function extractTokenDataFromWalletHistory(tx, walletAddress) {
-  // 🚨 EMERGENCY DEBUG: Funktions-Start
-  console.log("🚨🚨🚨 EXTRACT FUNCTION CALLED! 🚨🚨🚨");
-  console.log("🚨 Transaction Hash:", tx.hash?.substring(0, 10) + "...");
-  console.log("🚨 Wallet Address:", walletAddress?.substring(0, 8) + "...");
-  
-  // DEBUG Chain Detection:
-  console.log(`🔍 Chain Debug:`, {
-    sourceChain: tx.sourceChain,
-    chain: tx.chain,
-    allFields: Object.keys(tx).slice(0, 10) // Erste 10 Felder
-  });
-  
-  console.log(`🔍 Extracting token data from transaction: ${tx.hash?.substring(0, 10)}...`);
-  
   // DEFAULT VALUES
   let tokenSymbol = 'UNKNOWN';
   let tokenName = 'Unknown Token';
@@ -268,8 +228,6 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
   
   // 🪙 ERC20 TRANSFERS (WICHTIGSTER TEIL)
   if (tx.erc20_transfers && tx.erc20_transfers.length > 0) {
-    console.log(`🪙 Found ${tx.erc20_transfers.length} ERC20 transfers`);
-    
     // Nimm den ersten/hauptsächlichen ERC20 Transfer
     const transfer = tx.erc20_transfers[0];
     
@@ -296,14 +254,10 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
       direction = 'transfer';
       directionIcon = '🔄';
     }
-    
-    console.log(`✅ ERC20: ${tokenSymbol} ${valueFormatted} ${direction}`);
   }
   
   // ⛽ NATIVE TRANSFERS (ETH, PLS)
   else if (tx.native_transfers && tx.native_transfers.length > 0) {
-    console.log(`⛽ Found ${tx.native_transfers.length} native transfers`);
-    
     const transfer = tx.native_transfers[0];
     
     // Native Token Symbole
@@ -329,14 +283,10 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
       direction = 'transfer';
       directionIcon = '🔄';
     }
-    
-    console.log(`✅ Native: ${tokenSymbol} ${valueFormatted} ${direction}`);
   }
   
   // 📄 FALLBACK für Transaktionen ohne Transfers
   else {
-    console.log(`📄 No transfers found, using transaction-level data`);
-    
     // Transaction-level direction detection
     const fromAddress = tx.from_address?.toLowerCase();
     const toAddress = tx.to_address?.toLowerCase();
@@ -387,7 +337,6 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     isTaxable = false;
     isPurchase = true;
     costBasis = valueFormatted;
-    console.log(`🛒 WGEP Purchase detected: ${valueFormatted} WGEP`);
   }
   
   // 💰 WGEP ROI (ROI Income) - Steuerpflichtig nach §22 EStG
@@ -395,7 +344,6 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     taxCategory = 'WGEP ROI Income (§22 EStG)';
     isTaxable = true;
     isROI = true;
-    console.log(`💰 WGEP ROI detected: ${valueFormatted} ETH`);
   }
   
   // 📤 WGEP VERKAUF (Sale) - Steuerpflichtig nach Haltefrist
@@ -414,8 +362,6 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
       taxCategory = 'WGEP Sale (Steuerfrei >1 Jahr)';
       isTaxable = false;
     }
-    
-    console.log(`📤 WGEP Sale detected: ${valueFormatted} WGEP, ${monthsHeld} months held`);
   }
   
   // 🔄 NORMALE TOKEN-TRANSFERS - KORRIGIERTE LOGIK
@@ -437,9 +383,6 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
     taxCategory = 'Transfer';
     isTaxable = false;
   }
-  
-  // 🔍 DEBUG: Warum keine WGEP-Kategorisierung?
-  console.log(`🔍 DEBUG WGEP: tokenSymbol="${tokenSymbol}", direction="${direction}", fromMinter=${fromMinter}, toMinter=${toMinter}`);
   
   // 📊 RETURN ENRICHED DATA
   return {
@@ -463,8 +406,6 @@ function extractTokenDataFromWalletHistory(tx, walletAddress) {
 
 // 🔥 VERCEL SERVERLESS FUNCTION EXPORT
 module.exports = async function handler(req, res) {
-  console.log('🔥🔥🔥 TAX REPORT - AGGRESSIVE PAGINATION (300.000+)! 🔥🔥🔥');
-  
   try {
     // CORS Headers für Vercel
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -479,14 +420,6 @@ module.exports = async function handler(req, res) {
     // Extract parameters
     const params = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
     const { address, limit = 300000, requestToken, format = 'json', year, taxpayer } = params;
-
-    console.log('🇩🇪 TAX PARAMS:', { 
-      address: address ? address.slice(0, 8) + '...' : 'MISSING', 
-      limit: `${limit.toLocaleString()} Transaktionen`,
-      format: format,
-      year: year,
-      requestToken: requestToken ? requestToken.toString().slice(-6) : 'NONE'
-    });
 
     // Validate address
     if (!address) {
@@ -505,8 +438,6 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    console.log(`🔍 Processing wallet: ${address.slice(0, 8)}...`);
-
     // KORREKTE CHAIN IDs - EXAKT WIE MORALIS-V2
     const chains = [
       { id: '0x1', name: 'Ethereum', short: 'ETH', moralisName: '0x1', moralisId: '0x1' },
@@ -519,13 +450,9 @@ module.exports = async function handler(req, res) {
 
     // PARALLEL PROCESSING - AGGRESSIVE PAGINATION
     const chainPromises = chains.map(async (chain) => {
-      console.log(`🚀 Processing ${chain.name} (${chain.id})...`);
-      
       try {
         // 🔥 AGGRESSIVE PAGINATION: Bis zu 300.000 Transfers pro Chain
         const { transfers, debugInfo } = await fetchAllTransfers(address, chain.moralisId, limit);
-        
-        console.log(`✅ ${chain.name}: ${transfers.length} transfers loaded via AGGRESSIVE PAGINATION`);
         
         chainResults[chain.short] = {
           count: transfers.length,
@@ -543,10 +470,7 @@ module.exports = async function handler(req, res) {
         
         allTransactions.push(...processedTransactions);
         
-        console.log(`✅ ${chain.name}: ${transfers.length} transactions processed`);
-        
       } catch (error) {
-        console.error(`❌ ${chain.name} processing failed:`, error.message);
         chainResults[chain.short] = {
           count: 0,
           transactions: [],
@@ -562,9 +486,6 @@ module.exports = async function handler(req, res) {
     // WARTE AUF ALLE CHAINS
     await Promise.all(chainPromises);
 
-    console.log(`📊 TOTAL TRANSACTIONS: ${allTransactions.length.toLocaleString()}`);
-    console.log(`📊 CHAIN BREAKDOWN:`, chainResults);
-
     // SORTIERE NACH TIMESTAMP (neueste zuerst)
     allTransactions.sort((a, b) => {
       const timeA = new Date(a.block_timestamp || a.timestamp || 0).getTime();
@@ -573,25 +494,15 @@ module.exports = async function handler(req, res) {
     });
 
     // DEUTSCHE STEUER-KATEGORISIERUNG
-    console.log('🔥🔥🔥 STARTE STEUER-KATEGORISIERUNG FÜR', allTransactions.length, 'TRANSAKTIONEN! 🔥🔥🔥');
-    
     const categorizedTransactions = allTransactions.map((tx, index) => {
-      console.log(`🚨 DEBUG: Processing transaction ${index + 1}/${allTransactions.length}:`, tx.hash?.substring(0, 10));
       const result = extractTokenDataFromWalletHistory(tx, address);
-      console.log(`🚨 DEBUG: Result ${index + 1}:`, result.tokenSymbol, result.chainSymbol, result.taxCategory);
       return result;
     });
 
-    console.log('🔥🔥🔥 STEUER-KATEGORISIERUNG ABGESCHLOSSEN! 🔥🔥🔥');
-    console.log('📊 KATEGORISIERTE TRANSAKTIONEN:', categorizedTransactions.length);
-
     // ZUSAMMENFASSUNG
-    console.log('🔥🔥🔥 STARTE SUMMARY CALCULATION! 🔥🔥🔥');
     const summary = calculateWGEPTaxSummary(categorizedTransactions);
-    console.log('🔥🔥🔥 SUMMARY CALCULATION ABGESCHLOSSEN! 🔥🔥🔥');
 
     // 🔥 DEUTSCHE STEUERBERECHNUNG HINZUGEFÜGT!
-    console.log('🧮 STARTE DEUTSCHE STEUERBERECHNUNG...');
     let germanTaxResults = null;
     
     try {
@@ -599,18 +510,9 @@ module.exports = async function handler(req, res) {
       const { default: GermanTaxService } = await import('../src/services/GermanTaxService.js');
       const germanTaxService = new GermanTaxService();
       
-      console.log('📊 GermanTaxService geladen, starte Steuerberechnung...');
       germanTaxResults = await germanTaxService.calculateTaxWithHistoricalPrices(categorizedTransactions);
       
-      console.log('✅ Deutsche Steuerberechnung abgeschlossen:', {
-        roiEvents: germanTaxResults?.detailedTransactions?.summary?.totalROIEvents || 0,
-        speculativeEvents: germanTaxResults?.detailedTransactions?.summary?.totalSpeculativeEvents || 0,
-        totalROIValue: germanTaxResults?.summary?.roiIncome?.totalEUR || 0,
-        totalTax: germanTaxResults?.summary?.totalTaxEUR || 0
-      });
-      
     } catch (error) {
-      console.error('❌ Deutsche Steuerberechnung fehlgeschlagen:', error.message);
       germanTaxResults = {
         error: error.message,
         fallback: true
@@ -625,9 +527,6 @@ module.exports = async function handler(req, res) {
       chainResults,
       germanTaxCalculation: germanTaxResults
     };
-
-    console.log(`✅ TAX REPORT GENERATED: ${categorizedTransactions.length.toLocaleString()} transactions`);
-    console.log(`📊 SUMMARY:`, summary);
 
     // 🔥 CACHE DIE ERGEBNISSE FÜR DEDUPLICATION
     const debugInfo = {
@@ -664,8 +563,6 @@ module.exports = async function handler(req, res) {
     }
 
   } catch (error) {
-    console.error('💥 TAX API ERROR:', error);
-    
     return res.status(500).json({
       success: false,
       error: error.message,
@@ -673,154 +570,3 @@ module.exports = async function handler(req, res) {
     });
   }
 };
-
-// 🔥 HELPER FUNCTIONS FÜR VERSCHIEDENE EXPORT-FORMATE
-function generateHTMLReport(taxReport, year) {
-  const today = new Date();
-  const dateStr = today.toISOString().split('T')[0];
-  const walletShort = taxReport.walletAddress.slice(0, 8);
-  
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>PulseManager Steuerreport ${year || new Date().getFullYear()}</title>
-      <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .section { margin-bottom: 20px; }
-        .stats { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .stat { text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .legal { margin-top: 30px; font-size: 12px; color: #666; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>🇩🇪 PulseManager Steuerreport ${year || new Date().getFullYear()}</h1>
-        <p>Wallet: ${taxReport.walletAddress}</p>
-        <p>Generiert am: ${today.toLocaleDateString('de-DE')}</p>
-      </div>
-      
-      <div class="section">
-        <h2>📊 Steuer-Übersicht</h2>
-        <div class="stats">
-          <div class="stat">
-            <h3>${taxReport.summary?.totalTransactions || 0}</h3>
-            <p>Gesamt Transaktionen</p>
-          </div>
-          <div class="stat">
-            <h3>${taxReport.summary?.pulsechainCount || 0}</h3>
-            <p>PulseChain</p>
-          </div>
-          <div class="stat">
-            <h3>${taxReport.summary?.ethereumCount || 0}</h3>
-            <p>Ethereum</p>
-          </div>
-          <div class="stat">
-            <h3>${taxReport.summary?.roiCount || 0}</h3>
-            <p>Steuer-Events</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="section">
-        <h2>📋 Transaktionen (${taxReport.transactions.length})</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Chain</th>
-              <th>Token</th>
-              <th>Typ</th>
-              <th>Richtung</th>
-              <th>Wert</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${taxReport.transactions.map((tx, index) => {
-              const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
-              const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
-              const token = tx.tokenSymbol || 'N/A';
-              const direction = tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT');
-              const value = tx.formattedValue || (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0');
-              return `
-                <tr>
-                  <td>${date}</td>
-                  <td>${chain}</td>
-                  <td>${token}</td>
-                  <td>${tx.taxCategory || 'N/A'}</td>
-                  <td>${direction}</td>
-                  <td>${value}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      
-      <div class="legal">
-        <h3>⚖️ Rechtlicher Hinweis</h3>
-        <p>Dieser Steuerreport dient nur zu Informationszwecken und stellt keine Steuerberatung dar.</p>
-        <p>Für Ihre finale Steuererklärung müssen Sie einen qualifizierten Steuerberater konsultieren.</p>
-        <p>Wir übernehmen keine Verantwortung für steuerliche Entscheidungen.</p>
-        <p><strong>Generiert von PulseManager</strong></p>
-      </div>
-    </body>
-    </html>
-  `;
-}
-
-function generateCSVReport(taxReport, year) {
-  const headers = ['Datum', 'Chain', 'Token', 'Typ', 'Richtung', 'Wert', 'Wallet'];
-  const rows = taxReport.transactions.map(tx => {
-    const date = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('de-DE') : 'N/A';
-    const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
-    const token = tx.tokenSymbol || 'N/A';
-    const direction = tx.direction === 'in' ? 'IN' : 'OUT';
-    const value = tx.formattedValue || '0';
-    return [date, chain, token, tx.taxCategory || 'N/A', direction, value, taxReport.walletAddress];
-  });
-  
-  return [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-}
-
-function generateELSTERReport(taxReport, year, taxpayer) {
-  // Vereinfachtes ELSTER XML Format
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<steuerreport>
-  <header>
-    <jahr>${year || new Date().getFullYear()}</jahr>
-    <generiert>${new Date().toISOString()}</generiert>
-    <wallet>${taxReport.walletAddress}</wallet>
-  </header>
-  <steuerpflichtiger>
-    <name>${taxpayer?.name || 'Nicht angegeben'}</name>
-    <strasse>${taxpayer?.street || 'Nicht angegeben'}</strasse>
-    <plz>${taxpayer?.zipCode || 'Nicht angegeben'}</plz>
-    <ort>${taxpayer?.city || 'Nicht angegeben'}</ort>
-    <steuernummer>${taxpayer?.taxNumber || 'Nicht angegeben'}</steuernummer>
-  </steuerpflichtiger>
-  <transaktionen>
-    ${taxReport.transactions.map(tx => `
-    <transaktion>
-      <datum>${tx.timestamp ? new Date(tx.timestamp).toISOString().split('T')[0] : 'N/A'}</datum>
-      <chain>${tx.sourceChainShort || 'UNK'}</chain>
-      <token>${tx.tokenSymbol || 'N/A'}</token>
-      <typ>${tx.taxCategory || 'N/A'}</typ>
-      <richtung>${tx.direction || 'unknown'}</richtung>
-      <wert>${tx.formattedValue || '0'}</wert>
-    </transaktion>
-    `).join('')}
-  </transaktionen>
-  <zusammenfassung>
-    <gesamt_transaktionen>${taxReport.summary?.totalTransactions || 0}</gesamt_transaktionen>
-    <ethereum_count>${taxReport.summary?.ethereumCount || 0}</ethereum_count>
-    <pulsechain_count>${taxReport.summary?.pulsechainCount || 0}</pulsechain_count>
-    <roi_count>${taxReport.summary?.roiCount || 0}</roi_count>
-  </zusammenfassung>
-</steuerreport>`;
-}
