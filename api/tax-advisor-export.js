@@ -52,7 +52,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
     do {
       const nativeParams = new URLSearchParams({
         chain: chainId,
-        limit: '100',
+        limit: '300000',
         ...(nativeCursor && { cursor: nativeCursor })
       });
       
@@ -99,7 +99,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
     do {
       const transferParams = new URLSearchParams({
         chain: chainId,
-        limit: '100',
+        limit: '300000',
         ...(transferCursor && { cursor: transferCursor })
       });
       

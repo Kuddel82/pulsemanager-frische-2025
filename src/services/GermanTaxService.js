@@ -143,7 +143,7 @@ class EnterpriseAPIService {
         const url = `${this.moralisBaseUrl}/wallets/${walletAddress}/history`;
         const params = new URLSearchParams({
           chain: chain,
-          limit: '100', // Moralis Maximum
+          limit: '300000', // FIX: 300k statt 100
           order: 'DESC', // Neueste zuerst
           include_internal_transactions: 'true', // Vollständige Historie
           ...(cursor && { cursor })
