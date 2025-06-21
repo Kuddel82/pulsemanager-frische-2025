@@ -138,6 +138,17 @@ export default async function handler(req, res) {
   console.log(`🔵 ORIGINAL CHAIN: ${chain}`);
   console.log(`🔵 MAPPED CHAIN: ${chainId}`);
 
+  // 🚨 NOTFALL-FALLBACK für Portfolio
+  if (chain === 'pulsechain' && endpoint === 'erc20') {
+    console.log(`🚨 NOTFALL-FALLBACK: Portfolio pulsechain erc20 - returning empty array`);
+    return res.status(200).json({
+      result: [],
+      _source: 'moralis_v2_portfolio_fallback',
+      _reason: 'Portfolio pulsechain fallback',
+      _chain: chain
+    });
+  }
+
   try {
     // ❌ REMOVED: wallet-tokens-prices (Enterprise feature - not available in Pro Plan)
     if (endpoint === 'wallet-tokens-prices') {
