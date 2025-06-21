@@ -68,17 +68,17 @@ const MainLayout = () => {
       description: 'Export & Download'
     },
     {
-      id: 'token-trade',
-      label: 'Token-Handel (Swap)',
+      id: 'pulsex',
+      label: 'PulseX',
       icon: Repeat,
-      path: '/token-trade',
+      path: '/pulsex',
       description: 'Token kaufen & tauschen'
     },
     {
-      id: 'bridge',
-      label: 'Bridge',
+      id: 'pulsechain-bridge',
+      label: 'PulseChain Bridge',
       icon: Zap,
-      path: '/bridge',
+      path: '/pulsechain-bridge',
       description: 'Tokens zwischen Chains'
     },
     {

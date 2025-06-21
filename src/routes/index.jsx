@@ -97,6 +97,8 @@ const AppRoutes = () => {
         <Route path="/tax-export" element={<TaxExportView />} />
         <Route path="/wgep" element={<WgepView />} />
         <Route path="/pulsechain-info" element={<PulseChainInfoView />} />
+        <Route path="/pulsex" element={<Navigate to="https://pulsex.com" replace />} />
+        <Route path="/pulsechain-bridge" element={<Navigate to="https://bridge.pulsechain.com" replace />} />
         
         {/* 🐛 DEBUG MONITOR - PHASE 3 */}
         <Route path="/debug" element={<DebugView />} />
