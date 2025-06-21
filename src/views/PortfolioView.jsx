@@ -575,10 +575,11 @@ const PortfolioView = () => {
                       <div className="flex justify-center space-x-1">
                         {token.contractAddress && (
                           <a
-                            href={`https://scan.pulsechain.com/token/${token.contractAddress}`}
+                            href={`https://dexscreener.com/pulsechain/${token.contractAddress}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-400 hover:text-blue-300"
+                            title="View Chart on DexScreener"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
