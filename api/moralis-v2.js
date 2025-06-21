@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     });
   }
 
-  // Convert chain names to Moralis format - ORIGINAL PORTFOLIO MAPPING
+  // Convert chain names to Moralis format
   const chainMap = {
     ethereum: '0x1',
     eth: '0x1',
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
       
       const result = await moralisFetch(`${address}/erc20/transfers`, { 
         chain: chainId,
-        limit: Math.min(limit, 300000),
+        limit: Math.min(limit, 100),
         cursor: cursor
       });
       
@@ -165,7 +165,7 @@ export default async function handler(req, res) {
       // für TaxService und andere interne Anwendungen
       if (endpoint === 'erc20_transfers') {
         return res.status(200).json({
-          transfers: addChainDetection(result.result || [], chainId),
+          transfers: result.result || [],
           cursor: result.cursor,
           page_size: result.result?.length || 0,
           _source: 'moralis_v2_pro_erc20_transfers'
@@ -175,7 +175,6 @@ export default async function handler(req, res) {
       // Standard-Antwort für den wallet-token-transfers Endpoint
       return res.status(200).json({
         ...result,
-        result: addChainDetection(result.result || [], chainId),
         _source: 'moralis_v2_pro_transfers'
       });
     }
@@ -186,7 +185,7 @@ export default async function handler(req, res) {
       
       const result = await moralisFetch(`${address}`, { 
         chain: chainId,
-        limit: Math.min(limit, 300000),
+        limit: Math.min(limit, 100),
         cursor: cursor
       });
       
@@ -200,7 +199,7 @@ export default async function handler(req, res) {
       console.log(`✅ PRO NATIVE TX: ${result.result?.length || 0} transactions loaded`);
 
       return res.status(200).json({
-        transactions: addChainDetection(result.result || [], chainId),
+        transactions: result.result || [],
         cursor: result.cursor,
         page_size: result.result?.length || 0,
         _source: 'moralis_v2_pro_native_transactions'

@@ -19,7 +19,7 @@ export class MoralisV2Service {
    * 🏆 PORTFOLIO NET WORTH - Complete USD Portfolio
    * Ersetzt: Token-Balances + Prices + Manual Calculation
    */
-  static async getPortfolioNetWorth(address, chain = '1') {
+  static async getPortfolioNetWorth(address, chain = 'eth') {
     try {
       console.log(`🚀 V2: Loading portfolio net worth for ${address}`);
       
@@ -67,7 +67,7 @@ export class MoralisV2Service {
    * Unterstützt bis zu 300.000 Transaktionen mit Cursor-Pagination
    * 🆕 MORALIS TRANSACTION LABELING: Unterstützt /verbose Endpoints für decoded_call/decoded_event
    */
-  static async getWalletTransactionsBatch(address, limit = 100, cursor = null, chain = '1', endpoint = null, useVerbose = false) {
+  static async getWalletTransactionsBatch(address, limit = 300000, cursor = null, chain = 'eth', endpoint = null, useVerbose = false) {
     try {
       // Debug log removed to prevent console spam
       console.log(`🚀 V2: Loading transaction batch for ${address} (limit: ${limit}, chain: ${chain})`);

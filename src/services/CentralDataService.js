@@ -14,7 +14,7 @@ export class CentralDataService {
       console.log('🔍 MORALIS PRO: Testing API access...');
       
       // Test with simple erc20 endpoint instead of enterprise endpoint
-      const response = await fetch('/api/moralis-v2?endpoint=erc20&chain=pulsechain&address=0x0000000000000000000000000000000000000000');
+      const response = await fetch('/api/moralis-v2?endpoint=erc20&chain=eth&address=0x0000000000000000000000000000000000000000');
       const data = await response.json();
       
       if (response.ok && !data.error) {
