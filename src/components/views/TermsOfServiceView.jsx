@@ -3,7 +3,7 @@ import { FileText, AlertTriangle, Shield, Users, DollarSign, Lock, ExternalLink,
 
 const TermsOfServiceView = () => {
   return (
-    <div className="min-h-screen pulse-text p-6">
+    <div className="min-h-screen pulse-text p-6 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Header */}

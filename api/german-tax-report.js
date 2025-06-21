@@ -96,7 +96,7 @@ async function fetchAllTransfers(address, chainName, maxTransactions = 300000) {
         params.cursor = cursor;
         debugInfo.cursorHistory.push(cursor.slice(0, 20) + '...');
       }
-      
+        
       // 🔥 RICHTIGER ENDPUNKT: /wallets/{address}/history
       const result = await moralisFetch(`wallets/${address}/history`, params);
       
