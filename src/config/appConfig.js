@@ -25,7 +25,6 @@ export const TRIAL_VIEWS = [
   'portfolio',      // Portfolio View - 3 Tage Trial → Premium
   'wallets',        // Wallets - 3 Tage Trial → Premium
   'roiTracker',     // ROI Tracker - 3 Tage Trial → Premium
-  'taxReport',      // Tax Report - 3 Tage Trial → Premium
   'pulsechain-info', // PulseChain Info - 3 Tage Trial → Premium
   'taxExport',      // Tax Export - 3 Tage Trial → Premium
   'tokenTrade',     // Token Trade - 3 Tage Trial → Premium  
@@ -35,7 +34,9 @@ export const TRIAL_VIEWS = [
 ];
 
 export const PREMIUM_ONLY_VIEWS = [
-  // Alle Features sind jetzt Trial-basiert - keine separaten Premium-Only Features
+  'taxReport',      // Tax Report - PREMIUM ONLY (kein Trial!)
+  'tax-report',     // Tax Report (URL format) - PREMIUM ONLY (kein Trial!)
+  'tax-report-new'  // Neuer Tax Report - PREMIUM ONLY (kein Trial!)
 ];
 
 // 🆓 TRIAL FEATURES (3 Tage kostenlos für registrierte User) - KORRIGIERT
@@ -44,7 +45,6 @@ export const TRIAL_VIEWS_OBJECT = [
   { id: 'portfolio', icon: BarChartHorizontalBig, translationKey: 'portfolioViewTitle', isSidebarLink: true },
   { id: 'wallets', icon: Wallet, translationKey: 'walletViewTitle', isSidebarLink: true },
   { id: 'roiTracker', icon: BarChart2, translationKey: 'roiTrackerTitle', isSidebarLink: true },
-  { id: 'taxReport', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
   { id: 'pulsechain-info', icon: Zap, translationKey: 'pulsechainInfoTitle', isSidebarLink: true },
   { id: 'taxExport', icon: FileText, translationKey: 'taxExportTitle', isSidebarLink: true },
   { id: 'tokenTrade', icon: Repeat, translationKey: 'swapViewTitle', isSidebarLink: true },
@@ -55,7 +55,9 @@ export const TRIAL_VIEWS_OBJECT = [
 
 // 💎 PREMIUM ONLY FEATURES
 export const PREMIUM_VIEWS_OBJECT = [
-  // Alle Features sind jetzt in TRIAL_VIEWS_OBJECT - keine separaten Premium-Only Features mehr
+  { id: 'taxReport', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
+  { id: 'tax-report', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
+  { id: 'tax-report-new', icon: FileText, translationKey: 'taxReportNewTitle', isSidebarLink: true }
 ];
 
 // 🚫 LEER - Keine kostenlosen Features mehr
