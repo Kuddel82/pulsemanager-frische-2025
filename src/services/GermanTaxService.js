@@ -216,7 +216,7 @@ class EnterpriseAPIService {
         console.log(`✅ PulseScan: ${pulseScanTx.length} transactions`);
         const normalizedPulseScan = pulseScanTx.map(tx => ({
           ...tx,
-          chain: 'eth',
+          chain: 'pulsechain',
           source: 'pulsescan_enterprise'
         }));
         allPulseTransactions.push(...normalizedPulseScan);
@@ -230,7 +230,7 @@ class EnterpriseAPIService {
         console.log(`💰 PulseWatch ROI: ${pulseWatchROI.length} transactions`);
         const normalizedPulseWatch = pulseWatchROI.map(tx => ({
           ...tx,
-          chain: 'eth',
+          chain: 'pulsechain',
           source: 'pulsewatch_enterprise',
           isROI: true // Markiere als ROI
         }));
@@ -284,7 +284,7 @@ class EnterpriseAPIService {
           token_decimal: tx.tokenDecimal,
           block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
           block_number: tx.blockNumber,
-          chain: 'eth',
+          chain: 'pulsechain',
           source: 'pulsescan_fallback'
         }));
       }

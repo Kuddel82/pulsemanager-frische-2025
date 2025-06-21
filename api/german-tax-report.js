@@ -30,7 +30,7 @@ const getWalletTransactionHistoryHTTP = async (walletAddress, chain = 'eth') => 
     eth: '0x1',
     '1': '0x1',
     '0x1': '0x1',
-    pulsechain: 'eth',
+    pulsechain: '0x171',
     pls: '0x171',
     '369': '0x171',
     '0x171': '0x171',
@@ -505,7 +505,7 @@ module.exports = async function handler(req, res) {
     // 🚀 NEW: USE REAL TRANSACTION HISTORY WITH SAFE FALLBACK
     console.log('🔄 Loading REAL transaction history with safe fallback...');
     const ethHistory = await getWalletTransactionHistorySafe(address, 'eth');
-    const plsHistory = await getWalletTransactionHistorySafe(address, 'eth');
+    const plsHistory = await getWalletTransactionHistorySafe(address, 'pls');
     
     console.log('📊 ETH History:', {
       native: ethHistory.nativeTransactions.length,
@@ -545,9 +545,9 @@ module.exports = async function handler(req, res) {
       },
       {
         name: 'PLS_NATIVE', 
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=native_transactions&limit=50000`,
+        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=native_transactions&limit=50000`,
         description: 'PLS Native Transactions',
-        chain: 'eth',
+        chain: 'pls',
         expectedMin: 0,
         type: 'native'
       },
@@ -563,9 +563,9 @@ module.exports = async function handler(req, res) {
       },
       {
         name: 'PLS_ERC20_BALANCES',
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=erc20&limit=1000`,
+        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=erc20&limit=1000`,
         description: 'PLS ERC20 Token Balances', 
-        chain: 'eth',
+        chain: 'pls',
         expectedMin: 42,
         type: 'erc20_balance'
       },
@@ -581,9 +581,9 @@ module.exports = async function handler(req, res) {
       },
       {
         name: 'PLS_ERC20_TRANSFERS',
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=wallet-token-transfers&limit=100000`,
+        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=wallet-token-transfers&limit=100000`,
         description: 'PLS ERC20 Transfers',
-        chain: 'eth', 
+        chain: 'pls', 
         expectedMin: 0,
         type: 'erc20_transfer'
       },
@@ -599,9 +599,9 @@ module.exports = async function handler(req, res) {
       // },
       // {
       //   name: 'PLS_WALLET_HISTORY',
-      //   url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=wallet_history&limit=100000`,
+      //   url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=wallet_history&limit=100000`,
       //   description: 'PLS Wallet History',
-      //   chain: 'eth',
+      //   chain: 'pls',
       //   expectedMin: 0,
       //   type: 'wallet_history'
       // }
