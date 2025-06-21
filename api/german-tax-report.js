@@ -9,6 +9,56 @@
  * ✅ Production-ready Error Handling
  */
 
+// 🚨🚨🚨 EMERGENCY CRASH FIX - SYSTEM TOTALLY BROKEN! 🚨🚨🚨
+// PROBLEM: TypeError: P.amount.toFixed is not a function
+// SOLUTION: Replace ALL .toFixed() calls with safe functions
+
+// ✅ SAFE TOFIXED WRAPPER
+const safeToFixed = (value, decimals = 4) => {
+  try {
+    if (value === null || value === undefined || value === '') return '0.0000';
+    const num = typeof value === 'number' ? value : parseFloat(value || 0);
+    return isNaN(num) ? '0.0000' : num.toFixed(decimals);
+  } catch (e) {
+    console.warn('🚨 toFixed error:', value, e);
+    return '0.0000';
+  }
+};
+
+// ✅ TRANSACTION PROCESSOR WITH SAFE AMOUNTS
+const fixTransactionAmounts = (transaction) => {
+  return {
+    ...transaction,
+    // Force convert amount to number
+    amount: parseFloat(transaction.amount || 0),
+    value: parseFloat(transaction.value || 0),
+    price: parseFloat(transaction.price || 0),
+    // Add safe formatted versions
+    amountFormatted: safeToFixed(transaction.amount, 4),
+    valueFormatted: safeToFixed(transaction.value, 2),
+    priceFormatted: safeToFixed(transaction.price, 6)
+  };
+};
+
+// ✅ PROCESS ALL TRANSACTIONS BEFORE DISPLAY
+const fixAllTransactions = (apiResponse) => {
+  if (!apiResponse || !apiResponse.transactions) return apiResponse;
+  
+  return {
+    ...apiResponse,
+    transactions: apiResponse.transactions.map(fixTransactionAmounts)
+  };
+};
+
+// 🔥 EMERGENCY TRANSACTION FIXER
+const emergencyFixTransactions = () => {
+  if (global.lastApiResponse && global.lastApiResponse.transactions) {
+    global.lastApiResponse = fixAllTransactions(global.lastApiResponse);
+    console.log('✅ Emergency fix applied to transactions!');
+    return global.lastApiResponse;
+  }
+};
+
 // 🚨 AMOUNT BUG FIX - CURSOR READY 
 // Problem: P.amount.toFixed is not a function
 // Lösung: Sichere Number Konvertierung vor .toFixed()
@@ -303,7 +353,7 @@ module.exports = async function handler(req, res) {
     
     console.log('🎯 High volume raw data loaded:', {
       totalItems: allTransactions.length,
-      loadTimeSeconds: loadTime.toFixed(1),
+      loadTimeSeconds: safeToFixed(loadTime, 1),
       totalApiCalls,
       timeout: loadTime >= maxTimeSeconds ? 'REACHED' : 'OK'
     });
@@ -347,20 +397,20 @@ module.exports = async function handler(req, res) {
         const decimals = parseInt(tx.token_decimals) || 18;
         const balanceNum = parseFloat(tx.balance);
         if (balanceNum > 0) {
-          valueFormatted = safeFormatAmount(balanceNum / Math.pow(10, decimals), 6);
+          valueFormatted = safeToFixed(balanceNum / Math.pow(10, decimals), 6);
         }
       } else if (tx.value) {
         valueRaw = tx.value;
         const decimals = parseInt(tx.token_decimals) || 18;
         const valueNum = parseFloat(tx.value);
         if (valueNum > 0) {
-          valueFormatted = safeFormatAmount(valueNum / Math.pow(10, decimals), 6);
+          valueFormatted = safeToFixed(valueNum / Math.pow(10, decimals), 6);
         }
       } else if (tx.amount) {
         valueRaw = tx.amount.toString();
         const amountNum = parseFloat(tx.amount);
         if (amountNum > 0) {
-          valueFormatted = safeFormatAmount(amountNum, 6);
+          valueFormatted = safeToFixed(amountNum, 6);
         }
       }
       
@@ -369,15 +419,15 @@ module.exports = async function handler(req, res) {
       if (finalValue > 0) {
         // Format based on value size
         if (finalValue >= 1000000) {
-          valueFormatted = safeFormatAmount(finalValue / 1000000, 2) + 'M';
+          valueFormatted = safeToFixed(finalValue / 1000000, 2) + 'M';
         } else if (finalValue >= 1000) {
-          valueFormatted = safeFormatAmount(finalValue / 1000, 2) + 'K';
+          valueFormatted = safeToFixed(finalValue / 1000, 2) + 'K';
         } else if (finalValue >= 1) {
-          valueFormatted = safeFormatAmount(finalValue, 2);
+          valueFormatted = safeToFixed(finalValue, 2);
         } else if (finalValue >= 0.01) {
-          valueFormatted = safeFormatAmount(finalValue, 4);
+          valueFormatted = safeToFixed(finalValue, 4);
         } else {
-          valueFormatted = safeFormatAmount(finalValue, 6);
+          valueFormatted = safeToFixed(finalValue, 6);
         }
       } else {
         valueFormatted = '0.000000';
@@ -396,8 +446,8 @@ module.exports = async function handler(req, res) {
         
         if (estimatedPrice > 0) {
           const usdValue = finalValue * estimatedPrice;
-          valueUSD = safeFormatAmount(usdValue, 2);
-          valueEUR = safeFormatAmount(usdValue * 0.92, 2); // EUR = USD * 0.92
+          valueUSD = safeToFixed(usdValue, 2);
+          valueEUR = safeToFixed(usdValue * 0.92, 2); // EUR = USD * 0.92
         }
       }
       
@@ -493,7 +543,7 @@ module.exports = async function handler(req, res) {
       highVolumeMetrics: {
         targetLimit: limit,
         actualLoaded: processedTransactions.length,
-        loadTimeSeconds: loadTime.toFixed(1),
+        loadTimeSeconds: safeToFixed(loadTime, 1),
         timeoutReached: loadTime >= maxTimeSeconds,
         apiCalls: totalApiCalls,
         successfulEndpoints: Object.values(apiResults).filter(r => r.working).length
@@ -503,11 +553,11 @@ module.exports = async function handler(req, res) {
       workingEndpoints: apiResults,
       
       // FINANCIAL TOTALS WITH ENHANCED VALUE CALCULATION
-      totalPortfolioValueUSD: safeFormatAmount(processedTransactions
+      totalPortfolioValueUSD: safeToFixed(processedTransactions
         .filter(tx => tx.hasValue && tx.isERC20Balance)
         .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0), 2),
         
-      totalROIValueUSD: safeFormatAmount(processedTransactions
+      totalROIValueUSD: safeToFixed(processedTransactions
         .filter(tx => tx.isTaxable && tx.hasValue)
         .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0), 2),
         
@@ -518,26 +568,26 @@ module.exports = async function handler(req, res) {
           return sum + value;
         }, 0),
 
-      totalWGEPPurchased: safeFormatAmount(processedTransactions
+      totalWGEPPurchased: safeToFixed(processedTransactions
         .filter(tx => tx.tokenSymbol === 'WGEP' && tx.hasValue)
         .reduce((sum, tx) => {
           const value = parseFloat(tx.valueFormatted.replace(/[KM]$/, ''));
           return sum + value;
         }, 0), 6),
-      totalWGEPROI: safeFormatAmount(processedTransactions
+      totalWGEPROI: safeToFixed(processedTransactions
         .filter(tx => tx.tokenSymbol === 'WGEP' && tx.isPrinter && tx.hasValue)
         .reduce((sum, tx) => {
           const value = parseFloat(tx.valueFormatted.replace(/[KM]$/, ''));
           return sum + value;
         }, 0), 6),
       totalWGEPCost: '0.000000',
-      totalROIValueEUR: safeFormatAmount(processedTransactions
+      totalROIValueEUR: safeToFixed(processedTransactions
         .filter(tx => tx.isTaxable && tx.hasValue)
         .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92, 2),
-      totalPortfolioValueEUR: safeFormatAmount(processedTransactions
+      totalPortfolioValueEUR: safeToFixed(processedTransactions
         .filter(tx => tx.hasValue && tx.isERC20Balance)
         .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.92, 2),
-      totalTaxEUR: safeFormatAmount(processedTransactions
+      totalTaxEUR: safeToFixed(processedTransactions
         .filter(tx => tx.isTaxable && tx.hasValue)
         .reduce((sum, tx) => sum + parseFloat(tx.valueUSD || 0), 0) * 0.25 * 0.92, 2), // 25% tax rate
     };
@@ -547,7 +597,7 @@ module.exports = async function handler(req, res) {
       printerCount: summary.printerCount,
       taxableCount: summary.taxableCount,
       roiCount: summary.roiCount,
-      loadTime: `${loadTime.toFixed(1)}s`,
+      loadTime: `${safeToFixed(loadTime, 1)}s`,
       transactionTypes: summary.transactionTypes,
       target: `${limit} transactions`,
       
@@ -566,7 +616,8 @@ module.exports = async function handler(req, res) {
       }
     });
 
-    return res.status(200).json({
+    // 🚨 EMERGENCY FIX APPLIED
+    const finalResponse = {
       success: true,
       taxReport: {
         walletAddress: address,
@@ -579,19 +630,25 @@ module.exports = async function handler(req, res) {
         }
       },
       debug: {
-        version: 'high_volume_production_v1',
+        version: 'high_volume_production_v1_emergency_fix',
         targetTransactions: limit,
         actualTransactions: processedTransactions.length,
-        loadTimeSeconds: loadTime.toFixed(1),
+        loadTimeSeconds: safeToFixed(loadTime, 1),
         timeoutSeconds: maxTimeSeconds,
         timeoutReached: loadTime >= maxTimeSeconds,
         totalApiCalls,
         workingEndpoints: Object.keys(apiResults).filter(k => apiResults[k].working),
         failedEndpoints: Object.keys(apiResults).filter(k => !apiResults[k].working),
-        dataQuality: 'high_volume_production',
-        backendWorking: true
+        dataQuality: 'high_volume_production_emergency_fix',
+        backendWorking: true,
+        emergencyFixApplied: true
       }
-    });
+    };
+
+    // Store for emergency access
+    global.lastApiResponse = finalResponse;
+
+    return res.status(200).json(finalResponse);
     
   } catch (error) {
     console.error('❌ High Volume Backend Error:', error);
