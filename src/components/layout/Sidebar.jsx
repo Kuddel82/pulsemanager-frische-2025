@@ -229,8 +229,8 @@ const Sidebar = () => {
     'wallets',       // Wallets - 3-TAGE TRIAL → Premium
     'roiTracker',    // ROI Tracker - PREMIUM ONLY
     'taxReport',     // Tax Report - PREMIUM ONLY
-    'taxExport',     // Tax Export - PREMIUM ONLY
     'pulsechain-info', // PulseChain Infos - 3-TAGE TRIAL → Premium
+    'taxExport',     // Tax Export - PREMIUM ONLY
     'tokenTrade',    // Token Trade - 3-TAGE TRIAL → Premium
     'bridge',        // Bridge - 3-TAGE TRIAL → Premium
     'wgep',          // WGEP - 3-TAGE TRIAL → Premium ⚠️ PROBLEM HIER!
