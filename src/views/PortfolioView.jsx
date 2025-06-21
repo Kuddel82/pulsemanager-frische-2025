@@ -360,6 +360,33 @@ const PortfolioView = () => {
               </div>
             )}
             
+            {/* MORALIS PRO STATUS & COST SAVING INFO - NUR IM ENTWICKLER-MODUS */}
+            <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <DollarSign className="h-5 w-5 mr-2 text-green-400" />
+                  <div>
+                    <span className="pulse-text font-medium">💰 MORALIS PRO: Auto-Loading gestoppt!</span>
+                    <p className="text-sm pulse-text-secondary">
+                      Alle versteckten API-Calls deaktiviert • 5-Min Rate-Limit • Nur manuelle Anfragen
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-green-400 border-green-400">
+                  COST OPTIMIZED
+                </Badge>
+              </div>
+              {portfolioData?.totalValue && portfolioData.totalValue < 20000 && (
+                <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-400/20 rounded">
+                  <p className="text-yellow-400 text-sm">
+                    💡 <strong>Portfolio-Wert-Hinweis:</strong> Falls Ihr Portfolio ca. 25.000€ wert ist, 
+                    könnten noch nicht alle Token-Preise korrekt geladen sein. 
+                    Klicken Sie auf "Aktualisieren" für eine vollständige Preisabfrage.
+                  </p>
+                </div>
+              )}
+            </div>
+            
             {/* RAW DATA BUTTON */}
             <div className="flex justify-between items-center pt-4 border-t border-white/10">
               <div className="text-xs text-gray-400">
@@ -379,33 +406,6 @@ const PortfolioView = () => {
             </div>
           </div>
         )}
-
-        {/* MORALIS PRO STATUS & COST SAVING INFO */}
-        <div className="pulse-card p-4 mb-6 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <DollarSign className="h-5 w-5 mr-2 text-green-400" />
-              <div>
-                <span className="pulse-text font-medium">💰 MORALIS PRO: Auto-Loading gestoppt!</span>
-                <p className="text-sm pulse-text-secondary">
-                  Alle versteckten API-Calls deaktiviert • 5-Min Rate-Limit • Nur manuelle Anfragen
-                </p>
-              </div>
-            </div>
-            <Badge variant="outline" className="text-green-400 border-green-400">
-              COST OPTIMIZED
-            </Badge>
-          </div>
-          {portfolioData?.totalValue && portfolioData.totalValue < 20000 && (
-            <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-400/20 rounded">
-              <p className="text-yellow-400 text-sm">
-                💡 <strong>Portfolio-Wert-Hinweis:</strong> Falls Ihr Portfolio ca. 25.000€ wert ist, 
-                könnten noch nicht alle Token-Preise korrekt geladen sein. 
-                Klicken Sie auf "Aktualisieren" für eine vollständige Preisabfrage.
-              </p>
-            </div>
-          )}
-        </div>
 
         {/* PRICE SOURCE VALIDATION WARNING */}
         {portfolioData?.tokens?.filter(t => !t.hasReliablePrice && t.balance > 0.001).length > 0 && (
