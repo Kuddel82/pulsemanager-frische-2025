@@ -977,6 +977,99 @@ const SimpleTaxTracker = () => {
               </div>
             </div>
 
+            {/* 🇩🇪 GERMAN TAX SYSTEM - ERWEITERTE STEUERBERECHNUNG */}
+            {taxData.germanTaxReport && (
+              <div className="mb-8 p-6 rounded-lg border-l-4" style={{backgroundColor: 'var(--bg-secondary)', borderLeftColor: 'var(--accent-blue)'}}>
+                <div className="flex items-center mb-4">
+                  <span className="text-2xl mr-3">🇩🇪</span>
+                  <h3 className="text-xl font-bold pulse-text-gradient">
+                    Deutsches Steuerrecht - FIFO Berechnung
+                  </h3>
+                </div>
+                
+                {/* German Tax Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="pulse-stat">
+                    <div className="pulse-stat-value">
+                      {formatCurrency(taxData.germanTaxReport.summary?.totalGainLossEUR || 0)}
+                    </div>
+                    <div className="pulse-stat-label">FIFO Gewinne/Verluste</div>
+                  </div>
+                  
+                  <div className="pulse-stat">
+                    <div className="pulse-stat-value">
+                      {formatCurrency(taxData.germanTaxReport.summary?.totalTaxAmountEUR || 0)}
+                    </div>
+                    <div className="pulse-stat-label">Geschätzte Steuer</div>
+                  </div>
+                  
+                  <div className="pulse-stat">
+                    <div className="pulse-stat-value">
+                      {taxData.germanTaxReport.taxCategories?.spekulationsgeschaefte || 0}
+                    </div>
+                    <div className="pulse-stat-label">§23 Spekulationsgeschäfte</div>
+                  </div>
+                  
+                  <div className="pulse-stat">
+                    <div className="pulse-stat-value">
+                      {taxData.germanTaxReport.taxCategories?.steuerfreieGewinne || 0}
+                    </div>
+                    <div className="pulse-stat-label">Steuerfreie Gewinne</div>
+                  </div>
+                </div>
+
+                {/* German Tax Compliance Info */}
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                  <h4 className="font-semibold text-blue-800 mb-2">⚖️ Deutsche Steuerkonformität</h4>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <div>• <strong>Methode:</strong> {taxData.germanTaxReport.compliance?.method}</div>
+                    <div>• <strong>Haltefrist:</strong> {taxData.germanTaxReport.compliance?.halteFrist}</div>
+                    <div>• <strong>Freigrenze:</strong> {taxData.germanTaxReport.compliance?.freigrenze}</div>
+                    <div>• <strong>Steuersatz:</strong> {taxData.germanTaxReport.compliance?.steuersatz}</div>
+                  </div>
+                </div>
+
+                {/* Yearly Breakdown */}
+                {taxData.germanTaxReport.yearlyBreakdown && Object.keys(taxData.germanTaxReport.yearlyBreakdown).length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold pulse-text mb-3">📅 Jährliche Aufschlüsselung</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead style={{background: 'var(--pulse-gradient-primary)'}}>
+                          <tr>
+                            <th className="px-3 py-2 text-left text-black font-semibold">Jahr</th>
+                            <th className="px-3 py-2 text-left text-black font-semibold">§23 Gewinne</th>
+                            <th className="px-3 py-2 text-left text-black font-semibold">Freigrenze</th>
+                            <th className="px-3 py-2 text-left text-black font-semibold">Steuerpflichtig</th>
+                            <th className="px-3 py-2 text-left text-black font-semibold">Geschätzte Steuer</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(taxData.germanTaxReport.yearlyBreakdown).map(([year, data]) => (
+                            <tr key={year} style={{backgroundColor: 'var(--bg-card)'}}>
+                              <td className="px-3 py-2 font-medium pulse-text">{year}</td>
+                              <td className="px-3 py-2 pulse-text-secondary">
+                                {formatCurrency(data.paragraph23GainLoss || 0)}
+                              </td>
+                              <td className="px-3 py-2 pulse-text-secondary">
+                                {formatCurrency(data.exemptionUsed || 0)}
+                              </td>
+                              <td className="px-3 py-2 pulse-text-secondary">
+                                {formatCurrency(data.taxableGain || 0)}
+                              </td>
+                              <td className="px-3 py-2 font-bold pulse-text-gradient">
+                                {formatCurrency(data.taxAmount || 0)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Events Table - PulseChain Style */}
             {taxData.transactions && taxData.transactions.length > 0 && (
               <div className="overflow-x-auto mb-6">

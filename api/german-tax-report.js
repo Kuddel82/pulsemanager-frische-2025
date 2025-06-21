@@ -9,6 +9,9 @@
  * ✅ Production-ready Error Handling
  */
 
+// 🇩🇪 GERMAN TAX SYSTEM INTEGRATION
+const { GermanTaxCalculator, integrateGermanTaxSystem } = require('../src/services/GermanTaxCalculator');
+
 // 🚨 MORALIS IMPORT FIX - BACKEND CRASH RESOLVED!
 // Problem: ReferenceError: Moralis ist nicht definiert
 // Solution: Proper Moralis SDK Import + Alternative API approach
@@ -1088,7 +1091,43 @@ module.exports = async function handler(req, res) {
     // Store for emergency access
     global.lastApiResponse = finalResponse;
 
-    return res.status(200).json(finalResponse);
+    // 🇩🇪 GERMAN TAX SYSTEM INTEGRATION - ERWEITERTE STEUERBERECHNUNG
+    try {
+      console.log('🇩🇪 Starting German Tax System integration...');
+      
+      // German Tax Report mit den verarbeiteten Transaktionen berechnen
+      const germanTaxResult = integrateGermanTaxSystem(processedTransactions);
+      
+      // Erweiterte Response mit German Tax System
+      const enhancedResponse = {
+        ...finalResponse,
+        germanTaxReport: germanTaxResult.germanTaxReport,
+        taxAdvisorExport: germanTaxResult.taxAdvisorExport,
+        germanTaxSystem: {
+          integrated: true,
+          transactionCount: processedTransactions.length,
+          fifoMethodUsed: true,
+          compliance: 'Deutsches Steuerrecht 2025',
+          features: [
+            'FIFO Cost Basis',
+            '365-Tage Haltefrist',
+            '§23 vs §22 EStG Kategorisierung',
+            '€600 Freigrenze pro Jahr',
+            'Jährliche Steuerberechnung'
+          ]
+        }
+      };
+
+      console.log('✅ German Tax System successfully integrated');
+      return res.status(200).json(enhancedResponse);
+      
+    } catch (germanTaxError) {
+      console.error('⚠️ German Tax System integration failed:', germanTaxError);
+      
+      // Fallback: Return original response if German Tax System fails
+      console.log('🔄 Returning original response without German Tax System');
+      return res.status(200).json(finalResponse);
+    }
     
   } catch (error) {
     console.error('❌ High Volume Backend Error:', error);
