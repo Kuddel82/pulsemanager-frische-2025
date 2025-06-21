@@ -14,7 +14,9 @@ import {
   X,
   Zap,
   Repeat,
-  Printer
+  Printer,
+  BarChart3,
+  Network
 } from 'lucide-react';
 
 const MainLayout = () => {
@@ -70,15 +72,17 @@ const MainLayout = () => {
     {
       id: 'pulsex',
       label: 'PulseX',
-      icon: Repeat,
-      path: '/pulsex',
+      icon: BarChart3,
+      href: 'https://app.pulsex.com',
+      external: true,
       description: 'Token kaufen & tauschen'
     },
     {
       id: 'pulsechain-bridge',
       label: 'PulseChain Bridge',
-      icon: Zap,
-      path: '/pulsechain-bridge',
+      icon: Network,
+      href: 'https://bridge.pulsechain.com',
+      external: true,
       description: 'Tokens zwischen Chains'
     },
     {
@@ -87,13 +91,6 @@ const MainLayout = () => {
       icon: Printer,
       path: '/wgep',
       description: 'WGEP Token Tracking'
-    },
-    {
-      id: 'settings',
-      label: 'Einstellungen',
-      icon: Settings,
-      path: '/settings',
-      description: 'App-Einstellungen'
     }
   ];
 
