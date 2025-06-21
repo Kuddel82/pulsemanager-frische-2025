@@ -23,45 +23,39 @@ export const FREE_VIEWS = [
 export const TRIAL_VIEWS = [
   'dashboard',      // Portfolio - 3 Tage Trial → Premium
   'portfolio',      // Portfolio View - 3 Tage Trial → Premium
-  'wgep',           // WGEP - 3 Tage Trial → Premium
-  'pulseChainInfo', // PulseChain Info - 3 Tage Trial → Premium
   'wallets',        // Wallets - 3 Tage Trial → Premium
+  'roiTracker',     // ROI Tracker - 3 Tage Trial → Premium
+  'taxReport',      // Tax Report - 3 Tage Trial → Premium
+  'pulsechain-info', // PulseChain Info - 3 Tage Trial → Premium
+  'taxExport',      // Tax Export - 3 Tage Trial → Premium
   'tokenTrade',     // Token Trade - 3 Tage Trial → Premium  
   'bridge',         // Bridge - 3 Tage Trial → Premium
+  'wgep',           // WGEP - 3 Tage Trial → Premium
   'settings'        // Settings - 3 Tage Trial → Premium
 ];
 
 export const PREMIUM_ONLY_VIEWS = [
-  'roiTracker',     // ROI Tracker - PREMIUM ONLY (kein Trial!)
-  'roi-tracker',    // ROI Tracker (URL format) - PREMIUM ONLY (kein Trial!)
-  'taxReport',      // Tax Report - PREMIUM ONLY (kein Trial!)
-  'tax-report',     // Tax Report (URL format) - PREMIUM ONLY (kein Trial!)
-  'tax-report-new', // Neuer Tax Report - PREMIUM ONLY (kein Trial!)
-  'taxExport',      // Tax Export - PREMIUM ONLY (kein Trial!)
-  'tax-export'      // Tax Export (URL format) - PREMIUM ONLY (kein Trial!)
+  // Alle Features sind jetzt Trial-basiert - keine separaten Premium-Only Features
 ];
 
 // 🆓 TRIAL FEATURES (3 Tage kostenlos für registrierte User) - KORRIGIERT
 export const TRIAL_VIEWS_OBJECT = [
   { id: 'dashboard', icon: Home, translationKey: 'dashboardViewTitle', isDefault: true, isSidebarLink: true },
   { id: 'portfolio', icon: BarChartHorizontalBig, translationKey: 'portfolioViewTitle', isSidebarLink: true },
-  { id: 'wgep', icon: Printer, translationKey: 'wgepViewTitle', isSidebarLink: true },
-  { id: 'pulseChainInfo', icon: Info, translationKey: 'pulseChainInfoTitle', isSidebarLink: true },
   { id: 'wallets', icon: Wallet, translationKey: 'walletViewTitle', isSidebarLink: true },
+  { id: 'roiTracker', icon: BarChart2, translationKey: 'roiTrackerTitle', isSidebarLink: true },
+  { id: 'taxReport', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
+  { id: 'pulsechain-info', icon: Zap, translationKey: 'pulsechainInfoTitle', isSidebarLink: true },
+  { id: 'taxExport', icon: FileText, translationKey: 'taxExportTitle', isSidebarLink: true },
   { id: 'tokenTrade', icon: Repeat, translationKey: 'swapViewTitle', isSidebarLink: true },
   { id: 'bridge', icon: Zap, translationKey: 'bridgeViewTitle', isSidebarLink: true },
+  { id: 'wgep', icon: Printer, translationKey: 'wgepViewTitle', isSidebarLink: true },
   { id: 'settings', icon: SettingsIcon, translationKey: 'settingsViewTitle', isSidebarLink: true }
 ];
 
 // 💎 PREMIUM ONLY FEATURES
 export const PREMIUM_VIEWS_OBJECT = [
-  { id: 'roi-tracker', icon: BarChart2, translationKey: 'roiTrackerTitle', isSidebarLink: true },
-  { id: 'roiTracker', icon: BarChart2, translationKey: 'roiTrackerTitle', isSidebarLink: true },
-  { id: 'tax-report', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
-  { id: 'taxReport', icon: FileText, translationKey: 'taxReportTitle', isSidebarLink: true },
-  { id: 'tax-report-new', icon: FileText, translationKey: 'taxReportNewTitle', isSidebarLink: true },
-  { id: 'taxExport', icon: FileText, translationKey: 'taxExportTitle', isSidebarLink: true },
-  { id: 'tax-export', icon: FileText, translationKey: 'taxExportTitle', isSidebarLink: true }
+  // Alle Features sind jetzt in TRIAL_VIEWS_OBJECT - keine separaten Premium-Only Features mehr
 ];
 
 // 🚫 LEER - Keine kostenlosen Features mehr
