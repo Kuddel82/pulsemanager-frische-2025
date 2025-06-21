@@ -637,13 +637,6 @@ module.exports = async function handler(req, res) {
       debugInfo: allDebugInfo
     };
 
-    // Update cache mit den finalen Daten
-    requestCache.set(requestKey, {
-      timestamp: now,
-      data: taxReport,
-      debug: debugInfo
-    });
-
     // 🔥 FORMAT-BASIERTE RESPONSE
     switch (format.toLowerCase()) {
       case 'pdf':
@@ -665,12 +658,6 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('💥 TAX API ERROR:', error);
-    
-    // 🔥 ENTFERNE FEHLERHAFTE REQUESTS AUS DEM CACHE
-    if (req.body?.requestToken) {
-      const requestKey = `${req.body.address}-${req.body.limit}-${req.body.requestToken}`;
-      requestCache.delete(requestKey);
-    }
     
     return res.status(500).json({
       success: false,
