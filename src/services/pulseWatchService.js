@@ -258,11 +258,11 @@ export class PulseWatchService {
     console.log(`📊 ROI TRANSACTIONS LOADED: ${transactions.length} total`);
     
     transactions.slice(0, 5).forEach(tx => {
-              console.log(`💰 ROI: ${tx.token} +${tx.amount.toFixed(4)} ($${tx.value.toFixed(2)}) - ${tx.type} - ${new Date(tx.timestamp).toLocaleString('de-DE')}`);
+              console.log(`💰 ROI: ${tx.token} +${(Number(tx.amount) || 0).toFixed(4)} ($${(Number(tx.value) || 0).toFixed(2)}) - ${tx.type} - ${new Date(tx.timestamp).toLocaleString('de-DE')}`);
     });
     
     const stats = this.calculateROIStats(transactions);
-    console.log(`📊 ROI STATS: Daily: $${stats.dailyROI.toFixed(2)}, Monthly: $${stats.monthlyROI.toFixed(2)}, Tokens: ${stats.uniqueTokens}`);
+    console.log(`📊 ROI STATS: Daily: $${(Number(stats.dailyROI) || 0).toFixed(2)}, Monthly: $${(Number(stats.monthlyROI) || 0).toFixed(2)}, Tokens: ${stats.uniqueTokens}`);
   }
 }
 

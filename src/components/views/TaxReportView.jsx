@@ -640,7 +640,7 @@ const SimpleTaxTracker = () => {
                   const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
                   const token = tx.tokenSymbol || 'N/A';
                   const direction = tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT');
-                  const value = tx.formattedValue || (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0');
+                  const value = tx.formattedValue || (tx.value ? (Number(parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)) || 0).toFixed(6) : '0');
                   return `
                     <tr>
                       <td>${date}</td>
@@ -1032,7 +1032,7 @@ const SimpleTaxTracker = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm font-bold pulse-text-gradient">
-                            {tx.amount ? tx.amount.toFixed(6) : (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)).toFixed(6) : '0.000000')}
+                            {tx.amount ? (Number(tx.amount) || 0).toFixed(6) : (tx.value ? (Number(parseFloat(tx.value) / Math.pow(10, tx.token_decimals || 18)) || 0).toFixed(6) : '0.000000')}
                           </td>
                         </tr>
                       );

@@ -136,7 +136,7 @@ const TaxReportDownload = ({ walletAddress }) => {
                   const chain = tx.sourceChainShort || (tx.sourceChain === 'Ethereum' ? 'ETH' : tx.sourceChain === 'PulseChain' ? 'PLS' : 'UNK');
                   const token = tx.tokenSymbol || 'N/A';
                   const direction = tx.directionIcon || (tx.direction === 'in' ? '📥 IN' : '📤 OUT');
-                  const value = tx.formattedValue || (tx.value ? (parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)).toFixed(6) : '0');
+                  const value = tx.formattedValue || (tx.value ? (Number(parseFloat(tx.value) / Math.pow(10, tx.tokenDecimal || 18)) || 0).toFixed(6) : '0');
                   return `
                     <tr>
                       <td>${date}</td>
