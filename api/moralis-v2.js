@@ -14,18 +14,29 @@ async function moralisFetch(endpoint, params = {}) {
   const url = new URL(`${MORALIS_BASE_URL}/${endpoint}`);
   Object.entries(params).forEach(([key, val]) => url.searchParams.append(key, val));
 
+  console.log(`🔍 MORALIS FETCH: ${url.toString()}`);
+  console.log(`🔍 PARAMS:`, params);
+
   const res = await fetch(url.toString(), {
     headers: {
-      'X-API-Key': MORALIS_API_KEY
+      'X-API-Key': MORALIS_API_KEY,
+      'accept': 'application/json'
     }
   });
 
+  console.log(`🔍 RESPONSE STATUS: ${res.status} ${res.statusText}`);
+
   if (!res.ok) {
-    console.error(`Moralis Error: ${res.status} - ${res.statusText}`);
+    const errorText = await res.text();
+    console.error(`🚨 MORALIS ERROR: ${res.status} - ${res.statusText}`);
+    console.error(`🚨 ERROR DETAILS: ${errorText}`);
+    console.error(`🚨 REQUEST URL: ${url.toString()}`);
     return null;
   }
 
-  return await res.json();
+  const data = await res.json();
+  console.log(`✅ MORALIS SUCCESS: ${data.result?.length || data.length || 0} items`);
+  return data;
 }
 
 /**
@@ -54,17 +65,27 @@ export default async function handler(req, res) {
     console.error('Environment variables:', {
       hasKey: !!MORALIS_API_KEY,
       keyLength: MORALIS_API_KEY?.length || 0,
-      keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing'
+      keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing',
+      nodeEnv: process.env.NODE_ENV
     });
     return res.status(503).json({ 
       error: 'Moralis API Key missing or invalid.',
       _pro_mode: true,
       debug: {
         hasKey: !!MORALIS_API_KEY,
-        keyLength: MORALIS_API_KEY?.length || 0
+        keyLength: MORALIS_API_KEY?.length || 0,
+        keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing'
       }
     });
   }
+
+  // 🔍 API KEY VALIDATION
+  console.log('🔍 API KEY CHECK:', {
+    hasKey: !!MORALIS_API_KEY,
+    keyLength: MORALIS_API_KEY?.length || 0,
+    keyPreview: MORALIS_API_KEY?.substring(0, 8) + '...' || 'missing',
+    keyValid: MORALIS_API_KEY?.length > 20
+  });
 
   if (!address || !endpoint) {
     return res.status(400).json({ 
@@ -75,17 +96,17 @@ export default async function handler(req, res) {
 
   // Convert chain names to Moralis format
   const chainMap = {
-    ethereum: '0x1',
-    eth: '0x1',
-    '1': '0x1',
-    '0x1': '0x1',
-    pulsechain: '0x171',
-    pls: '0x171',
-    '369': '0x171',
-    '0x171': '0x171',
-    bsc: '0x38',
-    polygon: '0x89',
-    arbitrum: '0xa4b1'
+    ethereum: 'eth',
+    eth: 'eth',
+    '1': 'eth',
+    '0x1': 'eth',
+    pulsechain: 'pls',
+    pls: 'pls',
+    '369': 'pls',
+    '0x171': 'pls',
+    bsc: 'bsc',
+    polygon: 'polygon',
+    arbitrum: 'arbitrum'
   };
   const chainId = chainMap[chain.toLowerCase()] || chain;
 
