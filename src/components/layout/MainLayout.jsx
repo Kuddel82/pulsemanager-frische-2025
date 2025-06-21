@@ -204,12 +204,18 @@ const SidebarContent = ({ navItems, isActive, handleNavigate, user, isPremium, n
     <nav className="flex-1 px-4 py-6 space-y-2">
       {navItems.map((item) => {
         const Icon = item.icon;
-        const active = isActive(item.path);
+        const active = item.external ? false : isActive(item.path);
         
         return (
           <button
             key={item.id}
-            onClick={() => handleNavigate(item.path)}
+            onClick={() => {
+              if (item.external && item.href) {
+                window.open(item.href, '_blank', 'noopener,noreferrer');
+              } else {
+                handleNavigate(item.path);
+              }
+            }}
             className={`
               w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group
               ${active 
