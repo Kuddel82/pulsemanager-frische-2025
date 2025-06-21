@@ -530,10 +530,10 @@ module.exports = async function handler(req, res) {
 
     // 🔥 HIGH VOLUME ENDPOINTS WITH MULTIPLE DATA SOURCES (FALLBACK)
     const endpoints = [
-      // NATIVE TRANSACTIONS (ETH/PLS transfers) - WICHTIG!
+      // NATIVE TRANSACTIONS (ETH/PLS transfers) - FIXED!
       {
         name: 'ETH_NATIVE',
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=transactions&limit=50000`,
+        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=native_transactions&limit=50000`,
         description: 'ETH Native Transactions',
         chain: 'eth',
         expectedMin: 0,
@@ -541,7 +541,7 @@ module.exports = async function handler(req, res) {
       },
       {
         name: 'PLS_NATIVE', 
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=transactions&limit=50000`,
+        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=native_transactions&limit=50000`,
         description: 'PLS Native Transactions',
         chain: 'pls',
         expectedMin: 0,
@@ -566,10 +566,10 @@ module.exports = async function handler(req, res) {
         type: 'erc20_balance'
       },
       
-      // ERC20 TRANSFERS (actual transactions)
+      // ERC20 TRANSFERS (actual transactions) - FIXED!
       {
         name: 'ETH_ERC20_TRANSFERS',
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=erc20_transfers&limit=100000`,
+        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=wallet-token-transfers&limit=100000`,
         description: 'ETH ERC20 Transfers',
         chain: 'eth',
         expectedMin: 0,
@@ -577,30 +577,30 @@ module.exports = async function handler(req, res) {
       },
       {
         name: 'PLS_ERC20_TRANSFERS',
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=erc20_transfers&limit=100000`,
+        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=wallet-token-transfers&limit=100000`,
         description: 'PLS ERC20 Transfers',
         chain: 'pls', 
         expectedMin: 0,
         type: 'erc20_transfer'
       },
       
-      // WALLET HISTORY (if available)
-      {
-        name: 'ETH_WALLET_HISTORY',
-        url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=wallet_history&limit=100000`,
-        description: 'ETH Wallet History',
-        chain: 'eth',
-        expectedMin: 0,
-        type: 'wallet_history'
-      },
-      {
-        name: 'PLS_WALLET_HISTORY',
-        url: `https://pulsemanager.vip/api/moralis-vip/api/moralis-v2?address=${address}&chain=pls&endpoint=wallet_history&limit=100000`,
-        description: 'PLS Wallet History',
-        chain: 'pls',
-        expectedMin: 0,
-        type: 'wallet_history'
-      }
+      // WALLET HISTORY (REMOVED - NOT AVAILABLE)
+      // {
+      //   name: 'ETH_WALLET_HISTORY',
+      //   url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=eth&endpoint=wallet_history&limit=100000`,
+      //   description: 'ETH Wallet History',
+      //   chain: 'eth',
+      //   expectedMin: 0,
+      //   type: 'wallet_history'
+      // },
+      // {
+      //   name: 'PLS_WALLET_HISTORY',
+      //   url: `https://pulsemanager.vip/api/moralis-v2?address=${address}&chain=pls&endpoint=wallet_history&limit=100000`,
+      //   description: 'PLS Wallet History',
+      //   chain: 'pls',
+      //   expectedMin: 0,
+      //   type: 'wallet_history'
+      // }
     ];
 
     let allTransactions = [];
@@ -698,6 +698,52 @@ module.exports = async function handler(req, res) {
             loadedAt: new Date().toISOString(),
             uniqueId: `${endpoint.name}_${item.transaction_hash || item.token_address || index}`
           }));
+          
+          return processedItems;
+        }
+        
+        // 🎯 ENHANCED RESPONSE PROCESSING FOR DIFFERENT ENDPOINT TYPES
+        if (data && resultCount > 0) {
+          let processedItems = [];
+          
+          // Handle different response formats
+          if (endpoint.type === 'native') {
+            // Native transactions format
+            const items = data.transactions || data.result || [];
+            processedItems = items.map((item, index) => ({
+              ...item,
+              sourceChain: endpoint.chain === 'eth' ? 'Ethereum' : 'PulseChain',
+              chainSymbol: endpoint.chain === 'eth' ? 'ETH' : 'PLS',
+              dataSource: endpoint.name,
+              dataType: 'native',
+              loadedAt: new Date().toISOString(),
+              uniqueId: `${endpoint.name}_${item.hash || index}`
+            }));
+          } else if (endpoint.type === 'erc20_transfer') {
+            // ERC20 transfers format
+            const items = data.transfers || data.result || [];
+            processedItems = items.map((item, index) => ({
+              ...item,
+              sourceChain: endpoint.chain === 'eth' ? 'Ethereum' : 'PulseChain',
+              chainSymbol: endpoint.chain === 'eth' ? 'ETH' : 'PLS',
+              dataSource: endpoint.name,
+              dataType: 'erc20_transfer',
+              loadedAt: new Date().toISOString(),
+              uniqueId: `${endpoint.name}_${item.transaction_hash || index}`
+            }));
+          } else if (endpoint.type === 'erc20_balance') {
+            // ERC20 balances format
+            const items = data.result || data || [];
+            processedItems = items.map((item, index) => ({
+              ...item,
+              sourceChain: endpoint.chain === 'eth' ? 'Ethereum' : 'PulseChain',
+              chainSymbol: endpoint.chain === 'eth' ? 'ETH' : 'PLS',
+              dataSource: endpoint.name,
+              dataType: 'erc20_balance',
+              loadedAt: new Date().toISOString(),
+              uniqueId: `${endpoint.name}_${item.token_address || index}`
+            }));
+          }
           
           return processedItems;
         }
