@@ -84,6 +84,128 @@ if (typeof window !== 'undefined') {
   console.log('🔥 Fixed API call function loaded. Call: fixedApiCall("0x...")');
 }
 
+// 🧪 API PARAMETER DISCOVERY FUNCTION
+window.discoverWorkingAPI = async () => {
+  console.log('🧪 DISCOVERING WORKING MORALIS-V2 API PARAMETERS...');
+  
+  const address = '0x3f020b5bcfdfa9b5970b1b22bba6da6387d0ea7a';
+  const baseUrl = '/api/moralis-v2';
+  
+  // 🎯 PARAMETER COMBINATIONS TO TEST
+  const testCombinations = [
+    // Known working patterns (based on your existing API)
+    { chain: 'eth', type: 'balance', description: 'ETH Balance' },
+    { chain: 'pls', type: 'balance', description: 'PLS Balance' },
+    { chain: 'eth', type: 'erc20', description: 'ETH ERC20 Tokens' },
+    { chain: 'pls', type: 'erc20', description: 'PLS ERC20 Tokens' },
+    
+    // Try variations
+    { chain: 'eth', endpoint: 'balance', description: 'ETH Balance (endpoint param)' },
+    { chain: 'pls', endpoint: 'balance', description: 'PLS Balance (endpoint param)' },
+    { chain: 'eth', endpoint: 'erc20', description: 'ETH ERC20 (endpoint param)' },
+    { chain: 'pls', endpoint: 'erc20', description: 'PLS ERC20 (endpoint param)' },
+    
+    // Try transactions
+    { chain: 'eth', type: 'transactions', description: 'ETH Transactions' },
+    { chain: 'pls', type: 'transactions', description: 'PLS Transactions' },
+    { chain: 'eth', endpoint: 'transactions', description: 'ETH Transactions (endpoint)' },
+    { chain: 'pls', endpoint: 'transactions', description: 'PLS Transactions (endpoint)' },
+    
+    // Try transfers
+    { chain: 'eth', type: 'transfers', description: 'ETH Transfers' },
+    { chain: 'pls', type: 'transfers', description: 'PLS Transfers' },
+    { chain: 'eth', endpoint: 'transfers', description: 'ETH Transfers (endpoint)' },
+    { chain: 'pls', endpoint: 'transfers', description: 'PLS Transfers (endpoint)' },
+    
+    // Try without specific type/endpoint
+    { chain: 'eth', description: 'ETH Default' },
+    { chain: 'pls', description: 'PLS Default' },
+    
+    // Try different chain formats
+    { chain: '0x1', type: 'erc20', description: 'ETH Hex Chain ERC20' },
+    { chain: '0x171', type: 'erc20', description: 'PLS Hex Chain ERC20' },
+  ];
+  
+  const results = [];
+  
+  for (const combo of testCombinations) {
+    try {
+      // Build URL
+      const params = new URLSearchParams({ address });
+      if (combo.chain) params.append('chain', combo.chain);
+      if (combo.type) params.append('type', combo.type);
+      if (combo.endpoint) params.append('endpoint', combo.endpoint);
+      
+      const url = `${baseUrl}?${params.toString()}`;
+      
+      console.log(`🧪 Testing: ${combo.description}`);
+      console.log(`📡 URL: ${url}`);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      const result = {
+        description: combo.description,
+        params: combo,
+        status: response.status,
+        success: data?.success || false,
+        resultCount: data?.result?.length || 0,
+        hasResult: !!data?.result,
+        error: data?.error || null,
+        sampleData: data?.result?.[0] || null
+      };
+      
+      results.push(result);
+      
+      // Log result
+      const status = response.status === 200 ? '✅' : '❌';
+      console.log(`${status} ${combo.description}: ${response.status} - ${result.resultCount} items`);
+      
+      if (result.resultCount > 0) {
+        console.log(`🎯 SUCCESS! ${combo.description} returned ${result.resultCount} items`);
+        console.log('📊 Sample data:', result.sampleData);
+      }
+      
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      console.error(`❌ Error testing ${combo.description}:`, error);
+      results.push({
+        description: combo.description,
+        params: combo,
+        status: 'error',
+        error: error.message
+      });
+    }
+  }
+  
+  // SUMMARY
+  console.log('\n🎯 DISCOVERY RESULTS SUMMARY:');
+  console.log('==============================');
+  
+  const working = results.filter(r => r.status === 200 && r.resultCount > 0);
+  const partial = results.filter(r => r.status === 200 && r.resultCount === 0);
+  const failed = results.filter(r => r.status !== 200);
+  
+  console.log(`✅ WORKING ENDPOINTS (${working.length}):`, working.map(r => r.description));
+  console.log(`⚠️ EMPTY RESPONSES (${partial.length}):`, partial.map(r => r.description));
+  console.log(`❌ FAILED ENDPOINTS (${failed.length}):`, failed.map(r => r.description));
+  
+  if (working.length > 0) {
+    console.log('\n🔥 WORKING PARAMETER PATTERNS:');
+    working.forEach(w => {
+      console.log(`- ${w.description}: ${JSON.stringify(w.params)} → ${w.resultCount} items`);
+    });
+  }
+  
+  return { working, partial, failed, all: results };
+};
+
+console.log('🧪 API Parameter Discovery loaded!');
+console.log('📋 To discover working parameters: discoverWorkingAPI()');
+console.log('🎯 This will test all possible parameter combinations and show which ones work!');
+
 const SimpleTaxTracker = () => {
   const { user } = useAuth();
   
